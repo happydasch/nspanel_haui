@@ -29,7 +29,7 @@ substitutions:
   # (happydasch.nspanel_haui), not on this name.
   name: nspanel-haui
 
-  # Fixed, documented credentials (see docs/install.md "Universal image").
+  # Fixed, documented credentials (see docs/user/install.md "Universal image").
   # The web server stays disabled in this image (see base.yaml), so no web
   # credentials are baked in.
   api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='

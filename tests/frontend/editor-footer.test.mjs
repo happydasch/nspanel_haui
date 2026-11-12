@@ -6,7 +6,7 @@ const { docsUrl, getEditorVersion, isPrereleaseVersion } = await import(
   '../../custom_components/nspanel_haui/frontend/toolbar.js'
 );
 
-test('editor footer version is read from the registered frontend asset URL', () => {
+test('frontend asset version is read from the registered frontend URL', () => {
   assert.equal(
     getEditorVersion('http://homeassistant.local/nspanel_haui_frontend/0.4.5.dev31-0123456789ab/toolbar.js'),
     '0.4.5.dev31',
@@ -18,7 +18,7 @@ test('editor footer version is read from the registered frontend asset URL', () 
   assert.equal(getEditorVersion('http://homeassistant.local/frontend/toolbar.js'), null);
 });
 
-test('editor footer marks PEP 440 prerelease versions as development builds', () => {
+test('PEP 440 prerelease versions are identified as development builds', () => {
   for (const version of [
     '0.4.5.dev31',
     '1.0.0a1',
@@ -35,9 +35,29 @@ test('editor footer marks PEP 440 prerelease versions as development builds', ()
   }
 });
 
-test('editor footer links prereleases to the dev docs and releases to the stable docs', () => {
+test('documentation links prereleases to the dev docs and releases to stable docs', () => {
   assert.equal(docsUrl('0.4.5.dev31'), 'https://happydasch.github.io/nspanel_haui/dev/');
   assert.equal(docsUrl('1.0.0rc1'), 'https://happydasch.github.io/nspanel_haui/dev/');
   assert.equal(docsUrl('0.4.5'), 'https://happydasch.github.io/nspanel_haui/');
   assert.equal(docsUrl(null), 'https://happydasch.github.io/nspanel_haui/');
+});
+
+const { renderFooter } = await import('../../custom_components/nspanel_haui/frontend/toolbar.js');
+
+function flatten(value) {
+  if (Array.isArray(value)) return value.map(flatten).join('');
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object') return '';
+  if (Array.isArray(value.strings) && Array.isArray(value.values)) {
+    return value.strings.map((part, index) => `${part}${flatten(value.values[index] ?? '')}`).join('');
+  }
+  return '';
+}
+
+test('persistent editor footer retains project links when no asset version is available', () => {
+  const output = flatten(renderFooter({}));
+  assert.match(output, /editor-footer/);
+  assert.match(output, /GitHub/);
+  assert.match(output, /Documentation/);
+  assert.doesNotMatch(output, /footer-version-group/);
 });

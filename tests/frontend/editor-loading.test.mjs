@@ -69,6 +69,27 @@ function pushHass(ed, hass) {
   ed.updated(new Map([['hass', undefined]]));
 }
 
+test('a newer copy of the entry reloads the page instead of defining the editor again', async () => {
+  // HA imports the entry again from a new URL after a restart that changed the frontend.
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  let reloads = 0;
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true, value: { reload: () => { reloads += 1; } },
+  });
+  try {
+    let loaded = false;
+    import('../../custom_components/nspanel_haui/frontend/haui-editor.js?digest=newer')
+      .then(() => { loaded = true; });
+    await settle();
+    assert.equal(reloads, 1);
+    assert.equal(loaded, false);
+    assert.equal(customElements.get('nspanel-haui-editor'), NSPanelEditor);
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'location', original);
+    else delete globalThis.location;
+  }
+});
+
 test('loads still pending are not requested again on each hass update', async (t) => {
   // The backend never answers; the client's request timeout would keep the
   // process alive for its full duration, so run this test on mock timers.

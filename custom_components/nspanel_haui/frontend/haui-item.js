@@ -15,9 +15,8 @@
  *   - ""                    → entity type, no entity chosen yet
  */
 
-import { html } from './lit-import.js';
 import { t } from './localize.js';
-import { formatFieldValue } from './form-fields.js';
+import { formatFieldValue } from './form-field-controls.js';
 
 /** Item type constants (match Python INTERNAL_ITEM_TYPE). */
 export const ITEM_TYPE = {

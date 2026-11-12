@@ -42,7 +42,7 @@ completes (it continues from the offset), so the bug only shows with offset 0.
   released ESPHome with #17744, #21435 **and** this fix.
 - The removal condition elsewhere points to the README's list instead of naming
   #17744 + #21435: `esphome/nspanel_haui/base.yaml`, `esphome/nspanel_haui.yaml`,
-  `requirements-esphome.txt`, `AGENTS.md` (`esphome/` row), `docs/esphome.md` (which
+  `requirements-esphome.txt`, `AGENTS.md` (`esphome/` row), `docs/develop/esphome.md` (which
   also gained the missing #21435).
 - `CHANGELOG.md` (0.4.5, Fixed): one line.
 - Checks: `pytest tests/` (1247 passed), `ruff check`, `zensical build --strict`,

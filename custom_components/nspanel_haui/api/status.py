@@ -7,7 +7,11 @@ from typing import Any
 from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
-from ..hub.esphome_helpers import read_network_entities, resolve_temperature_entity_id
+from ..hub.esphome_helpers import (
+    read_network_entities,
+    resolve_brightness_entity_ids,
+    resolve_temperature_entity_id,
+)
 from .common import (
     ALL_DEVICES,
     api_errors,
@@ -86,6 +90,7 @@ class DeviceStatusView(HomeAssistantView):
         status["device_info"]["temperature_entity_id"] = resolve_temperature_entity_id(
             hass, device_name
         )
+        status["device_info"].update(resolve_brightness_entity_ids(hass, device_name))
         return status
 
     @staticmethod
@@ -105,6 +110,7 @@ class DeviceStatusView(HomeAssistantView):
             "connected": False,
             "connection_state": "disabled",
             "current_page": "",
+            "current_panel": "",
             "device_info": {
                 "name": dev_name,
                 "tft_version": "",
@@ -114,6 +120,7 @@ class DeviceStatusView(HomeAssistantView):
                 "ssid": nw["ssid"],
                 "rssi": nw["rssi"],
                 "temperature_entity_id": resolve_temperature_entity_id(hass, dev_name),
+                **resolve_brightness_entity_ids(hass, dev_name),
                 "last_panel_update": None,
                 "last_connection": None,
             },
@@ -227,24 +234,3 @@ class DeviceRefreshDisplayView(HomeAssistantView):
         updated, _failed = await for_each_app(apps, "refresh the display", refresh)
         return self.json({"status": "ok", "devices_updated": updated})
 
-
-class DeviceResetInteractionView(HomeAssistantView):
-    """REST API endpoint to reset a selected device's firmware interaction timer."""
-
-    url = "/api/nspanel_haui/reset_interaction/{entry_id}"
-    name = "api:nspanel_haui:reset_interaction"
-    requires_auth = True
-
-    @require_admin
-    @api_errors
-    async def post(self, request, entry_id: str):
-        """Reset the firmware's interaction timer for one device by its config name."""
-        body = await json_object(request)
-        device_name = body.get("device")
-        if not isinstance(device_name, str) or not device_name.strip():
-            return error(self, "A device is required", 400)
-        device_name = device_name.strip()
-
-        app = device_app(running_apps(request.app["hass"], entry_id), device_name)
-        await app.async_run_on_worker(app.device.reset_interaction_timer)
-        return self.json({"status": "ok", "device": device_name})

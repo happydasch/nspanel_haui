@@ -31,6 +31,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         page_id=7,
         label=_("Clock"),
         description=_("Digital clock with date and notification indicator."),
+        category="backgrounds",
         options=[
             background_option(),
             *CARD_OPTIONS,
@@ -225,7 +226,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         # set up main weather details
         icon = self._weather_item.get_icon()
         color = readable_foreground_color(
-            self._weather_item.get_color(scheme="light" if self._light_background else "dark"),
+            self._weather_item.get_color(variant="light" if self._light_background else "dark"),
             self._light_background,
             self.get_color("text"),
         )
@@ -310,7 +311,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
                 item = self._items[i]
                 icon = item.get_icon()
                 color = readable_foreground_color(
-                    item.get_color(scheme="light" if self._light_background else "dark"),
+                    item.get_color(variant="light" if self._light_background else "dark"),
                     self._light_background,
                     self.get_color("text"),
                 )

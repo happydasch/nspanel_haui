@@ -4,7 +4,13 @@ popup aliases."""
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.nspanel_haui.haui.mapping.const import PopupPanelKey, SysPanelKey
+from custom_components.nspanel_haui.haui.mapping.descriptor import (
+    PANEL_CATEGORIES,
+    page_category,
+)
 from custom_components.nspanel_haui.haui.mapping.panel import (
     PAGE_MAPPING,
     POPUP_PANEL_MAPPING,
@@ -55,6 +61,35 @@ def test_popup_unlock_uses_the_alarm_physical_page():
 def test_page_id_matches_the_hub_page_mapping():
     for descriptor in get_user_panel_type_descriptors():
         assert PAGE_MAPPING[descriptor["page_id"]]
+
+
+def test_every_user_panel_type_has_a_catalog_category():
+    """The editor's *Add panel* catalog lists the types under their category."""
+    known = {c.key for c in PANEL_CATEGORIES}
+    assert known == {"backgrounds", "entities", "grouping", "tools"}
+    for descriptor in get_user_panel_type_descriptors():
+        category = descriptor["category"]
+        assert category["key"] in known, f"{descriptor['type_key']} has no catalog category"
+        assert category["label"] == page_category(category["key"]).label
+        assert category["icon"] == page_category(category["key"]).icon
+    by_key = {d["type_key"]: d["category"]["key"] for d in get_user_panel_type_descriptors()}
+    assert by_key["clock"] == by_key["clocktwo"] == by_key["weather"] == "backgrounds"
+    assert by_key["grid"] == by_key["row"] == "grouping"
+    assert by_key["light"] == by_key["climate"] == by_key["cover"] == "entities"
+    assert by_key["alarm"] == by_key["qr"] == by_key["timer"] == "tools"
+
+
+def test_user_panel_types_are_ordered_by_category():
+    """The catalog groups whatever it is handed in order, so the hub sorts its list."""
+    order = [c.key for c in PANEL_CATEGORIES]
+    keys = [d["category"]["key"] for d in get_user_panel_type_descriptors()]
+    assert keys == sorted(keys, key=order.index)
+
+
+def test_an_unknown_panel_category_is_refused():
+    """A type the catalog cannot group is a bug, not a fallback group."""
+    with pytest.raises(ValueError, match="Unknown panel category"):
+        page_category("nonsense")
 
 
 def test_system_panel_entries_flag_hub_driven_panels():

@@ -5,7 +5,7 @@ import pytest
 from custom_components.nspanel_haui.haui.mapping.color import (
     WEATHER_COLORS,
     WEATHER_COLORS_LIGHT,
-    ColorTheme,
+    Theme,
 )
 from custom_components.nspanel_haui.haui.page.weather import WeatherPage
 from custom_components.nspanel_haui.haui.utils.icon import parse_icon
@@ -32,7 +32,7 @@ class _State:
 class _App:
     def __init__(self, forecast=None, inside_temp=None, temp_entity_id="sensor.panel_temperature"):
         self.device = _Device()
-        self.color_theme = ColorTheme({})
+        self.theme = Theme()
         self.controller = {}
         self.forecast = forecast
         self.inside_temp = inside_temp
@@ -55,7 +55,7 @@ class _App:
 class _WeatherItem:
     def __init__(self, attrs):
         self.attrs = attrs
-        self.last_scheme = None
+        self.last_variant = None
 
     def get_item_id(self):
         return _ENTITY_ID
@@ -66,8 +66,8 @@ class _WeatherItem:
     def get_icon(self):
         return "icon"
 
-    def get_color(self, *, scheme=None):
-        self.last_scheme = scheme
+    def get_color(self, *, variant=None):
+        self.last_variant = variant
         return 0
 
 
@@ -250,7 +250,7 @@ def test_configured_inside_temp_sensor_used():
 
 def test_light_background_selects_light_weather_palette():
     page = _weather_page(_App(forecast=[_forecast(1)]), {})
-    page.app.color_theme = ColorTheme({}, "light")
+    page.app.theme = Theme("light")
     page._forecast_type = "daily"
     page._weather_icons_mode = "color"
     page._light_background = True
@@ -268,8 +268,8 @@ def test_light_background_selects_light_palette_for_main_weather_icon():
 
     page.update_main_weather()
 
-    assert page._weather_item.last_scheme == "light"
-    assert page.app.color_theme.get_icon_color("weather", "sunny") == WEATHER_COLORS["sunny"]
+    assert page._weather_item.last_variant == "light"
+    assert page.app.theme.get_icon_color("weather", "sunny") == WEATHER_COLORS["sunny"]
 
 
 def test_dark_display_keeps_the_weather_page_current():

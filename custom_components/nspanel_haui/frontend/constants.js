@@ -44,28 +44,12 @@ export const DEVICE_CONFIG_DEFAULTS = {
   timeout_dimming: 10,
   timeout_page: 30,
   timeout_display_off: 120,
-  day_night_schedule_mode: "off",
-  day_night_start: "21:00",
-  day_night_end: "07:00",
-  day_night_sunset_offset: 0,
-  day_night_sunrise_offset: 0,
-  day_night_profiles_initialized: false,
-  day_brightness_full: null,
-  day_brightness_dimmed: null,
-  day_duration_dim: null,
-  night_timeout_dimming: 10,
-  night_duration_dim: 2,
-  night_use_auto_page: true,
-  night_timeout_page: 30,
-  night_idle_panel: "",
-  night_timeout_display_off: 120,
-  night_brightness_full: 50,
-  night_brightness_dimmed: 20,
+  duration_dimming: 2,
+  brightness: null,
+  brightness_dim: null,
+  schedule: [],
   sound_on_notification: false,
   persistent_sound_interval: 5,
-  use_do_not_disturb: false,
-  quiet_hours_start: '',
-  quiet_hours_end: '',
   home_panel: "",
   idle_panel: "",
   idle_panel_extra: "",
@@ -73,9 +57,14 @@ export const DEVICE_CONFIG_DEFAULTS = {
   time_format: "",
   date_format: "",
   date_format_locale: "",
-  color_scheme: "dark",
-  color_scheme_id: "dark",
-  color_overrides: {},
+  theme_variant: "dark",
+  theme_id: "dark",
+  gestures: [
+    { swipes: ["swipe_left"], action: "next_panel", timeframe: 3 },
+    { swipes: ["swipe_right"], action: "prev_panel", timeframe: 3 },
+    { swipes: ["swipe_up"], action: "sys_about", timeframe: 3 },
+    { swipes: ["swipe_down"], action: "sys_settings", timeframe: 3 },
+  ],
   // Mirrors DEFAULT_CONFIG["update"] in Python. Checks run by default so update
   // offers are found even when a device is never opened in the editor.
   update: {
@@ -138,8 +127,11 @@ export const DISPLAY_MODEL_OPTIONS = [
   { value: "us", label: "US (portrait)", portrait: true },
 ];
 
-/** Touch gestures the display reports — the steps of a gesture sequence (mirrors `GESTURES` in Python). */
+/** Swipes the display reports — the steps of a gesture (mirrors `GESTURES` in Python). */
 export const GESTURE_NAMES = ["swipe_left", "swipe_right", "swipe_up", "swipe_down"];
+
+/** Values of a gesture's `action` that are not a panel key (mirrors `GestureAction` in Python). */
+export const GESTURE_ACTIONS = ["", "next_panel", "prev_panel"];
 
 /**
  * Whether a device's `display_model` uses the rotated 320x480 TFT layout

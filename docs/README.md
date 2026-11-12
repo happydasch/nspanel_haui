@@ -5,66 +5,59 @@ description: HomeAssistant UI (HAUI) for the Sonoff NSPanel — documentation in
 
 # NSPanel HAUI Docs
 
-Welcome! **NSPanel HAUI** turns your Sonoff NSPanel into a smart touchscreen
-dashboard for Home Assistant — all configured through a visual editor in the HA UI.
+**NSPanel HAUI** turns a Sonoff NSPanel into a touchscreen for Home Assistant. You set it up in a visual editor inside Home Assistant, without writing YAML.
 
-Whether you just got your panel or want to fine-tune it, this guide will get you there.
+> **New here?** Start with the [Quick Start Guide](user/get-started.md).
 
+## How it works
 
-> **New to NSPanel HAUI?** → Start with the [Quick Start Guide](get-started.md).
+```mermaid
+flowchart LR
+    ha["Home Assistant<br/>NSPanel HAUI"] <-->|"Wi-Fi"| esp["Firmware<br/>on the panel"]
+    esp <-->|"serial"| display["Touchscreen"]
+```
 
----
+The integration in Home Assistant decides what the panel shows. The firmware on the panel passes it to the touchscreen and reports every touch back.
 
-## Getting Started
+## User guide
 
-For a new panel, follow this order:
+### Set up
 
-1. **Flash and connect it** — Load the prebuilt firmware, then enter your Wi-Fi details.
-   → [Installation guide](install.md#flash-the-panel)
+- [Quick Start](user/get-started.md) — the short path from a new panel to the first screen
+- [Installation](user/install.md) — every step: flash the panel, install the integration, add the panel
+- [Updating](user/update.md) — update the integration, the firmware and the display
 
-2. **Add the ESPHome device** — Add the panel in Home Assistant's ESPHome integration.
-   → [Firmware and device setup](install.md#flash-the-panel)
+### Configure
 
-3. **Install NSPanel HAUI** — Add its repository in the Marketplace, install, then restart.
-   → [Installation guide](install.md#install-the-integration)
+- [Configuration overview](user/configuration/README.md) — how the editor works
+- [Device settings](user/configuration/device.md) — brightness, timeouts, sounds, buttons, colors
+- [Display models](user/configuration/display-models.md) — landscape (EU) or portrait (US)
+- [Panels](user/configuration/panels.md) — title, key, navigation, PIN
+- [Items](user/configuration/items.md) — entities, names, icons, colors
+- [Examples](user/examples.md) — panel layouts for common rooms
 
-4. **Configure panels** — Add NSPanel HAUI from **Settings → Devices & Services → Add Integration**, then open the editor.
-   → [Integration setup](custom_integration.md) · [Configuration overview](configuration/README.md)
-   - [Device settings](configuration/device.md) — brightness, sounds, screensaver, buttons
-   - [Panel layout](configuration/panels.md) — add, remove, reorder panels
-   - [Items & entities](configuration/items.md) — pick entities, set icons, colors
+### Panels
 
-5. **Browse panel types** — See what kinds of panels you can add.
-   → [All panel types](panels/README.md)
+- [Panel overview](user/panels/README.md) — every panel type with a picture
+- [Screens](screens.html) — every screen in landscape and portrait
+- [Icons](cheatsheet.html) — all icons you can use
 
----
+### Use
 
-## Guides
+- [Device](user/device.md) — gestures, buttons, display states, notifications
+- [Services](user/services.md) — control the panel from automations
 
-Hands-on help for common tasks.
+### Help
 
-### Setting up
+- [FAQ](user/faq.md) — answers to common questions
+- [Troubleshooting](user/troubleshooting.md) — connection, display and update problems
 
-- **[Quick Start](get-started.md)** — Get up and running in 5 minutes
-- **[Installation](install.md)** — Step-by-step: Marketplace, flashing, first setup
-- **[Configuration](configuration/README.md)** — Device settings, panel layout, item editing
-- **[Examples](examples.md)** — Real-world configs to copy and adapt
+## Developer guide
 
-### Using your panel
+For contributors and everyone who wants to know how it works inside.
 
-- **[Panel Overview](panels/README.md)** — All panel types with descriptions and docs
-- **[Device Description](device.md)** — Gestures, buttons, notifications, display states
-- **[Services](services.md)** — Notifications, wakeup and other actions for automations
-
-### Need help?
-
-- **[FAQ](faq.md)** — Answers to common questions
-- **[Troubleshooting](troubleshooting.md)** — Fixing connection issues, display problems, and more
-
----
-
-## Development
-
-Want to understand the internals, extend the integration, or contribute?
-
-[Development docs](development.md) — architecture, component design, versioning
+- [Development](develop/development.md) — architecture, setup, tests
+- [Design guidelines](develop/design.md) · [Frontend](develop/frontend.md)
+- [Communication](develop/communication.md) · [Notifications](develop/notifications.md)
+- [Hub](develop/hub.md) · [ESPHome](develop/esphome.md) · [Nextion](develop/nextion.md) · [Nextion Editor](develop/nextion-editor.md)
+- [Update process](develop/update-process.md) · [Release process](develop/release.md)

@@ -35,6 +35,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         page_id=6,
         label=_("Weather"),
         description=_("Weather display with time, date and forecast."),
+        category="backgrounds",
         options=[
             background_option(),
             *CARD_OPTIONS,
@@ -342,7 +343,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         # set up main weather details
         icon = self._weather_item.get_icon()
         color = readable_foreground_color(
-            self._weather_item.get_color(scheme="light" if self._light_background else "dark"),
+            self._weather_item.get_color(variant="light" if self._light_background else "dark"),
             self._light_background,
             self.get_color("text"),
         )
@@ -425,10 +426,10 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         icon = WEATHER_MAPPING.get(condition, "")
         icon = get_icon(icon) or ""
 
-        scheme = "light" if self._light_background else "dark"
-        color = self.get_icon_color("weather", condition.replace("-", "_"), scheme)
+        variant = "light" if self._light_background else "dark"
+        color = self.get_icon_color("weather", condition.replace("-", "_"), variant)
         if color is None:
-            color = self.get_icon_color("weather", "default", scheme)
+            color = self.get_icon_color("weather", "default", variant)
         if color is None:
             raise KeyError("weather icon palette has no default color")
         if self._weather_icons_mode == "monochrome":
@@ -455,7 +456,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         info_val = getattr(self.COMPONENTS, f"d{idx}_val")
         self._set_component_text_color(
             info_icon,
-            haui_item.get_color(scheme="light" if self._light_background else "dark"),
+            haui_item.get_color(variant="light" if self._light_background else "dark"),
         )
         self._set_component_text_color(info_val, self.get_color("component_text"))
         self.set_component_text(info_icon, haui_item.get_icon())

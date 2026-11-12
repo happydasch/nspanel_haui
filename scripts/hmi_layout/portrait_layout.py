@@ -12,7 +12,7 @@ change applied to the landscape HMI (widgets, attributes, the refinements in
 
 Coordinates are ``(x, y, w, h)`` in display pixels on the 320x480 canvas.
 
-Layout rules (see ``docs/nextion-editor.md``):
+Layout rules (see ``docs/develop/nextion-editor.md``):
 
 - 12 px side margins: content spans x 12..308.
 - Pages with a header keep ``tHeader``/``tTitle`` across the full top 50 px,

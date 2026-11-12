@@ -64,4 +64,3 @@ class ConfirmDialog extends HauiDialog {
 }
 
 customElements.define("nspanel-dialog-confirm", ConfirmDialog);
-export { ConfirmDialog };

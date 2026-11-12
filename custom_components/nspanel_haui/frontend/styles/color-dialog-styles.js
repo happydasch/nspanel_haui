@@ -1,9 +1,9 @@
 /**
- * NSPanel HAUI - Color dialog CSS.
+ * NSPanel HAUI - Theme color editor CSS.
  *
- * Reusable styles for the color-override dialog: live preview card
+ * Reusable styles for the theme sidebar: live preview card
  * (.cp-pv-*), grouped swatch grid (.cp-group / .cp-item), and the footer
- * change counter.  Shared by dialogs/colors.js and available to any other
+ * change counter.  Shared by dialogs/theme.js and available to any other
  * component that renders inline color swatches inside a section-based dialog.
  *
  * This module does NOT include the swatch itself (.cp-sw / .cp-sw.round) —
@@ -13,16 +13,16 @@ import { css } from '../lit-import.js';
 
 export const colorDialogStyles = css`
 
-  .cp-scheme {
+  .cp-theme {
     margin: 12px 0 16px;
   }
-  .cp-scheme label {
+  .cp-theme label {
     display: block;
     margin-bottom: 4px;
     font-weight: 500;
     font-size: 0.92em;
   }
-  .cp-scheme select {
+  .cp-theme select {
     max-width: 320px;
   }
   /* ── footer change counter ─────────── */
@@ -161,8 +161,8 @@ export const colorDialogStyles = css`
     color: var(--secondary-text-color, #888);
   }
 
-  .cp-scheme-actions,
-  .cp-scheme-name {
+  .cp-theme-actions,
+  .cp-theme-name {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -170,26 +170,13 @@ export const colorDialogStyles = css`
     margin: 8px 0;
   }
 
-  .cp-scheme-name input {
+  .cp-theme-name input {
     min-width: 180px;
     flex: 1;
     padding: 8px;
   }
 
-  .cp-import-label {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid var(--outline-color, #888);
-    border-radius: 6px;
-    padding: 8px 12px;
-    cursor: pointer;
-  }
-
-  .cp-import-label input {
-    display: none;
-  }
-
-  .cp-scheme-error {
+  .cp-theme-error {
     color: var(--error-color, #b00020);
   }
 

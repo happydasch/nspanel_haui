@@ -9,8 +9,9 @@ import pytest
 
 from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, Theme
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
+from custom_components.nspanel_haui.haui.page.unlock import UnlockPage
 
 
 class _Entity:
@@ -55,7 +56,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
-        self.color_theme = ColorTheme({})
+        self.theme = Theme()
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
         self.device = _Device()
@@ -99,7 +100,7 @@ ARM_HOME_AND_AWAY = 1 | 2
 
 def test_alarm_state_icon_uses_light_fixed_palette():
     app = _App({})
-    app.color_theme = ColorTheme({}, "light")
+    app.theme = Theme("light")
     page = AlarmPage(app, {"page_id": 17})
 
     assert page._alarm_color("armed_home") == ALARM_COLORS_LIGHT["armed"]
@@ -218,3 +219,31 @@ def test_arm_button_colors_keep_theme_when_unset():
     assert [c for c in app.cmds if c.startswith("b1Fnc.")] == [
         c for c in themed_app.cmds if c.startswith("b1Fnc.")
     ]
+
+
+class _Navigation:
+    page = None
+    panel = None
+    closed = 0
+
+    def close_panel(self):
+        self.closed += 1
+
+
+def test_unlock_popup_keypad_enters_the_code_without_an_alarm_item():
+    """The unlock popup has no alarm entity; its keypad must still take the code."""
+    app = _App({})
+    navigation = app.controller["navigation"] = _Navigation()
+    locked = HAUIPanel(app, {"type": "grid", "key": "locked", "unlock_code": "12"})
+    locked.set_state("locked", True)
+    panel = HAUIPanel(app, {"type": "popup_unlock", "key": "popup_unlock"})
+    panel.apply_kwargs({"unlock_panel": locked})
+    page = UnlockPage(app, {"page_id": 17})
+    page.set_panel(panel)
+
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_1)
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_2)
+    page.callback_unlock(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    assert locked.get_state("locked") is False
+    assert navigation.closed == 1

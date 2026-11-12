@@ -63,7 +63,7 @@ def _opt(key):
     return next(o for o in AlarmPage.DESCRIPTOR.options if o.key == key)
 
 
-def test_keypad_color_options_are_available_and_default_to_the_device_scheme():
+def test_keypad_color_options_are_available_and_default_to_the_device_theme():
     font = _opt("keypad_font")
     color_keys = {
         "keypad_bg_color",

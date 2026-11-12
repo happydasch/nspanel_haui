@@ -81,6 +81,13 @@ export const dropdownStyles = css`
     white-space: nowrap;
   }
 
+  /* The entities the list leaves out: a note, not an option. */
+  .entity-dropdown-more {
+    padding: 6px 10px;
+    color: var(--secondary-text-color, #777);
+    font-size: 0.8em;
+  }
+
   .icon-dropdown-item span {
     font-size: 0.85em;
     overflow: hidden;

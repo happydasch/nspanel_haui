@@ -21,6 +21,7 @@ class LightPage(HAUIPage):
         page_id=13,
         label=_("Light"),
         description=_("Single light with brightness, color temperature and effects."),
+        category="entities",
         options=[
             PageOption(
                 key="item",

@@ -2,7 +2,7 @@
 
 This directory contains the ESPHome configuration for the NSPanel HAUI device firmware.
 Most users flash the prebuilt `nspanel_haui.bin` from the release instead of building it
-(see the [Installation Guide](../docs/install.md)); the steps below build your own.
+(see the [Installation Guide](../docs/user/install.md)); the steps below build your own.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ See `nextion_patch/README.md`.
 The ESPHome web server is **optional and disabled by default**: `base.yaml`
 leaves `web_server` out so the HTTP OTA path has flash and RAM headroom. The dev
 config enables it for diagnostics; to get the web UI in your own build, add a
-top-level `web_server:` block to your device YAML (see `docs/esphome.md`).
+top-level `web_server:` block to your device YAML (see `docs/develop/esphome.md`).
 
 
 ## Script Organization

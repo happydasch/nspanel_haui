@@ -138,7 +138,9 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
     return False
 
 
-def resolve_esphome_entity_id(hass: Any, device_id: str, original_name: str) -> str | None:
+def resolve_esphome_entity_id(
+    hass: Any, device_id: str, original_name: str, domain: str = "sensor"
+) -> str | None:
     """Resolve an ESPHome entity by its original name on one HA device."""
     from homeassistant.helpers import entity_registry as er
 
@@ -150,7 +152,7 @@ def resolve_esphome_entity_id(hass: Any, device_id: str, original_name: str) -> 
     candidates = [
         entity_id
         for entity_id, entry in registry.entities.items()
-        if entry.domain == "sensor"
+        if entry.domain == domain
         and entry.platform == "esphome"
         and entry.device_id == device_id
         and (entry.original_name or "").casefold() == wanted
@@ -168,6 +170,28 @@ def resolve_temperature_entity_id(hass: Any, device_name: str) -> str | None:
     if device_id is None:
         return None
     return resolve_esphome_entity_id(hass, device_id, "Temperature")
+
+
+# The panel's own brightness numbers, keyed by the status field the editor reads.
+BRIGHTNESS_ENTITIES: dict[str, str] = {
+    "brightness_entity_id": "Brightness Full",
+    "brightness_dim_entity_id": "Brightness Dimmed",
+}
+
+
+def resolve_brightness_entity_ids(hass: Any, device_name: str) -> dict[str, str | None]:
+    """The device's own full and dimmed brightness numbers.
+
+    The editor shows their readings for the brightness a schedule leaves alone,
+    so a schedule never invents a value the panel does not use.
+    """
+    device_id = resolve_ha_device_id(hass, device_name)
+    if device_id is None:
+        return dict.fromkeys(BRIGHTNESS_ENTITIES)
+    return {
+        key: resolve_esphome_entity_id(hass, device_id, name, domain="number")
+        for key, name in BRIGHTNESS_ENTITIES.items()
+    }
 
 
 def read_network_entities(hass: Any, device_name: str) -> dict[str, str | float | None]:

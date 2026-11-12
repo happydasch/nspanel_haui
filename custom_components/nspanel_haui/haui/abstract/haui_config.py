@@ -36,7 +36,7 @@ class HAUIConfig(HAUIConfigAccess):
 
             cfg["sys_panels"] = build_sys_panels_defaults()
         # validate after base init so self.app etc. are available. Keep the
-        # validated values: the validators clamp and coerce (e.g. color_overrides).
+        # validated values: the validators clamp and coerce device settings.
         validated = validate_config_model(cfg)
         if validated is not None:
             cfg.update(validated.model_dump(exclude_unset=True))

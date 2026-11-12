@@ -106,7 +106,7 @@ def _utf8(text: str) -> str:
 
 
 def _fonts(raw: bytes) -> list[dict[str, Any]]:
-    """Embedded fonts; ids grow with the size (docs/design.md)."""
+    """Embedded fonts; ids grow with the size (docs/develop/design.md)."""
     fonts = []
     for obj in Nextion2Text.HMIHeader(raw).content:
         if not obj.name.endswith(".zi"):

@@ -10,7 +10,7 @@ import pytest
 from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import ClimateFeatures
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.climate import ClimatePage
 
 
@@ -56,7 +56,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities, temperature_unit="°C"):
         self.entities = entities
-        self.color_theme = ColorTheme({})
+        self.theme = Theme()
         self.temperature_unit = temperature_unit
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
@@ -112,9 +112,9 @@ def _climate(state="heat", **attrs):
     return _Entity(state, attributes)
 
 
-def _show(entity, *, unit="°C", scheme="dark", **panel_cfg):
+def _show(entity, *, unit="°C", variant="dark", **panel_cfg):
     app = _App({"climate.living": entity}, temperature_unit=unit)
-    app.color_theme = ColorTheme({}, scheme)
+    app.theme = Theme(variant)
     cfg = {"type": "climate", "item": {"item": "climate.living"}}
     cfg.update(panel_cfg)
     panel = HAUIPanel(app, cfg)
@@ -161,7 +161,7 @@ def test_popup_controls_item_passed_by_id():
 
 
 def test_climate_mode_icon_uses_selected_fixed_palette():
-    _app, page = _show(_climate(), scheme="light")
+    _app, page = _show(_climate(), variant="light")
 
     assert page.get_icon_color("climate", "heat") == 47521
 

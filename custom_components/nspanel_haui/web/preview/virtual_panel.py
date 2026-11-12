@@ -28,6 +28,7 @@ import json
 import logging
 import threading
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from ...haui.abstract.haui_panel import HAUIPanel
@@ -54,7 +55,8 @@ from .button_lights import (
     light_state,
     lights_message,
 )
-from .sandbox import Sandbox
+from .sample_data import PREVIEW_ENTITIES, sample_forecast
+from .sandbox import Sandbox, SimState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -531,11 +533,59 @@ def _translated(value: Any, locale: str) -> Any:
     return value
 
 
+def _has_item(panel_config: dict[str, Any]) -> bool:
+    """Whether a panel names its entity; the editor saves an empty one as ``{"item": None}``."""
+    if panel_config.get("item_id"):
+        return True
+    item = panel_config.get("item")
+    if isinstance(item, dict):
+        item = item.get("item")
+    return bool(item)
+
+
 def _sample_rank(state: Any) -> int:
-    """How well an entity shows what its popup can do: on, then off, then no state."""
-    if state.state in ("unavailable", "unknown"):
+    """How well an entity shows what its page can do: on, then off, then no state."""
+    if state is None or state.state in ("unavailable", "unknown"):
         return 2
     return 1 if state.state == "off" else 0
+
+
+def _sample_entity_ids(hass: Any, domains: tuple[str, ...], limit: int) -> list[str]:
+    """Pick representative available entities for an entity-popup preview."""
+    entity_ids = {
+        entity_id for domain in domains for entity_id in hass.states.async_entity_ids(domain)
+    }
+    return sorted(entity_ids, key=lambda e: (_sample_rank(hass.states.get(e)), e))[:limit]
+
+
+def _example_entity_ids(domains: tuple[str, ...], limit: int) -> list[str]:
+    """Pick deterministic preview-only entities, independent of Home Assistant state."""
+    domain_set = set(domains)
+    entity_ids = [
+        entity_id
+        for entity_id in PREVIEW_ENTITIES
+        if entity_id.partition(".")[0] in domain_set
+    ]
+    if domains == ("sensor",):
+        sensor_order = {
+            "sensor.haui_preview_kitchen_temperature": 0,
+            "sensor.haui_preview_outside": 1,
+            "sensor.haui_preview_robot_battery": 2,
+        }
+        entity_ids.sort(key=lambda entity_id: sensor_order[entity_id])
+    return entity_ids[:limit]
+
+
+def _sample_item_domains() -> tuple[str, ...]:
+    """Entity domains supported by panels, in their registered order."""
+    return tuple(
+        dict.fromkeys(
+            option.domain
+            for _, page_class in PANEL_MAPPING.values()
+            for option in page_class.DESCRIPTOR.options
+            if option.kind == "item" and option.domain
+        )
+    )
 
 
 # Sample context a popup that only opens with context shows on its card.
@@ -552,13 +602,20 @@ _PREVIEW_KWARGS: dict[str, dict[str, Any]] = {
 }
 
 
-def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
-    """The sample context a popup's card opens it with; call from the event loop.
+# Example values used only by the Add panel catalog's temporary, keyless previews.
+_PREVIEW_CONFIG: dict[str, dict[str, Any]] = {
+    "qr": {"essid": "NSPanel", "password": "12345678"},
+    "weather": {"forecast_type": "daily"},
+}
 
-    Samples live in ``_PREVIEW_KWARGS`` by panel type. An entity popup
-    (``popup_<page>``) opens for an entity of its ``item`` option's domain, as
-    a tap on such an entity would: the first one that is on, else the first
-    one that is off.
+
+def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
+    """The context and example data a popup or new-panel preview opens with.
+
+    Popup cards use the descriptor's sample context, and entity popups open
+    for an entity of their ``item`` option's domain. The Add panel catalog
+    uses fixed, preview-only entity samples so it renders without configured
+    Home Assistant entities or changing the panel configuration.
     """
     panel_type = str(panel_config.get("type", ""))
     mapping = PANEL_MAPPING.get(panel_type)
@@ -570,15 +627,65 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
         for key, value in _PREVIEW_KWARGS.get(panel_type, {}).items()
         if key not in panel_config
     }
-    # Known by its system key: an edited entity popup is saved with the user
-    # type (popup_light → light).
     entity_popup = panel_config.get("key") in POPUP_PANEL_MAPPING
-    if entity_popup and "item" not in panel_config and "item_id" not in panel_config:
-        domain = next((o.domain for o in descriptor.options if o.key == "item"), None)
-        entity_ids = sorted(hass.states.async_entity_ids(domain)) if domain else []
-        if entity_ids:
-            entity_id = min(entity_ids, key=lambda e: _sample_rank(hass.states.get(e)))
-            kwargs.update(item=entity_id, item_id=entity_id)
+    add_preview = not panel_config.get("key")
+    if entity_popup and not _has_item(panel_config):
+        item_option = next(
+            (o for o in descriptor.options if o.key == "item" and o.kind == "item"), None
+        )
+        if item_option and item_option.domain:
+            entity_ids = _sample_entity_ids(hass, (item_option.domain,), 1)
+            if entity_ids:
+                kwargs.update(item=entity_ids[0], item_id=entity_ids[0])
+    elif add_preview:
+        sample_config = _PREVIEW_CONFIG.get(panel_type, {})
+        kwargs.update(
+            {key: value for key, value in sample_config.items() if key not in panel_config}
+        )
+
+        for option in descriptor.options:
+            if option.kind == "item" and option.domain:
+                if (option.key == "item" and _has_item(panel_config)) or panel_config.get(
+                    option.key
+                ):
+                    continue
+                entity_ids = _example_entity_ids((option.domain,), 1)
+                if entity_ids:
+                    kwargs[option.key] = {"item": entity_ids[0]}
+            elif option.kind in ("item_list", "list_entities"):
+                if panel_config.get(option.key):
+                    continue
+                if option.kind == "list_entities" and option.domain:
+                    domains = (option.domain,)
+                elif option.key in ("items", "info_items") and panel_type in ("clock", "weather"):
+                    domains = ("sensor",)
+                else:
+                    domains = tuple(
+                        dict.fromkeys(
+                            item.domain
+                            for item in descriptor.options
+                            if item.kind == "item" and item.key != "item" and item.domain
+                        )
+                    ) or _sample_item_domains()
+                limit = option.max_items or 6
+                entity_ids = _example_entity_ids(domains, limit)
+                if entity_ids:
+                    if option.kind == "list_entities":
+                        kwargs[option.key] = entity_ids
+                    else:
+                        kwargs[option.key] = [{"item": entity_id} for entity_id in entity_ids]
+    return kwargs
+
+
+def _navigation_kwargs(app: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Preview kwargs as navigation passes them: display text in the device's language."""
+    locale = app.device.get_locale()
+    kwargs = {key: _translated(value, locale) for key, value in kwargs.items()}
+    if isinstance(kwargs.get("unlock_panel"), dict):
+        # Navigation passes the panel to unlock as a locked panel object.
+        unlock_panel = HAUIPanel(app, kwargs["unlock_panel"])
+        unlock_panel.set_state("locked", True)
+        kwargs["unlock_panel"] = unlock_panel
     return kwargs
 
 
@@ -659,16 +766,41 @@ class _RenderNotification:
         pass
 
 
+class _RenderSandbox:
+    """Read-only sample entities layered over the virtual app for one card render."""
+
+    def __init__(self, real: Sandbox, examples: dict[str, tuple[str, dict[str, Any]]]) -> None:
+        self._real = real
+        self._examples = examples
+
+    def get(self, entity_id: str) -> SimState | None:
+        """Return a fixed example state, falling through to the device sandbox."""
+        example = self._examples.get(entity_id)
+        if example is not None:
+            state, attributes = example
+            return SimState(entity_id, state, dict(attributes))
+        return self._real.get(entity_id)
+
+
 class _RenderApp:
     """The shared virtual app as one card render sees it.
 
     Reads (config, entity states, translations, timers) go to the app. Display
-    output is recorded, navigation does nothing and only service calls that
-    return data, such as weather forecasts, are made: a card changes nothing.
+    output is recorded, navigation does nothing and response services are
+    prefetched before the page runs: a card changes nothing and never waits for
+    an external service on the app's worker.
     """
 
-    def __init__(self, app: VirtualNSPanelHAUI, esphome: _RecordingESPHome) -> None:
+    def __init__(
+        self,
+        app: VirtualNSPanelHAUI,
+        esphome: _RecordingESPHome,
+        service_responses: dict[str, Any],
+        example_entities: dict[str, tuple[str, dict[str, Any]]],
+    ) -> None:
         self._app = app
+        self._service_responses = service_responses
+        self.sandbox = _RenderSandbox(app.sandbox, example_entities)
         self.controller = {
             **app.controller,
             "esphome": esphome,
@@ -678,6 +810,9 @@ class _RenderApp:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._app, name)
+
+    def item_exists(self, entity_id: str) -> bool:
+        return self.sandbox.get(entity_id) is not None
 
     def get_item(self, entity_id: str) -> SandboxItemProxy:
         # Item service calls come back through this view, so they are filtered too.
@@ -693,7 +828,7 @@ class _RenderApp:
         if not return_response:
             _LOGGER.debug("Card render skipped service call %s", service)
             return None
-        return self._app.call_service(service, return_response, raise_on_error, **kwargs)
+        return self._service_responses.get(service)
 
 
 class _PanelRender:
@@ -706,7 +841,11 @@ class _PanelRender:
     """
 
     def __init__(
-        self, app: VirtualNSPanelHAUI, panel_config: dict[str, Any], kwargs: dict[str, Any]
+        self,
+        app: VirtualNSPanelHAUI,
+        panel_config: dict[str, Any],
+        kwargs: dict[str, Any],
+        service_responses: dict[str, Any],
     ) -> None:
         panel_type = panel_config.get("type", "")
         page_id = get_page_id_for_panel(panel_type)
@@ -715,16 +854,30 @@ class _PanelRender:
             raise ValueError(f"Unknown panel type: {panel_type!r}")
         self.page_id = page_id
         self._esphome = _RecordingESPHome()
-        view = _RenderApp(app, self._esphome)
-        locale = app.device.get_locale()
-        kwargs = {key: _translated(value, locale) for key, value in kwargs.items()}
-        if isinstance(kwargs.get("unlock_panel"), dict):
-            # Navigation passes the panel to unlock as a locked panel object.
-            unlock_panel = HAUIPanel(view, kwargs["unlock_panel"])  # type: ignore[arg-type]
-            unlock_panel.set_state("locked", True)
-            kwargs["unlock_panel"] = unlock_panel
+        view = _RenderApp(
+            app,
+            self._esphome,
+            service_responses,
+            PREVIEW_ENTITIES if not panel_config.get("key") else {},
+        )
+        kwargs = _navigation_kwargs(view, kwargs)
         self._panel = HAUIPanel(view, panel_config)  # type: ignore[arg-type]
         self._panel.apply_kwargs(kwargs)
+        # Timer samples live in panel state rather than config options.
+        if panel_type == "timer" and not panel_config.get("key"):
+            self._panel.set_state(
+                "timer",
+                {
+                    "timer_time": datetime.now(),
+                    "timer_minutes": 12,
+                    "timer_seconds": 34,
+                    "timer_handle": None,
+                    "timer_countdown": False,
+                    "timer_paused": False,
+                    "timer_active": False,
+                    "timer_switch": True,
+                },
+            )
         self._page = page_class(view, {"page_id": page_id})  # type: ignore[arg-type]
         self.before: list[str] = []
 
@@ -924,6 +1077,51 @@ class VirtualPanelHost:
 
         return await self.app.async_run_on_worker(_config)
 
+    async def _async_render_service_responses(
+        self, panel_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Fetch response data used by a card before its page runs on the worker."""
+        if panel_config.get("type") != "weather" or not panel_config.get("forecast_type"):
+            return {}
+
+        entity_id = panel_config.get("item")
+        if isinstance(entity_id, dict):
+            entity_id = entity_id.get("item")
+        if not entity_id:
+            return {}
+
+        if entity_id in PREVIEW_ENTITIES:
+            return {
+                "weather/get_forecasts": {
+                    "result": {
+                        "response": {entity_id: {"forecast": sample_forecast()}}
+                    }
+                }
+            }
+
+        try:
+            response = await asyncio.wait_for(
+                self.app.hass.services.async_call(
+                    "weather",
+                    "get_forecasts",
+                    service_data={"type": panel_config["forecast_type"]},
+                    target={"entity_id": entity_id},
+                    blocking=True,
+                    return_response=True,
+                ),
+                timeout=30,
+            )
+        except TimeoutError:
+            _LOGGER.warning("Card preview weather forecast timed out for %s", entity_id)
+            return {}
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("Card preview weather forecast failed for %s: %s", entity_id, exc)
+            return {}
+
+        if not response:
+            return {}
+        return {"weather/get_forecasts": {"result": {"response": response}}}
+
     async def async_render(
         self,
         panel_config: dict[str, Any],
@@ -942,7 +1140,11 @@ class VirtualPanelHost:
             sent before the page switch and those that draw the page.
         """
         kwargs = {**preview_kwargs(self.app.hass, panel_config), **(kwargs or {})}
-        render = await self.app.async_run_on_worker(_PanelRender, self.app, panel_config, kwargs)
+        render_config = {**panel_config, **kwargs}
+        service_responses = await self._async_render_service_responses(render_config)
+        render = await self.app.async_run_on_worker(
+            _PanelRender, self.app, panel_config, kwargs, service_responses
+        )
         loop = asyncio.get_running_loop()
         try:
             await self.app.async_run_on_worker(render.start)
@@ -1048,6 +1250,30 @@ class VirtualPanelHost:
             navigation.open_home_panel()
 
         self.app.dispatch(_start_over)
+
+    async def async_show_panel(self, key: str, *, idle: bool = False) -> None:
+        """Open one of the device's panels in the sandbox, as the device shows it.
+
+        A popup opens with the sample context of its card. ``idle`` opens the
+        panel as the idle page it is on the device, so a touch wakes from it.
+
+        Raises:
+            ValueError: If the device has no panel with this key, or ``idle``
+                names a panel that is not one of its idle panels.
+        """
+        kwargs = preview_kwargs(self.app.hass, await self.async_configured_panel(key))
+
+        def _open() -> None:
+            navigation = self.app.controller["navigation"]
+            if idle:
+                navigation.open_idle_panel(True, key=key)
+                return
+            # As show_home: leave the idle page, which would be due again at once.
+            navigation.mark_awake()
+            navigation.reset_activity()
+            navigation.open_panel(key, **_navigation_kwargs(self.app, kwargs))
+
+        await self.app.async_run_on_worker(_open)
 
     def reset_sandbox(self) -> None:
         """Clear the device's simulated states."""

@@ -25,6 +25,7 @@ class TimerPage(HAUIPage):
         page_id=12,
         label=_("Timer"),
         description=_("Timer item with start, pause and stop controls."),
+        category="tools",
         options=[
             PageOption(
                 key="show_notification",

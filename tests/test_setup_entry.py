@@ -13,7 +13,7 @@ _storage_stub.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", _storage_stub)
 
 import custom_components.nspanel_haui as nspanel_haui  # noqa: E402
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.color import Theme  # noqa: E402
 from custom_components.nspanel_haui.hub import esphome_helpers, storage  # noqa: E402
 from custom_components.nspanel_haui.hub.adapter import ESPHomeProxy  # noqa: E402
 from custom_components.nspanel_haui.hub.app import NSPanelHAUI  # noqa: E402
@@ -236,14 +236,13 @@ def test_store_device_name_matches_case_insensitively():
 
     assert cfg["panels"] == [clock]
 
-
-def test_legacy_light_palette_migrates_to_light_icon_scheme():
+def test_explicit_theme_variant_survives_config_build():
     cfg = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]},
         {
             "devices": {
                 "kitchen": {
-                    "config": {"color_overrides": {"background": 65535}},
+                    "config": {"theme_variant": "dark"},
                     "panels": [],
                 }
             }
@@ -251,26 +250,8 @@ def test_legacy_light_palette_migrates_to_light_icon_scheme():
         device_name="kitchen",
     )
 
-    assert cfg["devices"][0]["color_scheme"] == "light"
-    assert cfg["devices"][0]["color_scheme_id"] == "light"
-
-
-def test_explicit_color_scheme_survives_config_build():
-    cfg = nspanel_haui._build_config_dict(
-        {"name": "Hub", "devices": [{"name": "kitchen"}]},
-        {
-            "devices": {
-                "kitchen": {
-                    "config": {"color_scheme": "dark", "color_overrides": {"background": 65535}},
-                    "panels": [],
-                }
-            }
-        },
-        device_name="kitchen",
-    )
-
-    assert cfg["devices"][0]["color_scheme"] == "dark"
-    assert cfg["devices"][0]["color_scheme_id"] == "dark"
+    assert cfg["devices"][0]["theme_variant"] == "dark"
+    assert cfg["devices"][0]["theme_id"] == "dark"
 
 
 # --- panel storage ---------------------------------------------------------
@@ -307,7 +288,6 @@ def test_panel_storage_load_preserves_stored_config_values(monkeypatch):
     }
     # A device only listed in the entry gets an empty store entry (defaults apply).
     assert result["devices"]["office"] == {"config": {}, "panels": []}
-
 
 # --- device event routing --------------------------------------------------
 
@@ -378,15 +358,15 @@ class _Navigation:
         self.reloads: list[int] = []
 
     def reload_panels(self) -> None:
-        self.reloads.append(self.app.color_theme.get("background"))
+        self.reloads.append(self.app.theme.get("background"))
 
 
-def _reload(saved_config: dict, overrides: dict | None = None):
+def _reload(saved_config: dict):
     app = NSPanelHAUI.__new__(NSPanelHAUI)
     app.device_config = _DeviceConfig()
     app.device = _Device()
     app.controller = {"navigation": _Navigation(app)}
-    app.color_theme = ColorTheme(overrides or {})
+    app.theme = Theme()
     app._runtime_device_name = "kitchen"
     app.log = lambda *a, **kw: None
     cfg = nspanel_haui._build_config_dict(
@@ -398,27 +378,18 @@ def _reload(saved_config: dict, overrides: dict | None = None):
     return app
 
 
-def test_reload_config_clamps_saved_color_overrides_like_startup():
-    saved = {"color_overrides": {"background": 70000, "text": "123", "not_a_color": 5}}
+def test_reload_config_applies_icon_theme_variant():
+    app = _reload({"theme_variant": "light"})
 
-    app = _reload(saved)
-
-    assert app.device.config["color_overrides"] == {"background": 65535, "text": 123}
-    assert app.color_theme.get("background") == 65535
+    assert app.theme.variant == "light"
+    assert app.device.config["theme_variant"] == "light"
 
 
-def test_reload_config_applies_icon_color_scheme():
-    app = _reload({"color_scheme": "light"})
+def test_reload_config_applies_the_selected_theme_before_navigation_reloads():
+    """Navigation reload sees selected palette colors before reloading the page."""
+    app = _reload({"theme_id": "white"})
 
-    assert app.color_theme.scheme == "light"
-    assert app.device.config["color_scheme"] == "light"
-
-
-def test_reload_config_applies_the_new_theme_before_navigation_reloads():
-    """Navigation loads the page again when the theme it paints while loading changed."""
-    app = _reload({"color_overrides": {"background": 0}}, overrides={"background": 1})
-
-    assert app.controller["navigation"].reloads == [0]
+    assert app.controller["navigation"].reloads == [65535]
 
 
 def test_reload_config_resets_a_setting_removed_from_the_store_to_its_default():

@@ -51,6 +51,7 @@ class VacuumPage(HAUIPage):
         page_id=15,
         label=_("Vacuum"),
         description=_("Vacuum robot controls and status."),
+        category="entities",
         options=[
             PageOption(
                 key="item",

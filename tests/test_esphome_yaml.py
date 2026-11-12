@@ -367,7 +367,7 @@ def test_connection_grace_reuses_the_dimming_timeout():
     assert "bool connection_grace = timeout_dim_val > 0" in display
     assert "id(hub_state_change_ms) = millis();" in connection
     assert "new_state = 1;" in display
-    assert "target_brightness = int(id(brightness_dim).state);" in display
+    assert "target_brightness = min(target_brightness, int(id(brightness_dim).state));" in display
 
 
 def test_disconnected_display_never_turns_off_or_hardware_sleeps():
@@ -455,7 +455,7 @@ def test_update_display_turns_the_display_off_without_auto_dimming():
         "id(use_auto_dimming).state && timeout_dim_val > 0 && age > timeout_dim_val", 1
     )
     assert len(dim) == 2
-    assert "target_brightness = int(id(brightness_dim).state);" in dim[1]
+    assert "target_brightness = min(target_brightness, int(id(brightness_dim).state));" in dim[1]
 
     # The state label follows the ramp end, as it did in check_display_state.
     assert "age > (timeout_off_val + duration_dim_val)" in display

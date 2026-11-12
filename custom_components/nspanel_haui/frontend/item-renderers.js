@@ -6,7 +6,7 @@
  * These handle the item/list editing UI that was historically part of the
  * big option-field switch statement.
  */
-import { html } from './lit-import.js';
+import { html, nothing } from './lit-import.js';
 import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
@@ -32,9 +32,11 @@ import {
   saveColor,
   renderColorPresets,
   colorFieldText,
-} from './form-fields.js';
+} from './form-field-controls.js';
 import { parseRgbListToHex, hexToColorMatching } from './color-utils.js';
 import { formVal } from './dom-helpers.js';
+import { dropsAfter } from './ui/panel-row.js';
+import { addButton } from './ui/button.js';
 
 /* ── color popover helpers ──────────────────────────────────────────────── */
 
@@ -68,22 +70,31 @@ function toggleColorPopover(e) {
 
 /* ── item list row (shared by all item list UIs) ─────────────────────── */
 
+/** The row being dragged: its list and index. Drag data is unreadable during dragover. */
+let draggedItem = null;
+
 /**
  * Render a single item list row with type icon, primary/secondary text,
  * override badge, and action buttons.
  *
  * @param {object} host - Lit host element
  * @param {object} item - the item config
- * @param {object} actions - { onEdit, onRemove?, onMoveUp?, onMoveDown? }
- * @param {object} flags - { canMoveUp, canMoveDown }
+ * @param {object} actions - { onEdit, onRemove? }
+ * @param {{ list: string, index: number, onMove: (from: number, to: number) => void }|null} drag -
+ *   makes the row draggable within its list; `onMove` gets the dragged row's index and its new one
  */
-export function renderItemListRow(host, item, actions, flags = {}) {
+export function renderItemListRow(host, item, actions, drag = null) {
   const type = detectItemType(item?.item);
   const icon = (item && item.icon) || ITEM_TYPE_ICONS[type] || 'mdi:circle-outline';
   const typeLabel = itemTypeShort()[type] || t('Item');
-  const primary = itemPrimaryText(item);
   const secondary = itemSecondaryText(item);
-  const showTypeChip = !item?.name;
+  // An entity without a name of its own goes by its Home Assistant name, as on the panel.
+  const entityName = !item?.name && type === ITEM_TYPE.ENTITY_ID
+    ? host?.hass?.states?.[secondary]?.attributes?.friendly_name
+    : '';
+  const primary = entityName || itemPrimaryText(item);
+  // The entity id below already tells an entity apart; other kinds name theirs.
+  const showTypeChip = type !== ITEM_TYPE.ENTITY_ID && Boolean(item?.name);
   const parseItemColor = (val) =>
     val && !(typeof val === 'object' && !Array.isArray(val))
       ? parseRgbListToHex(val)
@@ -96,48 +107,74 @@ export function renderItemListRow(host, item, actions, flags = {}) {
   const iconColorStyle = itemColor
     ? `color:${itemColor};`
     : '';
+  const clearDrop = (row) => row.classList.remove('is-drop-before', 'is-drop-after');
+  // A row takes a drop only from another row of its own list.
+  const takesDrop = () => draggedItem && draggedItem.list === drag.list && draggedItem.index !== drag.index;
+  const startDrag = drag ? (event) => {
+    draggedItem = { list: drag.list, index: drag.index };
+    // Firefox starts a drag only once it carries data.
+    event.dataTransfer?.setData('text/plain', String(drag.index));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    event.currentTarget.classList.add('is-dragging');
+  } : null;
+  const endDrag = drag ? (event) => {
+    draggedItem = null;
+    event.currentTarget.classList.remove('is-dragging');
+  } : null;
+  // Without preventDefault on dragover the browser never fires drop on the row.
+  const allowDrop = drag ? (event) => {
+    if (!takesDrop()) return;
+    event.preventDefault();
+    const after = dropsAfter(event);
+    event.currentTarget.classList.toggle('is-drop-before', !after);
+    event.currentTarget.classList.toggle('is-drop-after', after);
+  } : null;
+  const leaveDrop = drag ? (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) clearDrop(event.currentTarget);
+  } : null;
+  const acceptDrop = drag ? (event) => {
+    if (!takesDrop()) return;
+    event.preventDefault();
+    clearDrop(event.currentTarget);
+    const from = draggedItem.index;
+    const slot = drag.index + (dropsAfter(event) ? 1 : 0);
+    // Taking the dragged row out first moves every later slot up by one.
+    const to = from < slot ? slot - 1 : slot;
+    if (to !== from) drag.onMove(from, to);
+  } : null;
+  const gripLabel = drag ? t('Drag to reorder {name}').replace('{name}', primary) : '';
+  // The whole row opens the item; the narrow sidebar keeps its width for the name.
   return html`
-    <div class="item-list-row">
-      <span class="item-row-icon" style=${iconBgStyle || ''}>
-        <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
-      </span>
-      <div class="item-row-text">
-        <div class="item-row-primary">
-          <span class="item-row-name">${primary}</span>
-          ${showTypeChip
-            ? ''
-            : html`<span class="item-row-chip">${typeLabel}</span>`}
-        </div>
-        ${secondary
-          ? html`<div class="item-row-secondary">${secondary}</div>`
-          : ''}
-      </div>
-      <div class="item-row-actions">
-        ${actions.onMoveUp
-          ? html`<ha-icon-button
-              title=${t("Move up")}
-              ?disabled=${!flags.canMoveUp}
-              @click=${actions.onMoveUp}
-            ><ha-icon icon="mdi:arrow-up"></ha-icon></ha-icon-button>`
-          : ''}
-        ${actions.onMoveDown
-          ? html`<ha-icon-button
-              title=${t("Move down")}
-              ?disabled=${!flags.canMoveDown}
-              @click=${actions.onMoveDown}
-            ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>`
-          : ''}
-        ${actions.onEdit
-          ? html`<ha-icon-button title=${t("Edit")} @click=${actions.onEdit}>
-              <ha-icon icon="mdi:pencil-outline"></ha-icon>
-            </ha-icon-button>`
-          : ''}
-        ${actions.onRemove
-          ? html`<ha-icon-button title=${t("Remove")} @click=${actions.onRemove}>
-              <ha-icon icon="mdi:delete-outline"></ha-icon>
-            </ha-icon-button>`
-          : ''}
-      </div>
+    <div class="item-list-row" draggable=${drag ? 'true' : nothing}
+      @dragstart=${startDrag ?? nothing} @dragend=${endDrag ?? nothing}
+      @dragover=${allowDrop ?? nothing} @dragleave=${leaveDrop ?? nothing} @drop=${acceptDrop ?? nothing}>
+      ${drag
+        ? html`<span class="item-row-grip" role="img" aria-label=${gripLabel} title=${gripLabel}>
+            <ha-icon icon="mdi:drag" aria-hidden="true"></ha-icon>
+          </span>`
+        : ''}
+      <button type="button" class="item-row-main" title=${t("Edit")} @click=${actions.onEdit}>
+        <span class="item-row-icon" style=${iconBgStyle || ''}>
+          <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
+        </span>
+        <span class="item-row-text">
+          <span class="item-row-primary">
+            <span class="item-row-name">${primary}</span>
+            ${showTypeChip
+              ? html`<span class="item-row-chip">${typeLabel}</span>`
+              : ''}
+          </span>
+          ${secondary
+            ? html`<span class="item-row-secondary">${secondary}</span>`
+            : ''}
+        </span>
+        <ha-icon class="item-row-edit" icon="mdi:pencil-outline"></ha-icon>
+      </button>
+      ${actions.onRemove
+        ? html`<ha-icon-button class="item-row-remove" label=${t("Remove")} title=${t("Remove")}
+            @click=${actions.onRemove}
+          ><ha-icon icon="mdi:delete-outline"></ha-icon></ha-icon-button>`
+        : ''}
     </div>
   `;
 }
@@ -233,17 +270,15 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
 
       ${max != null && list.length >= max
         ? html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`
-        : html`
-            <button
-              class="add-item-btn"
-              @click=${() => {
-                const seed = choices
-                  ? (Array.isArray(choices[0]) ? choices[0][0] : choices[0].value)
-                  : "";
-                mutate((arr) => { arr.push(seed); });
-              }}
-            >${t("+ Add")}</button>
-          `}
+        : addButton({
+          label: t("Add"),
+          onClick: () => {
+            const seed = choices
+              ? (Array.isArray(choices[0]) ? choices[0][0] : choices[0].value)
+              : "";
+            mutate((arr) => { arr.push(seed); });
+          },
+        })}
     </div>
   `;
 }
@@ -301,22 +336,20 @@ export function renderItemListField(host, opt, currentValue) {
                 host._itemListData[opt.key] = host._itemListData[opt.key].filter((_, idx) => idx !== i);
                 host.requestUpdate();
               },
-              onMoveUp: () => {
-                const list = host._itemListData[opt.key];
-                if (i <= 0) return;
-                [list[i - 1], list[i]] = [list[i], list[i - 1]];
-                host.requestUpdate();
-              },
-              onMoveDown: () => {
-                const list = host._itemListData[opt.key];
-                if (i >= list.length - 1) return;
-                [list[i + 1], list[i]] = [list[i], list[i + 1]];
-                host.requestUpdate();
-              },
             },
             {
-              canMoveUp: i > 0,
-              canMoveDown: i < entities.length - 1,
+              list: opt.key,
+              index: i,
+              onMove: (from, to) => {
+                const list = host._itemListData[opt.key];
+                // The item open in the inline form keeps its form when rows move around it.
+                const edited = isEditing ? list[editingIndex] : undefined;
+                list.splice(to, 0, ...list.splice(from, 1));
+                if (edited !== undefined) {
+                  host._editingItem = { ...host._editingItem, index: list.indexOf(edited) };
+                }
+                host.requestUpdate();
+              },
             }
           );
         })}
@@ -333,26 +366,79 @@ export function renderItemListField(host, opt, currentValue) {
             if (max != null && entities.length >= max) {
               return html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`;
             }
-            return html`
-              <button
-                class="add-item-btn"
-                @click=${() => {
-                  host._editingItem = {
-                    optKey: opt.key,
-                    index: -1,
-                    config: {},
-                    domain,
-                  };
-                  host._editingItemType = "entity_id";
-                  host.requestUpdate();
-                }}
-              >
-                ${t("+ Add Item")}
-              </button>
-            `;
+            return addButton({
+              label: t("Add Item"),
+              onClick: () => {
+                host._editingItem = {
+                  optKey: opt.key,
+                  index: -1,
+                  config: {},
+                  domain,
+                };
+                host._editingItemType = "entity_id";
+                host.requestUpdate();
+              },
+            });
           })()}
     </div>
   `;
+}
+
+function renderItemColorEditor(host, { id, label, hint, value, getValue, setValue }) {
+  const colorHex = parseRgbListToHex(value);
+  const hasTemplate = formatFieldValue(value).includes("{{");
+  const applyColor = (hex) => {
+    const nextValue = hexToColorMatching(hex, getValue());
+    saveColor(hex);
+    setValue(nextValue);
+  };
+  const closePopover = () => host.renderRoot?.querySelectorAll(".color-popover.open")
+    .forEach((element) => element.classList.remove("open"));
+
+  return html`
+    <div class="form-group">
+      <label for=${id} title=${hint}>${label}</label>
+      <div class="field-row">
+        <div class="input-preview-wrap">
+          <div class="cp-sw input-preview" style=${`pointer-events:auto;background-color:${colorHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);`}
+            title=${colorHex || t("no color")}
+            @click=${(event) => event.currentTarget.querySelector("input[type=color]")?.click()}
+          >
+            <input type="color" .value=${colorHex || "#000000"}
+              @input=${(event) => applyColor(event.target.value)}
+            />
+          </div>
+          <input
+            id=${id}
+            class="native-input"
+            .value=${colorFieldText(value)}
+            @input=${(event) => {
+              const raw = event.target.value;
+              if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, event.target);
+              setValue(parseFieldValue(raw));
+            }}
+            @focus=${(event) => {
+              if (host.api && String(event.target.value || "").includes("{{")) {
+                scheduleTemplateRender(host.api, event.target.value, `tp-${id}`, event.target);
+              }
+            }}
+          />
+        </div>
+        <ha-icon-button class="color-picker-btn" @click=${toggleColorPopover} title=${t("Presets")}>
+          <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
+        </ha-icon-button>
+      </div>
+      <div class="color-popover" @click=${(event) => event.stopPropagation()}>
+        ${!hasTemplate ? renderColorPresets(colorHex, (hex) => {
+          applyColor(hex);
+          closePopover();
+        }) : ""}
+      </div>
+      ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
+      <div class="template-preview" ?hidden=${!hasTemplate}>
+        <span id=${`tp-${id}`}>${hasTemplate ? "..." : ""}</span>
+      </div>
+    </div>`;
 }
 
 /* ── per-item option field (mirrors renderOptionField for item configs) ─ */
@@ -397,66 +483,15 @@ function renderItemOptionField(host, opt, currentValue) {
         </div>
       `;
 
-    case "color": {
-      const colorHex = parseRgbListToHex(val);
-      const hasTpl = formatFieldValue(val).includes("{{");
-      return html`
-        <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
-          <div class="field-row">
-            <div class="input-preview-wrap">
-              <div class="cp-sw input-preview" style="pointer-events:auto;background-color:${colorHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);"
-                title=${colorHex || t("no color")}
-                @click=${(e) => {
-                  const inp = e.currentTarget.querySelector("input[type=color]");
-                  if (inp) inp.click();
-                }}
-              >
-                <input type="color" .value=${colorHex || "#000000"}
-                  @input=${(e) => {
-                    const hex = e.target.value;
-                    const prevVal = host._editingItem?.config?.[opt.key];
-                    const newVal = hexToColorMatching(hex, prevVal);
-                    saveColor(hex);
-                    setVal(newVal);
-                  }}
-                />
-              </div>
-              <input
-                id=${id}
-                class="native-input"
-                .value=${colorFieldText(val)}
-              @input=${(e) => {
-                const raw = e.target.value;
-                if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
-                setVal(parseFieldValue(raw));
-              }}
-              @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
-            />
-            </div>
-            <ha-icon-button class="color-picker-btn"
-              @click=${toggleColorPopover}
-              title=${t("Presets")}
-            >
-              <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
-            </ha-icon-button>
-          </div>
-          <div class="color-popover" @click=${(e) => e.stopPropagation()}>
-            ${!hasTpl ? renderColorPresets(colorHex, (hex) => {
-              const prevVal = host._editingItem?.config?.[opt.key];
-              const newVal = hexToColorMatching(hex, prevVal);
-              saveColor(hex);
-              setVal(newVal);
-              host.renderRoot?.querySelectorAll(".color-popover.open")
-                .forEach((el) => el.classList.remove("open"));
-            }) : ""}
-          </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
-          <div class="template-preview" ?hidden=${!hasTpl}>
-            <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
-          </div>
-        </div>`;
-    }
+    case "color":
+      return renderItemColorEditor(host, {
+        id,
+        label: opt.label,
+        hint: opt.description,
+        value: val,
+        getValue: () => host._editingItem?.config?.[opt.key],
+        setValue: setVal,
+      });
 
     case "select":
       return html`
@@ -503,65 +538,17 @@ function renderItemOptionField(host, opt, currentValue) {
  */
 function renderPromotedField(host, ee, f, label, hint) {
   if (f === 'color') {
-    const cv = ee.config?.[f];
-    const cHex = parseRgbListToHex(cv);
-    const hasTpl = formatFieldValue(cv).includes("{{");
-    return html`
-      <div class="form-group">
-        <label for="item-${f}" title=${hint}>${label}</label>
-        <div class="field-row">
-          <div class="input-preview-wrap">
-            <div class="cp-sw input-preview" style="pointer-events:auto;background-color:${cHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);"
-              title=${cHex || t("no color")}
-              @click=${(e) => {
-                const inp = e.currentTarget.querySelector("input[type=color]");
-                if (inp) inp.click();
-              }}
-            >
-              <input type="color" .value=${cHex || "#000000"}
-                @input=${(e) => {
-                  const hex = e.target.value;
-                  const prevVal = host._editingItem?.config?.[f];
-                  const newVal = hexToColorMatching(hex, prevVal);
-                  saveColor(hex);
-                  host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
-                  setTimeout(() => host.requestUpdate(), 0);
-                }}
-              />
-            </div>
-            <input
-              id="item-${f}"
-              class="native-input"
-              .value=${colorFieldText(cv)}
-            @input=${(e) => {
-              const raw = e.target.value;
-              if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
-              host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
-              setTimeout(() => host.requestUpdate(), 0);
-            }}
-            @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-          />
-          </div>
-          <ha-icon-button class="color-picker-btn"
-            @click=${toggleColorPopover}
-            title=${t("Presets")}
-          >
-            <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
-          </ha-icon-button>
-        </div>
-        <div class="color-popover" @click=${(e) => e.stopPropagation()}>
-          ${!hasTpl ? renderColorPresets(cHex, (hex) => {
-            const prevVal = host._editingItem?.config?.[f];
-            const newVal = hexToColorMatching(hex, prevVal);
-            host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
-            saveColor(hex);
-            host.renderRoot?.querySelectorAll(".color-popover.open")
-              .forEach((el) => el.classList.remove("open"));
-            setTimeout(() => host.requestUpdate(), 0);
-          }) : ""}
-        </div>
-        ${hasTpl ? html`<div class="template-preview"><span id="tp-item-${f}">...</span></div>` : html`<div class="template-preview" hidden><span id="tp-item-${f}"></span></div>`}
-      </div>`;
+    return renderItemColorEditor(host, {
+      id: `item-${f}`,
+      label,
+      hint,
+      value: ee.config?.[f],
+      getValue: () => host._editingItem?.config?.[f],
+      setValue: (value) => {
+        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: value } };
+        setTimeout(() => host.requestUpdate(), 0);
+      },
+    });
   }
   if (f === 'icon') {
     const rawIcon = ee.config?.[f];

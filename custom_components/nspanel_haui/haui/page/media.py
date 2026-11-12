@@ -46,6 +46,7 @@ class MediaPage(HAUIPage):
         page_id=14,
         label=_("Media"),
         description=_("Media player controls with track info and volume."),
+        category="entities",
         options=[
             PageOption(
                 key="item",

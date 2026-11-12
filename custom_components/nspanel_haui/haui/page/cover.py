@@ -18,6 +18,7 @@ class CoverPage(HAUIPage):
         page_id=18,
         label=_("Cover"),
         description=_("Cover item with open, close and position controls."),
+        category="entities",
         options=[
             PageOption(
                 key="item",

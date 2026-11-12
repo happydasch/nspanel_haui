@@ -247,9 +247,9 @@ class HAUINotificationController(HAUIBase):
 
         Arms a repeating timer that puts the notification back on screen
         every ``PERSISTENT_ALERT_INTERVAL`` seconds while it stays queued,
-        the idle/screensaver page included; only quiet hours keep the
-        display dark.  The timer stops itself once the notification leaves
-        the queue (and is cancelled eagerly by
+        the idle/screensaver page included; only a schedule entry with sound
+        off keeps the display dark.  The timer stops itself once the
+        notification leaves the queue (and is cancelled eagerly by
         ``_remove``/``clear_notifications``).
         """
         notif_id = notification.notif_id

@@ -4,7 +4,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { loadDeviceConfig } from '../../custom_components/nspanel_haui/frontend/device-config.js';
-import { savePanels } from '../../custom_components/nspanel_haui/frontend/crud.js';
 import * as Events from '../../custom_components/nspanel_haui/frontend/device-events.js';
 import { jsonResponse, makeHost } from './fake-host.mjs';
 
@@ -29,7 +28,7 @@ function hostWithStore(panels, serverStore) {
 const kitchen = { config: {}, panels: [] };
 const office = { config: {}, panels: [] };
 
-test('the Device Manager firmware action calls the firmware install endpoint', async () => {
+test('the firmware action calls the firmware install endpoint', async () => {
   const host = makeHost(
     { devices: { kitchen: { config: {}, panels: [] } } },
     (method, path, opts) => {
@@ -43,7 +42,7 @@ test('the Device Manager firmware action calls the firmware install endpoint', a
     },
   );
 
-  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen' } });
+  await Events.installFirmware(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
 });
@@ -58,7 +57,7 @@ test('uploading a local TFT sends the file to the protected staging endpoint', a
     return jsonResponse({ status: 'ok', devices_updated: ['kitchen'] });
   });
 
-  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen', file } });
+  await Events.installTft(host, { detail: { name: 'kitchen', file } });
 
   assert.match(host.urls[0], /device=kitchen&filename=custom\.tft/);
   assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
@@ -77,7 +76,7 @@ test('uploading a local firmware image uses the firmware staging endpoint', asyn
     });
   });
 
-  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen', file } });
+  await Events.installFirmware(host, { detail: { name: 'kitchen', file } });
 
   assert.match(host.urls[0], /filename=nspanel_haui_ota\.bin/);
   assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
@@ -89,7 +88,7 @@ test('a failed firmware install is shown in the editor', async () => {
     () => jsonResponse({ message: 'No firmware update is available' }, 502),
   );
 
-  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen' } });
+  await Events.installFirmware(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), ['error', 'No firmware update is available']);
 });
@@ -103,7 +102,7 @@ test('a device with an empty stored config defaults to enabled', () => {
 test('adding a device refreshes the editor from the server store', async () => {
   const host = hostWithStore({ devices: { kitchen } }, { devices: { kitchen, office } });
 
-  await Events.onDeviceManagerAdd(host, { detail: { device: { name: 'office' } } });
+  await Events.addDevices(host, [{ name: 'office' }]);
 
   assert.deepEqual(Object.keys(host._panels.devices), ['kitchen', 'office']);
 });
@@ -112,15 +111,17 @@ test('adding a device sends the batch form', async () => {
   bodies.length = 0;
   const host = hostWithStore({ devices: { kitchen } }, { devices: { kitchen, office } });
 
-  await Events.onDeviceManagerAdd(host, { detail: { device: { name: 'office' } } });
+  await Events.addDevices(host, [{ name: 'office' }]);
 
-  assert.deepEqual(JSON.parse(bodies[0]), { devices: [{ name: 'office' }] });
+  assert.deepEqual(JSON.parse(bodies[0]), {
+    devices: [{ name: 'office', esphome_device_id: '', enabled: true }],
+  });
 });
 
 test('scanning devices refreshes the editor from the server store', async () => {
   const host = hostWithStore({ devices: { kitchen } }, { devices: { kitchen, office } });
 
-  await Events.onDeviceManagerScan(host, { detail: { devices: [{ name: 'office' }] } });
+  await Events.addDevices(host, [{ name: 'office' }]);
 
   assert.deepEqual(Object.keys(host._panels.devices), ['kitchen', 'office']);
 });
@@ -128,7 +129,7 @@ test('scanning devices refreshes the editor from the server store', async () => 
 test('removing a device refreshes the editor from the server store', async () => {
   const host = hostWithStore({ devices: { kitchen, office } }, { devices: { kitchen } });
 
-  await Events.onDeviceManagerRemove(host, { detail: { name: 'office' } });
+  await Events.removeDevice(host, 'office');
 
   assert.deepEqual(Object.keys(host._panels.devices), ['kitchen']);
 });
@@ -138,7 +139,7 @@ test('toggling the selected device updates the config later saves send', async (
   const host = hostWithStore(panels, panels);
   loadDeviceConfig(host, 'kitchen');
 
-  await Events.onDeviceManagerToggleDevice(host, { detail: { name: 'kitchen' } });
+  await Events.toggleDevice(host, 'kitchen');
 
   assert.equal(host._panels.devices.kitchen.config.enabled, false);
   assert.equal(host._deviceConfig.enabled, false);
@@ -149,7 +150,7 @@ test('a failed toggle save leaves the editor state unchanged and shows the error
   const host = makeHost(panels, () => jsonResponse({ message: 'nope' }, 500), { loadDeviceConfig });
   loadDeviceConfig(host, 'kitchen');
 
-  await Events.onDeviceManagerToggleDevice(host, { detail: { name: 'kitchen' } });
+  await Events.toggleDevice(host, 'kitchen');
 
   assert.equal(host._panels.devices.kitchen.config.enabled, true);
   assert.equal(host._deviceConfig.enabled, true);
@@ -167,7 +168,7 @@ test('toggling a device that is not selected leaves the selected config alone', 
   const host = hostWithStore(panels, panels);
   loadDeviceConfig(host, 'kitchen');
 
-  await Events.onDeviceManagerToggleDevice(host, { detail: { name: 'office' } });
+  await Events.toggleDevice(host, 'office');
 
   assert.equal(host._panels.devices.office.config.enabled, false);
   assert.equal(host._deviceConfig.enabled, true);
@@ -178,7 +179,7 @@ test('toggling a device that is not selected leaves the selected config alone', 
     return jsonResponse({ status: 'ok', devices_updated: ['kitchen'] });
   });
 
-  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
+  await Events.installTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(paths, [['POST', '/api/nspanel_haui/update_tft/entry1', { device: 'kitchen' }]]);
   assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
@@ -187,7 +188,7 @@ test('toggling a device that is not selected leaves the selected config alone', 
 test('a failed TFT install shows the backend error', async () => {
   const host = makeHost({ devices: { kitchen } }, () => jsonResponse({ message: 'nope' }, 500));
 
-  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
+  await Events.installTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), ['error', 'nope']);
 });test('a TFT install that fails for all devices reports the failed count and reason', async () => {
@@ -199,7 +200,7 @@ test('a failed TFT install shows the backend error', async () => {
     }),
   );
 
-  await Events.onDeviceManagerUpdateTft(host, { detail: { name: '*' } });
+  await Events.installTft(host, { detail: { name: '*' } });
 
   assert.deepEqual(host.toasts.at(-1), [
     'error',
@@ -212,7 +213,7 @@ test('a failed TFT install rejects with its HTTP error message', async () => {
     jsonResponse({ message: 'device disconnected' }, 502),
   );
 
-  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
+  await Events.installTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), ['error', 'device disconnected']);
 });
@@ -228,7 +229,7 @@ for (const [label, detail, body] of [
       return jsonResponse({ status: 'ok', devices_updated: ['kitchen'], update: { state: 'installing' } });
     });
 
-    await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen', ...detail } });
+    await Events.installTft(host, { detail: { name: 'kitchen', ...detail } });
 
     assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
   });
@@ -241,33 +242,7 @@ test('the firmware install sends the release chosen in the picker', async () => 
     return jsonResponse({ status: 'ok', update: { firmware_installing: true, firmware_install_error: null } });
   });
 
-  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen', version: 'v0.4.2' } });
+  await Events.installFirmware(host, { detail: { name: 'kitchen', version: 'v0.4.2' } });
 
   assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
-});
-
-function moveHost(status) {
-  const host = makeHost({ devices: { kitchen, office } }, () => (
-    jsonResponse(status < 400 ? { status: 'ok' } : { message: 'nope' }, status)
-  ));
-  host._savePanels = (panels, message, config) => savePanels(host, panels, message, config);
-  return host;
-}
-
-test('moving a device saves the new device order', async () => {
-  const host = moveHost(200);
-
-  await Events.onDeviceManagerMoveDevice(host, { detail: { name: 'office', direction: -1 } });
-
-  assert.deepEqual(Object.keys(host._panels.devices), ['office', 'kitchen']);
-  assert.deepEqual(host.toasts.at(-1), ['success', 'Device "office" moved up']);
-});
-
-test('a rejected device move keeps the previous order', async () => {
-  const host = moveHost(500);
-
-  await Events.onDeviceManagerMoveDevice(host, { detail: { name: 'office', direction: -1 } });
-
-  assert.deepEqual(Object.keys(host._panels.devices), ['kitchen', 'office']);
-  assert.deepEqual(host.toasts.at(-1), ['error', 'nope']);
 });

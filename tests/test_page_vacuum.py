@@ -10,7 +10,7 @@ import pytest
 from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import VacuumFeatures
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.vacuum import VacuumPage
 from custom_components.nspanel_haui.haui.utils.icon import get_icon
 
@@ -57,7 +57,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
-        self.color_theme = ColorTheme({})
+        self.theme = Theme()
         self.listeners = []
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}

@@ -26,9 +26,8 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
 # routine INFO lifecycle messages.
 LOG_LEVEL_OPTIONS: list[str] = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
-OPTIONAL_DEVICE_CONFIG_FIELDS = frozenset(
-    {"day_brightness_full", "day_brightness_dimmed", "day_duration_dim"}
-)
+# Settings that may be None: the hub leaves the value to the device.
+OPTIONAL_DEVICE_CONFIG_FIELDS = frozenset({"brightness", "brightness_dim"})
 
 DEVICE_CONFIG: dict[str, Any] = {
     "name": "",
@@ -68,10 +67,16 @@ DEVICE_CONFIG: dict[str, Any] = {
     # stale-data indicator: when an entity value has not updated for this many
     # seconds, pages render it dimmed with a "…" suffix.  0 = off (default).
     "stale_data_seconds": 0,
-    # Gesture sequences: swipes that arrive in order within ``timeframe``
-    # seconds open the panel ``open``; see haui/controller/gesture.py.
-    # Each entry: {"sequence": ["swipe_left", "swipe_right"], "timeframe": 3, "open": "<panel key>"}
-    "gesture_sequences": [],
+    # Gestures: one or more swipes in order (the last within ``timeframe``
+    # seconds of the first) run ``action``: ``next_panel``, ``prev_panel`` or
+    # the key of a panel to open; see haui/controller/gesture.py.  A swipe no
+    # gesture uses does nothing.
+    "gestures": [
+        {"swipes": ["swipe_left"], "action": "next_panel", "timeframe": 3},
+        {"swipes": ["swipe_right"], "action": "prev_panel", "timeframe": 3},
+        {"swipes": ["swipe_up"], "action": "sys_about", "timeframe": 3},
+        {"swipes": ["swipe_down"], "action": "sys_settings", "timeframe": 3},
+    ],
     # interaction
     "reset_interaction_on_button": True,
     # snapshot restore limit: -1 = no limit, 0 = never restore, >0 = max age in seconds
@@ -90,37 +95,30 @@ DEVICE_CONFIG: dict[str, Any] = {
     "timeout_dimming": 10,
     "timeout_page": 30,
     "timeout_display_off": 120,
-    # Day/Night profiles own these values only while a schedule is enabled.
-    "day_night_schedule_mode": "off",  # off, fixed, or sun
-    "day_night_start": "21:00",
-    "day_night_end": "07:00",
-    "day_night_sunset_offset": 0,  # minutes, -720..720
-    "day_night_sunrise_offset": 0,
-    # Adopt restored ESPHome settings once on first activation, then persist them.
-    "day_night_profiles_initialized": False,
-    "day_brightness_full": None,
-    "day_brightness_dimmed": None,
-    "day_duration_dim": None,
-    "night_timeout_dimming": 10,
-    "night_duration_dim": 2.0,
-    "night_use_auto_page": True,
-    "night_timeout_page": 30,
-    "night_idle_panel": "",
-    "night_timeout_display_off": 120,
-    "night_brightness_full": 50,
-    "night_brightness_dimmed": 20,
+    # Fade time of the dimming transition in seconds (the firmware's
+    # "Duration Dimming" number, 0-5).
+    "duration_dimming": 2.0,
+    # Full display brightness in percent.  None = the hub never writes it and the
+    # value set on the panel stays; required once the schedule has entries.
+    "brightness": None,
+    # Dimmed display brightness in percent (the level the panel dims to).  None =
+    # the hub never writes it and the value set on the panel stays.
+    "brightness_dim": None,
+    # Schedule: windows that override sound, brightness, dimming and display-off;
+    # see haui/schedule.py.  The first entry whose window contains now applies.
+    # Each entry: {"start": "21:00", "end": "sunrise", "end_offset": -30, "sound": False,
+    #              "brightness": 20, "brightness_dim": 5, "display_off": True,
+    #              "timeout_dimming": 10, "timeout_display_off": 30}
+    # A value left out (None) falls back to the device setting of the same name.
+    # start_offset / end_offset (minutes, -720..720) shift a sunrise/sunset boundary.
+    "schedule": [],
     "sound_on_startup": False,
     # Fixed weather/alarm/climate icon colors are paired for light and dark backgrounds.
-    "color_scheme": "dark",
-    # Active semantic color definitions, selected from built-ins or saved schemes.
-    "color_scheme_id": "dark",
-    # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
-    "color_overrides": {},
+    "theme_variant": "dark",
+    # Active semantic color definitions, selected from built-ins or saved themes.
+    "theme_id": "dark",
     "sound_on_notification": False,
     "persistent_sound_interval": 5,  # seconds between repeats for persistent notifications
-    "use_do_not_disturb": False,  # toggle to enable quiet hours
-    "quiet_hours_start": "",  # empty = disabled, format "HH:MM" (24h)
-    "quiet_hours_end": "",  # empty = disabled, format "HH:MM"
     # Hardware display model: the NSPanel is sold as an EU model (landscape
     # display) and a US model whose display is mounted portrait or landscape.
     # The update controller picks the matching TFT asset for this device.

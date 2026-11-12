@@ -3,7 +3,7 @@
 All notable changes to **NSPanel HAUI**, one line per change. The release notes
 of each [GitHub release](https://github.com/happydasch/nspanel_haui/releases)
 (prepared in `.github/release-notes/<tag>.md`) describe the changes in detail,
-and [Update Process](docs/update-process.md) has the steps for every breaking
+and [Update Process](docs/develop/update-process.md) has the steps for every breaking
 change.
 
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
@@ -11,12 +11,61 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.0] — unreleased
 
+### Breaking changes
+
+- Custom themes now use a shared theme library. Per-device `color_overrides` and `theme_overrides` are no longer supported. Hand-written config must use `theme_id` and `theme_variant`. The **Device Colors** sidebar is now the **Theme** sidebar on Preview, and the Appearance section is gone from device settings ([Themes](docs/user/configuration/themes.md), [Upgrading](docs/user/update.md#themes-replace-color-schemes)).
+- A **Schedule** of entries (from/to as a time, or sunrise or sunset with an offset; sound, brightness, screen off and its duration) replaces the Day/Night profiles and the quiet hours; saved settings are not converted, and **Brightness** is a new device setting ([Upgrading](docs/develop/update-process.md#21-schedule-replaces-daynight-profiles-and-quiet-hours)).
+
 ### Changed
 
+- **Themes** are a shared library of predefined and custom palettes: the Theme sidebar on Preview selects one per device, edits shared semantic and state-icon colors, and imports or exports the library; existing panel and item colors stay explicit overrides until reset ([Themes](docs/user/configuration/themes.md)).
+- The **Theme** section of the device settings selects the device's theme from the same predefined and custom dropdown, with **New theme**, **Export all** and **Import**; editing a theme's colors stays in the Theme sidebar ([Themes](docs/user/configuration/themes.md)).
+- Single swipes and multi-swipe sequences are one list, the device setting `gestures`: each gesture can step to the next or previous panel or open a panel, and saved `swipe_actions` and `gesture_sequences` are converted ([Gestures](docs/user/configuration/device.md#gestures)).
+- The **Schedule** and **Gestures** cards use consistent collapsible entry rows with summaries and counts; a newly added entry opens for editing.
+- The **Schedule** card in the device's **Panels** view supports multiple time windows, including sunrise/sunset offsets and windows across midnight, with per-window sound, brightness, dimming and display-off settings ([Schedule](docs/user/configuration/device.md#schedule)).
+- The ESPHome firmware now caps dimmed brightness at the active full-brightness value, so a schedule entry with a low brightness cannot brighten the display when dimming begins.
+- Frontend translations now cover all editor strings in English, German, French, Dutch and Polish, including the theme, schedule and gesture controls.
+- The documentation is split into a user guide (`docs/user/`) and a developer guide (`docs/develop/`), so page addresses changed (`install.html` is now `user/install.html`); the user pages are rewritten in plainer language and **Custom Integration** is merged into [Installation](docs/user/install.md).
+- The sidebar editor is a Fleet/Device dashboard with linkable routes; the **Device Manager** and **Device Info** dialogs and the header's ⋯ menu are gone ([frontend](docs/develop/frontend.md#target-v05-dashboard)).
+- Fleet scans for new panels when it opens, enables, disables and removes devices from their inventory row, installs every device's updates at once and lists the dated hub log of every device under **Latest events**, a repeated message once with its count.
+- The Fleet screen below the carousel is a denser read: one summary strip (a state-coloured health line, the update and version figures, and a segment per device) instead of three tiles, 15 px card headings with count chips, a dense inventory table and the latest events as a timeline ([frontend](docs/develop/frontend.md#fleet-screen-regions)).
+- Each Device view starts with a highlighted card of its next actions, above the workspace on a narrow screen: **Add panel**, with the **Settings** as a cog beside the card's title, led by **Install update** on the Preview while one is offered; **Updates** opens from the **Connection & device** card ([Configuration](docs/user/configuration/README.md#finding-the-editor)).
+- The Device screen's **Connection & device** and **Diagnostics** cards replace Device Info; **Updates**, **Device settings**, **Theme** and **Logs** open in the sidebar, a bottom sheet on a phone.
+- **Logs** is a sidebar on the Device and Fleet screens: newest first and grouped by day, filtered by level or text, warnings and errors tagged, and a copy button for bug reports ([Device](docs/user/configuration/device.md)).
+- Diagnostics shows the display state, the idle page countdown, the disconnects and late heartbeats of the last 24 hours and the current page's entities, and **Copy report** builds a bug report without entity ids or addresses ([Device health](docs/user/configuration/README.md#diagnostics)).
+- The **Connection & device** card lists the four connection facts (uptime, Wi-Fi, current page, IP); the firmware and display versions are in **Diagnostics** and the **Updates** sidebar ([The Device Screen](docs/user/configuration/README.md#the-device-screen)).
+- The device status API replaces `idle_page_active` with `idle_page` and adds `display_state` and `connection_health`; the `reset_interaction` endpoint is gone (the Live preview resets the timer) and hub log lines carry an ISO timestamp and the full level name.
+- Panels: search, inline rename, duplicate, copy from another device (grouped by device in **Add panel**), and only the popups a device extends in the list (**Add panel → Extend a popup** offers the built-in ones); a panel is reordered by dragging its grip, so the row menu no longer carries **Move up** and **Move down**.
+- The extra idle panels of the carousel (`idle_panel_extra`) are a list of pills to add and remove, in the **Home & idle panels** card of the Panels view and in the device settings, whose panel dropdowns show panel names instead of keys ([Panels](docs/user/configuration/panels.md#home-and-idle-panels)).
+- Sidebars can be resized by dragging their edge, and the panel editor fits its sidebar: a preview that pins as a small thumbnail with the panel's name and type once scrolled, the item list open with its count, compact item rows, and a random entity in an entity popup's preview ([Configuration](docs/user/configuration/README.md#the-panel-editor)).
+- The panel editor previews unsaved edits and marks the field that cannot be saved; **Add panel** previews every panel type and a panel thumbnail enlarges on hover or tap.
+- **Add panel** renders every type with representative sample entities and example values, including a sample weather forecast; entity popup previews use an entity of the right domain when one is available ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
+- **Add panel** is a stack of collapsible groups, each led by its heading row (icon, name, count, chevron) and tinted while open, like the panel editor's sections: the panel types under **Backgrounds**, **Entities**, **Grouping** and **Tools**, then **Extend a popup** and **Copy an existing panel**; every type card leads with the panel's full-width render, and a search opens the groups it looks into ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
+- Device settings merge the language and the time and date formats into **Language & region**.
+- The **Updates** sidebar leads with one status (up to date, update available, installing, failed, or why no update fits) above the firmware and display versions ([Update Process](docs/develop/update-process.md#editor-the-updates-sidebar)).
+- The **Updates** sidebar's preferences are its **Update settings** card, grouped as **Release checks**, **Firmware** and **Display**: edits stay in a draft that marks unsaved changes until **Save** (**Discard** drops them), the firmware channel is a **Stable**/**Development** switch, a custom manifest URL is an optional override, and **Check for updates** runs along the status card's bottom edge ([Update Process](docs/develop/update-process.md#editor-the-updates-sidebar)).
+- The periodic update check interval is a preset from 15 minutes to one week, with a custom seconds value ([Update settings](docs/user/configuration/device.md#updates)).
+- **Updates** no longer offers **Download firmware** and the `/api/nspanel_haui/firmware` endpoint is gone; download `nspanel_haui.bin` from the GitHub release.
+- Preview: sounds and errors show as toasts, and its tools (**Reset sandbox**; in Live **Reset interaction** and **Redraw display**) are in the expanded **Diagnostics** card.
+- Preview: a click on the **Current page** tile shows the panel's current page in the Simulated preview; the device status API adds `current_panel` ([Controls](docs/user/configuration/README.md#controls)).
+- Panel cards show their last render, kept in the browser, until the hub's new one arrives, instead of a placeholder after every reload ([Configuration](docs/user/configuration/README.md#the-live-preview)).
+- Editor performance: cards and the preview no longer redraw on every state change, one status poll runs and pauses in a background tab, modules are cached, and the entity picker lists at most 100 matches.
 - Development builds of this cycle publish as `0.5.0.devN` instead of continuing
   the `0.4.8` patch line; the cycle base is committed with
   `scripts/bump_version.py` and the Development Firmware workflow keeps it when
   it writes its run number.
+
+### Fixed
+
+- Gestures: the last swipe of a gesture sequence no longer also runs its own swipe action, which navigated away from the panel the sequence had just opened.
+- Unlock popup: the keypad takes the code again; since 0.4.5 it ignored every key, on the panel and in the preview, so a locked panel could not be opened.
+- Device settings: a number field no longer snaps to its minimum (or loses an unfinished entry) while it is being edited.
+- Editor sidebar: Tab and Shift+Tab stay inside the open panel editor or device settings instead of jumping to the close button or leaving the sidebar.
+- Theme sidebar: built-in theme names are translated.
+- Preview: the **Idle** control explains when the device has no idle panels instead of doing nothing.
+- Panels: the idle-panel drag hint only appears when there are idle panels to reorder.
+- Hub log: a panel's missing entity is warned about once, until it exists again, instead of on every render, which filled the log and pushed every other message out.
+- Editor: a page left open across a Home Assistant restart that changed the editor reloads itself, instead of failing with "nspanel-simulator-frame has already been used" and showing a blank panel.
 
 ## [0.4.7] — 2026-11-11
 
@@ -32,11 +81,11 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   version commit or regenerate the screens.
 - The editor now runs on one observable store and one typed API client behind
   the existing views, with the v0.5 frontend architecture documented in
-  `docs/frontend.md`.
+  `docs/develop/frontend.md`.
 - The preview's idle control toggles the idle page: pressing it again wakes
   back to the panel it covered (or home) and restarts the interaction timer, in
   both Simulated and Live mode
-  ([Configuration](docs/configuration/README.md#the-live-preview)).
+  ([Configuration](docs/user/configuration/README.md#the-live-preview)).
 
 ### Fixed
 
@@ -57,32 +106,32 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Home Assistant 2026.11 is required; install and update through its
   Marketplace, which migrates HACS installs
-  ([Upgrading](docs/update-process.md#15-home-assistant-202611-and-the-marketplace)).
+  ([Upgrading](docs/develop/update-process.md#15-home-assistant-202611-and-the-marketplace)).
 - Firmware updates moved from the firmware to the integration's **HAUI
   Firmware** entity; panels on firmware 0.4.3 or older are updated once by hand
-  ([Upgrading](docs/update-process.md#11-firmware-updates-moved-to-the-integration)).
+  ([Upgrading](docs/develop/update-process.md#11-firmware-updates-moved-to-the-integration)).
 - Custom firmware builds are never offered the universal release image; the
   manifest and the device state name the build variant.
 - The display TFT follows the firmware manifest; another release's TFT installs
   only **From URL**
-  ([Upgrading](docs/update-process.md#12-display-tft-updates-come-from-the-firmware-manifest)).
+  ([Upgrading](docs/develop/update-process.md#12-display-tft-updates-come-from-the-firmware-manifest)).
 - Native OTA is encrypted with the API key; the `ota_password` substitution is
   gone, and panels on 0.4 firmware need no migration install
   ([#81](https://github.com/happydasch/nspanel_haui/issues/81),
-  [ESPHome](docs/esphome.md#encrypted-native-ota)).
+  [ESPHome](docs/develop/esphome.md#encrypted-native-ota)).
 - The **Current Page** sensor moved to the firmware; delete the old integration
-  entity ([Upgrading](docs/update-process.md#14-the-current-page-sensor-moved-to-the-firmware)).
+  entity ([Upgrading](docs/develop/update-process.md#14-the-current-page-sensor-moved-to-the-firmware)).
 - The firmware drops the `haui_discover`, `req_device_info` and `req_reconnect`
   actions and the `use_relay_left`/`use_relay_right` events, which the hub
-  never used ([Upgrading](docs/update-process.md#16-unused-firmware-actions-and-events-removed)).
+  never used ([Upgrading](docs/develop/update-process.md#16-unused-firmware-actions-and-events-removed)).
 - The services raise an error when their `device` matches no running panel,
   instead of logging a warning and doing nothing
-  ([Upgrading](docs/update-process.md#18-services-fail-on-a-device-that-is-no-panel)).
+  ([Upgrading](docs/develop/update-process.md#18-services-fail-on-a-device-that-is-no-panel)).
 - The firmware drops the **Use Auto-Page** switch, **Timeout Page** number and `esphome.timeout` event; automatic page switching and each page's hold move to the hub. Empty Night idle keys no longer inherit Day; `use_auto_page`/`timeout_page` remain device settings.
-- The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/configuration/device.md#automatic-page-switching)).
-- Update the integration first, then install matching firmware and TFT; mixed hub and firmware versions are unsupported ([Upgrade guide](docs/update.md#automatic-page-switching-moved-to-the-hub)).
-- Notification `type` (`info`/`warning`/`critical`) is replaced by `icon_color` and `sound` on `nspanel_haui.send_notification`; the `nspanel_haui.notification` event carries both instead of `notif_type`, and the ESPHome `send_notification` action requires the two new variables ([Upgrading](docs/update-process.md#20-notification-types-replaced-by-icon-colour-and-sound)).
-- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/device.md#notifications)).
+- The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/user/configuration/device.md#automatic-page-switching)).
+- Update the integration first, then install matching firmware and TFT; mixed hub and firmware versions are unsupported ([Upgrade guide](docs/user/update.md#automatic-page-switching-moved-to-the-hub)).
+- Notification `type` (`info`/`warning`/`critical`) is replaced by `icon_color` and `sound` on `nspanel_haui.send_notification`; the `nspanel_haui.notification` event carries both instead of `notif_type`, and the ESPHome `send_notification` action requires the two new variables ([Upgrading](docs/develop/update-process.md#20-notification-types-replaced-by-icon-colour-and-sound)).
+- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/user/device.md#notifications)).
 
 ### Added
 
@@ -108,13 +157,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Alarm panel action-button options: hidden arm modes and action icons
   ([#75](https://github.com/happydasch/nspanel_haui/pull/75)).
 - **Current Page Number** sensor (the Nextion page id); it and **Current
-  Page** are disabled by default ([ESPHome](docs/esphome.md#page)).
+  Page** are disabled by default ([ESPHome](docs/develop/esphome.md#page)).
 - **Install update** in the **Device Info** dialog installs the display TFT or
   the firmware, also from a URL or a local file
-  ([Updating](docs/update.md#installing-a-local-tft-or-firmware-image)).
+  ([Updating](docs/user/update.md#installing-a-local-tft-or-firmware-image)).
 - **Firmware mismatch** in the Device Manager and Device Info when the HAUI
   version differs from the panel firmware's `yaml_version`; missing versions
-  are not a mismatch ([Update Process](docs/update-process.md#in-the-editor)).
+  are not a mismatch ([Update Process](docs/develop/update-process.md#in-the-editor)).
 - **Enable updates** master switch and **Enable periodic update checks** toggle
   per panel.
 - **Color scheme library** in **Device Colors**: built-in **Dark Color**,
@@ -140,7 +189,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Cycle cards are off by default on clock and weather panels: only the time
   shows until **Show date**, **Show outside temperature** or other cards are
   enabled (clock panels cycled date and outside temperature before;
-  [Upgrading](docs/update-process.md#17-cycle-cards-are-off-by-default)).
+  [Upgrading](docs/develop/update-process.md#17-cycle-cards-are-off-by-default)).
 - A clock panel without a weather entity skips the outside temperature card
   instead of showing `--°C`.
 - **Screen Power** is disabled by default, like **Restart Display**.
@@ -150,11 +199,11 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   over its dev builds, an unparseable version counts as unknown, and the
   editor's version chips use the same ordering.
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
-  firmware needs ([Release](docs/release.md#published-development-firmware)).
+  firmware needs ([Release](docs/develop/release.md#published-development-firmware)).
 - CI fails a PR or push that changes a Nextion HMI without advancing the display
   TFT version and recompiling both TFTs, reading the base HMI's version when the
   base predates `tft_version`
-  ([Release](docs/release.md#published-development-firmware)).
+  ([Release](docs/develop/release.md#published-development-firmware)).
 - Panel titles and built-in popup titles are single words where possible, and
   every title is fitted to its header widget (longer ones end in `..`).
 - **Auto-install firmware updates** is off by default; the display TFT still
@@ -166,17 +215,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   **AD-Version**).
 - The release notice opens once per release instead of after every update check;
   it can appear again after a restart or a channel change
-  ([Update Process](docs/update-process.md#on-the-display)).
+  ([Update Process](docs/develop/update-process.md#on-the-display)).
 - A notification sent without an icon shows none and uses the full text width;
   its icon colour and sound are general notification fields
-  ([Services](docs/services.md#nspanel_hauisend_notification)).
+  ([Services](docs/user/services.md#nspanel_hauisend_notification)).
 - Grid tile, alarm keypad/action-button and Clock Two word colors default to the
   active color scheme; their optional color settings override it per panel or
   item. Values saved from older versions keep overriding until **Reset existing
-  device and panel color overrides**.
-- Devices from older versions with a pure-white background override migrate to
-  the **Light Color** scheme, all others start on **Dark Color**; unknown
-  scheme IDs fall back to dark with a warning.
+  panel and item color overrides**.
 - Single-entity panels (light, media, vacuum, cover, climate, alarm) accept no
   item and hide their controls when the entity is unavailable or `unknown`;
   light, media and vacuum also show **Unavailable**, and an `unknown` item
@@ -187,13 +233,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   **Simulated/Live** is a toolbar switch, and **More tools** shows **Show
   entities** and **Reset sandbox** (Simulated mode only, disabled until a
   simulated state changed).
-- A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/device.md#display-state-dimmed-off-and-on)).
+- A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/user/device.md#display-state-dimmed-off-and-on)).
 
 ### Fixed
 
 - The Colors dialog shows the device's saved color scheme in its selector again instead of the first built-in scheme.
-- On hub disconnect, the firmware shows System at full brightness for `timeout_dim`, then dims without powering off; reconnect restores the current panel with the same grace ([Device](docs/device.md#display-state-dimmed-off-and-on)).
-- Repeated automation changes to HAUI-owned display switches now trigger a warning and pause corrections until the next connect or settings save, preventing on/off feedback loops ([Device Configuration](docs/configuration/device.md#display-dimming-off)).
+- On hub disconnect, the firmware shows System at full brightness for `timeout_dim`, then dims without powering off; reconnect restores the current panel with the same grace ([Device](docs/user/device.md#display-state-dimmed-off-and-on)).
+- Repeated automation changes to HAUI-owned display switches now trigger a warning and pause corrections until the next connect or settings save, preventing on/off feedback loops ([Device Configuration](docs/user/configuration/device.md#display-dimming-off)).
 - The idle page opens reliably again after popups and reconnects: the hub
   checks the activity clock every second instead of relying on one-shot timers
   and firmware events.
@@ -283,7 +329,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The display no longer turns off with auto display-off disabled: the hub sets
   an auto switch toggled anywhere else back to its setting right away.
 - The relays keep their last state across firmware updates and reboots instead
-  of switching off on every boot ([ESPHome](docs/esphome.md#interaction)).
+  of switching off on every boot ([ESPHome](docs/develop/esphome.md#interaction)).
 
 ### Contributors
 
@@ -308,7 +354,7 @@ and the entity registry fixes ([#77](https://github.com/happydasch/nspanel_haui/
 
 - TFT installs moved from the firmware to the integration; the **Update
   Display** button and the `upload_tft` action are gone
-  ([Upgrading](docs/update-process.md#10-tft-install-actions-moved-to-the-integration)).
+  ([Upgrading](docs/develop/update-process.md#10-tft-install-actions-moved-to-the-integration)).
 
 ### Added
 
@@ -354,7 +400,7 @@ and the entity registry fixes ([#77](https://github.com/happydasch/nspanel_haui/
 ### Breaking changes
 
 - The ESPHome web server is no longer enabled by default
-  ([ESPHome → Web server](docs/esphome.md#web-server-optional)).
+  ([ESPHome → Web server](docs/develop/esphome.md#web-server-optional)).
 
 ### Added
 
@@ -407,7 +453,7 @@ Thanks to [@jsenecal](https://github.com/jsenecal) for the reports behind
   colours, templates, function buttons and vacuum batteries follow the
   documented formats.
 
-See [Updating](docs/update.md) for the steps.
+See [Updating](docs/user/update.md) for the steps.
 
 ### Added
 

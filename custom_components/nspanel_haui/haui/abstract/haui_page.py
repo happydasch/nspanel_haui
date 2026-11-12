@@ -42,8 +42,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     )
 
     # Pages with non-standard color palettes (about, clock, clocktwo, weather)
-    # should set this to ``False`` so user-defined color overrides are bypassed
-    # and the page's built-in palette is used instead.
+    # should set this to ``False`` so the page's built-in palette is used instead.
     USE_SYSTEM_COLORS: ClassVar[bool] = True
 
     # The header title widget (``tTitle``) as the HMIs define it, per
@@ -198,7 +197,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         # The device's theme, not get_color(): own-palette pages read none of
         # it, and the globals outlive this page on the display.
-        return self.app.color_theme.display_commands()
+        return self.app.theme.display_commands()
 
     def prepare_page_load(self, panel: HAUIPanel) -> None:
         """Send ``page_load_commands()``; call right before goto_page.
@@ -349,10 +348,10 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     def get_color(self, key: str) -> int:
         """Return the selected theme or the contrast palette paired with the page background."""
         if not self.USE_SYSTEM_COLORS:
-            if getattr(self, "_use_color_scheme", False):
-                return self.app.color_theme.get(key)
+            if getattr(self, "_use_theme_background", False):
+                return self.app.theme.get(key)
             variant = getattr(self, "_background_variant", "dark")
-            return self.app.color_theme.get_background_color(key, variant)
+            return self.app.theme.get_background_color(key, variant)
         return super().get_color(key)
 
     def set_title(
@@ -451,9 +450,9 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     def _build_items_from_panel(self, panel: HAUIPanel, *keys: str) -> list[HAUIItem]:
         """Build HAUIItem list from a panel's item config keys.
 
-        Reads each config key in order.  For each key, if the value is a
-        list every entry is added as a separate item; if it's a single
-        value (dict or string) it is wrapped as a single item.
+        Reads each config key in order. For each key, a list adds each entry
+        as a separate item; a dict or entity-ID string adds one item. Strings
+        are normalized to the ``{"item": ...}`` config expected by HAUIItem.
 
         Args:
             panel: The panel whose item config to read.
@@ -465,11 +464,10 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         items: list[HAUIItem] = []
         for key in keys:
             val = panel.get(key, None)
-            if isinstance(val, list):
-                for entry in val:
-                    items.append(HAUIItem(self.app, entry))
-            elif val is not None:
-                items.append(HAUIItem(self.app, val))
+            entries = val if isinstance(val, list) else [val] if val is not None else []
+            for entry in entries:
+                config = {"item": entry} if isinstance(entry, str) else entry
+                items.append(HAUIItem(self.app, config))
         return items
 
     @staticmethod

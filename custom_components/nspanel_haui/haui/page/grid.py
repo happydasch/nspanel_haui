@@ -26,6 +26,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
         page_id=9,
         label=_("Grid"),
         description=_("Grid of up to 6 item tiles with pagination."),
+        category="grouping",
         item_options=[
             PageOption(
                 key="text_color",

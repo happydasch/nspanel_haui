@@ -2,7 +2,7 @@
  * NSPanel HAUI - Color picker CSS.
  *
  * Reusable styles for color inputs, swatches, presets, and preview rows.
- * Shared by form-fields.js (inline color pickers) and dialogs/colors.js.
+ * Shared by form-fields.js (inline color pickers) and dialogs/theme.js.
  */
 import { css } from '../lit-import.js';
 
@@ -95,11 +95,22 @@ export const colorPickerStyles = css`
   /* ── color dialog swatches ───────── */
   .cp-sw {
     position: relative;
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     flex-shrink: 0;
     cursor: pointer;
     overflow: hidden;
+    border: 2px solid var(--card-background-color, #fff);
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px var(--divider-color, #d5d5d5),
+                0 1px 3px rgba(0, 0, 0, 0.16);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .cp-sw:hover {
+    transform: translateY(-1px);
+  }
+  .cp-sw:focus-within {
+    box-shadow: 0 0 0 2px var(--primary-color, #03a9f4);
   }
   .cp-sw input[type="color"] {
     position: absolute;

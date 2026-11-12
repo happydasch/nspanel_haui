@@ -49,7 +49,6 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
     _saving: false,
     _notifications: [],
     _toast: null,
-    _viewMode: 'grid',
     toasts,
     calls,
     urls,
@@ -86,7 +85,7 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
       entryId: 'entry1',
       loading: false,
       systemPanels: panels.system_panels || [],
-      colorSchemes: panels.color_schemes || {},
+      themes: panels.themes || {},
     },
     devices: devicesFromStore(panels, current.devices),
   }));
@@ -111,11 +110,6 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
     host._saving = state.hub.saving;
     host._toast = state.ui.toast;
     host._loading = state.hub.loading;
-    host._viewMode = state.ui.viewMode;
-    host.__navPanelsOpen = state.ui.groupOpen.nav;
-    host.__hiddenPanelsOpen = state.ui.groupOpen.hidden;
-    host.__popupPanelsOpen = state.ui.groupOpen.popup;
-    host.__systemPanelsOpen = state.ui.groupOpen.system;
   };
   store.subscribe(sync);
   sync();

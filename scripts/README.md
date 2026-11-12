@@ -317,7 +317,7 @@ hub keeps re-offering it.
   `GITHUB_REPOSITORY` and `GITHUB_REF_NAME` and is run by the release workflow
   for `v*` tags.
 
-See [docs/release.md](../docs/release.md) for the full branch and release
+See [docs/develop/release.md](../docs/develop/release.md) for the full branch and release
 process.
 
 ## Developer tooling

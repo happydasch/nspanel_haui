@@ -16,7 +16,7 @@ import { getLanguage, t } from '../localize.js';
 /** @typedef {import('./types.js').Notification} Notification */
 /** @typedef {import('./types.js').TftReleases} TftReleases */
 /** @typedef {import('./types.js').FirmwareReleases} FirmwareReleases */
-/** @typedef {import('./types.js').ColorSchemesResponse} ColorSchemesResponse */
+/** @typedef {import('./types.js').ThemesResponse} ThemesResponse */
 /** @typedef {import('./types.js').PanelRender} PanelRender */
 /** @typedef {import('./types.js').UpdateResult} UpdateResult */
 
@@ -206,23 +206,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
             body: JSON.stringify({ device }),
           },
           t('Failed to refresh display'),
-        );
-      },
-
-      /**
-       * @param {string} entryId
-       * @param {string} device
-       */
-      resetInteraction(entryId, device) {
-        requireEntry(entryId);
-        return request(
-          `/api/nspanel_haui/reset_interaction/${entryId}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device }),
-          },
-          t('Failed to reset interaction timer'),
         );
       },
     },
@@ -415,18 +398,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
           t('Failed to check for updates'),
         );
       },
-
-      /**
-       * The prebuilt firmware download of the latest stable release.
-       * @returns {Promise<{ url: string|null, version: string|null }>}
-       */
-      firmwareDownload() {
-        return request(
-          '/api/nspanel_haui/firmware',
-          { method: 'GET' },
-          t('Failed to load the firmware link'),
-        );
-      },
     },
 
     editor: {
@@ -465,31 +436,31 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
       /**
        * @param {string} entryId
-       * @returns {Promise<ColorSchemesResponse>}
+       * @returns {Promise<ThemesResponse>}
        */
-      colorSchemes(entryId) {
+      themes(entryId) {
         requireEntry(entryId);
         return request(
-          `/api/nspanel_haui/color_schemes/${entryId}`,
+          `/api/nspanel_haui/themes/${entryId}`,
           undefined,
-          t('Unable to load color schemes.'),
+          t('Unable to load themes.'),
         );
       },
 
       /**
        * @param {string} entryId
-       * @param {{ version: number, schemes: Object<string, import('./types.js').ColorScheme> }} body
+       * @param {{ version: number, themes: Object<string, import('./types.js').Theme> }} body
        */
-      saveColorSchemes(entryId, body) {
+      saveThemes(entryId, body) {
         requireEntry(entryId);
         return request(
-          `/api/nspanel_haui/color_schemes/${entryId}`,
+          `/api/nspanel_haui/themes/${entryId}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           },
-          t('Unable to save color schemes. Check for duplicate names or schemes in use.'),
+          t('Unable to save themes. Check for duplicate names or themes in use.'),
         );
       },
 
@@ -511,7 +482,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       /**
        * @param {string} entryId
        * @param {string} device
-       * @param {{ panel: Object } | { key: string }} target
+       * @param {({ panel: Object } | { key: string }) & { kwargs?: Object }} target
        * @returns {Promise<PanelRender>}
        */
       render(entryId, device, target) {

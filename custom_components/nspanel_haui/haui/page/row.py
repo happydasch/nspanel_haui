@@ -46,6 +46,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
         page_id=10,
         label=_("Row"),
         description=_("Row of entities with cover/action controls."),
+        category="grouping",
         options=[
             PageOption(
                 key="items",

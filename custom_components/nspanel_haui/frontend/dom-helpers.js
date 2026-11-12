@@ -147,15 +147,6 @@ function positionFixedDropdown(dropdown, trigger, opts = {}) {
 }
 
 /**
- * Position a context menu dropdown (right-aligned) at trigger location.
- * @param {HTMLElement} dropdown
- * @param {HTMLElement} trigger
- */
-export function positionContextMenu(dropdown, trigger) {
-  positionFixedDropdown(dropdown, trigger, { align: 'right', offsetY: 4 });
-}
-
-/**
  * Position an autocomplete picker dropdown (left-aligned, fills input width).
  * @param {HTMLElement} dropdown
  * @param {HTMLElement} input
@@ -238,41 +229,6 @@ export function createDropdownKeyboardController(opts) {
   };
 }
 
-/* ── outside-click dismiss ─────────────────────────────────────────────── */
-
-/**
- * Register a document-level mousedown (capture phase) listener that calls
- * `close` when the click target is outside all elements matching `check`.
- *
- * Caller must call `offOutsideClick(host)` in disconnectedCallback.
- *
- * @param {object}   host    - LitElement instance (stores handler on it)
- * @param {function} check   - (e) => true if click is inside a guard element
- * @param {function} close   - (e) => called when click is outside
- */
-export function onOutsideClick(host, check, close) {
-  const handler = (e) => {
-    if (!check(e)) close(e);
-  };
-  host.__outsideClickHandler = handler;
-  document.addEventListener('mousedown', handler, true);
-}
-
-/**
- * Unregister the document-level mousedown listener previously installed by
- * `onOutsideClick`.
- *
- * @param {object} host - LitElement instance
- */
-export function offOutsideClick(host) {
-  if (host.__outsideClickHandler) {
-    document.removeEventListener('mousedown', host.__outsideClickHandler, true);
-    host.__outsideClickHandler = null;
-  }
-}
-
-
-
 /* ── localStorage (may throw or be unavailable) ───────────────────────── */
 
 export function readStorage(key, fallback) {
@@ -286,4 +242,32 @@ export function readStorage(key, fallback) {
 
 export function writeStorage(key, value) {
   try { localStorage.setItem(key, value); } catch (_e) { /* storage unavailable */ }
+}
+
+/* ── clipboard ─────────────────────────────────────────────────────────── */
+
+/**
+ * Put text on the clipboard. Home Assistant is often served over plain HTTP on
+ * the LAN, where `navigator.clipboard` does not exist, so that case goes through
+ * a hidden textarea and `execCommand('copy')`.
+ *
+ * @param {string} text
+ */
+export async function copyText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  try {
+    area.select();
+    if (!document.execCommand('copy')) throw new Error();
+  } finally {
+    area.remove();
+  }
 }

@@ -69,54 +69,54 @@ extra:
       link: https://github.com/happydasch/nspanel_haui
 
 nav:
-  - End User:
+  - User Guide:
     - README.md
-    - Installation: install.md
-    - Quick Start: get-started.md
-    - Updating: update.md
-    - Custom Integration: custom_integration.md
+    - Quick Start: user/get-started.md
+    - Installation: user/install.md
+    - Updating: user/update.md
     - Configuration:
-      - Overview: configuration/README.md
-      - Device Configuration: configuration/device.md
-      - Display Models: configuration/display-models.md
-      - Panel Configuration: configuration/panels.md
-      - Item Configuration: configuration/items.md
-    - Device Description: device.md
+      - Overview: user/configuration/README.md
+      - Device Configuration: user/configuration/device.md
+      - Themes: user/configuration/themes.md
+      - Display Models: user/configuration/display-models.md
+      - Panel Configuration: user/configuration/panels.md
+      - Item Configuration: user/configuration/items.md
+    - Device Description: user/device.md
     - Panels:
-      - Overview: panels/README.md
-      - Weather: panels/panel_weather.md
-      - Clock: panels/panel_clock.md
-      - ClockTwo: panels/panel_clocktwo.md
-      - Grid: panels/panel_grid.md
-      - Row: panels/panel_row.md
-      - Light: panels/panel_light.md
-      - Media: panels/panel_media.md
-      - Vacuum: panels/panel_vacuum.md
-      - QR Code: panels/panel_qr.md
-      - Cover: panels/panel_cover.md
-      - Climate: panels/panel_climate.md
-      - Timer: panels/panel_timer.md
-      - Alarm: panels/panel_alarm.md
-      - About: panels/panel_about.md
-      - Blank: panels/panel_blank.md
-      - System: panels/panel_system.md
-      - Settings: panels/panel_settings.md
-      - Popup Notify: panels/popup_notify.md
-      - Popup Select: panels/popup_select.md
-      - Popup Unlock: panels/popup_unlock.md
-    - Examples: examples.md
-    - Services: services.md
-    - FAQ: faq.md
-    - Troubleshooting: troubleshooting.md
-  - Development:
-    - development.md
-    - Release Process & Strategy: release.md
-    - Update Process: update-process.md
-    - Design Guidelines: design.md
-    - Frontend Architecture: frontend.md
-    - Communication Overview: communication.md
-    - Notification Process: notifications.md
-    - ESPHome Component: esphome.md
-    - Hub Component: hub.md
-    - Nextion Component: nextion.md
-    - Nextion Editor (Human Guide): nextion-editor.md
+      - Overview: user/panels/README.md
+      - Weather: user/panels/panel_weather.md
+      - Clock: user/panels/panel_clock.md
+      - ClockTwo: user/panels/panel_clocktwo.md
+      - Grid: user/panels/panel_grid.md
+      - Row: user/panels/panel_row.md
+      - Light: user/panels/panel_light.md
+      - Media: user/panels/panel_media.md
+      - Vacuum: user/panels/panel_vacuum.md
+      - QR Code: user/panels/panel_qr.md
+      - Cover: user/panels/panel_cover.md
+      - Climate: user/panels/panel_climate.md
+      - Timer: user/panels/panel_timer.md
+      - Alarm: user/panels/panel_alarm.md
+      - About: user/panels/panel_about.md
+      - Blank: user/panels/panel_blank.md
+      - System: user/panels/panel_system.md
+      - Settings: user/panels/panel_settings.md
+      - Popup Notify: user/panels/popup_notify.md
+      - Popup Select: user/panels/popup_select.md
+      - Popup Unlock: user/panels/popup_unlock.md
+    - Examples: user/examples.md
+    - Services: user/services.md
+    - FAQ: user/faq.md
+    - Troubleshooting: user/troubleshooting.md
+  - Developer Guide:
+    - develop/development.md
+    - Release Process & Strategy: develop/release.md
+    - Update Process: develop/update-process.md
+    - Design Guidelines: develop/design.md
+    - Frontend Architecture: develop/frontend.md
+    - Communication Overview: develop/communication.md
+    - Notification Process: develop/notifications.md
+    - ESPHome Component: develop/esphome.md
+    - Hub Component: develop/hub.md
+    - Nextion Component: develop/nextion.md
+    - Nextion Editor (Human Guide): develop/nextion-editor.md

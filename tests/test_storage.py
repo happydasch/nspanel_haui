@@ -1,12 +1,8 @@
-"""Panel store: pre-stable device-config key migration.
+"""Panel store: renamed device-config keys and persisted panel data.
 
-The stable release renamed several device-config keys (``sleep_panel`` →
-``idle_panel``, ``show_sleep_button`` → ``show_idle_button``,
-``use_auto_sleeping`` → ``use_auto_display_off``, ``timeout_sleep`` →
-``timeout_display_off``).  The runtime reads only the new names, so a store
-that still holds the legacy keys silently fell back to defaults — most
-visibly an unset ``idle_panel`` that disabled the idle page and hid the
-idle button.  ``PanelStorage.load`` migrates those keys in place.
+The stable release renamed several idle/display settings and 0.5 merged the
+gesture settings into ``gestures``. ``PanelStorage.load`` migrates both in place;
+theme configuration is not migrated.
 """
 
 import sys
@@ -17,15 +13,49 @@ storage_mod = types.ModuleType("homeassistant.helpers.storage")
 storage_mod.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", storage_mod)
 
+from custom_components.nspanel_haui.haui.device_config import DEVICE_CONFIG  # noqa: E402
 from custom_components.nspanel_haui.hub.storage import (  # noqa: E402
     DEVICE_CONFIG_KEY_RENAMES,
     PanelStorage,
+    empty_store,
     migrate_device_config_keys,
+    normalize_device_order,
 )
 
 
+def test_empty_store_has_an_empty_device_order() -> None:
+    assert empty_store() == {"version": 1, "device_order": [], "devices": {}, "themes": {}}
+
+
+def test_normalize_device_order_preserves_valid_order_and_appends_new_devices() -> None:
+    data = {
+        "device_order": ["Office", "Office", "Removed", "Kitchen"],
+        "devices": {"Kitchen": {}, "Office": {}, "Bedroom": {}},
+    }
+
+    assert normalize_device_order(data) is True
+    assert data["device_order"] == ["Office", "Kitchen", "Bedroom"]
+    assert normalize_device_order(data) is False
+
+
+def test_load_normalizes_and_persists_device_order() -> None:
+    payload = {
+        "version": 1,
+        "devices": {
+            "Kitchen": {"config": {}, "panels": []},
+            "Office": {"config": {}, "panels": []},
+        },
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    assert result["device_order"] == ["Kitchen", "Office"]
+    assert store.saved == [{**payload, "device_order": ["Kitchen", "Office"]}]
+
+
 def test_rename_mapping_covers_all_v1_renames() -> None:
-    """The mapping matches the key renames documented in docs/update.md."""
+    """Only idle/display setting aliases are renamed here."""
     assert DEVICE_CONFIG_KEY_RENAMES == {
         "sleep_panel": "idle_panel",
         "sleep_panel_extra": "idle_panel_extra",
@@ -71,6 +101,55 @@ def test_migrate_is_a_noop_without_legacy_keys() -> None:
     cfg = {"idle_panel": "blank", "show_idle_button": True}
     assert migrate_device_config_keys(cfg) is False
     assert cfg == {"idle_panel": "blank", "show_idle_button": True}
+
+
+def test_migrate_turns_0_4_7_sequences_into_gestures_after_the_fixed_swipes() -> None:
+    """0.4.7 had fixed single swipes (the defaults) and ``gesture_sequences``."""
+    cfg = {
+        "gesture_sequences": [
+            {"sequence": ["swipe_left", "swipe_right"], "timeframe": 5, "open": "lights"}
+        ]
+    }
+    assert migrate_device_config_keys(cfg) is True
+    assert cfg == {
+        "gestures": [
+            *DEVICE_CONFIG["gestures"],
+            {"swipes": ["swipe_left", "swipe_right"], "action": "lights", "timeframe": 5},
+        ]
+    }
+    assert migrate_device_config_keys(cfg) is False
+
+
+def test_migrate_turns_swipe_actions_into_one_swipe_gestures() -> None:
+    """A swipe without an action gets no gesture, so it still does nothing."""
+    cfg = {
+        "swipe_actions": {
+            "swipe_left": "prev_panel",
+            "swipe_right": "next_panel",
+            "swipe_up": "",
+            "swipe_down": "lights",
+        },
+        "gesture_sequences": [],
+    }
+    assert migrate_device_config_keys(cfg) is True
+    assert cfg == {
+        "gestures": [
+            {"swipes": ["swipe_left"], "action": "prev_panel", "timeframe": 3},
+            {"swipes": ["swipe_right"], "action": "next_panel", "timeframe": 3},
+            {"swipes": ["swipe_down"], "action": "lights", "timeframe": 3},
+        ]
+    }
+
+
+def test_migrate_keeps_existing_gestures_and_drops_the_old_keys() -> None:
+    gestures = [{"swipes": ["swipe_up"], "action": "lights", "timeframe": 3}]
+    cfg = {
+        "gestures": gestures,
+        "swipe_actions": {"swipe_left": "next_panel"},
+        "gesture_sequences": [],
+    }
+    assert migrate_device_config_keys(cfg) is True
+    assert cfg == {"gestures": gestures}
 
 
 class _FakeStore:
@@ -138,6 +217,7 @@ def test_load_migrates_legacy_keys_and_persists() -> None:
 def test_load_does_not_save_when_nothing_to_migrate() -> None:
     payload = {
         "version": 1,
+        "device_order": ["Salon"],
         "devices": {"Salon": {"config": {"idle_panel": "blank"}, "panels": []}},
     }
     store = _FakeStore(payload)

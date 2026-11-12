@@ -35,12 +35,23 @@
  */
 
 /**
+ * The *Add panel* catalog group a panel type is listed under, in the order the
+ * hub lists the groups: backgrounds, entities, grouping, tools.
+ *
+ * @typedef {Object} PanelCategory
+ * @property {string} key
+ * @property {string} label
+ * @property {string} icon
+ */
+
+/**
  * A panel type descriptor returned by `/api/nspanel_haui/panel_types`.
  *
  * @typedef {Object} PanelTypeDescriptor
  * @property {string} type_key
  * @property {string} label
  * @property {string} [description]
+ * @property {PanelCategory} category
  * @property {string} [icon]
  * @property {number} [page_id]
  * @property {boolean} [has_header]
@@ -65,9 +76,8 @@
  * @typedef {Object} DeviceConfig
  * @property {boolean} [enabled]
  * @property {string} [display_model]
- * @property {string} [color_scheme]
- * @property {string} [color_scheme_id]
- * @property {Object<string, number>} [color_overrides]
+ * @property {string} [theme_variant]
+ * @property {string} [theme_id]
  * @property {string} [home_panel]
  * @property {string} [idle_panel]
  * @property {string} [idle_panel_extra]
@@ -105,7 +115,7 @@
  */
 
 /**
- * @typedef {Object} ColorScheme
+ * @typedef {Object} Theme
  * @property {string} name
  * @property {Object<string, number>} colors
  * @property {Object<string, Object<string, Object<string, number>>>} [icons]
@@ -116,8 +126,9 @@
  *
  * @typedef {Object} PanelStore
  * @property {number} [version]
+ * @property {string[]} [device_order]
  * @property {Object<string, DeviceEntry>} devices
- * @property {Object<string, ColorScheme>} [color_schemes]
+ * @property {Object<string, Theme>} [themes]
  * @property {SystemPanel[]} [system_panels]
  */
 
@@ -133,7 +144,7 @@
  * @property {string|null} [last_panel_update]
  * @property {string|null} [last_connection]
  * @property {number} [connection_uptime]
- * @property {boolean} [idle_page_active]
+ * @property {"on"|"dim"|"off"|null} [display_state]
  * @property {string} [temperature_entity_id]
  */
 
@@ -156,6 +167,7 @@
  * @property {boolean} [connected]
  * @property {string} [connection_state]
  * @property {string} [current_page]
+ * @property {string} [current_panel] - key of the panel the device shows, empty without one
  * @property {string} [haui_version]
  * @property {boolean} [haui_version_mismatch]
  * @property {DeviceInfo} [device_info]
@@ -163,6 +175,17 @@
  * @property {string[]} [logs]
  * @property {string|null} [last_disconnect_reason]
  * @property {string|null} [disconnected_since]
+ * @property {IdlePageStatus|null} [idle_page]
+ */
+
+/**
+ * Where the idle page stands: shown (`active`), left open under an overlay
+ * (`suspended`), held off by the current page (`held`), due in `idle_in`
+ * seconds (`pending`) or switched off (`off`).
+ *
+ * @typedef {Object} IdlePageStatus
+ * @property {"active"|"suspended"|"held"|"pending"|"off"} state
+ * @property {number|null} idle_in
  */
 
 /**
@@ -190,10 +213,10 @@
  */
 
 /**
- * @typedef {Object} ColorSchemesResponse
+ * @typedef {Object} ThemesResponse
  * @property {number} version
- * @property {Object<string, ColorScheme>} builtins
- * @property {Object<string, ColorScheme>} schemes
+ * @property {Object<string, Theme>} builtins
+ * @property {Object<string, Theme>} themes
  */
 
 /**

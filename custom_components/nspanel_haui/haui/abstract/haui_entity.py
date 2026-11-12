@@ -86,10 +86,7 @@ class HAUIEntity:
         """
         entity = self.get_entity()
         if entity is None:
-            self._app.log(
-                f"Entity '{self._entity_id}' not available for attr '{attr}'",
-                level="WARNING",
-            )
+            self._app.warn_missing_entity(self._entity_id, f"attr '{attr}'")
             return default
         if isinstance(attr, str):
             res = entity.attributes.get(attr)
@@ -115,7 +112,7 @@ class HAUIEntity:
         """
         entity = self.get_entity()
         if entity is None:
-            self._app.log(f"Entity '{self._entity_id}' not available for state", level="WARNING")
+            self._app.warn_missing_entity(self._entity_id, "state")
             return None
         return entity.get_state()
 
@@ -133,10 +130,7 @@ class HAUIEntity:
         """
         entity = self.get_entity()
         if entity is None:
-            self._app.log(
-                f"Entity '{self._entity_id}' not available for service '{service}'",
-                level="WARNING",
-            )
+            self._app.warn_missing_entity(self._entity_id, f"service '{service}'")
             return
         threading.Thread(
             target=entity.call_service,

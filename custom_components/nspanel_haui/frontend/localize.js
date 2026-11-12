@@ -51,6 +51,11 @@ export function t(key) {
   return _translations?.[key] || key;
 }
 
+/** The language of the loaded translations; English until a load finished. */
+export function currentLanguage() {
+  return _currentLang || 'en';
+}
+
 /**
  * Extract the HAUI-supported language code from the hass object.
  * Handles full locale strings like "de-DE", "de_DE" → "de".

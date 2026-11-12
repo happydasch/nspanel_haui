@@ -15,6 +15,7 @@ class QRPage(HAUIPage):
         page_id=11,
         label=_("QR"),
         description=_("Display a QR code alongside item info."),
+        category="tools",
         options=[
             PageOption(
                 key="essid",

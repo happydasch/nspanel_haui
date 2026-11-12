@@ -328,7 +328,7 @@ jobs:
         #
         # A dispatched build leaves dev's tip as this ``[skip ci]`` commit, so a
         # release PR opened while it is the tip runs no checks: cut release prep
-        # on a ``release/X.Y.Z`` branch (docs/release.md, "Branches and
+        # on a ``release/X.Y.Z`` branch (docs/develop/release.md, "Branches and
         # cadence").
         env:
           VERSION: ${{ needs.build.outputs.version }}

@@ -7,7 +7,7 @@
  * `.dialog-header--extended` class with sticky positioning and bottom border.
  *
  * Styles (.dialog-header / .dialog-header-title / .dialog-header-close /
- * .dialog-header-bar / .dialog-header--extended) live in editorStyles, which
+ * `.dialog-header-bar` / `.dialog-header--extended`) live in the shared dialog styles,
  * every dialog already imports.
  */
 import { html, nothing } from '../lit-import.js';

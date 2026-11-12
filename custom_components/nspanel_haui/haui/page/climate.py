@@ -23,6 +23,7 @@ class ClimatePage(HAUIPage):
         page_id=16,
         label=_("Climate"),
         description=_("Climate item with temperature and mode controls."),
+        category="entities",
         options=[
             PageOption(
                 key="item",

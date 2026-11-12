@@ -17,7 +17,7 @@ import { t } from '../localize.js';
 /** @typedef {import('../api/types.js').PanelConfig} PanelConfig */
 /** @typedef {import('../api/types.js').DeviceStatus} DeviceStatus */
 /** @typedef {import('../api/types.js').Notification} Notification */
-/** @typedef {import('../api/types.js').ColorScheme} ColorScheme */
+/** @typedef {import('../api/types.js').Theme} Theme */
 /** @typedef {import('../api/types.js').PanelTypeDescriptor} PanelTypeDescriptor */
 /** @typedef {import('../api/types.js').SystemPanel} SystemPanel */
 /** @typedef {import('../api/client.js').ApiClient} ApiClient */
@@ -31,6 +31,33 @@ import { t } from '../localize.js';
  */
 
 /**
+ * Overlay kinds rendered as anchored popovers. Only one is open at a time: a
+ * new one closes the previous, while sidebars stack on top of it.
+ */
+const ANCHORED_OVERLAY_KINDS = Object.freeze([
+  'panel-menu', 'device-menu', 'notification-centre',
+]);
+
+/** @param {string|null|undefined} kind */
+export function isAnchoredOverlayKind(kind) {
+  return typeof kind === 'string' && ANCHORED_OVERLAY_KINDS.includes(kind);
+}
+
+/**
+ * Overlay kinds shown in the Device screen's modal sidebar (Logs also on
+ * Fleet: its subject is a device, or null for every device). The topmost one is
+ * shown; one opened from another covers it as a layer.
+ */
+const SIDEBAR_OVERLAY_KINDS = Object.freeze([
+  'device-settings', 'panel-catalog', 'panel-editor', 'firmware', 'theme', 'logs',
+]);
+
+/** @param {string|null|undefined} kind */
+export function isSidebarOverlayKind(kind) {
+  return typeof kind === 'string' && SIDEBAR_OVERLAY_KINDS.includes(kind);
+}
+
+/**
  * @typedef {Object} DevicesState
  * @property {Object<string, DeviceState>} byName
  * @property {string[]} order
@@ -38,11 +65,14 @@ import { t } from '../localize.js';
  */
 
 /**
+ * @typedef {{ view: 'fleet'|'device', device: string|null, panel: string|null, panelView: 'preview'|'panels' }} Route
+ * @typedef {{ kind: string, anchorKey: string|null, subject: string|null, draft: any }} Overlay
+ *
  * @typedef {Object} StoreState
- * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, statusError: string|null, panelTypes: PanelTypeDescriptor[], systemPanels: SystemPanel[], colorSchemes: Object<string, ColorScheme> }} hub
+ * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, statusError: string|null, panelTypes: PanelTypeDescriptor[], systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
  * @property {DevicesState} devices
  * @property {Notification[]} notifications
- * @property {{ viewMode: "grid"|"list", toast: { message: string, type: string }|null, dialogs: Object<string, any>, menus: Object<string, any>, groupOpen: { system: boolean, popup: boolean, nav: boolean, hidden: boolean } }} ui
+ * @property {{ route: Route, overlays: Overlay[], toast: { message: string, type: string }|null, dialogs: Object<string, any>, menus: Object<string, any>, preview: { mode: 'simulated'|'live', idle: boolean, showEntities: boolean } }} ui
  */
 
 /**
@@ -51,20 +81,13 @@ import { t } from '../localize.js';
  * @property {(key: string, value: string|boolean) => void} write
  */
 
-const GROUP_STORAGE = {
-  system: 'haui_systemPanelsOpen',
-  popup: 'haui_popupPanelsOpen',
-  nav: 'haui_navPanelsOpen',
-  hidden: 'haui_hiddenPanelsOpen',
-};
-
 const DEFAULT_DEVICE_CONFIG = (() => {
   const config = mergeDeviceConfig(undefined);
   return Object.freeze({ ...config, update: Object.freeze(config.update) });
 })();
 
 /** @param {DeviceConfig|undefined} config */
-export function mergeDeviceConfig(config) {
+function mergeDeviceConfig(config) {
   const existing = config || {};
   return {
     ...DEVICE_CONFIG_DEFAULTS,
@@ -85,7 +108,10 @@ export function mergeDeviceConfig(config) {
 export function devicesFromStore(payload, previous) {
   /** @type {Object<string, DeviceState>} */
   const byName = {};
-  const order = Object.keys(payload.devices || {});
+  const payloadOrder = Array.isArray(payload.device_order) ? payload.device_order : [];
+  const names = Object.keys(payload.devices || {});
+  const order = [...new Set(payloadOrder.filter((name) => names.includes(name))),
+    ...names.filter((name) => !payloadOrder.includes(name))];
   for (const name of order) {
     const entry = /** @type {DeviceEntry} */ (payload.devices[name] || {});
     byName[name] = {
@@ -101,13 +127,38 @@ export function devicesFromStore(payload, previous) {
   return { byName, order, selected };
 }
 
+/** Nobody sees a status poll's result while the browser tab is in the background. */
+function pageHidden() {
+  return globalThis.document?.hidden === true;
+}
+
+/**
+ * The device map with the polled statuses, or the same map while every device
+ * reports what it reported before: a poll that changes nothing must not
+ * re-render the editor.
+ *
+ * @param {Object<string, DeviceState>} byName
+ * @param {Object<string, DeviceStatus|null>} statuses
+ * @returns {Object<string, DeviceState>}
+ */
+function withStatuses(byName, statuses) {
+  let next = byName;
+  for (const [name, status] of Object.entries(statuses)) {
+    const device = byName[name];
+    if (!device || JSON.stringify(device.status) === JSON.stringify(status)) continue;
+    if (next === byName) next = { ...byName };
+    next[name] = { ...device, status };
+  }
+  return next;
+}
+
 /**
  * The POST body for the current state.
  *
  * @param {StoreState} state
  * @returns {PanelStore}
  */
-export function panelStoreFromState(state) {
+function panelStoreFromState(state) {
   /** @type {Object<string, DeviceEntry>} */
   const devices = {};
   for (const name of state.devices.order) {
@@ -120,7 +171,8 @@ export function panelStoreFromState(state) {
   }
   return {
     version: 1,
-    color_schemes: state.hub.colorSchemes,
+    device_order: [...state.devices.order],
+    themes: state.hub.themes,
     system_panels: state.hub.systemPanels,
     devices,
   };
@@ -131,11 +183,6 @@ export function panelStoreFromState(state) {
  * @returns {StoreState}
  */
 function createInitialState(storage) {
-  const readGroup = (group, fallback) => {
-    const raw = storage.read(GROUP_STORAGE[group], '');
-    if (raw === '') return fallback;
-    return raw !== 'false';
-  };
   return {
     hub: {
       entryId: null,
@@ -145,21 +192,17 @@ function createInitialState(storage) {
       statusError: null,
       panelTypes: [],
       systemPanels: [],
-      colorSchemes: {},
+      themes: {},
     },
     devices: { byName: {}, order: [], selected: null },
     notifications: [],
     ui: {
-      viewMode: storage.read('haui_viewMode', 'grid') === 'list' ? 'list' : 'grid',
+      route: { view: 'fleet', device: null, panel: null, panelView: 'preview' },
+      overlays: [],
       toast: null,
       dialogs: {},
       menus: {},
-      groupOpen: {
-        system: readGroup('system', false),
-        popup: readGroup('popup', true),
-        nav: readGroup('nav', true),
-        hidden: readGroup('hidden', true),
-      },
+      preview: { mode: 'simulated', idle: false, showEntities: false },
     },
   };
 }
@@ -286,7 +329,7 @@ export function createStore({ client, storage, onToast }) {
             loading: false,
             statusError,
             systemPanels: payload.system_panels || [],
-            colorSchemes: payload.color_schemes || {},
+            themes: payload.themes || {},
           },
           devices,
         };
@@ -313,7 +356,7 @@ export function createStore({ client, storage, onToast }) {
           hub: {
             ...current.hub,
             systemPanels: payload.system_panels || [],
-            colorSchemes: payload.color_schemes || {},
+            themes: payload.themes || {},
           },
           devices: devicesFromStore(payload, current.devices),
         }));
@@ -451,6 +494,8 @@ export function createStore({ client, storage, onToast }) {
       polledDevice = selected;
       if (refresh) void actions.pollSelectedStatus();
       selectedTimer = setInterval(() => {
+        // The all-device poller already reports this device.
+        if (allTimer || pageHidden()) return;
         void actions.pollSelectedStatus();
       }, 5000);
     },
@@ -498,15 +543,11 @@ export function createStore({ client, storage, onToast }) {
 
       const selectedStatus = statuses ? statuses[requested] || null : status;
       commit((current) => {
-        const byName = { ...current.devices.byName };
-        if (statuses) {
-          for (const [name, deviceStatus] of Object.entries(statuses)) {
-            if (byName[name]) byName[name] = { ...byName[name], status: deviceStatus };
-          }
-        }
-        if (requested && byName[requested]) {
-          byName[requested] = { ...byName[requested], status: selectedStatus };
-        }
+        const byName = withStatuses(current.devices.byName, {
+          ...statuses,
+          ...(requested ? { [requested]: selectedStatus } : {}),
+        });
+        if (byName === current.devices.byName && current.hub.statusError === error) return current;
         return {
           ...current,
           devices: { ...current.devices, byName },
@@ -515,24 +556,30 @@ export function createStore({ client, storage, onToast }) {
       });
     },
 
-    /** Start the all-device status poller (open Device Manager). */
+    /** Start the all-device status poller (the Fleet screen shows every device). */
     startAllStatusPolling() {
       if (allTimer) return;
       const fetchAll = async () => {
         const entryId = state.hub.entryId;
-        if (!entryId) return;
+        if (!entryId || pageHidden()) return;
+        /** @type {Object<string, DeviceStatus>|null} */
+        let statuses = null;
+        let error = null;
         try {
-          const statuses = await client.status.getAll(entryId);
-          commit((current) => {
-            const byName = { ...current.devices.byName };
-            for (const [name, status] of Object.entries(statuses)) {
-              if (byName[name]) byName[name] = { ...byName[name], status };
-            }
-            return { ...current, devices: { ...current.devices, byName } };
-          });
-        } catch (error) {
-          // A stale status is harmless; the next tick tries again.
+          statuses = await client.status.getAll(entryId);
+        } catch (caught) {
+          // The statuses shown are now stale: say so until a poll succeeds again.
+          error = /** @type {Error} */ (caught).message || t('Fetch failed');
         }
+        commit((current) => {
+          const byName = statuses ? withStatuses(current.devices.byName, statuses) : current.devices.byName;
+          if (byName === current.devices.byName && current.hub.statusError === error) return current;
+          return {
+            ...current,
+            devices: { ...current.devices, byName },
+            hub: { ...current.hub, statusError: error },
+          };
+        });
       };
       void fetchAll();
       allTimer = setInterval(fetchAll, 5000);
@@ -604,40 +651,6 @@ export function createStore({ client, storage, onToast }) {
     },
 
     /**
-     * Move a device one position up (-1) or down (1), restoring the order when
-     * the save is rejected.
-     * @param {string} name
-     * @param {number} direction
-     */
-    async moveDevice(name, direction) {
-      const order = state.devices.order;
-      const index = order.indexOf(name);
-      if (index < 0) return;
-      const swapIndex = index + direction;
-      if (swapIndex < 0 || swapIndex >= order.length) return;
-      const newOrder = [...order];
-      [newOrder[index], newOrder[swapIndex]] = [newOrder[swapIndex], newOrder[index]];
-      commit((current) => ({ ...current, devices: { ...current.devices, order: newOrder } }));
-
-      const friendly = state.devices.byName[name].friendlyName;
-      const message = direction < 0
-        ? t('Device "{name}" moved up').replace('{name}', friendly)
-        : t('Device "{name}" moved down').replace('{name}', friendly);
-      const saved = await actions.savePanels({
-        panels: state.devices.byName[name].panels,
-        toastMessage: message,
-        deviceName: name,
-      });
-      if (!saved) {
-        commit((current) => ({
-          ...current,
-          devices: { ...current.devices, order },
-          hub: { ...current.hub, error: null },
-        }));
-      }
-    },
-
-    /**
      * Enable or disable a device (settings live in its config block).
      * @param {string} name
      */
@@ -654,25 +667,117 @@ export function createStore({ client, storage, onToast }) {
       });
     },
 
-    /** @param {"grid"|"list"} mode */
-    setViewMode(mode) {
-      if (mode !== 'grid' && mode !== 'list') return;
-      commit((current) => ({ ...current, ui: { ...current.ui, viewMode: mode } }));
-      storage.write('haui_viewMode', mode);
+    /** @param {Route} route */
+    setRoute(route) {
+      /** @type {Route} */
+      const normalized = route?.view === 'device' && route.device
+        ? {
+            view: 'device',
+            device: String(route.device),
+            panel: route.panel ? String(route.panel) : null,
+            panelView: route.panelView === 'panels' || route.panel ? 'panels' : 'preview',
+          }
+        : { view: 'fleet', device: null, panel: null, panelView: 'preview' };
+      commit((current) => ({ ...current, ui: { ...current.ui, route: normalized } }));
     },
 
     /**
-     * Persist a collapsible panel group's open state.
-     * @param {keyof typeof GROUP_STORAGE} group
-     * @param {boolean} open
+     * Push an overlay onto the ordered stack, replacing a duplicate kind/anchor.
+     * An anchored popover also replaces the anchored popover it would sit on.
+     *
+     * @param {Overlay} overlay
      */
-    setGroupOpen(group, open) {
-      if (!(group in GROUP_STORAGE)) return;
+    pushOverlay(overlay) {
+      commit((current) => {
+        const overlays = current.ui.overlays.filter((entry) =>
+          entry.kind !== overlay.kind || entry.anchorKey !== overlay.anchorKey);
+        const anchored = isAnchoredOverlayKind(overlay.kind)
+          ? overlays.filter((entry) => !isAnchoredOverlayKind(entry.kind))
+          : overlays;
+        return { ...current, ui: { ...current.ui, overlays: [...anchored, overlay] } };
+      });
+    },
+
+    /** Replace the top overlay without changing the stack depth. @param {Overlay} overlay */
+    replaceTopOverlay(overlay) {
       commit((current) => ({
         ...current,
-        ui: { ...current.ui, groupOpen: { ...current.ui.groupOpen, [group]: open } },
+        ui: { ...current.ui, overlays: [...current.ui.overlays.slice(0, -1), overlay] },
       }));
-      storage.write(GROUP_STORAGE[group], open);
+    },
+
+    /** Close the most recent overlay matching its kind and optional anchor. */
+    closeOverlay(kind, anchorKey = null) {
+      let index = -1;
+      for (let i = state.ui.overlays.length - 1; i >= 0; i--) {
+        const entry = state.ui.overlays[i];
+        if (entry.kind === kind && (anchorKey === null || entry.anchorKey === anchorKey)) {
+          index = i;
+          break;
+        }
+      }
+      if (index < 0) return;
+      commit((current) => ({
+        ...current,
+        ui: { ...current.ui, overlays: current.ui.overlays.filter((_, i) => i !== index) },
+      }));
+    },
+
+    closeTopOverlay() {
+      if (!state.ui.overlays.length) return;
+      commit((current) => ({ ...current, ui: { ...current.ui, overlays: current.ui.overlays.slice(0, -1) } }));
+    },
+
+    /** The preview mode the user chose: the workspace follows it. @param {'simulated'|'live'} mode */
+    setPreviewMode(mode) {
+      const next = mode === 'live' ? 'live' : 'simulated';
+      if (state.ui.preview.mode === next) return;
+      commit((current) => ({
+        ...current,
+        ui: { ...current.ui, preview: { ...current.ui.preview, mode: next } },
+      }));
+    },
+
+    /** Whether the idle page is showing; the workspace reports the session truth. @param {boolean} idle */
+    setPreviewIdle(idle) {
+      if (state.ui.preview.idle === idle) return;
+      commit((current) => ({
+        ...current,
+        ui: { ...current.ui, preview: { ...current.ui.preview, idle: Boolean(idle) } },
+      }));
+    },
+
+    /** @param {boolean} showEntities */
+    setPreviewEntities(showEntities) {
+      commit((current) => ({
+        ...current,
+        ui: { ...current.ui, preview: { ...current.ui.preview, showEntities } },
+      }));
+    },
+
+    /** Persist a complete drag-reordered device order optimistically. @param {string[]} requestedOrder */
+    async reorderDevices(requestedOrder) {
+      const existing = state.devices.order;
+      const wanted = [...new Set(requestedOrder.filter((name) => existing.includes(name)))];
+      const nextOrder = [...wanted, ...existing.filter((name) => !wanted.includes(name))];
+      if (nextOrder.length !== existing.length || nextOrder.every((name, index) => name === existing[index])) return false;
+      const previousOrder = [...existing];
+      commit((current) => ({ ...current, devices: { ...current.devices, order: nextOrder } }));
+      const deviceName = state.devices.selected || nextOrder[0];
+      const device = deviceName ? state.devices.byName[deviceName] : null;
+      if (!device) {
+        commit((current) => ({ ...current, devices: { ...current.devices, order: previousOrder } }));
+        return false;
+      }
+      const saved = await actions.savePanels({
+        panels: device.panels,
+        toastMessage: t('Device order saved'),
+        deviceName,
+      });
+      if (!saved) {
+        commit((current) => ({ ...current, devices: { ...current.devices, order: previousOrder } }));
+      }
+      return saved;
     },
 
     showToast,
@@ -727,11 +832,6 @@ export function createStore({ client, storage, onToast }) {
     /** @returns {DeviceStatus|null} */
     selectedStatus() {
       return selectors.selected()?.status || null;
-    },
-
-    /** @returns {Object<string, any>|null} */
-    selectedDeviceInfo() {
-      return selectors.selectedStatus()?.device_info || null;
     },
 
     /** @returns {PanelStore} */

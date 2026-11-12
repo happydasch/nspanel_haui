@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 
-from ..haui.device_config import find_store_device
+from ..haui.device_config import DEVICE_CONFIG, find_store_device
+from ..haui.mapping.const import GESTURES
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -22,12 +23,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_STORE_VERSION = 1
-
-# Device-config keys renamed by the stable-release vocabulary change.  The
-# runtime reads only the new names, so a device setting that still lives under
-# a legacy key silently fell back to its default (most notably an unset
-# ``idle_panel`` disabled the idle page and hid the idle button).  The store
-# loader renames these in place; a value already stored under the new key wins.
+# Device-config keys renamed in the idle/display settings release.
 DEVICE_CONFIG_KEY_RENAMES: dict[str, str] = {
     "sleep_panel": "idle_panel",
     "sleep_panel_extra": "idle_panel_extra",
@@ -38,16 +34,7 @@ DEVICE_CONFIG_KEY_RENAMES: dict[str, str] = {
 
 
 def migrate_device_config_keys(device_config: dict) -> bool:
-    """Rename legacy device-config keys in place.
-
-    Args:
-        device_config: The ``config`` dict of one device in the panel store.
-
-    Returns:
-        True when any key was moved.  The legacy key is removed either way so
-        the migration is idempotent and a later explicit ``idle_panel`` /
-        ``use_auto_display_off`` / ... under the new name is never overwritten.
-    """
+    """Rename legacy device-config keys in place and convert the old gesture settings."""
     modified = False
     for old_key, new_key in DEVICE_CONFIG_KEY_RENAMES.items():
         if old_key not in device_config:
@@ -56,20 +43,43 @@ def migrate_device_config_keys(device_config: dict) -> bool:
         if new_key not in device_config:
             device_config[new_key] = old_value
         modified = True
-    if "color_scheme_id" not in device_config and (
-        "color_scheme" in device_config or "color_overrides" in device_config
-    ):
-        legacy_scheme = device_config.get("color_scheme")
-        overrides = device_config.get("color_overrides", {})
-        device_config["color_scheme_id"] = (
-            legacy_scheme
-            if legacy_scheme in ("dark", "light")
-            else "light"
-            if isinstance(overrides, dict) and overrides.get("background") == 65535
-            else "dark"
-        )
-        modified = True
-    return modified
+    return migrate_gesture_settings(device_config) or modified
+
+
+def migrate_gesture_settings(device_config: dict) -> bool:
+    """Merge ``swipe_actions`` and ``gesture_sequences`` into ``gestures`` in place.
+
+    0.4.7 stored ``gesture_sequences`` and had fixed single swipes (the
+    ``gestures`` defaults); 0.5 development builds added ``swipe_actions``.
+    Each swipe with an action becomes a one-swipe gesture ahead of the
+    sequences; a swipe without one gets no gesture, so it still does nothing.
+    An existing ``gestures`` value wins and the old keys are only dropped.
+    """
+    if "swipe_actions" not in device_config and "gesture_sequences" not in device_config:
+        return False
+    swipe_actions = device_config.pop("swipe_actions", None)
+    sequences = device_config.pop("gesture_sequences", None) or []
+    if "gestures" in device_config:
+        return True
+    if swipe_actions is None:
+        gestures = [dict(gesture) for gesture in DEVICE_CONFIG["gestures"]]
+    else:
+        gestures = [
+            {"swipes": [swipe], "action": swipe_actions[swipe], "timeframe": 3}
+            for swipe in GESTURES
+            if swipe_actions.get(swipe)
+        ]
+    gestures += [
+        {
+            "swipes": list(sequence["sequence"]),
+            "action": sequence["open"],
+            "timeframe": sequence["timeframe"],
+        }
+        for sequence in sequences
+    ]
+    device_config["gestures"] = gestures
+    return True
+
 
 
 def drop_fixed_sys_overrides(device_name: str, device_data: dict) -> bool:
@@ -113,7 +123,30 @@ def panel_store(hass: Any, entry_id: str) -> Store:
 
 def empty_store() -> dict:
     """Return a fresh panel store payload for an entry with no saved panels."""
-    return {"version": 1, "devices": {}}
+    return {"version": 1, "device_order": [], "devices": {}, "themes": {}}
+
+
+def normalize_device_order(store_data: dict) -> bool:
+    """Keep the stored device order unique and synchronized with the device map.
+
+    Existing valid order is preserved; devices missing from the order are
+    appended in the store mapping's insertion order.
+    """
+    devices = store_data.get("devices", {})
+    if not isinstance(devices, dict):
+        devices = {}
+    current = store_data.get("device_order", [])
+    if not isinstance(current, list):
+        current = []
+    order: list[str] = []
+    for name in current:
+        if isinstance(name, str) and name in devices and name not in order:
+            order.append(name)
+    order.extend(name for name in devices if name not in order)
+    if store_data.get("device_order") == order:
+        return False
+    store_data["device_order"] = order
+    return True
 
 
 def empty_device() -> dict:
@@ -133,8 +166,14 @@ async def async_remove_device(hass: Any, entry: ConfigEntry, name: str) -> None:
     """
     store = panel_store(hass, entry.entry_id)
     panels_data = await store.async_load() or empty_store()
-    if name in panels_data.get("devices", {}):
-        panels_data["devices"].pop(name)
+    devices = panels_data.get("devices", {})
+    modified = False
+    if name in devices:
+        devices.pop(name)
+        modified = True
+    if normalize_device_order(panels_data):
+        modified = True
+    if modified:
         await store.async_save(panels_data)
         _LOGGER.debug("Removed device %s from panel store for %s", name, entry.entry_id)
 
@@ -190,7 +229,6 @@ class PanelStorage:
         data = await self._store.async_load()
         result: dict = data or empty_store()
         root_modified = False
-
         if self._config_entry is not None:
             modified = False
             store_devices = result.setdefault("devices", {})
@@ -201,7 +239,7 @@ class PanelStorage:
                     modified = True
 
             if modified:
-                await self._store.async_save(result)
+                root_modified = True
 
         # Migrate legacy device-config keys in place (also without a config
         # entry: the store holds the same shape either way).  One-time, then
@@ -215,6 +253,9 @@ class PanelStorage:
                 modified = True
             if drop_fixed_sys_overrides(dev_name, dev_data):
                 modified = True
+
+        if normalize_device_order(result):
+            modified = True
 
         if modified:
             await self._store.async_save(result)

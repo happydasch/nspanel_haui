@@ -25,6 +25,7 @@ class AlarmPage(HAUIPage):
         page_id=17,
         label=_("Alarm"),
         description=_("Alarm control panel with numeric keypad."),
+        category="tools",
         options=[
             PageOption(
                 key="item",
@@ -275,9 +276,9 @@ class AlarmPage(HAUIPage):
     def _style_keypad(self, panel: HAUIPanel) -> None:
         """Apply the configured font and colors to every keypad button once.
 
-        Unset colors use the theme's ``background`` and ``component_text``, so
-        the keys follow the device's color overrides; the font falls back to
-        the descriptor default for panels saved before the keypad options
+        Unset colors use the selected theme's ``background`` and
+        ``component_text``; the font falls back to the descriptor default for
+        panels saved before the keypad options
         existed (including the unlock popup, which is a system panel and has no
         options of its own).
         """
@@ -413,8 +414,12 @@ class AlarmPage(HAUIPage):
                 self._input = ""
             self.update_components()
 
+    def _keypad_enabled(self) -> bool:
+        """Whether the keypad takes input: only while the alarm entity is available."""
+        return self.item_is_available(self._item)
+
     def callback_keypad(self, event: HAUIEvent, component: Component) -> None:
-        if not self.item_is_available(self._item):
+        if not self._keypad_enabled():
             return
         with self.rec_cmd:
             name = component.name

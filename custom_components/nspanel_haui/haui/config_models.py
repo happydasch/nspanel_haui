@@ -7,16 +7,14 @@ importlib I/O that must stay off the HA event loop.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, Literal
 
-from .device_config import LOG_LEVEL_OPTIONS
+from .device_config import DEVICE_CONFIG, LOG_LEVEL_OPTIONS
 from .mapping.const import GESTURES
+from .schedule import SUN_EVENTS, parse_boundary
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
-
-_LOGGER = logging.getLogger(__name__)
 
 __all__ = ["validate_config_model", "validate_device_config", "validate_panels"]
 
@@ -45,8 +43,6 @@ def _ensure_models() -> None:
         model_validator,
     )
 
-    from .mapping.color import COLORS
-
     class _PanelConfig(BaseModel):
         model_config = ConfigDict(extra="allow")
         type: str | None = None
@@ -54,29 +50,63 @@ def _ensure_models() -> None:
         key: str | None = None
         show_in_navigation: bool = True
 
-    class _GestureSequence(BaseModel):
-        """One entry of the ``gesture_sequences`` device setting."""
+    class _ScheduleEntry(BaseModel):
+        """One entry of the ``schedule`` device setting.
+
+        A value left out (``None``) is not set by the entry: the device setting
+        of the same name applies.
+        """
 
         model_config = ConfigDict(extra="forbid")
-        sequence: list[str]
-        timeframe: int = Field(ge=1, le=60)
-        open: str
+        start: str
+        end: str
+        sound: bool
+        brightness: int | None = Field(None, ge=0, le=100)
+        brightness_dim: int | None = Field(None, ge=0, le=100)
+        display_off: bool
+        timeout_dimming: int | None = Field(None, ge=0, le=3600)
+        timeout_display_off: int | None = Field(None, ge=0, le=3600)
+        duration_dimming: float | None = Field(None, ge=0, le=5)
+        start_offset: int = Field(0, ge=-720, le=720)
+        end_offset: int = Field(0, ge=-720, le=720)
 
-        @field_validator("sequence")
+        @field_validator("start", "end")
+        @classmethod
+        def _time_or_sun_event(cls, v: str) -> str:
+            try:
+                parse_boundary(v)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"expected HH:MM or one of {list(SUN_EVENTS)}, got {v!r}"
+                ) from exc
+            return v
+
+        @model_validator(mode="after")
+        def _window_not_empty(self) -> _ScheduleEntry:
+            same_offset = self.start not in SUN_EVENTS or self.start_offset == self.end_offset
+            if self.start == self.end and same_offset:
+                raise ValueError("a schedule entry's start and end must differ")
+            return self
+
+    class _Gesture(BaseModel):
+        """One entry of the ``gestures`` device setting.
+
+        ``action`` is a ``GestureAction`` or a panel key.  An unfinished entry
+        is valid, so a draft with an entry just added can be saved: the gesture
+        controller ignores an entry with no swipes or no action.
+        """
+
+        model_config = ConfigDict(extra="forbid")
+        swipes: list[str]
+        action: str
+        timeframe: int = Field(ge=1, le=60)
+
+        @field_validator("swipes")
         @classmethod
         def _known_gestures(cls, v: list[str]) -> list[str]:
-            if not v:
-                raise ValueError("a gesture sequence needs at least one swipe")
             unknown = [g for g in v if g not in GESTURES]
             if unknown:
                 raise ValueError(f"unknown gesture(s) {unknown}; use one of {list(GESTURES)}")
-            return v
-
-        @field_validator("open")
-        @classmethod
-        def _needs_panel(cls, v: str) -> str:
-            if not v:
-                raise ValueError("a gesture sequence needs a panel to open")
             return v
 
     class _DeviceConfig(BaseModel):
@@ -99,26 +129,9 @@ def _ensure_models() -> None:
         sound_on_startup: bool = False
         sound_on_notification: bool = False
         persistent_sound_interval: int = Field(5, ge=1, le=600)
-        use_do_not_disturb: bool = False
-        quiet_hours_start: str = ""
-        quiet_hours_end: str = ""
-        day_night_schedule_mode: str = Field("off", pattern="^(off|fixed|sun)$")
-        day_night_start: str = "21:00"
-        day_night_end: str = "07:00"
-        day_night_sunset_offset: int = Field(0, ge=-720, le=720)
-        day_night_sunrise_offset: int = Field(0, ge=-720, le=720)
-        day_night_profiles_initialized: bool = False
-        day_brightness_full: int | None = Field(None, ge=0, le=100)
-        day_brightness_dimmed: int | None = Field(None, ge=0, le=100)
-        day_duration_dim: float | None = Field(None, ge=0, le=5)
-        night_timeout_dimming: int = Field(10, ge=0, le=3600)
-        night_duration_dim: float = Field(2, ge=0, le=5)
-        night_use_auto_page: bool = True
-        night_timeout_page: int = Field(30, ge=0, le=3600)
-        night_idle_panel: str = ""
-        night_timeout_display_off: int = Field(120, ge=0, le=3600)
-        night_brightness_full: int = Field(50, ge=0, le=100)
-        night_brightness_dimmed: int = Field(20, ge=0, le=100)
+        brightness: int | None = Field(None, ge=0, le=100)
+        brightness_dim: int | None = Field(None, ge=0, le=100)
+        schedule: list[_ScheduleEntry] = Field(default_factory=list)
         use_relay_left: bool = True
         use_relay_right: bool = True
         use_auto_dimming: bool = True
@@ -132,25 +145,26 @@ def _ensure_models() -> None:
         timeout_dimming: int = Field(10, ge=0, le=3600)
         timeout_page: int = Field(30, ge=0, le=3600)
         timeout_display_off: int = Field(120, ge=0, le=3600)
+        # Fade time of the dimming transition, in seconds (the firmware's
+        # "Duration Dimming" number).
+        duration_dimming: float = Field(2.0, ge=0, le=5)
         log_level: str = "INFO"
         stale_data_seconds: int = Field(0, ge=0, le=86400)
         auto_navigate_home_timeout: int = Field(0, ge=0, le=86400)
-        color_scheme: Literal["dark", "light"] = "dark"
-        color_scheme_id: str = "dark"
-        color_overrides: dict[str, int] = Field(default_factory=dict)
-        gesture_sequences: list[_GestureSequence] = Field(default_factory=list)
+        theme_variant: Literal["dark", "light"] = "dark"
+        theme_id: str = "dark"
+        gestures: list[_Gesture] = Field(
+            default_factory=lambda: [_Gesture(**entry) for entry in DEVICE_CONFIG["gestures"]]
+        )
         enabled: bool = True
 
         @model_validator(mode="after")
-        def _brightness_ranges(self) -> _DeviceConfig:
-            for full_key, dimmed_key in (
-                ("day_brightness_full", "day_brightness_dimmed"),
-                ("night_brightness_full", "night_brightness_dimmed"),
-            ):
-                full = getattr(self, full_key)
-                dimmed = getattr(self, dimmed_key)
-                if full is not None and dimmed is not None and dimmed > full:
-                    raise ValueError(f"{dimmed_key} cannot exceed {full_key}")
+        def _schedule_needs_brightness(self) -> _DeviceConfig:
+            if self.schedule and self.brightness is None:
+                raise ValueError(
+                    "a schedule needs the brightness setting: it is the brightness "
+                    "outside the schedule's windows"
+                )
             return self
 
         @field_validator("log_level")
@@ -160,36 +174,6 @@ def _ensure_models() -> None:
             if not isinstance(v, str) or v.upper() not in LOG_LEVEL_OPTIONS:
                 raise ValueError(f"unsupported log level {v!r}; use one of {LOG_LEVEL_OPTIONS}")
             return v.upper()
-
-        @field_validator("color_overrides", mode="before")
-        @classmethod
-        def _validate_color_overrides(cls, v: Any) -> dict[str, int]:
-            """Validate color_overrides: warn on unknown keys, clamp to 0-65535."""
-            if not isinstance(v, dict):
-                return v
-            validated: dict[str, int] = {}
-            for key, raw in v.items():
-                if not isinstance(key, str):
-                    _LOGGER.warning("Ignoring non-string key %r in color_overrides", key)
-                    continue
-                if key not in COLORS:
-                    # Only the global COLORS palette is overridable. Domain
-                    # colors (weather/alarm/climate) are fixed constants, so any
-                    # unknown key is dropped rather than stored.
-                    _LOGGER.debug("Dropping non-overridable color key %r from color_overrides", key)
-                    continue
-                try:
-                    val = int(raw) if not isinstance(raw, int) else raw
-                except ValueError, TypeError:
-                    _LOGGER.warning("Invalid color value %r for key %r, ignoring", raw, key)
-                    continue
-                if val < 0 or val > 65535:
-                    _LOGGER.warning(
-                        "Color value %r for key %r outside RGB565 range, clamping", val, key
-                    )
-                    val = max(0, min(val, 65535))
-                validated[key] = val
-            return validated
 
     class _DeviceEntry(_DeviceConfig):
         """Device entry as it appears in cfg['devices'] — identity + config."""

@@ -33,6 +33,15 @@ class ESPEvent(StrEnum):
 # Touch gestures the display reports (the values of ``ESPEvent.GESTURE``).
 GESTURES: tuple[str, ...] = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
 
+
+class GestureAction(StrEnum):
+    """Values of a gesture's ``action`` that are not a panel key."""
+
+    NONE = ""
+    NEXT_PANEL = "next_panel"
+    PREV_PANEL = "prev_panel"
+
+
 # The firmware's automatic display switches, which the device settings own:
 # the key a popup suspends one by (``HAUIPage._save_auto_state``) and the
 # ESPHome entity name of the switch.  Automatic page switching has no firmware

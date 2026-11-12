@@ -143,6 +143,34 @@ test('a status response for the previously selected device is dropped', async ()
   store.actions.stopSelectedStatusPolling();
 });
 
+test('a failed all-device poll reports its error until a poll succeeds again', async () => {
+  let fail = true;
+  const store = seededStore({
+    client: {
+      status: {
+        get: async () => ({}),
+        getAll: async () => {
+          if (fail) throw new Error('offline');
+          return { kitchen: { connected: true } };
+        },
+      },
+    },
+  });
+  const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
+
+  store.actions.startAllStatusPolling();
+  await settle();
+  store.actions.stopAllStatusPolling();
+  assert.equal(store.getState().hub.statusError, 'offline');
+
+  fail = false;
+  store.actions.startAllStatusPolling();
+  await settle();
+  store.actions.stopAllStatusPolling();
+  assert.equal(store.getState().hub.statusError, null);
+  assert.equal(store.getState().devices.byName.kitchen.status.connected, true);
+});
+
 test('selecting a device shows only its cached status while fetching the new one', async () => {
   let resolveRequest;
   const store = seededStore({
@@ -215,18 +243,44 @@ test('loadHub keeps the selected device and loads statuses before loading ends',
   store.actions.stopSelectedStatusPolling();
 });
 
-test('view mode and group open state persist to storage', () => {
-  const storage = memoryStorage();
-  const store = createStore({ client: client(), storage });
+test('device order round-trips in the panel store and can be reordered atomically', async () => {
+  const saved = [];
+  const store = seededStore({
+    client: {
+      panels: {
+        load: async () => ({ devices: {} }),
+        save: async (entryId, payload) => { saved.push(payload); return { status: 'ok' }; },
+      },
+    },
+  });
 
-  store.actions.setViewMode('list');
-  store.actions.setGroupOpen('nav', false);
-  store.actions.setGroupOpen('system', true);
+  assert.equal(await store.actions.reorderDevices(['office', 'kitchen']), true);
+  assert.deepEqual(store.getState().devices.order, ['office', 'kitchen']);
+  assert.deepEqual(saved[0].device_order, ['office', 'kitchen']);
+});
 
-  assert.equal(store.getState().ui.viewMode, 'list');
-  assert.equal(store.getState().ui.groupOpen.nav, false);
-  assert.equal(store.getState().ui.groupOpen.system, true);
-  assert.equal(storage.values.get('haui_viewMode'), 'list');
-  assert.equal(storage.values.get('haui_navPanelsOpen'), 'false');
-  assert.equal(storage.values.get('haui_systemPanelsOpen'), 'true');
+test('failed device reorder restores the prior order', async () => {
+  const store = seededStore({
+    client: { panels: { load: async () => ({ devices: {} }), save: async () => { throw new Error('save failed'); } } },
+  });
+
+  assert.equal(await store.actions.reorderDevices(['office', 'kitchen']), false);
+  assert.deepEqual(store.getState().devices.order, ['kitchen', 'office']);
+});
+
+test('route and overlays update shared UI state; Escape can close overlays in stack order', () => {
+  const store = seededStore();
+  store.actions.setRoute({ view: 'device', device: 'office', panel: 'popup_notify', panelView: 'panels' });
+  store.actions.pushOverlay({ kind: 'sidebar', anchorKey: 'configure', subject: 'device', draft: null });
+  store.actions.pushOverlay({ kind: 'menu', anchorKey: 'panel-menu', subject: 'clock', draft: null });
+
+  assert.equal(store.getState().ui.route.device, 'office');
+  assert.deepEqual(store.getState().ui.overlays.map(({ kind }) => kind), ['sidebar', 'menu']);
+  store.actions.closeTopOverlay();
+  assert.deepEqual(store.getState().ui.overlays.map(({ kind }) => kind), ['sidebar']);
+  store.actions.closeOverlay('sidebar', 'wrong-anchor');
+  assert.deepEqual(store.getState().ui.overlays.map(({ kind }) => kind), ['sidebar']);
+  store.actions.pushOverlay({ kind: 'menu', anchorKey: 'another-menu', subject: null, draft: null });
+  store.actions.closeOverlay('menu', 'another-menu');
+  assert.deepEqual(store.getState().ui.overlays.map(({ kind }) => kind), ['sidebar']);
 });

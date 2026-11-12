@@ -5,7 +5,7 @@
  * Panel-specific preview generation lives in `previewer.js`.
  */
 import { html } from '../lit-import.js';
-import { renderDisplay } from '../virtual/nextion-view.js';
+import { color, renderDisplay } from '../virtual/nextion-view.js';
 
 export { loadIconMap, loadLayout, pictureUrlFor } from '../virtual/assets.js';
 
@@ -23,8 +23,12 @@ export function renderSimulatorScreen(display, opts = {}) {
   const width = layout.visible_width;
   const height = layout.height;
   const scale = opts.scale != null && opts.scale > 0 ? opts.scale : 1;
+  // The card behind the scaled screen takes the page's own solid colour (the
+  // device theme the hub painted), so no black edge shows around a themed page.
+  const page = display.component(0)?.attrs;
+  const theme = page?.sta === 1 && page.bco !== undefined ? `background:${color(page.bco)};` : '';
   return html`
-    <div class="pg-sim" style="width:${width * scale}px;aspect-ratio:${width}/${height};">
+    <div class="pg-sim" style="width:${width * scale}px;aspect-ratio:${width}/${height};${theme}">
       <div class="pg-sim-scaler" style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0;">
         ${renderDisplay(display, opts)}
       </div>

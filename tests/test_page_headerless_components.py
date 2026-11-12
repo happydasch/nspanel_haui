@@ -50,8 +50,8 @@ def test_blank_page_declares_only_its_own_widget():
     assert [c.name for c in BlankPage.COMPONENTS.values()] == ["hBlank"]
 
 
-def test_grid_item_options_include_tile_color_overrides():
-    """Grid items can override tile colors while unspecified colors use the device scheme."""
+def test_grid_item_options_include_tile_theme_overrides():
+    """Grid items can override tile colors while unspecified colors use the device theme."""
     (grid,) = [d for d in get_user_panel_type_descriptors("pl") if d["type_key"] == "grid"]
 
     options = {o["key"]: o for o in grid["item_options"]}

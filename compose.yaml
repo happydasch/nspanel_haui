@@ -1,4 +1,4 @@
-# Throwaway Home Assistant running the checked-out integration (docs/development.md).
+# Throwaway Home Assistant running the checked-out integration (docs/develop/development.md).
 services:
   homeassistant:
     # The Home Assistant version the integration requires (minimum in the Marketplace metadata).

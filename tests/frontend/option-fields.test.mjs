@@ -42,6 +42,31 @@ test('a text option stores the raw text', () => {
   assert.equal(h._editingPanel.data.name, 'b');
 });
 
+test('a number field keeps what is being typed until the field is left', async () => {
+  const { renderNumberInput } = await import('../../custom_components/nspanel_haui/frontend/form-fields.js');
+  const { noChange } = await import('../../custom_components/nspanel_haui/frontend/lit-import.js');
+  const input = { id: 'dc-timeout', value: '', isConnected: true };
+  let stored = 10;
+  const store = (raw) => { stored = raw === '' ? 0 : Number(raw); };
+  const [onInput, onBlur] = handlers(renderNumberInput('dc-timeout', stored, store));
+
+  // Emptying the field stores the minimum, but a render must not write "0" into the box.
+  onInput({ target: input });
+  assert.equal(stored, 0);
+  assert.ok(renderNumberInput('dc-timeout', stored, store).values.includes(noChange));
+  // Other number fields still follow their stored value.
+  assert.ok(renderNumberInput('dc-other', 5, store).values.includes('5'));
+
+  // Leaving the field hands it back to the stored value.
+  onBlur();
+  assert.ok(renderNumberInput('dc-timeout', stored, store).values.includes('0'));
+
+  // A field that was removed while it was being typed in is not remembered.
+  onInput({ target: input });
+  input.isConnected = false;
+  assert.ok(renderNumberInput('dc-timeout', stored, store).values.includes('0'));
+});
+
 import { colorFieldText } from '../../custom_components/nspanel_haui/frontend/form-fields.js';
 
 test('colour fields show plain colours as #rrggbb and keep templates as written', () => {

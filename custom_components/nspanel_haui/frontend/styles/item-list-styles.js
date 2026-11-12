@@ -26,8 +26,8 @@ export const itemListStyles = css`
   .item-list-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: 2px;
+    padding: 3px 2px 3px 3px;
     border: 1px solid var(--divider-color, #e0e0e0);
     border-radius: 8px;
     background: var(--card-background-color, #fff);
@@ -37,6 +37,30 @@ export const itemListStyles = css`
     border-color: var(--primary-color, #03a9f4);
     box-shadow: 0 1px 4px rgba(3, 169, 244, 0.1);
   }
+  .item-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px 4px 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+  .item-row-main:hover { background: var(--secondary-background-color, #f5f5f5); }
+  .item-row-main:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: -2px; }
+  .item-row-edit {
+    flex-shrink: 0;
+    --mdc-icon-size: 16px;
+    color: var(--secondary-text-color, #666);
+    opacity: 0.7;
+  }
+  .item-row-main:hover .item-row-edit { opacity: 1; }
 
   .item-row-icon {
     flex-shrink: 0;
@@ -91,45 +115,26 @@ export const itemListStyles = css`
     font-family: var(--code-font-family, monospace);
     opacity: 0.9;
   }
-  .item-row-actions {
+  .item-list-row[draggable="true"] { cursor: grab; }
+  .item-list-row.is-dragging { opacity: .5; }
+  .item-list-row.is-drop-before { box-shadow: inset 0 2px 0 var(--primary-color, #03a9f4); }
+  .item-list-row.is-drop-after { box-shadow: inset 0 -2px 0 var(--primary-color, #03a9f4); }
+  .item-row-grip {
     flex-shrink: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0;
+    color: var(--secondary-text-color, #666);
+    opacity: 0.7;
+    --mdc-icon-size: 18px;
   }
-  .item-row-actions ha-icon-button {
-    --mdc-icon-button-size: 32px;
+  .item-list-row:hover .item-row-grip { opacity: 1; }
+  .item-row-remove {
+    flex-shrink: 0;
+    --mdc-icon-button-size: 34px;
     --mdc-icon-size: 18px;
     color: var(--secondary-text-color, #666);
-    transition: color 0.12s;
   }
-  .item-row-actions ha-icon-button:hover {
-    color: var(--primary-text-color, #212121);
-  }
-  .item-row-actions ha-icon-button[disabled] {
-    opacity: 0.3;
-    pointer-events: none;
-  }
-
-  .add-item-btn {
-    background: transparent;
-    color: var(--primary-color, #03a9f4);
-    border: 1px dashed var(--divider-color, #e0e0e0);
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 500;
-    width: 100%;
-    margin-top: 8px;
-    transition: background 0.15s, border-color 0.15s;
-    font-family: inherit;
-  }
-  .add-item-btn:hover {
-    background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, transparent);
-    border-color: var(--primary-color, #03a9f4);
-    border-style: solid;
-  }
+  .item-row-remove:hover { color: var(--error-color, #db4437); }
 
   /* ── collapsible toggle ──────────── */
   .collapsible-title {

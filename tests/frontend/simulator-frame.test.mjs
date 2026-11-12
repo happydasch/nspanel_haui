@@ -9,6 +9,7 @@ import {
   SimulatorFrameElement,
   setPanelRenderSource,
 } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/virtual/assets.js';
 
 const asset = (name) => JSON.parse(readFileSync(
@@ -159,4 +160,47 @@ test('a slower older render never replaces a newer one', async () => {
   } finally {
     setPanelRenderSource(null);
   }
+});
+
+test('a new frame shows the card\'s last render until the hub answers', async () => {
+  const replies = [
+    { page: 6, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] },
+  ];
+  let answer;
+  replies.push(new Promise((resolve) => { answer = resolve; }));
+  const hass = { connection: { sendMessagePromise: async () => replies.shift() } };
+  const context = (ip) => ({
+    entryId: 'entry1',
+    device: 'kitchen',
+    deviceConfig: {},
+    panels: [],
+    deviceInfo: { ip },
+    api: createApiClient(() => hass),
+  });
+  const frame = (ip, shown) => {
+    const element = Object.create(SimulatorFrameElement.prototype);
+    Object.assign(element, {
+      context: context(ip),
+      panel: { type: 'weather', key: 'weather_0' },
+      portrait: false,
+      byKey: false,
+      _display: null,
+      _started: false,
+      _seq: 0,
+      _measure() {},
+      requestUpdate() { shown.push(this._display?.component('f1Name').attrs.txt); },
+    });
+    return element;
+  };
+
+  await frame('10.0.0.1', [])._start();
+
+  // A new address is a new render key: the hub is asked again.
+  const shown = [];
+  const started = frame('10.0.0.2', shown)._start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(shown, ['Old']);
+  answer({ page: 6, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] });
+  await started;
+  assert.deepEqual(shown, ['Old', 'New']);
 });

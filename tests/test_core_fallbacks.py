@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -10,7 +11,7 @@ import pytest
 from custom_components.nspanel_haui.haui.device import HAUIDevice
 from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
-# --- quiet hours --------------------------------------------------------------
+# --- schedule -----------------------------------------------------------------
 
 
 class _ESPHome:
@@ -26,45 +27,31 @@ class _App:
         esphome = type("Ctrl", (), {})()
         esphome.esphome = _ESPHome()
         self.controller: dict[str, Any] = {"esphome": esphome}
-        self.logs: list[tuple[str, dict]] = []
-        self.device: HAUIDevice | None = None
+
+    def now(self) -> datetime:
+        return datetime(2026, 1, 1, 23, 0)
 
     def log(self, msg: str, **kwargs: Any) -> None:
-        self.logs.append((msg, kwargs))
+        pass
 
 
-def _device(app: _App, start: str, end: str) -> HAUIDevice:
-    device = HAUIDevice(
-        app,
-        {
-            "use_do_not_disturb": True,
-            "quiet_hours_start": start,
-            "quiet_hours_end": end,
-        },
-    )
-    app.device = device
-    return device
-
-
-def test_malformed_quiet_hours_are_reported_and_sound_still_plays() -> None:
+def test_a_malformed_schedule_entry_raises_instead_of_being_skipped() -> None:
+    """Saved settings are validated; an entry that slipped past must not be ignored."""
     app = _App()
-    device = _device(app, "10pm", "07:00")
+    entry = {
+        "start": "10pm",
+        "end": "07:00",
+        "sound": False,
+        "brightness": 20,
+        "display_off": True,
+        "timeout_display_off": 30,
+    }
+    device = HAUIDevice(app, {"schedule": [entry]})
 
-    device.play_sound("notification")
+    with pytest.raises(ValueError, match="10pm"):
+        device.play_sound("notification")
 
-    assert app.controller["esphome"].esphome.published == [("play_sound", "notification")]
-    warnings = [msg for msg, kw in app.logs if kw.get("level") == "WARNING"]
-    assert len(warnings) == 1
-    assert "10pm" in warnings[0]
-
-
-def test_valid_quiet_hours_log_no_warning() -> None:
-    app = _App()
-    device = _device(app, "00:00", "23:59")
-
-    device.play_sound("notification")
-
-    assert [kw for _msg, kw in app.logs if kw.get("level") == "WARNING"] == []
+    assert app.controller["esphome"].esphome.published == []
 
 
 # --- parse_color_value ----------------------------------------------------------

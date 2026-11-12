@@ -92,16 +92,26 @@ def test_every_card_renders_on_the_hub_and_replays_in_the_browser(
 @pytest.mark.parametrize(
     ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
 )
-def test_every_card_follows_the_background_colours(hub_loop, tmp_path, display_model, orientation):
-    """Compiled theme colours follow the device, from the page's first frame on.
+def test_every_card_follows_the_selected_theme_colours(
+    hub_loop, tmp_path, display_model, orientation
+):
+    """Compiled theme colours follow the shared palette from the page's first frame on.
 
-    Page, header, pressed and control backgrounds take the device's colours, and
+    Page, header, pressed and control backgrounds take the selected theme's colours, and
     the page loads in them: no colour change is visible after the page switch.
     """
+    from copy import deepcopy
+
+    from custom_components.nspanel_haui.haui.mapping.color import BUILTIN_THEMES
+
+    theme = deepcopy(BUILTIN_THEMES["dark"])
+    theme["name"] = "Test"
+    theme["colors"].update(THEMED_COLORS)
     renders = sample_world.render_every_card(
-        hub_loop, display_model, {"color_overrides": THEMED_COLORS}
+        hub_loop, display_model, {"theme_id": "test"}, {"test": theme}
     )
 
+    assert f"thmBg={THEMED_COLORS['background']}" in renders[SysPanelKey.SYS_BLANK]["before"]
     _replay(tmp_path, orientation, renders, "--themed-colors")
 
 

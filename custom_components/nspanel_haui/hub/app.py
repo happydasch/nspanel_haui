@@ -16,7 +16,7 @@ from ..haui.controller.notification import HAUINotificationController
 from ..haui.controller.update import HAUIUpdateController
 from ..haui.device import HAUIDevice
 from ..haui.device_config import DEVICE_CONFIG_FIELDS
-from ..haui.mapping.color import ColorTheme
+from ..haui.mapping.color import Theme
 from ..haui.mapping.const import ESPEvent, NotifEvent
 from ..haui.mapping.panel import PAGE_MAPPING
 from ..haui.version import firmware_version_mismatch, get_version
@@ -69,11 +69,10 @@ class NSPanelHAUI(HAAdapter):
         device_cfg = self.device_config.get("device")
         self.device = self._create_device(device_cfg)
 
-        self.color_theme = ColorTheme(
-            device_cfg["color_overrides"],
-            device_cfg["color_scheme"],
-            device_cfg.get("resolved_color_scheme"),
-            scheme_id=device_cfg["color_scheme_id"],
+        self.theme = Theme(
+            device_cfg["theme_variant"],
+            device_cfg.get("resolved_theme"),
+            theme_id=device_cfg["theme_id"],
         )
 
         # The runtime device name comes from the constructor (set by async_setup_entry).
@@ -220,11 +219,10 @@ class NSPanelHAUI(HAAdapter):
             }
             for field in DEVICE_CONFIG_FIELDS:
                 self.device.config[field] = device_cfg[field]
-        self.color_theme = ColorTheme(
-            device_cfg["color_overrides"],
-            device_cfg["color_scheme"],
-            device_cfg.get("resolved_color_scheme"),
-            scheme_id=device_cfg["color_scheme_id"],
+        self.theme = Theme(
+            device_cfg["theme_variant"],
+            device_cfg.get("resolved_theme"),
+            theme_id=device_cfg["theme_id"],
         )
 
         self.device_config._panels = new_config._panels
@@ -363,6 +361,8 @@ class NSPanelHAUI(HAAdapter):
             "connected": conn.is_connected if conn else False,
             "connection_state": conn.connection_state.value if conn else "unknown",
             "current_page": self._format_current_page(page),
+            # The key the editor's simulated preview opens the same panel with.
+            "current_panel": page.panel.get("key", "") if page and page.panel else "",
             "logs": self.get_status_logs()[-50:],
             # Panel Doctor: versions + health summary
             "haui_version": get_version(),
@@ -411,19 +411,12 @@ class NSPanelHAUI(HAAdapter):
                 if conn and conn.is_connected and conn.last_connection_time
                 else None
             ),
-            "idle_page_active": bool(self.device.sleeping) if self.device else False,
+            "display_state": self.device.display_state if self.device else None,
         }
-
-        # ESPHome transport info
-        esphome_ctrl = self.controller.get("esphome")
-        if esphome_ctrl:
-            result["esphome"] = {
-                "device_names": esphome_ctrl._device_names,
-                "transport": "esphome",
-            }
+        result["idle_page"] = nav.idle_status() if nav is not None else None
+        result["connection_health"] = conn.health() if conn else None
 
         # Active state listeners on the current page
-        nav = self.controller.get("navigation")
         active_listeners = []
         if nav is not None and nav.page is not None:
             meta = getattr(nav.page, "_listener_meta", {})

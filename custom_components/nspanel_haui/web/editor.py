@@ -40,6 +40,8 @@ async def async_register_frontend(hass) -> None:
 
     # The content digest changes the URL even for frontend fixes between releases,
     # so an open browser cannot keep an older module against a newer backend.
+    # That also makes every URL immutable: the browser may cache the ~90 modules
+    # instead of revalidating each of them on every visit.
     version = await hass.async_add_executor_job(_frontend_asset_version)
     static_url_path = f"{STATIC_URL_PREFIX}/{version}"
 
@@ -48,7 +50,7 @@ async def async_register_frontend(hass) -> None:
             StaticPathConfig(
                 static_url_path,
                 str(FRONTEND_DIR),
-                False,
+                True,
             )
         ]
     )

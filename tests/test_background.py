@@ -33,12 +33,12 @@ def test_light_background_is_available_on_each_picture_page() -> None:
         assert light_background_selected(page, panel)
 
 
-def test_scheme_background_uses_solid_picture_not_layout_helper() -> None:
-    from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+def test_theme_background_uses_solid_picture_not_layout_helper() -> None:
+    from custom_components.nspanel_haui.haui.mapping.color import Theme
 
-    for scheme, picture_id in (("dark", 1), ("light", 2)):
+    for variant, picture_id in (("dark", 1), ("light", 2)):
         page = SimpleNamespace(
-            app=SimpleNamespace(color_theme=ColorTheme({}, scheme)),
+            app=SimpleNamespace(theme=Theme(variant)),
             render_template=lambda value, *_args: value,
         )
         panel = SimpleNamespace(

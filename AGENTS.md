@@ -51,7 +51,7 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/hub/esphome_helpers.py` | ESPHome discovery utilities (find HAUI devices in the device registry, resolve their entities) |
 | `custom_components/nspanel_haui/web/preview/virtual_panel.py` | Editor live preview in Simulated (sandbox) mode and panel cards: `VirtualNSPanelHAUI` + `VirtualESPHomeProxy` (one second app per device, driven by the browser instead of ESPHome), `VirtualPanelHost` (viewers + isolated card renders) |
 | `custom_components/nspanel_haui/web/preview/sandbox.py` | Simulated entity states for the live preview's sandbox mode |
-| `custom_components/nspanel_haui/web/websocket.py` | Virtual panel WebSocket commands (`nspanel_haui/virtual_panel/subscribe`, `/event`, `/home`, `/idle`, `/reset_sandbox` for the sandbox preview, `/render` for panel cards) and the one-app-per-device host registry |
+| `custom_components/nspanel_haui/web/websocket.py` | Virtual panel WebSocket commands (`nspanel_haui/virtual_panel/subscribe`, `/event`, `/home`, `/open`, `/idle`, `/reset_sandbox` for the sandbox preview, `/render` for panel cards) and the one-app-per-device host registry |
 | `custom_components/nspanel_haui/web/preview/live_panel.py` | Editor live preview in Live mode: `LivePanel` mirrors the device's running app (its display output, checked input) and its WebSocket commands (`nspanel_haui/live_panel/subscribe`, `/event`, `/slider`, `/action`); shares nothing with the sandbox |
 | `custom_components/nspanel_haui/web/preview/button_lights.py` | Hardware button lights of the preview frame, shared by the sandbox and live previews |
 | `custom_components/nspanel_haui/web/editor.py` | Registers the editor sidebar panel and serves `frontend/` as static files; keep Python files out of `frontend/`, which is served without authentication |
@@ -94,7 +94,7 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/web/` | Browser-facing surface: `editor.py` (sidebar panel + static assets), `websocket.py` (virtual panel commands) and `preview/` (sandbox, live view, button lights) |
 | `custom_components/nspanel_haui/frontend/` | HA Lovelace editor UI (vanilla JS, loaded as a panel); `previews/` holds panel preview renderers |
 | `tests/` | Pytest tests (backend) plus Node test-runner tests in `tests/frontend/`; `conftest.py` stubs `homeassistant` and `dateutil`, so no running HA instance is needed |
-| `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
+| `docs/` | Documentation site: `user/` (install, quick start, updating, configuration, panels, device, services, examples, FAQ, troubleshooting) and `develop/` (development, release, update process, design, frontend, communication, notifications, ESPHome, Hub, Nextion); the home page `README.md`, the generated `screens.html` and `cheatsheet.html` and `assets/` stay at the top level |
 | `nextion/` | Nextion display assets (TFT file, HMI source, fonts, images) |
 | `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, and the TFT upload `tft_upload_http_buffer_size_tx` option, esphome#21435, both missed the 2026.10.0 release, plus a TFT upload retry fix that is not upstream yet) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains every fix listed in `nextion_patch/README.md` |
 | `scripts/` | Development utilities: font generation (`font_tools`, `charset`), colour palettes/wheels (`color_palette`, `color_wheel`), spinner generation (`spinner`), background tile generation (`backgrounds`), design grids (`design_grid`), layout tools (`hmi_layout`: HMI geometry patching and virtual-layout export), RGB565 image conversion (`rgb565_image`), Nextion2Text, card gallery with PNG export and the docs screen overview (`preview_gallery`), README images (`readme_images`, writes `docs/assets/readme/`), translation extraction, release version bump (`bump_version`, `bump_tft_version`), local test firmware release (`dev_release`), noVNC bridge to the Nextion Editor VM (`nextion_vnc`) |
@@ -174,7 +174,7 @@ The `pre-commit` hook (`scripts/git_hooks/pre-commit`) runs `scripts/hmi_layout/
 
 Release workflows (not PR checks): `dev-firmware.yml` (`Development Firmware`) publishes a development build as a prerelease when manually dispatched on `dev` (see *Dev releases are tagged with their version*) and commits the version together with the regenerated screen overview as one `[skip ci]` bot commit (a `screens_only` dispatch regenerates the screens alone), and `release.yml` builds a stable release from a `v*` tag push (it refuses a `workflow_dispatch` run that is not on a `v*` tag, since only tags carry a firmware manifest).
 
-There is no build step - the integration is installed by copying (or symlinking) `custom_components/nspanel_haui/` into the HA `custom_components` directory and restarting Home Assistant. To run the checkout in a real Home Assistant, use the throwaway instance from `.venv_ha` on `.dev/ha-config` or the Docker one (`compose.yaml`) on `.dev/ha-docker` (all git-ignored; setup, start and reset: `docs/development.md`, *Development instance in a virtual environment* / *in Docker*), and restart HA after Python changes. Frontend assets are served from a versioned static path registered at startup, so restart/reload HA to pick up frontend changes.
+There is no build step - the integration is installed by copying (or symlinking) `custom_components/nspanel_haui/` into the HA `custom_components` directory and restarting Home Assistant. To run the checkout in a real Home Assistant, use the throwaway instance from `.venv_ha` on `.dev/ha-config` or the Docker one (`compose.yaml`) on `.dev/ha-docker` (all git-ignored; setup, start and reset: `docs/develop/development.md`, *Development instance in a virtual environment* / *in Docker*), and restart HA after Python changes. Frontend assets are served from a versioned static path registered at startup, so restart/reload HA to pick up frontend changes.
 
 **Clean:** remove caches and the built docs site:
 
@@ -246,11 +246,11 @@ component.id  # instead of component[0]
 1. **Inspect the page's widgets** in the Nextion HMI file to find each widget's ID and name (see *Nextion HMI inspection* below).
 2. Create a page class in `haui/page/yourpanel.py` that extends `HAUIBase` (or a relevant page base).
 3. Define a `COMPONENTS` class attribute using `ComponentRegistry` with `Component` entries for each Nextion widget on the page. Follow snake_case purpose-based naming.
-4. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `page_id`, `label`, and `description` (plus `options`/`item_options` as needed).
+4. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `page_id`, `label`, `description` and `category` (the `PANEL_CATEGORIES` key — `backgrounds`, `entities`, `grouping` or `tools` — that files the type in the *Add panel* catalog; plus `options`/`item_options` as needed).
 5. Import the class in `haui/mapping/panel.py` and add it to the module-level `_page_classes` list.
 6. If the panel has configurable options, add `PageOption` entries to `DESCRIPTOR.options`.
 7. If it needs a popup variant, set descriptor metadata instead of editing a registry: `popup_alias_for="<parent_type_key>"` for a different class on the same Nextion page, or `can_show_popup=True` for a non-system page (which auto-registers `popup_<page_name>`; the media page is special-cased as `popup_media_player`). System popups are derived from `is_system=True` plus `sys_panel_default["key"]` starting with `popup_`.
-8. Document the panel in `docs/panels/panel_yourpanel.md`.
+8. Document the panel in `docs/user/panels/panel_yourpanel.md`.
 9. Set `DESCRIPTOR.page_id`; the editor's shared Nextion-simulator preview resolves the physical page automatically (see *Preview renderer workflow* below).
 
 ### Nextion HMI inspection
@@ -288,7 +288,7 @@ Workflow (the editor owns the file while a project is open):
 
 **Firmware updates belong to the hub's `HAUI Firmware` entity (`update.py`).** The update controller reads the manifest at the device's `update.firmware_manifest_url` (default: the latest GitHub release's `firmware-manifest.json`; a test panel points it at a local release written by `scripts/dev_release.py`) and flashes a newer firmware through the firmware's `install_firmware_url` action (automatically only with `firmware_auto_update`, default `false`; otherwise via **Install** on the entity). The controller has no synchronous network path: every check, release list and install fetches its inputs with `haui/controller/release_source.py` on the adapter's I/O pool (`start_async_*` → `app.submit_off_worker`) and applies the result on the worker; `release_source` also owns the hub-wide GitHub release cache. `esphome/nspanel_haui/base.yaml` keeps `http_request` + `ota: platform: http_request` for that action; the ESPHome side keeps only its stock dashboard update entity, so the firmware declares no `update:` block of its own. The release workflow generates and attaches `firmware-manifest.json` (name/version/builds[].ota with the absolute .bin URL and md5) on tag pushes only — a workflow_dispatch release carries no manifest, so devices simply see no update. Ordering matters: a TFT upload in flight blocks the firmware install, and an in-flight firmware install defers the TFT install; the TFT follows after the device reboots into the new firmware. **The ESPHome web server is optional and not part of the shipped build** — `base.yaml` leaves `web_server` out so HTTP OTA has flash/RAM headroom. `esphome/nspanel_haui_dev.yaml` enables it for local development; a device YAML that includes `nspanel_haui.yaml` as a package enables it by adding a top-level `web_server:` block. Home Assistant's "Visit" link only appears when the component runs.
 
-**Dev releases are tagged with their version.** `.github/workflows/dev-firmware.yml` publishes a development build, dispatched manually on `dev`, as a prerelease whose tag *is* the PEP 440 version (`X.Y.(Z+1).dev<run>`, the commit goes in the release name). Never add a `+local` segment such as `+g<sha>`: AwesomeVersion (Home Assistant and its Marketplace) sorts `0.4.5.dev16+g<sha>` above the final `0.4.5` and above `0.4.5.dev17`, so such a build is never offered its successor. The tag points at a `chore(release)` commit on top of the pushed commit that carries that version in `custom_components/nspanel_haui/manifest.json` (+ `esphome/nspanel_haui/version.yaml`) — the Marketplace downloads the tag's source archive, so tagging the branch commit would ship the stable version. The workflow also pushes that `[skip ci]` commit back onto `dev`; the next build keeps its `X.Y.Z` base and only a stable manifest (after the master merge-back) moves it to `X.Y.(Z+1)`. The same commit carries the regenerated screen overview (`docs/screens.html`, `docs/assets/screens/`); a `screens_only` dispatch regenerates the screens as a docs-only commit, without a version, tag or release. A dispatched build leaves dev's tip as that bot commit, so release prep never happens on `dev`: a PR whose head says `[skip ci]` never runs its required checks — cut `release/X.Y.Z` from `dev` and PR it into `master` (`docs/release.md`, "Branches and cadence"). The workflow keeps only the newest 10 dev prereleases (the Marketplace reads 30 releases; more dev builds would hide the latest stable one). The Marketplace takes the release tag as the available version and the installed tag as the installed one and compares them with AwesomeVersion (PEP 440); the old `dev-<run>-<sha>` tags parsed as `UNKNOWN`, so the comparison fell back to string inequality — an installed dev build kept offering itself as an update and the version list had no usable order. Never reintroduce a non-version tag for a dev release, and keep the tag string byte-identical to the manifest version (`+` build metadata included) so the comparison stays same-strategy. There is no fixed dev manifest URL (the old `dev-latest` release is gone): the hub's `dev` update channel takes the `firmware-manifest.json` of the newest release in the GitHub release list, prereleases included.
+**Dev releases are tagged with their version.** `.github/workflows/dev-firmware.yml` publishes a development build, dispatched manually on `dev`, as a prerelease whose tag *is* the PEP 440 version (`X.Y.(Z+1).dev<run>`, the commit goes in the release name). Never add a `+local` segment such as `+g<sha>`: AwesomeVersion (Home Assistant and its Marketplace) sorts `0.4.5.dev16+g<sha>` above the final `0.4.5` and above `0.4.5.dev17`, so such a build is never offered its successor. The tag points at a `chore(release)` commit on top of the pushed commit that carries that version in `custom_components/nspanel_haui/manifest.json` (+ `esphome/nspanel_haui/version.yaml`) — the Marketplace downloads the tag's source archive, so tagging the branch commit would ship the stable version. The workflow also pushes that `[skip ci]` commit back onto `dev`; the next build keeps its `X.Y.Z` base and only a stable manifest (after the master merge-back) moves it to `X.Y.(Z+1)`. The same commit carries the regenerated screen overview (`docs/screens.html`, `docs/assets/screens/`); a `screens_only` dispatch regenerates the screens as a docs-only commit, without a version, tag or release. A dispatched build leaves dev's tip as that bot commit, so release prep never happens on `dev`: a PR whose head says `[skip ci]` never runs its required checks — cut `release/X.Y.Z` from `dev` and PR it into `master` (`docs/develop/release.md`, "Branches and cadence"). The workflow keeps only the newest 10 dev prereleases (the Marketplace reads 30 releases; more dev builds would hide the latest stable one). The Marketplace takes the release tag as the available version and the installed tag as the installed one and compares them with AwesomeVersion (PEP 440); the old `dev-<run>-<sha>` tags parsed as `UNKNOWN`, so the comparison fell back to string inequality — an installed dev build kept offering itself as an update and the version list had no usable order. Never reintroduce a non-version tag for a dev release, and keep the tag string byte-identical to the manifest version (`+` build metadata included) so the comparison stays same-strategy. There is no fixed dev manifest URL (the old `dev-latest` release is gone): the hub's `dev` update channel takes the `firmware-manifest.json` of the newest release in the GitHub release list, prereleases included.
 3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python -m scripts.verify_nextion.verify_nextion --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
 
 Format reference (what the script relies on):
@@ -328,7 +328,10 @@ weather forecasts are therefore the hub's, by construction.
   code defines (`web/preview/virtual_panel.py`: an example notification, sample
   choices, a panel to unlock; string values are translated) or, as an entity
   popup (`popup_<page>`, by key), for an entity of its `item` option's domain,
-  preferring one that is on (`preview_kwargs()`).
+  preferring one that is on (`preview_kwargs()`). The panel editor's preview of
+  an entity popup instead passes a random entity of the domain as the render's
+  `kwargs` (`context.kwargs`, part of the render key; such a render is not kept
+  as the card's last render).
 - **When it re-renders.** `previewRenderKey(host)` (hub, device, saved device
   settings and panels, and only the device info a page shows: IP and versions)
   changes the frame's `renderKey`; renders are memoised for 30 s per panel and
@@ -351,7 +354,14 @@ render and on entry unload (`async_stop_hosts`).
 
 **No render, no preview.** A card without a render (no device selected yet, the
 editor still loading) shows the loading placeholder; there is no sample
-snapshot and no second source of preview content.
+snapshot and no second source of preview content. The one exception is the
+card's own last render: `previewer.js` keeps every hub render in `localStorage`
+(`haui_lastCardRenders`, newest 200 cards, keyed by hub entry, device, display
+model, kind and panel key) and a frame with nothing to show replays it
+(`lastPanelRender`) until the hub's new render arrives, so a reload does not
+wait for the hub to start the device's virtual app. The kept renders carry the
+versioned asset path and are dropped when it changes: a render only replays
+in the layout it was drawn for.
 
 **Render test.** `tests/test_card_renders.py` renders a panel of every type and
 every system panel through `async_render` with the sample world in
@@ -477,7 +487,7 @@ Idle page vs. display state (important): the **idle page** is the configured aut
 - `services.py` `wakeup` calls `navigation.exit_idle_to_prev_or_home(config)` (a no-op when no idle session is active) and `idle` calls `navigation.open_idle_panel(True)`. `open_idle_panel()` is a pure page switch — it never turns the display off — and creates the pre-idle snapshot only when an idle session actually starts.
 - Navigation and `function_btn_mixin` actions use the same `open_idle_panel()` / `exit_idle_to_prev_or_home()` API; the `idle_panel` / `idle_panel_extra` / `show_idle_button` config keys are the only names.
 
-Canonical docs: `docs/services.md` (service fields and notify entities), `docs/device.md` (display states, idle page, waking up), `docs/panels/popup_notify.md` (popup presentation).
+Canonical docs: `docs/user/services.md` (service fields and notify entities), `docs/user/device.md` (display states, idle page, waking up), `docs/user/panels/popup_notify.md` (popup presentation).
 
 ### Testing
 
@@ -742,8 +752,8 @@ Example: `fix(esphome): include device name in discovery fallback`
 6. Run `mypy` — no type errors in `haui/`.
 7. If you changed config flow logic, ensure `tests/test_config_flow.py` covers the change.
 8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.
-9. Breaking changes must be documented in `docs/update.md` and the CHANGELOG's "Breaking changes" section.
-10. Write each `CHANGELOG.md` entry as one line (what changed, plus its issue/PR link); the full description goes into the release notes, `.github/release-notes/<tag>.md` (`docs/release.md`, step 5).
+9. Breaking changes must be documented in `docs/user/update.md` and the CHANGELOG's "Breaking changes" section.
+10. Write each `CHANGELOG.md` entry as one line (what changed, plus its issue/PR link); the full description goes into the release notes, `.github/release-notes/<tag>.md` (`docs/develop/release.md`, step 5).
 
 ### Branches and pull requests
 
@@ -763,7 +773,7 @@ that PR from `dev` itself: its tip can be the dev-firmware bot's `[skip ci]`
 commit after a dispatched build, so the PR's checks never run (see "Dev releases
 are tagged with their version" above). `dev` is the integration branch, the target for all day-to-day
 work, and the repository's default branch. The full cycle lives in
-`docs/release.md` ("Branches and cadence").
+`docs/develop/release.md` ("Branches and cadence").
 
 - Branch features off `dev` and open the PR against `dev`
 - Release prep happens on `release/X.Y.Z` cut from `dev`; PR it into `master`

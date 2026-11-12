@@ -4,12 +4,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
-import { renderDeviceInfoStrip } from '../../custom_components/nspanel_haui/frontend/toolbar.js';
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
+import {
+  connectionTiles, deviceDiagnostics, diagnosticsModel,
+} from '../../custom_components/nspanel_haui/frontend/ui/device-diagnostics.js';
+import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 import {
   fmtRssi,
   rssiBarCount,
-  rssiIcon,
   rssiStrengthClass,
 } from '../../custom_components/nspanel_haui/frontend/device-info.js';
 
@@ -26,67 +28,51 @@ function collect(value, result = []) {
 test('RSSI display helpers map invalid values to unknown instead of offline or NaN', () => {
   for (const value of [null, undefined, '', 'bad-rssi', 'NaN', Number.NaN, Infinity]) {
     assert.equal(rssiStrengthClass(value), 'wifi-unknown');
-    assert.equal(rssiIcon(value), 'mdi:wifi');
     assert.equal(rssiBarCount(value), 0);
     assert.equal(fmtRssi(value), 'Unknown');
   }
 
-  assert.equal(rssiIcon(-54), 'mdi:wifi-strength-3');
   assert.equal(rssiStrengthClass(-54), 'wifi-good');
   assert.equal(fmtRssi(-54), '-54 dBm');
 });
 
-test('Device Manager renders each network value from the backend status', () => {
-  const DeviceManager = customElements.get('nspanel-dialog-device-manager');
-  const dialog = Object.create(DeviceManager.prototype);
-  Object.assign(dialog, {
-    devices: { panel: { config: {}, panels: [] } },
-    selectedDevice: 'panel',
-    _deviceMenuIndex: -1,
-    _deviceStatuses: {
-      panel: { device_info: { ip: '', ssid: 'HomeNet', rssi: -54 } },
-    },
-    hass: { states: { 'sensor.panel_ip': { state: '192.0.2.99' } } },
-  });
+test('device diagnostics keep partial readings and render malformed RSSI as unknown', () => {
+  const status = {
+    connected: true,
+    connection_state: 'connected',
+    current_page: 'home',
+    device_info: { name: 'panel', ip: '10.0.0.8', ssid: '', rssi: 'bad-rssi' },
+  };
 
-  const markup = collect(dialog._renderDeviceRow('panel')).join(' ');
-  assert.match(markup, /HomeNet/);
-  assert.match(markup, /mdi:wifi-strength-3/);
-  assert.doesNotMatch(markup, /192\.0\.2\.99/);
-  assert.doesNotMatch(markup, /Offline/);
-});
+  const simple = collect(deviceDiagnostics({ status })).join(' ');
+  assert.equal(simple, '');
 
-test('Device Info keeps partial readings and renders malformed RSSI as unknown', () => {
-  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
-  const dialog = Object.create(DeviceInfo.prototype);
-  Object.assign(dialog, {
-    deviceStatus: {
-      connected: true,
-      connection_state: 'connected',
-      current_page: 'home',
-      device_info: { name: 'panel', ip: '10.0.0.8', ssid: '', rssi: 'bad-rssi' },
-    },
-  });
+  // The Wi-Fi tile of the Connection & device card.
+  const tiles = collect(connectionTiles(diagnosticsModel(status))).join(' ');
+  assert.match(tiles, /10\.0\.0\.8/);
+  assert.match(tiles, /Unknown/);
+  assert.doesNotMatch(tiles, /NaN/);
 
-  const markup = collect(dialog.render()).join(' ');
-  assert.match(markup, /10\.0\.0\.8/);
-  assert.match(markup, /Unknown/);
-  assert.match(markup, /Page Mode/);
-  assert.match(markup, /Regular page/);
+  const markup = collect(deviceDiagnostics({ status, expanded: true })).join(' ');
+  assert.match(markup, /Hub details/);
+  assert.match(markup, /Idle page/);
+  assert.doesNotMatch(markup, /Transport|Device Names|Page Mode/);
 
   assert.doesNotMatch(markup, /NaN/);
   assert.doesNotMatch(markup, /mdi:wifi-off/);
 
-  dialog.deviceStatus.device_info.idle_page_active = true;
-  const idleMarkup = collect(dialog.render()).join(' ');
-  assert.match(idleMarkup, /Idle page/);
-  assert.doesNotMatch(idleMarkup, /Regular page/);
+  status.device_info.display_state = 'dim';
+  status.idle_page = { state: 'active', idle_in: null };
+  const idleMarkup = collect(deviceDiagnostics({ status, expanded: true })).join(' ');
+  assert.match(idleMarkup, /Dimmed/);
+  assert.match(idleMarkup, /Shown/);
 });
 
-test('Device Info hides manual update actions when updates are disabled', () => {
-  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
-  const dialog = Object.create(DeviceInfo.prototype);
+test('the firmware popover hides manual update actions when updates are disabled', () => {
+  const FirmwarePopover = customElements.get('nspanel-firmware-popover');
+  const dialog = Object.create(FirmwarePopover.prototype);
   Object.assign(dialog, {
+    open: true,
     deviceStatus: { device_info: {}, update: { enabled: false } },
     deviceName: 'kitchen',
     _actionBusy: false,
@@ -96,18 +82,13 @@ test('Device Info hides manual update actions when updates are disabled', () => 
   assert.doesNotMatch(markup, /Install update|Display \(TFT\)|Download firmware/);
 });
 
-test('Device Info keeps manual install choices available without a compatible update offer', () => {
-  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
-  const dialog = Object.create(DeviceInfo.prototype);
-  Object.assign(dialog, {
+test('the firmware popover keeps both row install actions without a compatible update offer', () => {
+  const FirmwarePopover = customElements.get('nspanel-firmware-popover');
+  const dialog = Object.assign(Object.create(FirmwarePopover.prototype), {
+    open: true,
     deviceStatus: {
       device_info: {},
-      update: {
-        enabled: true,
-        firmware_update_available: false,
-        tft_update_available: false,
-        firmware_update_version: null,
-      },
+      update: { enabled: true, firmware_update_available: false, tft_update_available: false },
     },
     deviceName: 'custom-panel',
     _picker: null,
@@ -115,133 +96,52 @@ test('Device Info keeps manual install choices available without a compatible up
   });
 
   const labels = collect(dialog.render());
-  assert.ok(labels.includes('Install update'));
-  assert.ok(labels.includes('Download firmware'));
-
-  dialog._openPicker('select', 'custom-panel');
-  const choices = collect(dialog._renderPicker('custom-panel', null, dialog.deviceStatus.update));
-  assert.ok(choices.includes('Display (TFT)'));
-  assert.ok(choices.includes('Firmware'));
+  assert.equal(labels.filter((label) => label === 'Install').length, 2);
+  assert.ok(!labels.includes('Install update'));
 });
 
-test('Device Info offers both manual install types even if only TFT has a compatible update', () => {
-  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
-  const dialog = Object.create(DeviceInfo.prototype);
-  Object.assign(dialog, {
+test('the firmware popover keeps both row install actions when an update is offered', () => {
+  const FirmwarePopover = customElements.get('nspanel-firmware-popover');
+  const dialog = Object.assign(Object.create(FirmwarePopover.prototype), {
+    open: true,
     deviceStatus: {
       device_info: {},
       update: {
         enabled: true,
         firmware_update_available: false,
         tft_update_available: true,
-      },
-    },
-    deviceName: 'custom-panel',
-    _picker: null,
-    _actionBusy: false,
-  });
-
-  assert.ok(collect(dialog.render()).includes('Install update'));
-  dialog._openPicker('select', 'custom-panel');
-  const choices = collect(dialog._renderPicker('custom-panel', null, dialog.deviceStatus.update));
-  assert.ok(choices.includes('Display (TFT)'));
-  assert.ok(choices.includes('Firmware'));
-});
-
-test('Device Info exposes refresh, update type selection, and firmware download actions', async () => {
-  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
-  const dialog = Object.create(DeviceInfo.prototype);
-  const calls = [];
-  Object.assign(dialog, {
-    deviceStatus: {
-      device_info: {},
-      update: {
-        enabled: true,
-        firmware_update_available: true,
-        tft_update_available: true,
         firmware_update_version: '0.4.5',
       },
     },
     deviceName: 'kitchen',
-    entryId: 'entry1',
     _picker: null,
     _actionBusy: false,
-    _toast: null,
+  });
+
+  const labels = collect(dialog.render());
+  assert.equal(labels.filter((label) => label === 'Install').length, 2);
+  assert.ok(labels.includes('outlined'));
+  assert.ok(!labels.includes('Install update'));
+});
+
+test('the display redraw goes through the hub and reports the result', async () => {
+  const calls = [];
+  const host = Object.create(NSPanelEditor.prototype);
+  Object.assign(host, {
+    entryId: 'entry1',
+    toasts: [],
+    _showToast(message, kind) { host.toasts.push([kind, message]); },
     hass: {
-      language: 'en',
-      locale: { language: 'en' },
-      async fetchWithAuth(path, options = {}) {
-        calls.push([path, options]);
-        return {
-          ok: true,
-          json: async () => path === '/api/nspanel_haui/firmware'
-            ? { url: 'https://example.test/nspanel_haui.bin', version: '0.4.5' }
-            : { status: 'ok', update: { state: 'installing' } },
-        };
+      async fetchWithAuth(path, options) {
+        calls.push([path, JSON.parse(options.body)]);
+        return { ok: true, json: async () => ({ status: 'ok' }) };
       },
     },
   });
-  dialog.api = createApiClient(() => dialog.hass);
+  host.api = createApiClient(() => host.hass);
 
-  await dialog._loadFirmwareDownloadInfo();
-  const markup = collect(dialog.render()).join(' ');
-  assert.match(markup, /Redraw display/);
-  assert.doesNotMatch(markup, /Refresh display/);
-  assert.match(markup, /Install update/);
-  assert.match(markup, /Download firmware/);
-  assert.match(markup, /Firmware download version/);
-  assert.ok(markup.includes('0.4.5'));
+  await host._redrawDisplay('kitchen');
 
-  dialog._openPicker('select', 'kitchen');
-  const optionMarkup = collect(
-    dialog._renderPicker('kitchen', null, dialog.deviceStatus.update),
-  ).join(' ');
-  assert.ok(optionMarkup.includes('Display (TFT)'));
-  assert.match(optionMarkup, /Firmware/);
-  assert.doesNotMatch(optionMarkup, /Install update/);
-
-  const originalSetTimeout = globalThis.setTimeout;
-  const originalOpen = window.open;
-  const opened = [];
-  window.open = (...args) => opened.push(args);
-  globalThis.setTimeout = () => 0;
-  try {
-    await dialog._refreshDisplay();
-    await dialog._downloadFirmware();
-    assert.deepEqual(dialog._toast, {
-      message: 'Downloading firmware 0.4.5',
-      type: 'success',
-    });
-  } finally {
-    globalThis.setTimeout = originalSetTimeout;
-    window.open = originalOpen;
-  }
-
-  assert.deepEqual(opened, [['https://example.test/nspanel_haui.bin', '_blank']]);
-  assert.deepEqual(calls.map(([path, options]) => [path, options.body ? JSON.parse(options.body) : undefined]), [
-    ['/api/nspanel_haui/firmware', undefined],
-    ['/api/nspanel_haui/refresh_display/entry1', { device: 'kitchen' }],
-  ]);
-  assert.deepEqual(dialog._toast, {
-    message: 'Downloading firmware 0.4.5',
-    type: 'success',
-  });
-});
-
-test('toolbar reads its IP from the backend status without entity-id lookup', () => {
-  const markup = collect(renderDeviceInfoStrip({
-    _deviceStatus: {
-      connected: true,
-      connection_state: 'connected',
-      current_page: 'home',
-      device_info: { ip: '', ssid: 'HomeNet', rssi: -54 },
-    },
-    _selectedDevice: 'panel',
-    _deviceStatusError: null,
-    _actionsMenuIndex: null,
-    narrow: false,
-    hass: { states: { 'sensor.panel_ip': { state: '192.0.2.99' } } },
-  })).join(' ');
-
-  assert.doesNotMatch(markup, /192\.0\.2\.99/);
+  assert.deepEqual(calls, [['/api/nspanel_haui/refresh_display/entry1', { device: 'kitchen' }]]);
+  assert.deepEqual(host.toasts, [['success', 'Display refreshed for "kitchen"']]);
 });

@@ -50,7 +50,9 @@ test('renderSimulatorScreen preserves the device aspect ratio and applies scale'
   assert.match(out, /vp-screen" style="width:450px;height:320px/);
   assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
   assert.match(out, /pg-sim" style="width:225px;aspect-ratio:450\/320/);
-  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
+  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);  // The card behind the screen takes the page's solid colour, not a fixed black.
+  const page = d.component(0).attrs;
+  if (page.sta === 1) assert.match(out, /pg-sim" style="[^"]*background:#[0-9a-f]{6}/);
 });
 
 test('loadLayout and loadIconMap use an injected loader', () => {
@@ -134,6 +136,22 @@ test('a user card asks the hub to render its config, a system card its key', asy
   ]);
 });
 
+test('a preview with sample context sends it along and renders apart from the card', async () => {
+  const host = editorHost(() => ({ page: 13, before: [], commands: [] }));
+  const popup = { key: 'popup_light', type: 'light' };
+  const kwargs = { item: 'light.desk', item_id: 'light.desk' };
+
+  await loadPanelRender(host, popup, true);
+  await loadPanelRender({ ...host, kwargs }, popup, true);
+  await loadPanelRender({ ...host, kwargs }, popup, true);
+
+  assert.deepEqual(host.sent.map(({ key, kwargs: sent }) => [key, sent]), [
+    ['popup_light', undefined],
+    ['popup_light', kwargs],
+  ]);
+  assert.notEqual(previewRenderKey({ ...host, kwargs }), previewRenderKey(host));
+});
+
 test('a re-mounted card reuses its render until the device settings change', async () => {
   const host = editorHost(() => ({ page: 9, before: [], commands: [] }));
   const panel = { key: 'rooms', type: 'grid' };
@@ -178,4 +196,35 @@ test('a failed render rejects with the hub error and is not kept', async () => {
   await assert.rejects(loadPanelRender(host, panel, false), /Unknown panel type/);
   fail = false;
   assert.equal((await loadPanelRender(host, panel, false)).page, 9);
+});
+
+test('a card keeps its last render across reloads until the frontend changes', async (t) => {
+  const values = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, String(value)),
+    },
+  });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const render = { page: 9, before: [], commands: ['tTitle.txt="Kept"'] };
+  const host = editorHost(() => render);
+  const panel = { key: 'kept', type: 'grid' };
+
+  await loadPanelRender(host, panel, false);
+  t.mock.timers.tick(500);
+
+  const previewer = '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
+  const reloaded = await import(`${previewer}?reload`);
+  // Edits and settings changes keep a card's identity; its key and kind do not.
+  assert.deepEqual(reloaded.lastPanelRender(host, { ...panel, title: 'Edited' }, false), render);
+  assert.equal(reloaded.lastPanelRender({ ...host, device: 'hall' }, panel, false), null);
+  assert.equal(reloaded.lastPanelRender(host, panel, true), null);
+  assert.equal(reloaded.lastPanelRender(host, { type: 'grid' }, false), null);
+
+  const stored = JSON.parse(values.get('haui_lastCardRenders'));
+  values.set('haui_lastCardRenders', JSON.stringify({ ...stored, assets: 'https://ha.local/old/' }));
+  const updated = await import(`${previewer}?update`);
+  assert.equal(updated.lastPanelRender(host, panel, false), null);
 });

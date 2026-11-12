@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .color_schemes import ColorSchemesView
 from .config import DeviceConfigView, DeviceYamlView, PanelConfigView
 from .editor import (
     ColorDefaultsView,
@@ -19,10 +18,10 @@ from .editor import (
 )
 from .status import (
     DeviceRefreshDisplayView,
-    DeviceResetInteractionView,
     DeviceStatusView,
     NotificationsView,
 )
+from .themes import ThemesView
 from .updates import (
     DeviceFirmwareReleasesView,
     DeviceTftReleasesView,
@@ -31,7 +30,6 @@ from .updates import (
     DeviceUpdateFirmwareView,
     DeviceUpdateTftView,
     DeviceUpdateUploadView,
-    FirmwareDownloadView,
 )
 
 VIEWS = (
@@ -39,12 +37,11 @@ VIEWS = (
     PanelConfigView,
     PanelTypesView,
     ColorDefaultsView,
-    ColorSchemesView,
+    ThemesView,
     DeviceConfigView,
     DeviceStatusView,
     NotificationsView,
     DeviceRefreshDisplayView,
-    DeviceResetInteractionView,
     DeviceUpdateUploadView,
     DeviceUpdateArtifactView,
     DeviceUpdateTftView,
@@ -52,7 +49,6 @@ VIEWS = (
     DeviceUpdateFirmwareView,
     DeviceFirmwareReleasesView,
     DeviceUpdateCheckView,
-    FirmwareDownloadView,
     DeviceYamlView,
     IconSearchView,
 )

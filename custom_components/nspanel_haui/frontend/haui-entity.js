@@ -25,9 +25,9 @@ export const ENTITY_OVERRIDE_FIELDS = [
 /* ── helper: collect domains from entity list ─────────────────────────── */
 
 /** Extract unique domains from a list of entity IDs, sorted by count. */
-function getDomains(entities) {
+function getDomains(entityIds) {
   const counts = {};
-  for (const { entityId } of entities) {
+  for (const entityId of entityIds) {
     const dot = entityId.indexOf('.');
     if (dot > 0) {
       const d = entityId.slice(0, dot);
@@ -41,13 +41,17 @@ function getDomains(entities) {
 
 /* ── entity picker field ───────────────────────────────────────────────── */
 
-/** Sorted entity lists per `hass.states` object, then per domain filter. */
+/** Entity lists per `hass.states` object, then per domain filter. */
 const _entityListCache = new WeakMap();
 
+/** Rows a picker's dropdown shows at once; a longer list is narrowed by typing. */
+const ENTITY_MATCH_LIMIT = 100;
+
 /**
- * The picker's sorted entities and their domains. HA replaces `hass.states` on
- * every state change, so caching per states object lets all pickers rendered
- * for one hass share a single sort.
+ * The picker's entities and their domains. HA replaces `hass.states` on every
+ * state change, so caching per states object lets all pickers rendered for one
+ * hass share a single scan. The sorted list is built on first use: a render
+ * needs only the domains, an open dropdown needs the entities.
  */
 function entityListFor(states, domain) {
   let byDomain = _entityListCache.get(states);
@@ -57,22 +61,85 @@ function entityListFor(states, domain) {
   }
   const key = domain || '';
   if (!byDomain.has(key)) {
-    const entities = Object.entries(states)
-      .filter(([entityId]) => !domain || entityId.startsWith(`${domain}.`))
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([entityId, state]) => ({
-        entityId,
-        name: state?.attributes?.friendly_name || entityId,
-      }));
-    byDomain.set(key, { entities, domains: getDomains(entities) });
+    const entityIds = Object.keys(states)
+      .filter((entityId) => !domain || entityId.startsWith(`${domain}.`));
+    let entities = null;
+    byDomain.set(key, {
+      domains: getDomains(entityIds),
+      entities: () => (entities ??= entityIds
+        .sort((a, b) => a.localeCompare(b))
+        .map((entityId) => {
+          const name = states[entityId]?.attributes?.friendly_name || entityId;
+          return { entityId, name, search: `${entityId}\n${name}`.toLowerCase() };
+        })),
+    });
   }
   return byDomain.get(key);
 }
 
+/**
+ * The entities a dropdown offers: those of `domain` ("__all": any) whose id or
+ * name contains `query`, in list order and at most `limit`, with the number of
+ * all matches.
+ *
+ * @param {Array<{entityId: string, name: string, search: string}>} entities
+ * @param {string} query - lower-case fragment of an entity id or name
+ * @param {string} [domain]
+ * @param {number} [limit]
+ * @returns {{ matches: Array<{entityId: string, name: string}>, total: number }}
+ */
+export function matchEntities(entities, query, domain = '__all', limit = ENTITY_MATCH_LIMIT) {
+  const prefix = domain === '__all' ? '' : `${domain}.`;
+  const matches = [];
+  let total = 0;
+  for (const entity of entities) {
+    if (!entity.entityId.startsWith(prefix) || !entity.search.includes(query)) continue;
+    total++;
+    if (matches.length < limit) matches.push(entity);
+  }
+  return { matches, total };
+}
+
+/**
+ * Replace the dropdown's rows with `matches`, and say how many more there are.
+ *
+ * Rows are built here rather than in the Lit template, like the icon picker's:
+ * a row per entity in every picker is thousands of elements to create and to
+ * compare on each render, and the dropdown has no Lit parts inside, so
+ * replacing its children does not interfere with Lit's re-render.
+ */
+export function fillEntityDropdown(dropdown, { matches, total }) {
+  const rows = matches.map((entity, index) => {
+    const item = document.createElement('div');
+    item.className = 'entity-dropdown-item';
+    item.id = `${dropdown.id}-opt-${index}`;
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', 'false');
+    item.setAttribute('data-entity-id', entity.entityId);
+    const name = document.createElement('div');
+    name.className = 'entity-friendly-name';
+    name.textContent = entity.name;
+    const entityId = document.createElement('div');
+    entityId.className = 'entity-id';
+    entityId.textContent = entity.entityId;
+    item.append(name, entityId);
+    return item;
+  });
+  if (total > matches.length) {
+    const more = document.createElement('div');
+    more.className = 'entity-dropdown-more';
+    more.setAttribute('role', 'presentation');
+    more.textContent = t('{count} more: type to narrow the list')
+      .replace('{count}', String(total - matches.length));
+    rows.push(more);
+  }
+  dropdown.replaceChildren(...rows);
+}
+
 export function renderEntityPicker({ id, value, label, hint, placeholder, hass, domain, onInput, onSelect }) {
-  const { entities: allEntities, domains } = entityListFor(hass?.states || {}, domain);
+  const entityList = entityListFor(hass?.states || {}, domain);
+  const { domains } = entityList;
   const dropdownId = `${id}-dropdown`;
-  let activeDomain = '__all';
 
   const applyValue = (input, rawValue) => {
     const val = rawValue || "";
@@ -92,7 +159,10 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
 
   const hideDropdown = (wrap) => {
     const dropdown = wrap?.querySelector(".entity-dropdown");
-    if (dropdown) dropdown.style.display = "none";
+    if (dropdown) {
+      dropdown.style.display = "none";
+      dropdown.replaceChildren();
+    }
     const input = wrap?.querySelector(".entity-picker-input");
     if (input) {
       input.setAttribute("aria-expanded", "false");
@@ -111,18 +181,9 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
       return;
     }
     const query = ((rawValue ?? input.value) || "").toLowerCase();
-    const items = dropdown.querySelectorAll(".entity-dropdown-item");
-    let any = false;
-    items.forEach((item) => {
-      const entityId = (item.getAttribute("data-entity-id") || "").toLowerCase();
-      const name = (item.getAttribute("data-entity-name") || "").toLowerCase();
-      const domainMatch = activeDomain === "__all" || entityId.startsWith(activeDomain + ".");
-      const queryMatch = !query || entityId.includes(query) || name.includes(query);
-      const match = domainMatch && queryMatch;
-      item.style.display = match ? "" : "none";
-      item.classList.remove("active");
-      if (match) any = true;
-    });
+    const found = matchEntities(entityList.entities(), query, wrap._entityDomain || "__all");
+    fillEntityDropdown(dropdown, found);
+    const any = found.total > 0;
     dropdown.style.display = any ? "" : "none";
     // The combobox state changes without a re-render, so sync the ARIA state
     // on the live elements rather than binding it in the template.
@@ -135,7 +196,9 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
   };
 
   const setActiveDomain = (wrap, d) => {
-    activeDomain = d;
+    // Kept on the element, like the chips' highlight: a render while the
+    // dropdown is open must not drop the chosen domain.
+    if (wrap) wrap._entityDomain = d;
     // Update chip active states
     const chips = wrap?.querySelectorAll(".domain-filter-chip");
     if (chips) {
@@ -164,9 +227,11 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
           updateTypedValue(e.target, eventValue(e));
         }}
         @focus=${(e) => {
-          activeDomain = "__all";
           const wrap = e.target.closest(".entity-picker-wrap");
-          if (wrap) wrap._entityFocused = true;
+          if (wrap) {
+            wrap._entityFocused = true;
+            wrap._entityDomain = "__all";
+          }
           const chips = wrap?.querySelectorAll(".domain-filter-chip");
           if (chips) chips.forEach(c => c.classList.remove("active"));
           showMatches(e.target, eventValue(e));
@@ -213,31 +278,16 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
         role="listbox"
         aria-labelledby=${label ? `${id}-label` : nothing}
         style="display:none;"
-      >
-        ${allEntities.map((entity, i) => {
-          const optionId = `${dropdownId}-opt-${i}`;
-          return html`
-          <div
-            class="entity-dropdown-item"
-            id=${optionId}
-            role="option"
-            aria-selected="false"
-            data-entity-id=${entity.entityId}
-            data-entity-name=${entity.name}
-            @mousedown=${(e) => {
-              e.preventDefault();
-              const wrap = e.target.closest(".entity-picker-wrap");
-              const input = wrap?.querySelector(".entity-picker-input");
-              applyValue(input, entity.entityId);
-              hideDropdown(wrap);
-            }}
-          >
-            <div class="entity-friendly-name">${entity.name}</div>
-            <div class="entity-id">${entity.entityId}</div>
-          </div>
-        `;
-        })}
-      </div>
+        @mousedown=${(e) => {
+          // One listener for every row: the rows are filled in by showMatches.
+          e.preventDefault();
+          const item = e.target.closest(".entity-dropdown-item");
+          if (!item) return;
+          const wrap = item.closest(".entity-picker-wrap");
+          applyValue(wrap?.querySelector(".entity-picker-input"), item.getAttribute("data-entity-id"));
+          hideDropdown(wrap);
+        }}
+      ></div>
     </div>
   `;
 

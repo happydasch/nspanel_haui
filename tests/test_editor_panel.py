@@ -67,6 +67,8 @@ def test_frontend_urls_carry_the_integration_version(registered):
     base = f"/nspanel_haui_frontend/{editor_panel._frontend_asset_version()}"
 
     assert [p.url_path for p in registered.hass.static_paths] == [base]
+    # A URL that changes with its content can be cached without revalidation.
+    assert [p.cache_headers for p in registered.hass.static_paths] == [True]
     assert registered.panel["module_url"] == f"{base}/haui-editor.js"
     assert registered.extra_js == [f"{base}/iconset.js"]
 

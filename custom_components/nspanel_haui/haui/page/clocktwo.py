@@ -242,6 +242,7 @@ class ClockTwoPage(HAUIPage):
         page_id=8,
         label=_("Clock Two"),
         description=_("Word-clock display in multiple languages."),
+        category="backgrounds",
         options=[
             background_option(),
             PageOption(
@@ -281,21 +282,21 @@ class ClockTwoPage(HAUIPage):
                 key="off_color",
                 kind="color",
                 label=_("Off-letter color"),
-                description=_("Leave empty to use the color scheme."),
+                description=_("Leave empty to use the selected theme."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="letter_color",
                 kind="color",
                 label=_("Active letter color"),
-                description=_("Leave empty to use the color scheme."),
+                description=_("Leave empty to use the selected theme."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="special_color",
                 kind="color",
                 label=_("Special letter color"),
-                description=_("Leave empty to use the color scheme."),
+                description=_("Leave empty to use the selected theme."),
                 section=_("Colors"),
             ),
             PageOption(

@@ -22,9 +22,16 @@ export function loadDeviceConfig(host, name) {
 export function openDeviceConfig(host) {
   host._editingDeviceConfig = true;
   host._deviceConfigForm = clone(host._deviceConfig || DEVICE_CONFIG_DEFAULTS);
+  host.store.actions.pushOverlay({
+    kind: 'device-settings',
+    anchorKey: 'device-settings',
+    subject: host._selectedDevice,
+    draft: null,
+  });
 }
 
 export function closeDeviceConfig(host) {
   host._editingDeviceConfig = false;
   host._deviceConfigForm = null;
+  host.store.actions.closeOverlay('device-settings', 'device-settings');
 }

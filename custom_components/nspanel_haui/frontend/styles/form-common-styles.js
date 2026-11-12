@@ -17,13 +17,6 @@ export const formCommonStyles = css`
     font-size: 0.92em;
     margin-bottom: 4px;
   }
-  .form-row {
-    display: flex;
-    gap: 16px;
-  }
-  .form-row > * {
-    flex: 1;
-  }
 
   /* ── inputs ──────────────────────── */
   textarea {
@@ -228,10 +221,6 @@ export const formCommonStyles = css`
   }
 
   /* ── field row (inline icon + input) ─── */
-  .field-full {
-    display: block;
-    width: 100%;
-  }
   .field-row {
     display: flex;
     gap: 8px;
@@ -316,5 +305,32 @@ export const formCommonStyles = css`
     height: 16px;
     --mdc-icon-size: 16px;
     flex-shrink: 0;
+  }
+
+  /* ── add row button ──────────────────
+     The one "+ Add …" row of every list editor (items, schedule entries,
+     gestures): dashed until hovered, then a solid primary outline. */
+  .add-item-btn {
+    background: transparent;
+    color: var(--primary-color, #03a9f4);
+    border: 1px dashed var(--divider-color, #e0e0e0);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    width: 100%;
+    margin-top: 8px;
+    transition: background 0.15s, border-color 0.15s;
+    font-family: inherit;
+  }
+  .add-item-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, transparent);
+    border-color: var(--primary-color, #03a9f4);
+    border-style: solid;
+  }
+  .add-item-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
   `;

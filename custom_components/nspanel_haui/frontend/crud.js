@@ -36,16 +36,41 @@ export function openPanelDialog(host, index, data, type) {
   host._editingPanelType = type;
   host._error = null;
   host._deleteTarget = null;
+  const overlay = {
+    kind: 'panel-editor',
+    anchorKey: `panel:${data.key}`,
+    subject: data.key,
+    draft: { index, type },
+  };
+  const overlays = host.store.getState().ui.overlays;
+  if (overlays.at(-1)?.kind === 'panel-catalog') host.store.actions.replaceTopOverlay(overlay);
+  else {
+    host.store.actions.closeOverlay('panel-editor');
+    host.store.actions.pushOverlay(overlay);
+  }
 }
 
-export function openAdd(host) {
-  const firstType =
-    host._panelTypes.length > 0 ? host._panelTypes[0].type_key : "clock";
+export function openAdd(host, selectedType) {
+  const firstType = selectedType || (host._panelTypes.length > 0 ? host._panelTypes[0].type_key : "clock");
   // Auto-generate an unused key like "grid_0", "grid_1", etc.
   // Compute key BEFORE setting _editingPanel so Lit sees it in the initial render.
   const data = defaultPanel(firstType);
   data.key = generateAutoKey(host._devicePanels(), firstType);
   openPanelDialog(host, -1, data, firstType);
+}
+
+/**
+ * Open the editor for a new panel that starts as a copy of `source` (a panel of
+ * this or another device), under a key that is free on this device.
+ *
+ * @param {any} host - editor component
+ * @param {any} source - the panel config to copy
+ */
+export function openAddFrom(host, source) {
+  const data = clone(source);
+  data.type = data.type || "clock";
+  data.key = generateAutoKey(host._devicePanels(), data.type);
+  openPanelDialog(host, -1, data, data.type);
 }
 
 export function openEdit(host, index) {
@@ -60,6 +85,7 @@ export function openEdit(host, index) {
 }
 
 export function closeEdit(host) {
+  host.store.actions.closeOverlay('panel-editor');
   host._itemListData = {};
   host._editingPanel = null;
   host._editingPanelType = null;
@@ -69,37 +95,83 @@ export function closeEdit(host) {
 /* ── list actions ─────────────────────────────────────────────────────────── */
 
 /**
- * Index of the nearest panel before (`step` -1) or after (`step` 1) `idx` in the
- * same list group (navigation or not). System-panel overrides are skipped:
- * they are listed under System Panels, so swapping with one looks like no move.
+ * Move a listed panel into a group at `beforeKey`, flipping its navigation
+ * visibility when it crosses groups. One save for the whole move.
+ *
+ * @param {HTMLElement} host - editor component
+ * @param {string} panelKey - the dragged panel
+ * @param {'navigation'|'hidden'} group - the group it was dropped into
+ * @param {string|null} [beforeKey] - the panel it was dropped before, or null for the group's end
  */
-function adjacentListedIndex(host, panels, idx, step) {
-  const sysKeys = getSystemPanelKeys(host);
-  const isNav = panels[idx].show_in_navigation !== false;
-  for (let i = idx + step; i >= 0 && i < panels.length; i += step) {
-    const p = panels[i];
-    if ((p.show_in_navigation !== false) === isNav && !sysKeys.has(p.key)) return i;
-  }
-  return -1;
-}
-
-function movePanel(host, panelKey, step, toastMessage) {
+export function movePanelToGroup(host, panelKey, group, beforeKey = null) {
+  if (group !== 'navigation' && group !== 'hidden') return;
+  if (panelKey === beforeKey) return;
   const panels = host._devicePanels();
-  const idx = panels.findIndex(p => p.key === panelKey);
-  if (idx < 0) return;
-  const otherIdx = adjacentListedIndex(host, panels, idx, step);
-  if (otherIdx < 0) return;
-  const newPanels = [...panels];
-  [newPanels[otherIdx], newPanels[idx]] = [newPanels[idx], newPanels[otherIdx]];
-  host._savePanels(newPanels, toastMessage);
+  const systemKeys = getSystemPanelKeys(host);
+  const source = panels.find((panel) => panel.key === panelKey);
+  if (!source || systemKeys.has(source.key)) return;
+  if (beforeKey && systemKeys.has(beforeKey)) return;
+
+  const showInNavigation = group === 'navigation';
+  const moving = { ...source, show_in_navigation: showInNavigation };
+  const isListed = (panel) => !systemKeys.has(panel.key)
+    && (panel.show_in_navigation !== false) === showInNavigation;
+  const crosses = (source.show_in_navigation !== false) !== showInNavigation;
+
+  /** @type {Array} */
+  let next;
+  if (crosses) {
+    // The moved panel leaves its old group and takes the drop position in the
+    // new one, pushing the rows below it down.
+    const others = panels.filter((panel) => panel !== source);
+    const slots = others.map((_, position) => position).filter((position) => isListed(others[position]));
+    const at = beforeKey ? others.findIndex((panel) => panel.key === beforeKey) : -1;
+    next = [...others];
+    next.splice(at >= 0 ? at : (slots.length ? slots[slots.length - 1] + 1 : others.length), 0, moving);
+  } else {
+    // Within a group the rows keep their slots, so a drop reorders the group
+    // without moving the rows of the other group in between.
+    const slots = panels.map((_, position) => position).filter((position) => isListed(panels[position]));
+    const members = slots.map((position) => panels[position]);
+    const ordered = members.filter((panel) => panel !== source);
+    const to = beforeKey ? ordered.findIndex((panel) => panel.key === beforeKey) : ordered.length;
+    if (to < 0) return;
+    ordered.splice(to, 0, source);
+    next = [...panels];
+    slots.forEach((slot, position) => { next[slot] = ordered[position]; });
+  }
+
+  const unchanged = next.length === panels.length
+    && next.every((panel, position) => panel === panels[position]);
+  if (unchanged) return;
+
+  const message = t('Panel moved to {group}')
+    .replace('{group}', showInNavigation ? t('Navigation') : t('Non-Navigation'));
+  host._savePanels(next, message);
 }
 
-export function moveUp(host, panelKey) {
-  movePanel(host, panelKey, -1, t("Panel moved up"));
-}
 
-export function moveDown(host, panelKey) {
-  movePanel(host, panelKey, 1, t("Panel moved down"));
+/* ── duplicate ────────────────────────────────────────────────────────────── */
+
+/**
+ * Copy a panel with all its options under a new key, directly after the original.
+ *
+ * @param {any} host - editor component
+ * @param {string} panelKey
+ */
+export function duplicatePanel(host, panelKey) {
+  const panels = host._devicePanels();
+  const index = panels.findIndex((panel) => panel.key === panelKey);
+  if (index < 0 || getSystemPanelKeys(host).has(panelKey)) return;
+  const source = panels[index];
+  const copy = {
+    ...clone(source),
+    key: generateAutoKey(panels, source.type),
+    ...(source.title ? { title: t('{name} (copy)').replace('{name}', source.title) } : {}),
+  };
+  const next = [...panels];
+  next.splice(index + 1, 0, copy);
+  host._savePanels(next, t('Panel duplicated'));
 }
 
 /* ── delete ───────────────────────────────────────────────────────────────── */
@@ -125,50 +197,38 @@ export async function doDelete(host) {
 /* ── save ─────────────────────────────────────────────────────────────────── */
 
 /**
- * Save panel data that was serialized by nspanel-dialog-edit-panel.
- * Called when the edit dialog fires dialog-save with detail.panel.
- * Performs duplicate-key validation before saving.
+ * Why `key` cannot be saved for the panel at `index` (-1 for a new one), or ''.
  *
- * System panel overrides are saved with the resolved user type (e.g. "light"
- * not "popup_light"). Backend resolves overrides by key, and popup aliases in
- * PANEL_MAPPING share their page class with the user-facing type, so the
- * runtime template stays correct.
- *
- * @param {HTMLElement} host - editor component
- * @param {Object} panel - serialized panel data
- * @param {number} index - panel index (-1 for add)
+ * @param {string|undefined} key
+ * @param {{ panels: Array<any>, index: number, systemPanels: Array<any> }} context
+ * @returns {string}
  */
-export async function saveFromData(host, panel, index) {
-  if (host.store.getState().hub.saving) return;
-  host._error = null;
-
-  const panels = host._devicePanels();
-
+export function panelKeyError(key, { panels, index, systemPanels }) {
+  const wanted = (key || "").toLowerCase();
+  if (!wanted) return "";
   // Reject duplicate keys (case-insensitive comparison)
-  const duplicateKey = panels.some(
-    (p, i) => i !== index && p.key && p.key.toLowerCase() === (panel.key || "").toLowerCase()
-  );
-  if (duplicateKey) {
-    host._error = t('Key "{key}" is already used by another panel').replace('{key}', panel.key);
-    host.requestUpdate();
-    return;
+  if ((panels || []).some((p, i) => i !== index && p.key && p.key.toLowerCase() === wanted)) {
+    return t('Key "{key}" is already used by another panel').replace('{key}', key);
   }
-
   // Only the popups can be replaced; the hub refuses a panel under the key
   // of System, Blank, Settings or About.
-  const fixedSysPanel = host.store.getState().hub.systemPanels.find(
-    (sp) => !sp.editable && sp.key.toLowerCase() === (panel.key || "").toLowerCase()
-  );
-  if (fixedSysPanel) {
-    host._error = t('Key "{key}" belongs to a system panel').replace('{key}', panel.key);
-    host.requestUpdate();
-    return;
+  if ((systemPanels || []).some((sp) => !sp.editable && sp.key.toLowerCase() === wanted)) {
+    return t('Key "{key}" belongs to a system panel').replace('{key}', key);
   }
+  return "";
+}
 
-  // Read type-specific fields from descriptor
-  // Use panel.type (resolved user type) for descriptor lookup
+/**
+ * The panel config a save stores, built from the editor's form data.
+ *
+ * @param {any} panel - the form's panel data (type, key, title, options)
+ * @param {any} descriptor - the panel type's descriptor
+ * @param {Object<string, Array>} [itemLists] - the editor's item lists by option key
+ * @param {any} [existing] - the saved panel an edit replaces
+ * @returns {any}
+ */
+export function buildPanelConfig(panel, descriptor, itemLists = {}, existing = null) {
   const panelType = panel.type || "clock";
-  const descriptor = host._panelTypes.find((pt) => pt.type_key === panelType);
 
   // Build the new panel config from the serialized panel data.
   // Item / item_list fields are handled separately from _itemListData below.
@@ -194,10 +254,9 @@ export async function saveFromData(host, panel, index) {
   // We serialize it properly here, matching the original crud.js save().
   // Copy: this object is the edit dialog's own state, and a failed save must
   // leave its item lists intact for the next attempt.
-  const itemListData = { ...(host._itemListData || {}) };
-  const descriptorPt = host._panelTypes.find(pt => pt.type_key === panelType);
-  if (descriptorPt?.options) {
-    for (const opt of descriptorPt.options) {
+  const itemListData = { ...(itemLists || {}) };
+  if (descriptor?.options) {
+    for (const opt of descriptor.options) {
       if (opt.kind === "item_list" && itemListData[opt.key]) {
         newPanel[opt.key] = itemListData[opt.key].map(serializeItem);
         delete itemListData[opt.key];
@@ -252,19 +311,55 @@ export async function saveFromData(host, panel, index) {
   // Descriptor-declared options and standard fields (type/key/title/show_in_navigation/unlock_code)
   // come from the form — if the user cleared them, that absence is intentional
   // and must not be undone by merging stale values.
-  if (index >= 0) {
-    const existing = host._devicePanels()[index];
-    if (existing) {
-      const formOwned = new Set(
-        ["type", "key", "title", "show_in_navigation", "unlock_code"]
-          .concat((descriptor?.options || []).map(o => o.key))
-      );
-      for (const k of Object.keys(existing)) {
-        if (formOwned.has(k)) continue;
-        if (!(k in newPanel)) newPanel[k] = existing[k];
-      }
+  if (existing) {
+    const formOwned = new Set(
+      ["type", "key", "title", "show_in_navigation", "unlock_code"]
+        .concat((descriptor?.options || []).map(o => o.key))
+    );
+    for (const k of Object.keys(existing)) {
+      if (formOwned.has(k)) continue;
+      if (!(k in newPanel)) newPanel[k] = existing[k];
     }
   }
+  return newPanel;
+}
+
+/**
+ * Save panel data serialized by the panel editor view.
+ * Called when the edit dialog fires dialog-save with detail.panel.
+ * Performs duplicate-key validation before saving.
+ *
+ * System panel overrides are saved with the resolved user type (e.g. "light"
+ * not "popup_light"). Backend resolves overrides by key, and popup aliases in
+ * PANEL_MAPPING share their page class with the user-facing type, so the
+ * runtime template stays correct.
+ *
+ * @param {HTMLElement} host - editor component
+ * @param {Object} panel - serialized panel data
+ * @param {number} index - panel index (-1 for add)
+ */
+export async function saveFromData(host, panel, index) {
+  if (host.store.getState().hub.saving) return;
+  host._error = null;
+
+  const panels = host._devicePanels();
+
+  const keyError = panelKeyError(panel.key, {
+    panels, index, systemPanels: host.store.getState().hub.systemPanels,
+  });
+  if (keyError) {
+    host._error = keyError;
+    host.requestUpdate();
+    return;
+  }
+
+  const panelType = panel.type || "clock";
+  const newPanel = buildPanelConfig(
+    panel,
+    host._panelTypes.find((pt) => pt.type_key === panelType),
+    host._itemListData || {},
+    index >= 0 ? panels[index] : null,
+  );
 
   const newPanels = [...panels];
   if (index >= 0) {
@@ -317,6 +412,7 @@ export async function savePanels(
     deviceName,
   });
   if (saved) {
+    if (host._editingPanel) host.store.actions.closeOverlay('panel-editor');
     host._editingPanel = null;
     host._editingPanelType = null;
     host._error = null;

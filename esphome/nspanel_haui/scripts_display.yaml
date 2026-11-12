@@ -123,7 +123,7 @@ script:
               }
             }
             if (timeout_dim_val > 0 && !connection_grace) {
-              target_brightness = int(id(brightness_dim).state);
+              target_brightness = min(target_brightness, int(id(brightness_dim).state));
               int curr_duration = since_connection_change - timeout_dim_val;
               float ramp_remaining = duration_dim_val - curr_duration;
               if (duration_dim_val > 0 && curr_duration <= duration_dim_val && ramp_remaining > 0) {
@@ -159,8 +159,9 @@ script:
               new_brightness = target_brightness;
             }
           } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && age > timeout_dim_val) {
-            // dim timeout means brightness goes to brightness_dim
-            target_brightness = int(id(brightness_dim).state);
+            // dim timeout means brightness goes to brightness_dim, never above
+            // the full brightness (a schedule entry may set that lower)
+            target_brightness = min(target_brightness, int(id(brightness_dim).state));
             int curr_duration = age - timeout_dim_val;
             float ramp_remaining = duration_dim_val - curr_duration;
             if (duration_dim_val > 0 && curr_duration <= duration_dim_val && ramp_remaining > 0) {

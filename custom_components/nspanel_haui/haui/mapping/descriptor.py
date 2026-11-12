@@ -13,6 +13,40 @@ def _(text: str) -> str:
     """
     return text
 
+@dataclass(frozen=True)
+class PageCategory:
+    """One group of panel types in the editor's *Add panel* catalog.
+
+    The catalog lists the types of a category together, and the categories in
+    the order of ``PANEL_CATEGORIES``.
+    """
+
+    key: str
+    label: str
+    icon: str
+
+
+PANEL_CATEGORIES: tuple[PageCategory, ...] = (
+    PageCategory("backgrounds", _("Backgrounds"), "mdi:wallpaper"),
+    PageCategory("entities", _("Entities"), "mdi:lightbulb-on-outline"),
+    PageCategory("grouping", _("Grouping"), "mdi:view-grid-plus-outline"),
+    PageCategory("tools", _("Tools"), "mdi:tools"),
+)
+
+_CATEGORIES_BY_KEY: dict[str, PageCategory] = {c.key: c for c in PANEL_CATEGORIES}
+
+
+def page_category(key: str) -> PageCategory:
+    """Return the panel category registered under ``key``.
+
+    Raises ``ValueError`` for an unknown key: a panel type the catalog cannot
+    group is a bug, not something to hide in a catch-all group.
+    """
+    try:
+        return _CATEGORIES_BY_KEY[key]
+    except KeyError:
+        raise ValueError(f"Unknown panel category: {key!r}") from None
+
 
 @dataclass
 class PageOption:
@@ -72,6 +106,13 @@ class PageDescriptor:
     """
     icon: str = ""
     """MDI icon string to display alongside the panel type in the editor UI."""
+    category: str = ""
+    """Key of the ``PANEL_CATEGORIES`` entry the *Add panel* catalog files this
+    type under (``backgrounds``, ``entities``, ``grouping``, ``tools``).
+
+    Only user-visible panel types have one; system panels and popups never
+    reach the catalog's panel type list.
+    """
     sys_panel_default: dict | None = None
     """Default panel config dict for system panels.
 

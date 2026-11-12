@@ -17,7 +17,6 @@ from unittest.mock import MagicMock
 from urllib.parse import urlsplit
 
 import pytest
-import requests
 
 
 class _Unauthorized(Exception):
@@ -177,15 +176,14 @@ _PROTECTED = [
     (api.NotificationsView, "delete"),
     (api.PanelConfigView, "get"),
     (api.PanelConfigView, "post"),
-    (api.ColorSchemesView, "get"),
-    (api.ColorSchemesView, "post"),
+    (api.ThemesView, "get"),
+    (api.ThemesView, "post"),
     (api.DeviceConfigView, "get"),
     (api.DeviceConfigView, "post"),
     (api.DeviceConfigView, "delete"),
     (api.DeviceYamlView, "get"),
     (api.DeviceYamlView, "post"),
     (api.DeviceRefreshDisplayView, "post"),
-    (api.DeviceResetInteractionView, "post"),
     (api.DeviceUpdateTftView, "post"),
     (api.DeviceTftReleasesView, "get"),
     (api.DeviceUpdateFirmwareView, "post"),
@@ -429,7 +427,7 @@ def test_deleting_device_on_hub_page_removes_it_from_hub(monkeypatch):
     (saved,) = hass.config_entries.updates
     assert saved["devices"] == [{"name": "kitchen"}]
     assert saved["removed_devices"] == ["office"]
-    assert saved_store == [{"version": 1, "devices": {"kitchen": {}}}]
+    assert saved_store == [{"version": 1, "devices": {"kitchen": {}}, "device_order": ["kitchen"]}]
 
 
 def test_deleting_stale_device_on_hub_page_leaves_hub_untouched(monkeypatch):
@@ -504,41 +502,41 @@ def test_enabling_a_device_from_the_editor_reloads_the_entry(monkeypatch):
     assert list(hass.data["nspanel_haui"]["entry1"]) == ["kitchen"]
 
 
-def _custom_scheme(name="Evening"):
+def _custom_theme(name="Evening"):
     from copy import deepcopy
 
-    from custom_components.nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES
+    from custom_components.nspanel_haui.haui.mapping.color import BUILTIN_THEMES
 
-    scheme = deepcopy(BUILTIN_COLOR_SCHEMES["dark"])
-    scheme["name"] = name
-    return scheme
+    theme = deepcopy(BUILTIN_THEMES["dark"])
+    theme["name"] = name
+    return theme
 
 
-def test_color_scheme_library_round_trips_without_panel_push(monkeypatch):
+def test_theme_library_round_trips_without_panel_push(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
     saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
-    body = {"version": 1, "schemes": {"evening": _custom_scheme()}}
+    body = {"version": 1, "themes": {"evening": _custom_theme()}}
 
     result = asyncio.run(
-        api.ColorSchemesView().post(_Request(hass, admin=True, body=body), "entry1")
+        api.ThemesView().post(_Request(hass, admin=True, body=body), "entry1")
     )
 
-    assert result["body"]["schemes"] == body["schemes"]
-    assert saved[0]["color_schemes"] == body["schemes"]
+    assert result["body"]["themes"] == body["themes"]
+    assert saved[0]["themes"] == body["themes"]
     assert saved[0]["devices"] == {}
     assert hass.events == ["store_save"]
 
 
-def test_color_scheme_library_rejects_invalid_rgb565_values(monkeypatch):
+def test_theme_library_rejects_invalid_rgb565_values(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
     saved = _use_store(monkeypatch, hass)
-    scheme = _custom_scheme()
-    scheme["colors"]["background"] = 65536
+    theme = _custom_theme()
+    theme["colors"]["background"] = 65536
     result = asyncio.run(
-        api.ColorSchemesView().post(
-            _Request(hass, admin=True, body={"version": 1, "schemes": {"bad": scheme}}),
+        api.ThemesView().post(
+            _Request(hass, admin=True, body={"version": 1, "themes": {"bad": theme}}),
             "entry1",
         )
     )
@@ -546,19 +544,19 @@ def test_color_scheme_library_rejects_invalid_rgb565_values(monkeypatch):
     assert saved == []
 
 
-def test_color_scheme_library_cannot_remove_a_scheme_selected_by_a_device(monkeypatch):
+def test_theme_library_cannot_remove_a_theme_selected_by_a_device(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
     stored = {
         "version": 1,
-        "devices": {"kitchen": {"config": {"color_scheme_id": "evening"}, "panels": []}},
-        "color_schemes": {"evening": _custom_scheme()},
+        "devices": {"kitchen": {"config": {"theme_id": "evening"}, "panels": []}},
+        "themes": {"evening": _custom_theme()},
     }
     saved = _use_store(monkeypatch, hass, stored)
 
     result = asyncio.run(
-        api.ColorSchemesView().post(
-            _Request(hass, admin=True, body={"version": 1, "schemes": {}}), "entry1"
+        api.ThemesView().post(
+            _Request(hass, admin=True, body={"version": 1, "themes": {}}), "entry1"
         )
     )
 
@@ -613,33 +611,33 @@ def test_panel_save_rejects_edits_of_fixed_system_panels(monkeypatch):
     assert saved == []
 
 
-def test_device_yaml_export_includes_the_selected_custom_scheme_definition():
+def test_device_yaml_export_includes_the_selected_custom_theme_definition():
     from custom_components.nspanel_haui.api.config import _device_yaml_data
 
-    custom = _custom_scheme()
-    device = {"config": {"color_scheme_id": "evening"}, "panels": []}
-    data = {"color_schemes": {"evening": custom}}
+    custom = _custom_theme()
+    device = {"config": {"theme_id": "evening"}, "panels": []}
+    data = {"themes": {"evening": custom}}
 
     exported = _device_yaml_data(device, data)
 
-    assert exported["color_scheme_definition"] == {
+    assert exported["theme_definition"] == {
         "id": "evening",
         **custom,
     }
 
 
-def test_device_yaml_import_restores_custom_scheme_definition(monkeypatch):
+def test_device_yaml_import_restores_custom_theme_definition(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
     saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
     import yaml
 
-    scheme = _custom_scheme()
+    theme = _custom_theme()
     body = yaml.safe_dump(
         {
-            "config": {"color_scheme_id": "evening"},
+            "config": {"theme_id": "evening"},
             "panels": [],
-            "color_scheme_definition": {"id": "evening", **scheme},
+            "theme_definition": {"id": "evening", **theme},
         },
         sort_keys=False,
     )
@@ -648,8 +646,8 @@ def test_device_yaml_import_restores_custom_scheme_definition(monkeypatch):
     result = asyncio.run(api.DeviceYamlView().post(request, entry_id="entry1"))
 
     assert result["body"]["device"] == "kitchen"
-    assert saved[0]["color_schemes"]["evening"] == scheme
-    assert saved[0]["devices"]["kitchen"]["config"]["color_scheme_id"] == "evening"
+    assert saved[0]["themes"]["evening"] == theme
+    assert saved[0]["devices"]["kitchen"]["config"]["theme_id"] == "evening"
 
 
 def test_yaml_import_rejects_empty_config_values(monkeypatch):
@@ -804,148 +802,6 @@ def test_display_refresh_runs_on_the_device_worker():
     asyncio.run(api.DeviceRefreshDisplayView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", "refresh_display"]
-
-
-def test_interaction_timer_reset_runs_on_the_device_worker():
-    entry = _entry_with({"name": "kitchen"})
-    hass = _Hass(entry)
-    app = _WorkerApp()
-    app.device = types.SimpleNamespace(
-        reset_interaction_timer=lambda: app.calls.append("reset_interaction_timer")
-    )
-    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
-    request = _Request(hass, admin=True, body={"device": "kitchen"})
-
-    result = asyncio.run(api.DeviceResetInteractionView().post(request, entry_id="entry1"))
-
-    assert result == {"body": {"status": "ok", "device": "kitchen"}, "status_code": 200}
-    assert app.calls == ["worker", "reset_interaction_timer"]
-
-
-def test_interaction_timer_reset_requires_a_device():
-    hass = _Hass(_entry_with({"name": "kitchen"}))
-    app = _WorkerApp()
-    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
-
-    result = asyncio.run(
-        api.DeviceResetInteractionView().post(
-            _Request(hass, admin=True, body={"device": ""}), entry_id="entry1"
-        )
-    )
-
-    assert result["status_code"] == 400
-    assert app.calls == []
-
-
-def test_firmware_download_rejects_non_admin_users():
-    hass = MagicMock()
-    request = _Request(hass, admin=False)
-
-    with pytest.raises(_Unauthorized):
-        asyncio.run(api.FirmwareDownloadView().get(request))
-
-    assert hass.mock_calls == []
-
-
-class _BinResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def json(self):
-        return self._payload
-
-
-def test_firmware_download_resolves_the_latest_binary_asset(monkeypatch):
-    monkeypatch.setattr(
-        requests,
-        "get",
-        lambda url, timeout: _BinResponse(
-            [
-                {
-                    "tag_name": "v0.4.0",
-                    "assets": [{"name": "nspanel_haui.tft", "browser_download_url": "/tft"}],
-                },
-                {
-                    "tag_name": "v0.3.3",
-                    "assets": [
-                        {"name": "nspanel_haui.tft", "browser_download_url": "/tft-0.3.3"},
-                        {
-                            "name": "nspanel_haui.bin",
-                            "browser_download_url": "/esp/nspanel_haui.bin",
-                        },
-                    ],
-                },
-            ]
-        ),
-    )
-    hass = MagicMock()
-
-    result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
-
-    assert result["status_code"] == 200
-    assert result["body"] == {"url": "/esp/nspanel_haui.bin", "version": "v0.3.3"}
-
-
-def test_firmware_download_without_a_binary_returns_no_url(monkeypatch):
-    monkeypatch.setattr(
-        requests,
-        "get",
-        lambda url, timeout: _BinResponse(
-            [
-                {
-                    "tag_name": "v0.4.0",
-                    "assets": [{"name": "nspanel_haui.tft", "browser_download_url": "/tft"}],
-                }
-            ]
-        ),
-    )
-    hass = MagicMock()
-
-    result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
-
-    assert result["status_code"] == 200
-    assert result["body"] == {"url": None, "version": None}
-
-
-def test_firmware_download_unreachable_github_returns_error(monkeypatch):
-    def raise_timeout(url, timeout):
-        raise requests.exceptions.ConnectTimeout("no route to host")
-
-    monkeypatch.setattr(requests, "get", raise_timeout)
-    hass = MagicMock()
-
-    result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
-
-    # A network problem must not be reported as "the release has no binary".
-    assert result["status_code"] == 502
-    assert result["body"]["status"] == "error"
-    assert "GitHub" in result["body"]["message"]
-
-
-def test_firmware_download_empty_release_list_returns_error(monkeypatch):
-    monkeypatch.setattr(requests, "get", lambda url, timeout: _BinResponse([]))
-    hass = MagicMock()
-
-    result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
-
-    assert result["status_code"] == 502
-    assert result["body"]["status"] == "error"
-
-
-def test_firmware_download_skips_development_prereleases(monkeypatch):
-    def release(tag, prerelease):
-        asset = {"name": "nspanel_haui.bin", "browser_download_url": f"/{tag}.bin"}
-        return {"tag_name": tag, "prerelease": prerelease, "assets": [asset]}
-
-    monkeypatch.setattr(
-        requests,
-        "get",
-        lambda url, timeout: _BinResponse([release("0.4.5.dev28", True), release("v0.4.4", False)]),
-    )
-
-    result = asyncio.run(api.FirmwareDownloadView().get(_Request(MagicMock(), admin=True)))
-
-    assert result["body"] == {"url": "/v0.4.4.bin", "version": "v0.4.4"}
 
 
 def _upload_request(hass, *, kind: str, filename: str, image: bytes, device: str = "kitchen"):
@@ -1580,11 +1436,17 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         "SSID": "sensor.upstairs_panel_ssid",
         "RSSI": "sensor.upstairs_panel_rssi",
         "Temperature": "sensor.upstairs_panel_temperature",
+        "Brightness Full": "number.upstairs_panel_brightness_full",
+        "Brightness Dimmed": "number.upstairs_panel_brightness_dimmed",
+    }
+    domains = {
+        "Brightness Full": "number",
+        "Brightness Dimmed": "number",
     }
     registry = types.SimpleNamespace(
         entities={
             entity_id: types.SimpleNamespace(
-                domain="sensor",
+                domain=domains.get(original_name, "sensor"),
                 platform="esphome",
                 device_id=device_id,
                 original_name=original_name,
@@ -1655,6 +1517,12 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
     }
     # The editor preview shows this sensor as the clock/weather inside temperature.
     assert result["body"]["device_info"]["temperature_entity_id"] == entity_ids["Temperature"]
+    # The schedule card reads the panel's own brightness numbers from these.
+    assert result["body"]["device_info"]["brightness_entity_id"] == entity_ids["Brightness Full"]
+    assert (
+        result["body"]["device_info"]["brightness_dim_entity_id"]
+        == entity_ids["Brightness Dimmed"]
+    )
     if active:
         assert running_app.worker_calls == 1
         assert result["body"]["haui_version"] == "1.2.3"

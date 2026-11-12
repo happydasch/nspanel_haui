@@ -100,6 +100,15 @@ export class VirtualPanelSession extends PanelSession {
     return this._send('home');
   }
 
+  /**
+   * Open one of the device's panels by key; `idle` opens it as the idle page.
+   * @param {string} key
+   * @param {boolean} [idle]
+   */
+  openPanel(key, idle = false) {
+    return this._send('open', { key, idle });
+  }
+
   /** Drop all simulated states so entities show their real Home Assistant state. */
   async resetSandbox() {
     await this.hass.callWS({

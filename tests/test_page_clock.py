@@ -6,25 +6,25 @@ import pytest
 
 from custom_components.nspanel_haui.haui.abstract import haui_page
 from custom_components.nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import Card
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.clock import ClockPage
 from custom_components.nspanel_haui.haui.utils.icon import parse_icon
 
 
-def test_light_background_uses_light_text_colors_even_with_dark_active_scheme():
+def test_light_background_uses_light_text_colors_even_with_dark_active_theme():
     page = ClockPage.__new__(ClockPage)
-    page.app = SimpleNamespace(color_theme=ColorTheme({}, "dark"))
-    page._use_color_scheme = False
+    page.app = SimpleNamespace(theme=Theme("dark"))
+    page._use_theme_background = False
     page._background_variant = "light"
 
     assert page.get_color("text") == 4226
     assert page.get_color("component_text") == 4226
 
 
-def test_scheme_background_uses_selected_scheme_text_colors():
+def test_theme_background_uses_selected_theme_text_colors():
     page = ClockPage.__new__(ClockPage)
-    page.app = SimpleNamespace(color_theme=ColorTheme({}, "dark"))
-    page._use_color_scheme = True
+    page.app = SimpleNamespace(theme=Theme("dark"))
+    page._use_theme_background = True
     page._background_variant = "dark"
 
     assert page.get_color("text") == 59164
@@ -95,7 +95,7 @@ class _Item:
     def get_icon(self):
         return f"icon-{self.item_id}"
 
-    def get_color(self, *, scheme=None):
+    def get_color(self, *, variant=None):
         return 0
 
 
@@ -146,8 +146,9 @@ def test_weather_icon_is_hidden_when_weather_item_has_no_entity(monkeypatch):
     assert not any(command.startswith("tMainIcon.txt=") for command in page.cmds)
 
 
-def test_weather_item_drives_weather_icon(monkeypatch):
-    page = _show(monkeypatch, item={"item": "weather.home"}, items=[{"item": "light.kitchen"}])
+@pytest.mark.parametrize("weather", [{"item": "weather.home"}, "weather.home"])
+def test_weather_item_drives_weather_icon(monkeypatch, weather):
+    page = _show(monkeypatch, item=weather, items=[{"item": "light.kitchen"}])
 
     assert 'tMainIcon.txt="icon-weather.home"' in page.cmds
     # weather header (temperature, pressure), then the item button

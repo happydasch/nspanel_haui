@@ -13,7 +13,7 @@ import pytest
 from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
 from custom_components.nspanel_haui.haui.page.light import LightPage
 
@@ -75,7 +75,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
-        self.color_theme = ColorTheme({})
+        self.theme = Theme()
         controller = _Controller()
         self.controller = {
             "esphome": controller,

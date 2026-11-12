@@ -146,7 +146,7 @@ class _Item:
     def get_icon(self):
         return "icon"
 
-    def get_color(self, *, scheme=None):
+    def get_color(self, *, variant=None):
         return 0
 
 

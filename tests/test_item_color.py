@@ -1,16 +1,16 @@
-"""Scheme-aware fixed icon color resolution for domain entities."""
+"""Theme-variant-aware fixed icon color resolution for domain entities."""
 
 from types import SimpleNamespace
 
 import pytest
 
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.utils.item import get_item_color
 
 
 class _Item:
-    def __init__(self, domain: str, state: str, scheme: str) -> None:
-        self.app = SimpleNamespace(color_theme=ColorTheme({}, scheme))
+    def __init__(self, domain: str, state: str, variant: str) -> None:
+        self.app = SimpleNamespace(theme=Theme(variant))
         self._entity = SimpleNamespace(attributes={})
         self._domain = domain
         self._state = state
@@ -27,8 +27,8 @@ class _Item:
     def get_item_state(self) -> str:
         return self._state
 
-    def get_icon_color(self, domain: str, key: str, scheme: str | None = None) -> int | None:
-        return self.app.color_theme.get_icon_color(domain, key, scheme)
+    def get_icon_color(self, domain: str, key: str, variant: str | None = None) -> int | None:
+        return self.app.theme.get_icon_color(domain, key, variant)
 
 
 @pytest.mark.parametrize(
@@ -39,13 +39,13 @@ class _Item:
         ("alarm_control_panel", "armed_home", 49477),
     ],
 )
-def test_domain_icon_colors_follow_light_scheme(domain: str, state: str, light_color: int) -> None:
+def test_domain_icon_colors_follow_light_variant(domain: str, state: str, light_color: int) -> None:
     item = _Item(domain, state, "light")
 
     assert get_item_color(item, default_color=123) == light_color
 
 
-def test_panel_background_hint_does_not_override_selected_color_scheme() -> None:
+def test_panel_background_hint_does_not_override_selected_theme_variant() -> None:
     item = _Item("weather", "sunny", "light")
 
-    assert get_item_color(item, default_color=123, icon_scheme="dark") == 65504
+    assert get_item_color(item, default_color=123, icon_variant="dark") == 65504

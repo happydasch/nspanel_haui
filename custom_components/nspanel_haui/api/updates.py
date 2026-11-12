@@ -17,25 +17,18 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
-import requests
 from aiohttp import web
 from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
 from ..const import DOMAIN
-from ..haui.controller.release_source import (
-    ESP_IMAGE_MAGIC,
-    FIRMWARE_MAX_BYTES,
-    RELEASES_URL,
-    fetch_json,
-)
+from ..haui.controller.release_source import ESP_IMAGE_MAGIC, FIRMWARE_MAX_BYTES
 from .common import (
     ALL_DEVICES,
     ApiError,
     api_errors,
     body_device,
     device_app,
-    error,
     for_each_app,
     json_object,
     query_device,
@@ -239,57 +232,6 @@ async def _install(
 
     updated, failed = await for_each_app(apps, action, run)
     return view.json({"status": "ok", "devices_updated": updated, "failed": failed})
-
-
-class FirmwareDownloadView(HomeAssistantView):
-    """REST API view returning the latest release's firmware (.bin) asset URL."""
-
-    url = "/api/nspanel_haui/firmware"
-    name = "api:nspanel_haui:firmware"
-    requires_auth = True
-
-    @require_admin
-    async def get(self, request):
-        """Return the prebuilt firmware download link of the latest stable release.
-
-        Releases may carry a ``nspanel_haui.bin`` asset (name-agnostic build)
-        in addition to the TFT files.  Development prereleases carry one too and
-        are skipped.  Returns ``{"url": null}`` when no stable release has a
-        binary asset, so the editor can show a plain
-        build-from-YAML hint instead of a dead link.  When the GitHub API is
-        unreachable an error response is returned instead, so the editor does
-        not mistake a network problem for a missing asset.
-        """
-        # This admin download action intentionally requests a fresh catalog
-        # instead of the update controllers' shared cache.
-        try:
-            decoded = await asyncio.to_thread(fetch_json, RELEASES_URL, 5)
-        except requests.exceptions.RequestException, ValueError:
-            decoded = None
-        if not isinstance(decoded, list) or not decoded:
-            # Unreachable or no releases at all: an environment problem, not
-            # "the release lacks a binary".
-            return error(
-                self,
-                "Could not reach the GitHub API; check the Home Assistant host's network access",
-                502,
-            )
-
-        # Releases are returned newest-first; the first binary-bearing stable
-        # release is the right one to link (semver tags are the release convention).
-        for release in decoded:
-            if release.get("prerelease"):
-                continue
-            for asset in release.get("assets", []):
-                # one universal binary serves every display model
-                if asset.get("name") == "nspanel_haui.bin":
-                    return self.json(
-                        {
-                            "url": asset["browser_download_url"],
-                            "version": release.get("tag_name"),
-                        }
-                    )
-        return self.json({"url": None, "version": None})
 
 
 class DeviceUpdateUploadView(HomeAssistantView):

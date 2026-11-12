@@ -378,7 +378,7 @@ class HAUIItem(HAUIConfigAccess):
             return default
         return value
 
-    def get_color(self, *, scheme: str | None = None) -> int:  # type: ignore[override]
+    def get_color(self, *, variant: str | None = None) -> int:  # type: ignore[override]
         """Returns the color of the entity.
 
         Returns:
@@ -396,7 +396,7 @@ class HAUIItem(HAUIConfigAccess):
                 self,
                 super().get_color("entity_unavailable"),
                 color_getter=super().get_color,
-                icon_scheme=scheme,
+                icon_variant=variant,
             )
         # Parse any remaining string/list format to RGB565 int via the
         # canonical parse_color_value utility (handles "[r,g,b]", "#rrggbb",

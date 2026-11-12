@@ -18,6 +18,7 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
     ("nl_NL", "Nederlands"),
     ("pl_PL", "Polski"),
     ("fr_FR", "Français"),
+    ("sk_SK", "Slovenčina"),
 ]
 
 # Standard logging levels offered per device.  The value is the threshold at

@@ -99,6 +99,7 @@ export const LOCALE_OPTIONS = [
   { value: "nl_NL", label: "Nederlands" },
   { value: "pl_PL", label: "Polski" },
   { value: "fr_FR", label: "Français" },
+  { value: "sk_SK", label: "Slovenčina" },
 ];
 
 /**

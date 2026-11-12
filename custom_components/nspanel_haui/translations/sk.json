@@ -1,0 +1,184 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI (počet nájdených zariadení: {count})",
+    "step": {
+      "user": {
+        "title": "Pridať hub NSPanel HAUI"
+      },
+      "confirm": {
+        "title": "Nájdené zariadenia NSPanel HAUI",
+        "description": "Nájdené zariadenia ESPHome s firmvérom HAUI (počet: {count}): {names}. Pridať ich do nového hubu NSPanel HAUI?"
+      }
+    },
+    "abort": {
+      "already_configured": "Hub s týmto názvom je už nakonfigurovaný",
+      "already_in_progress": "Konfigurácia hubu už prebieha",
+      "single_instance_allowed": "Podporovaný je iba jeden hub NSPanel HAUI",
+      "no_devices_found": "Nenašli sa žiadne zariadenia NSPanel HAUI. Najprv nainštalujte firmvér HAUI na zariadenie ESPHome."
+    }
+  },
+  "issues": {
+    "device_start_failed": {
+      "title": "Zariadenie sa nepodarilo spustiť: {device}",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Znova načítať hub",
+            "description": "NSPanel HAUI nedokázal spustiť zariadenie {device}.\n\nChyba: `{error}`.\n\nPomocou opravy skúste zariadenie spustiť znova alebo si pozrite podrobnosti v denníkoch. Opätovné načítanie konfigurácie hubu NSPanel HAUI zopakuje spustenie zariadenia {device}."
+          }
+        },
+        "flow_title": "Znova skúsiť spustiť zariadenie {device}"
+      }
+    },
+    "hub_idle": {
+      "title": "Hub NSPanel HAUI nemá žiadne povolené zariadenia",
+      "description": "Hub {hub} nemá žiadne povolené zariadenia.\n\nPovoľte aspoň jedno zariadenie v editore NSPanel HAUI alebo pridajte nové zariadenie ESPHome s firmvérom HAUI. Nové zariadenia HAUI možno do hubu pridávať automaticky."
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Otvoriť panel",
+      "description": "Prejsť na konkrétny panel. Ak je povolené prebudenie, displej sa najprv prebudí.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Cieľové zariadenie NSPanel. Ak sa vynechá, platí pre všetky zariadenia."
+        },
+        "panel": {
+          "name": "Panel",
+          "description": "Kľúč alebo UUID panela, ktorý sa má otvoriť (napr. 'alarm', 'grid_0')."
+        },
+        "wakeup": {
+          "name": "Najprv prebudiť",
+          "description": "Prebudiť displej pred otvorením panela."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Zavrieť panel",
+      "description": "Zavrieť aktuálny panel a vrátiť sa na predchádzajúci alebo domovský panel.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Cieľové zariadenie NSPanel. Ak sa vynechá, platí pre všetky zariadenia."
+        }
+      }
+    },
+    "wakeup": {
+      "name": "Prebudiť",
+      "description": "Prebudiť displej a prejsť na panel prebudenia alebo domovský panel.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Cieľové zariadenie NSPanel. Ak sa vynechá, platí pre všetky zariadenia."
+        }
+      }
+    },
+    "idle": {
+      "name": "Nečinnosť",
+      "description": "Okamžite prejsť do stavu nečinnosti otvorením nastavenej stránky pri nečinnosti (idle_panel), akoby uplynul časový limit stránky.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Cieľové zariadenie NSPanel. Ak sa vynechá, platí pre všetky zariadenia."
+        }
+      }
+    },
+    "send_notification": {
+      "name": "Odoslať oznámenie",
+      "description": "Zobraziť na paneli oznámenie s nadpisom, správou, ikonou, farbou ikony a zvukom.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Cieľové zariadenie NSPanel. Ak sa vynechá, platí pre všetky zariadenia."
+        },
+        "title": {
+          "name": "Nadpis",
+          "description": "Nadpis oznámenia zobrazený na paneli."
+        },
+        "message": {
+          "name": "Správa",
+          "description": "Text oznámenia."
+        },
+        "icon": {
+          "name": "Ikona",
+          "description": "Ikona Material Design zobrazená pri oznámení (napr. 'mdi:bell')."
+        },
+        "icon_color": {
+          "name": "Farba ikony",
+          "description": "Farba ikony ako #rrggbb, číslo RGB565, [r, g, b] alebo reťazec s celým číslom. Prázdna hodnota použije farbu textu témy."
+        },
+        "sound": {
+          "name": "Zvuk",
+          "description": "Zvuk prehrávaný pri oznámení. Hodnota 'none' vypne zvuk."
+        },
+        "timeout": {
+          "name": "Časový limit",
+          "description": "Sekundy do automatického zatvorenia. Hodnota 0 ponechá oznámenie, kým ho nezatvoríte."
+        },
+        "persistent": {
+          "name": "Trvalé",
+          "description": "Otvoriť okamžite a opakovať zvuk oznámenia, kým ho nezatvoríte na paneli."
+        },
+        "force_show": {
+          "name": "Vynútiť zobrazenie",
+          "description": "Okamžite otvoriť oznámenie, aj keď je zobrazený iný panel."
+        },
+        "text_size": {
+          "name": "Veľkosť textu",
+          "description": "Veľkosť textu vyskakovacieho panela: „auto“ (najväčšie písmo, pri ktorom sa celá správa zmestí na jednu stránku) alebo veľkosť písma 1–3."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Obnoviť poslednú interakciu",
+      "description": "Obnoviť časovač nečinnosti panela, akoby sa ho používateľ práve dotkol.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Cieľové zariadenie NSPanel. Ak sa vynechá, platí pre všetky zariadenia."
+        },
+        "offset": {
+          "name": "Posun",
+          "description": "Posun v sekundách použitý pri obnovení časovača."
+        }
+      }
+    },
+    "update_tft": {
+      "name": "Aktualizovať TFT",
+      "description": "Nainštalovať vydanie TFT požadované firmvérom panela, iné vydanie (aj staršie) alebo súbor TFT z URL.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Zariadenie NSPanel, ktorého displej sa má aktualizovať."
+        },
+        "version": {
+          "name": "Verzia",
+          "description": "Voliteľné vydanie z GitHubu na inštaláciu namiesto vydania požadovaného firmvérom, napr. staršie vydanie. Nemožno kombinovať s URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Voliteľná http(s) URL súboru .tft na inštaláciu namiesto vydania z GitHubu požadovaného firmvérom. Nemožno kombinovať s verziou."
+        }
+      }
+    },
+    "update_firmware": {
+      "name": "Aktualizovať firmvér",
+      "description": "Nainštalovať aktualizáciu firmvéru ponúkanú pre panel v Home Assistant, iné vydanie z GitHubu (aj staršie) alebo obraz firmvéru OTA z URL.",
+      "fields": {
+        "device": {
+          "name": "Zariadenie",
+          "description": "Zariadenie NSPanel, ktorého firmvér sa má nainštalovať."
+        },
+        "version": {
+          "name": "Verzia",
+          "description": "Voliteľné vydanie z GitHubu na inštaláciu namiesto ponúkanej aktualizácie, napr. staršie vydanie. Nemožno kombinovať s URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Voliteľná http(s) URL obrazu firmvéru OTA (firmware.ota.bin, nie výrobný obraz). Nemožno kombinovať s verziou."
+        }
+      }
+    }
+  }
+}

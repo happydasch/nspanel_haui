@@ -51,9 +51,11 @@ Open them with **Settings** in the device's **Connection & device** card, in the
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `locale` | `en_US` | Display language: `en_US`, `de_DE`, `nl_NL`, `pl_PL` or `fr_FR`. Sets the language of built-in texts and the format of dates, times and numbers. |
+| `locale` | `en_US` | Display language: `en_US`, `de_DE`, `nl_NL`, `pl_PL`, `fr_FR` or `sk_SK` (Slovak). Sets the language of built-in texts and the format of dates, times and numbers. |
 | `time_format` | `%H:%M` | Time format on the Clock, ClockTwo and Weather panels. `%I:%M %p` gives the 12-hour form (`2:30 PM`). Choose **Custom strftime…** to type any [strftime](https://strftime.org/) format. |
 | `date_format` | `%A, %d. %B %Y` | Date format on the Clock and Weather panels. US examples: `%m/%d/%Y` (`03/14/2026`), `%B %d, %Y` (`March 14, 2026`). |
+
+For Slovak, select **Slovenčina** (`sk_SK`) on the device. The editor and Home Assistant integration dialogs follow your Home Assistant profile language; select Slovak there as well. Slovak dates use localized weekdays and month names, for example `štvrtok 12. novembra 2026`. The ClockTwo word matrix has its own separate language setting and currently supports English, German and Polish.
 
 ### General Settings
 

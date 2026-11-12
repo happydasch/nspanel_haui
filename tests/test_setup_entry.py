@@ -236,6 +236,7 @@ def test_store_device_name_matches_case_insensitively():
 
     assert cfg["panels"] == [clock]
 
+
 def test_explicit_theme_variant_survives_config_build():
     cfg = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]},
@@ -288,6 +289,7 @@ def test_panel_storage_load_preserves_stored_config_values(monkeypatch):
     }
     # A device only listed in the entry gets an empty store entry (defaults apply).
     assert result["devices"]["office"] == {"config": {}, "panels": []}
+
 
 # --- device event routing --------------------------------------------------
 

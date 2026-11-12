@@ -8,7 +8,7 @@ You are an experienced, pragmatic software engineering AI agent. Do not over-eng
 - **Hardware:** Sonoff NSPanel (ESP32 + Nextion touchscreen display)
 - **Home Assistant:** minimum `2026.11` (declared in the Marketplace metadata; the release that replaced HACS with the built-in Marketplace, which installs the integration as a custom repository); integration type `hub`, IoT class `local_push`
 - **Runtime dependencies:** `pydantic>=2.0`, `python-dateutil>=2.8.0` (declared in `manifest.json`); `requests` and `packaging` are also imported by the update controller; both ship with Home Assistant core, so they are not listed in `manifest.json`
-- **Linting:** ruff (`E`, `F`, `W`, `I`, `UP`, `B` rulesets; line length 100; target `py314`)
+- **Linting and formatting:** ruff (`E`, `F`, `W`, `I`, `UP`, `B` rulesets; line length 100; target `py314`); agents must format changed Python code with `ruff format` and verify formatting before finishing
 - **Type checking:** mypy (targets `custom_components/nspanel_haui/haui` only)
 - **Testing:** pytest (`tests/`) + Node's built-in test runner (`tests/frontend/*.test.mjs`)
 - **Package:** setuptools (legacy build backend); no build step — the integration is installed by copying the folder into HA
@@ -143,10 +143,16 @@ pytest tests/
 # Run frontend editor tests (Node 22+, no npm dependencies)
 node --test 'tests/frontend/*.test.mjs'
 
+# Format Python code (agents must run this on changed Python files before finishing)
+ruff format custom_components/ scripts/ tests/
+
+# Verify Python formatting
+ruff format --check custom_components/ scripts/ tests/
+
 # Lint Python code
 ruff check custom_components/ scripts/
 
-# Lint with auto-fix (this is also the only formatting step; there is no separate formatter in CI)
+# Lint with auto-fix
 ruff check --fix custom_components/ scripts/
 
 # Type-check the haui core package
@@ -166,7 +172,7 @@ scripts/git_hooks/install.sh
 The `pre-commit` hook (`scripts/git_hooks/pre-commit`) runs `scripts/hmi_layout/gen_virtual_layout.py`, stages `frontend/virtual/layout_*.json`, `icon_map.json` and `pictures/`, then checks both specs with `scripts/hmi_layout/gen_layout.py --check` (landscape) and `scripts/hmi_layout/gen_layout.py --spec portrait --check`. It exists because a committed HMI change without its regenerated layout silently breaks the editor's previews and card renders.
 
 **CI:** `ci.yml` runs on push/PR to `master` and `dev`, nightly and on manual dispatch, with one job per gate:
-- `tests (3.14)` - installs the dev dependencies (Node 24 included for the card render replay), checks the icon cheatsheet, translations, version sources and the HMI bump, validates the Nextion assets, and runs `pytest tests/`, `ruff check custom_components/ scripts/` and `mypy` on Python 3.14
+- `tests (3.14)` - installs the dev dependencies (Node 24 included for the card render replay), checks the icon cheatsheet, translations, version sources and the HMI bump, validates the Nextion assets, and runs `pytest tests/`, `ruff format --check custom_components/ scripts/ tests/`, `ruff check custom_components/ scripts/` and `mypy` on Python 3.14
 - `frontend` - `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'` on Node 24
 - `esphome` - runs `esphome config esphome/nspanel_haui_universal.yaml` in its own environment, because ESPHome's cryptography pin conflicts with the dev requirements
 - `docs` - builds the docs once per run (`zensical build --strict`); a push to `master` or `dev` that changes `docs/**`, `mkdocs.yml` or `requirements-docs.txt` uploads the site artifact, and `deploy-docs` reuses it for the pushed branch, builds only the sibling, and deploys Pages with `master` at the root, `dev` under `dev/` (the editor footer's Documentation link opens `dev/` on prerelease versions)
@@ -748,12 +754,13 @@ Example: `fix(esphome): include device name in discovery fallback`
 2. **Verify docs build** — after updating docs, install `requirements-docs.txt` and run `zensical build --strict` from the project root to catch broken links, missing files, or rendering errors. The build must succeed (CI runs the same command).
 3. Run `pytest tests/` — all tests must pass.
 4. Run `node --test 'tests/frontend/*.test.mjs'` when touching `frontend/` — all tests must pass.
-5. Run `ruff check custom_components/ scripts/` — no lint errors.
-6. Run `mypy` — no type errors in `haui/`.
-7. If you changed config flow logic, ensure `tests/test_config_flow.py` covers the change.
-8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.
-9. Breaking changes must be documented in `docs/user/update.md` and the CHANGELOG's "Breaking changes" section.
-10. Write each `CHANGELOG.md` entry as one line (what changed, plus its issue/PR link); the full description goes into the release notes, `.github/release-notes/<tag>.md` (`docs/develop/release.md`, step 5).
+5. Run `ruff format` on changed Python files, then `ruff format --check custom_components/ scripts/ tests/` — all Python files must be formatted.
+6. Run `ruff check custom_components/ scripts/` — no lint errors.
+7. Run `mypy` — no type errors in `haui/`.
+8. If you changed config flow logic, ensure `tests/test_config_flow.py` covers the change.
+9. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.
+10. Breaking changes must be documented in `docs/user/update.md` and the CHANGELOG's "Breaking changes" section.
+11. Write each `CHANGELOG.md` entry as one line (what changed, plus its issue/PR link); the full description goes into the release notes, `.github/release-notes/<tag>.md` (`docs/develop/release.md`, step 5).
 
 ### Branches and pull requests
 

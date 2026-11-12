@@ -83,6 +83,9 @@ jobs:
       - name: Run tests
         run: pytest tests/
 
+      - name: Check ruff formatting
+        run: ruff format --check custom_components/ scripts/ tests/
+
       - name: Run ruff
         run: ruff check custom_components/ scripts/
 

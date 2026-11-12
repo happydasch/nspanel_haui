@@ -256,9 +256,7 @@ class Theme:
     ) -> None:
         self.variant = variant if variant in ("dark", "light") else "dark"
         self.theme_id = theme_id or variant
-        self.palette = palette or BUILTIN_THEMES.get(
-            self.theme_id, BUILTIN_THEMES["dark"]
-        )
+        self.palette = palette or BUILTIN_THEMES.get(self.theme_id, BUILTIN_THEMES["dark"])
 
     def get(self, key: str) -> int:
         """Return a semantic color from the selected theme."""

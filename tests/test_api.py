@@ -518,9 +518,7 @@ def test_theme_library_round_trips_without_panel_push(monkeypatch):
     saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
     body = {"version": 1, "themes": {"evening": _custom_theme()}}
 
-    result = asyncio.run(
-        api.ThemesView().post(_Request(hass, admin=True, body=body), "entry1")
-    )
+    result = asyncio.run(api.ThemesView().post(_Request(hass, admin=True, body=body), "entry1"))
 
     assert result["body"]["themes"] == body["themes"]
     assert saved[0]["themes"] == body["themes"]
@@ -1520,8 +1518,7 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
     # The schedule card reads the panel's own brightness numbers from these.
     assert result["body"]["device_info"]["brightness_entity_id"] == entity_ids["Brightness Full"]
     assert (
-        result["body"]["device_info"]["brightness_dim_entity_id"]
-        == entity_ids["Brightness Dimmed"]
+        result["body"]["device_info"]["brightness_dim_entity_id"] == entity_ids["Brightness Dimmed"]
     )
     if active:
         assert running_app.worker_calls == 1

@@ -276,7 +276,7 @@ def render_every_card(
                 },
                 "panels": PANELS,
             }
-        }
+        },
     }
     config = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]}, store, device_name="kitchen"

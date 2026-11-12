@@ -76,9 +76,7 @@ def _ensure_models() -> None:
             try:
                 parse_boundary(v)
             except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    f"expected HH:MM or one of {list(SUN_EVENTS)}, got {v!r}"
-                ) from exc
+                raise ValueError(f"expected HH:MM or one of {list(SUN_EVENTS)}, got {v!r}") from exc
             return v
 
         @model_validator(mode="after")

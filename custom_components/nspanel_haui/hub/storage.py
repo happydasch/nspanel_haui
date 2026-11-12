@@ -81,7 +81,6 @@ def migrate_gesture_settings(device_config: dict) -> bool:
     return True
 
 
-
 def drop_fixed_sys_overrides(device_name: str, device_data: dict) -> bool:
     """Remove stored edits of system panels that can no longer be edited.
 

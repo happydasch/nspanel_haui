@@ -50,6 +50,9 @@ def _install_ha_stubs() -> None:
     # Setup removes the hub's former current-page sensors from the registry.
     entity_registry = MagicMock()
     entity_registry.async_entries_for_config_entry = MagicMock(return_value=[])
+    storage = types.ModuleType("homeassistant.helpers.storage")
+    storage.Store = type("Store", (), {})
+    helpers.storage = storage
     helpers.entity_registry = entity_registry
 
     ha = types.ModuleType("homeassistant")
@@ -68,6 +71,7 @@ def _install_ha_stubs() -> None:
         "homeassistant.helpers.config_validation": config_validation,
         "homeassistant.helpers.issue_registry": issue_registry,
         "homeassistant.helpers.entity_registry": entity_registry,
+        "homeassistant.helpers.storage": storage,
         "homeassistant.data_entry_flow": data_entry_flow,
         "homeassistant.const": MagicMock(),
         "homeassistant.core": MagicMock(),

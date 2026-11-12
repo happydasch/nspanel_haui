@@ -137,7 +137,6 @@ def _build_config_dict(
     if cfg.get("devices"):
         cfg["device"]["resolved_theme"] = copy.deepcopy(cfg["devices"][0]["resolved_theme"])
 
-
     # Filter out disabled devices - runs after store merge and defaults fill
     # so store overrides of "enabled" are respected.
     cfg["devices"] = [d for d in cfg.get("devices", []) if d.get("enabled", True)]

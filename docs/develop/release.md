@@ -449,7 +449,7 @@ migration path.
 
 | Workflow | Triggers | What it enforces |
 |----------|----------|------------------|
-| `ci.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; HMI bump; Nextion asset gate (`verify_nextion.py --require-portrait`, landscape `gen_layout.py --check`, portrait `gen_layout.py --spec portrait --check`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation, also nightly |
+| `ci.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; HMI bump; Nextion asset gate (`verify_nextion.py --require-portrait`, landscape `gen_layout.py --check`, portrait `gen_layout.py --spec portrait --check`); `pytest tests/`; `ruff format --check custom_components/ scripts/ tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation, also nightly |
 | `ci.yml` → `deploy-docs` | a push to `master` or `dev` that changes `docs/**`, `mkdocs.yml` or `requirements-docs.txt`; manual dispatch | reuses the `docs` artifact for the pushed branch and builds only the sibling, then deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
 | `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); the same run regenerates the screen overview and commits it with the version as one `[skip ci]` bot commit. `screens_only` regenerates the screens without a build; never triggered by pushes |
 | `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait`, `gen_layout.py --check` for landscape and `--spec portrait --check`); ESPHome config + compile; firmware manifest; prepared release notes; asset upload |
@@ -487,8 +487,9 @@ python -m scripts.verify_nextion.verify_nextion --require-portrait
 python -m scripts.hmi_layout.gen_layout --check
 python -m scripts.hmi_layout.gen_layout --spec portrait --check
 
-# Backend, lint and type checks
+# Backend, formatting, lint and type checks
 pytest tests/
+ruff format --check custom_components/ scripts/ tests/
 ruff check custom_components/ scripts/
 mypy
 

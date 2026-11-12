@@ -233,4 +233,3 @@ class DeviceRefreshDisplayView(HomeAssistantView):
 
         updated, _failed = await for_each_app(apps, "refresh the display", refresh)
         return self.json({"status": "ok", "devices_updated": updated})
-

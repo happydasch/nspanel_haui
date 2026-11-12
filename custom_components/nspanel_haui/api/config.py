@@ -160,9 +160,7 @@ class PanelConfigView(HomeAssistantView):
         from ..haui.mapping.color import BUILTIN_THEMES, validate_themes
 
         try:
-            data["themes"] = await hass.async_add_executor_job(
-                validate_themes, data["themes"]
-            )
+            data["themes"] = await hass.async_add_executor_job(validate_themes, data["themes"])
         except Exception as exc:
             raise ApiError(str(exc), 400) from exc
         builtin_names = {theme["name"].casefold() for theme in BUILTIN_THEMES.values()}
@@ -175,9 +173,7 @@ class PanelConfigView(HomeAssistantView):
             for dev in data.get("devices", {}).values()
             if isinstance(dev, dict)
         }
-        removed_in_use = (
-            set(existing.get("themes", {})) - set(data["themes"])
-        ) & active_ids
+        removed_in_use = (set(existing.get("themes", {})) - set(data["themes"])) & active_ids
         if removed_in_use:
             raise ApiError("Cannot remove a color theme selected by a device", 409)
         for device_name, device_data in data.get("devices", {}).items():

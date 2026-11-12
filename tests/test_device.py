@@ -112,9 +112,7 @@ class DummyApp:
 
 def test_set_device_info_and_on_connection_changed():
     app = DummyApp()
-    device = HAUIDevice(
-        app, {"name": "nspanel_haui", "sound_on_startup": True}
-    )
+    device = HAUIDevice(app, {"name": "nspanel_haui", "sound_on_startup": True})
 
     device.set_device_info({"foo": "bar"})
     assert device.device_info["foo"] == "bar"
@@ -131,9 +129,7 @@ def _publish_topics(app):
 def test_startup_sound_plays_on_fresh_boot_uptime():
     """A low uptime (fresh boot) plays the startup sound."""
     app = DummyApp()
-    device = HAUIDevice(
-        app, {"name": "nspanel_haui", "sound_on_startup": True}
-    )
+    device = HAUIDevice(app, {"name": "nspanel_haui", "sound_on_startup": True})
     device.set_device_info({"uptime": 5})
     device.on_connection_changed(True)
     assert "play_sound" in _publish_topics(app)
@@ -143,9 +139,7 @@ def test_startup_sound_plays_on_fresh_boot_uptime():
 def test_startup_sound_silent_on_reconnect_uptime():
     """A high uptime (Wi-Fi reconnect, device stayed up) stays silent."""
     app = DummyApp()
-    device = HAUIDevice(
-        app, {"name": "nspanel_haui", "sound_on_startup": True}
-    )
+    device = HAUIDevice(app, {"name": "nspanel_haui", "sound_on_startup": True})
     device.set_device_info({"uptime": 600})
     device.on_connection_changed(True)
     assert "play_sound" not in _publish_topics(app)
@@ -154,9 +148,7 @@ def test_startup_sound_silent_on_reconnect_uptime():
 def test_startup_sound_plays_when_uptime_missing():
     """Firmware without an uptime value keeps the previous every-connect behavior."""
     app = DummyApp()
-    device = HAUIDevice(
-        app, {"name": "nspanel_haui", "sound_on_startup": True}
-    )
+    device = HAUIDevice(app, {"name": "nspanel_haui", "sound_on_startup": True})
     device.set_device_info({"foo": "bar"})
     device.on_connection_changed(True)
     assert ("play_sound", "startup") in app.controller["esphome"].esphome.publish_calls
@@ -1049,8 +1041,12 @@ def test_an_entry_overrides_the_dimming_settings_it_sets() -> None:
     device = _scheduled(
         app,
         _entry(
-            "22:00", "06:00", brightness=5, brightness_dim=2,
-            timeout_dimming=5, duration_dimming=0.5,
+            "22:00",
+            "06:00",
+            brightness=5,
+            brightness_dim=2,
+            timeout_dimming=5,
+            duration_dimming=0.5,
         ),
     )
 

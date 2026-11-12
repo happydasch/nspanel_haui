@@ -562,9 +562,7 @@ def _example_entity_ids(domains: tuple[str, ...], limit: int) -> list[str]:
     """Pick deterministic preview-only entities, independent of Home Assistant state."""
     domain_set = set(domains)
     entity_ids = [
-        entity_id
-        for entity_id in PREVIEW_ENTITIES
-        if entity_id.partition(".")[0] in domain_set
+        entity_id for entity_id in PREVIEW_ENTITIES if entity_id.partition(".")[0] in domain_set
     ]
     if domains == ("sensor",):
         sensor_order = {
@@ -660,13 +658,16 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
                 elif option.key in ("items", "info_items") and panel_type in ("clock", "weather"):
                     domains = ("sensor",)
                 else:
-                    domains = tuple(
-                        dict.fromkeys(
-                            item.domain
-                            for item in descriptor.options
-                            if item.kind == "item" and item.key != "item" and item.domain
+                    domains = (
+                        tuple(
+                            dict.fromkeys(
+                                item.domain
+                                for item in descriptor.options
+                                if item.kind == "item" and item.key != "item" and item.domain
+                            )
                         )
-                    ) or _sample_item_domains()
+                        or _sample_item_domains()
+                    )
                 limit = option.max_items or 6
                 entity_ids = _example_entity_ids(domains, limit)
                 if entity_ids:
@@ -1077,9 +1078,7 @@ class VirtualPanelHost:
 
         return await self.app.async_run_on_worker(_config)
 
-    async def _async_render_service_responses(
-        self, panel_config: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _async_render_service_responses(self, panel_config: dict[str, Any]) -> dict[str, Any]:
         """Fetch response data used by a card before its page runs on the worker."""
         if panel_config.get("type") != "weather" or not panel_config.get("forecast_type"):
             return {}
@@ -1093,9 +1092,7 @@ class VirtualPanelHost:
         if entity_id in PREVIEW_ENTITIES:
             return {
                 "weather/get_forecasts": {
-                    "result": {
-                        "response": {entity_id: {"forecast": sample_forecast()}}
-                    }
+                    "result": {"response": {entity_id: {"forecast": sample_forecast()}}}
                 }
             }
 

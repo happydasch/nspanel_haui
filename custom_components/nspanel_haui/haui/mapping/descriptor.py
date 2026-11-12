@@ -13,6 +13,7 @@ def _(text: str) -> str:
     """
     return text
 
+
 @dataclass(frozen=True)
 class PageCategory:
     """One group of panel types in the editor's *Add panel* catalog.

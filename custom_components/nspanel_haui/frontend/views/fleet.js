@@ -23,7 +23,7 @@ export function carouselEdgesFrom(carousel) {
  *   carousel?: {atStart: boolean, atEnd: boolean}, menu?: any,
  *   onCarouselScroll?: (edges: {atStart: boolean, atEnd: boolean}) => void,
  *   onMenu?: ((name: string, anchorKey: string) => void)|null, onCloseMenu?: () => void,
- *   onOpenDevice: (name: string) => void, onDeviceSettings?: (name: string) => void,
+ *   onOpenDevice: (name: string) => void,
  *   onReorderDevices: (order: string[]) => void,
  *   discovered?: any[], scanning?: boolean, scanError?: string, statusError?: string|null, onScan?: () => void,
  *   onAddDevices?: (devices: any[]) => void,
@@ -98,6 +98,39 @@ export function renderFleetView(data) {
     })
     : nothing;
   const latest = latestEvents(data.events);
+  const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
+        <div class="haui-inventory-overview">
+          <header>
+            <div class="haui-section-heading">
+              <h2 id="haui-inventory-heading">${t('Device inventory')}</h2>
+            </div>
+            ${data.onInstallUpdates && data.installable ? button({
+              label: t('Install updates ({count})').replace('{count}', String(data.installable)),
+              iconName: 'download',
+              variant: 'primary',
+              className: 'haui-inventory-update',
+              onClick: data.onInstallUpdates,
+            }) : nothing}
+          </header>
+          ${fleetSummary({
+            total: data.devices.length, online, updates, version: data.version, pending: data.statusPending === true,
+          })}
+        </div>
+        ${fleetBar({ devices: data.devices, total: data.devices.length, online })}
+        <div class="haui-device-table" role="table" aria-label=${t('Device inventory')}>
+          <div class="haui-device-row haui-device-row-head" role="row">
+            <span role="columnheader">${t('Device')}</span><span role="columnheader">${t('IP address')}</span>
+            <span role="columnheader">${t('Firmware')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"></span>
+          </div>
+          ${data.devices.map((item) => deviceRow({
+            ...item,
+            menuOpen: menu?.key === item.name,
+            onMenu: data.onMenu ? () => data.onMenu(item.name, overlayAnchor('device-menu-row', item.name)) : null,
+            onOpen: () => data.onOpenDevice(item.name),
+            ...dragActions(item.name, '.haui-device-row'),
+          }))}
+        </div>
+      </section>`;
 
   return html`<main class="haui-dashboard-content">
     <section class="haui-fleet-carousel-region" aria-label=${t('Your devices')}>
@@ -133,40 +166,7 @@ export function renderFleetView(data) {
       </section>` : nothing}
     </section>
     ${data.devices.length ? html`<div class="haui-fleet-grid">
-      <section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
-        <div class="haui-inventory-overview">
-          <header>
-            <div class="haui-section-heading">
-              <h2 id="haui-inventory-heading">${t('Device inventory')}</h2>
-            </div>
-            ${data.onInstallUpdates && data.installable ? button({
-              label: t('Install updates ({count})').replace('{count}', String(data.installable)),
-              iconName: 'download',
-              variant: 'primary',
-              className: 'haui-inventory-update',
-              onClick: data.onInstallUpdates,
-            }) : nothing}
-          </header>
-          ${fleetSummary({
-            total: data.devices.length, online, updates, version: data.version, pending: data.statusPending === true,
-          })}
-        </div>
-        ${fleetBar({ devices: data.devices, total: data.devices.length, online })}
-        <div class="haui-device-table" role="table" aria-label=${t('Device inventory')}>
-          <div class="haui-device-row haui-device-row-head" role="row">
-            <span role="columnheader">${t('Device')}</span><span role="columnheader">${t('IP address')}</span>
-            <span role="columnheader">${t('Firmware')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"></span>
-          </div>
-          ${data.devices.map((item) => deviceRow({
-            ...item,
-            menuOpen: menu?.key === item.name,
-            onMenu: data.onMenu ? () => data.onMenu(item.name, overlayAnchor('device-menu-row', item.name)) : null,
-            onOpen: () => data.onOpenDevice(item.name),
-            onSettings: data.onDeviceSettings ? () => data.onDeviceSettings(item.name) : null,
-            ...dragActions(item.name, '.haui-device-row'),
-          }))}
-        </div>
-      </section>
+      ${inventory}
       ${eventList({ events: latest, onOpenLogs: data.onOpenLogs })}
     </div>` : ''}
     ${deviceMenu}

@@ -300,7 +300,7 @@ test('event parser maps hub log levels and preserves unstructured lines', () => 
   });
 });
 
-test('a device card shows only the connection and the name; the row keeps the actions', async () => {
+test('a device card is minimal; the inventory row keeps overflow actions without a settings shortcut', async () => {
   const { deviceCard } = await import('../../custom_components/nspanel_haui/frontend/ui/device-card.js');
   const card = templateText(deviceCard({
     name: 'nspanel-kitchen', device: { friendlyName: 'Kitchen', config: {} },
@@ -318,7 +318,7 @@ test('a device card shows only the connection and the name; the row keeps the ac
 test('a device row shows the connection icon of the device card in front of the name', async () => {
   const { deviceRow } = await import('../../custom_components/nspanel_haui/frontend/ui/device-row.js');
   const row = (status) => templateText(deviceRow({
-    name: 'nspanel-kitchen', device: { friendlyName: 'Kitchen', config: {} }, status, onOpen() {},
+    name: 'nspanel-kitchen', device: { friendlyName: 'Kitchen', config: {} }, status, onOpen() {}, onMenu() {},
   }));
   const online = row({ connected: true, device_info: { rssi: -50 } });
   assert.match(online, /haui-conn-status haui-conn-status-icon online/);
@@ -328,6 +328,8 @@ test('a device row shows the connection icon of the device card in front of the 
   assert.match(row({ connected: false, device_info: { rssi: -50 } }), /wifi-off/);
   assert.match(row(null), /wifi-strength-off-outline/);
   assert.doesNotMatch(online, /haui-status-dot/);
+  assert.match(online, /Actions for Kitchen/);
+  assert.doesNotMatch(online, /Settings for Kitchen/);
 });
 
 test('the connection icon of a device row is coloured by the Wi-Fi strength', async () => {

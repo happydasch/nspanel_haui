@@ -11,7 +11,7 @@ import { fmtRssi } from '../device-info.js';
 import { deviceConnectionState, hasUpdateAvailable } from '../device-status.js';
 
 /** Render one device inventory entry. */
-export function deviceRow({ name, device, status, onOpen, onSettings, onMenu, menuOpen = false, disabled = false, dragging = false, dropTarget = false, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop }) {
+export function deviceRow({ name, device, status, onOpen, onMenu, menuOpen = false, disabled = false, dragging = false, dropTarget = false, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop }) {
   const { connected, tone, label: stateLabel } = deviceConnectionState(status);
   const info = status?.device_info || {};
   const updates = hasUpdateAvailable(status?.update);
@@ -32,12 +32,6 @@ export function deviceRow({ name, device, status, onOpen, onSettings, onMenu, me
     <div class="haui-device-row-actions" role="cell">
       ${disabled ? badge(t('Disabled'), 'neutral') : ''}
       ${updates ? badge(t('Update'), 'warning') : ''}
-      ${onSettings ? iconButton({
-        label: t('Settings for {name}').replace('{name}', displayName),
-        iconName: 'settings',
-        className: 'haui-row-action',
-        onClick: onSettings,
-      }) : ''}
       ${onMenu ? iconButton({
         label: t('Actions for {name}').replace('{name}', displayName),
         iconName: 'more',

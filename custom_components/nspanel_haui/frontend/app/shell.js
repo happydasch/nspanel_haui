@@ -1002,10 +1002,6 @@ class NSPanelEditor extends LitElement {
         onMenu: (name, anchorKey) => this._toggleDeviceMenu(name, anchorKey),
         onCloseMenu: () => this._closeAnchoredPopover('device-menu'),
         onOpenDevice: (name) => this._navigateToDevice(name),
-        onDeviceSettings: (name) => {
-          this._selectDevice(name);
-          this._openSettings();
-        },
         onReorderDevices: (order) => this._store.actions.reorderDevices(order),
         discovered: this._discoveredDevices(),
         scanning: this._scanning,

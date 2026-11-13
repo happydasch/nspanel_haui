@@ -22,9 +22,12 @@ import { railOverflows } from '../ui/device-rail.js';
 import { deviceDetails } from '../ui/device-details.js';
 import { diagnosticsReport } from '../ui/device-diagnostics.js';
 import { eventsByTime } from '../ui/event-list.js';
-import { panelActions, panelManager } from '../ui/panel-manager.js';
+import { panelActions, panelManager, deviceOptionPanel } from '../ui/panel-manager.js';
+import { panelSideCard } from '../ui/panel-info.js';
 import { deviceActions } from '../ui/device-actions.js';
-import { idlePanelConfig, idlePanelKeys, panelKeys } from '../ui/panel-pills.js';
+import { button } from '../ui/button.js';
+import { emptyState } from '../ui/empty-state.js';
+import { idlePanelKeys } from '../ui/panel-pills.js';
 import { renderSimulatorPreview } from '../previews/simulator-frame.js';
 import { previewRenderKey } from '../previews/previewer.js';
 import * as Crud from '../crud.js';
@@ -42,7 +45,7 @@ import '../views/workspace.js';
 
 import { copyText, readStorage, writeStorage } from '../dom-helpers.js';
 import { anchorElement, focusAnchor, focusMenu, overlayAnchor, placeOpenPopovers, popoverSurface } from '../ui/popover.js';
-import { isAnchoredOverlayKind, isSidebarOverlayKind } from '../store/store.js';
+import { isAnchoredOverlayKind, isDeviceOptionOverlayKind, isSidebarOverlayKind } from '../store/store.js';
 import { selectDevice, importDeviceYaml, exportDeviceYaml } from '../device-yaml.js';
 import { deviceBrightness, hasUpdateAvailable } from '../device-status.js';
 import { groupPanels, panelRoleMarkers } from '../panel-utils.js';
@@ -64,6 +67,10 @@ const DETAILS_EXPANDED_KEY = 'haui_deviceDetailsExpanded';
 const DIAGNOSTICS_EXPANDED_KEY = 'haui_diagnosticsExpanded';
 // The device side-stack cards the user expanded (comma-separated card ids); the rest stay collapsed.
 const PANEL_CARDS_EXPANDED_KEY = 'haui_panelCardsExpanded';
+// Whether the selected panel's card shows its render large; remembered per browser.
+const PANEL_PREVIEW_FOLDED_KEY = 'haui_panelPreviewFolded';
+// Which preview size the Add panel catalog last used ('1' compact), so it opens the way it was left.
+const CATALOG_COMPACT_KEY = 'haui_panelCatalogCompact';
 
 /** @type {import("../store/store.js").StoreStorage} */
 const STORAGE = {
@@ -102,6 +109,7 @@ class NSPanelEditor extends LitElement {
       _editingPanelType: { type: String, state: true },
       _panelCatalogOpen: { type: Boolean, state: true },
       _panelCatalogSearch: { type: String, state: true },
+      _panelCatalogCompact: { type: Boolean, state: true },
       _saving: { type: Boolean, state: true },
       _error: { type: String, state: true },
       _toast: { type: Object, state: true },
@@ -122,11 +130,18 @@ class NSPanelEditor extends LitElement {
       _removeTarget: { type: String, state: true },
       _confirmBulkUpdate: { type: Boolean, state: true },
       _panelSearch: { type: String, state: true },
+      _selectedPanelKey: { type: String, state: true },
+      _panelPreviewCollapsed: { type: Boolean, state: true },
+      _collapsedPanelGroups: { type: Array, state: true },
       _railCollapsed: { type: Boolean, state: true },
       _detailsExpanded: { type: Boolean, state: true },
       _diagnosticsExpanded: { type: Boolean, state: true },
       _panelCardsExpanded: { type: Array, state: true },
       _themeVariant: { type: String, state: true },
+      _builtinThemes: { type: Object, state: true },
+      _customThemes: { type: Object, state: true },
+      _themesLoading: { type: Boolean, state: true },
+      _themesError: { type: String, state: true },
 
       _dialogVersion: { type: Number, state: true },
       _haElementsReady: { type: Boolean, state: true },
@@ -144,6 +159,7 @@ class NSPanelEditor extends LitElement {
     this._store = createStore({ client: this.api, storage: STORAGE });
     this._router = null;
     this.__lastSelectedDevice = null;
+    this.__selectedPanelFor = null;
     this.store = this._store;
     this.addController(new StoreController(this, this._store, () => this._syncFromStore()));
 
@@ -157,6 +173,7 @@ class NSPanelEditor extends LitElement {
     this._editingPanelType = null;
     this._panelCatalogOpen = false;
     this._panelCatalogSearch = '';
+    this._panelCatalogCompact = readStorage(CATALOG_COMPACT_KEY, '0') === '1';
     this._saving = false;
     this.__pendingUpdateSettings = null;
     this.__savingUpdateSettings = false;
@@ -183,11 +200,20 @@ class NSPanelEditor extends LitElement {
     this._removeTarget = null;
     this._confirmBulkUpdate = false;
     this._panelSearch = '';
+    this._selectedPanelKey = null;
+    this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
+    this._collapsedPanelGroups = [];
     this._railCollapsed = false;
     this._detailsExpanded = readStorage(DETAILS_EXPANDED_KEY, '1') === '1';
     this._diagnosticsExpanded = readStorage(DIAGNOSTICS_EXPANDED_KEY, '0') === '1';
     this._panelCardsExpanded = readStorage(PANEL_CARDS_EXPANDED_KEY, '').split(',').filter(Boolean);
     this._themeVariant = "dark";
+    this._builtinThemes = {};
+    this._customThemes = {};
+    this._themesLoading = false;
+    this._themesError = '';
+    this.__themeLibraryEntry = null;
+    this.__themeLibraryLoadingEntry = null;
     this._haElementsForced = false;
     this._syncFromStore();
     this._waitForHaElements();
@@ -240,6 +266,17 @@ class NSPanelEditor extends LitElement {
     this._selectedDevice = state.devices.selected;
     if (this._scheduleDraft?.device !== state.devices.selected) this._scheduleDraft = null;
     if (this._gestureDraft?.device !== state.devices.selected) this._gestureDraft = null;
+    // The selected panel row belongs to the list of the device it came from,
+    // and to the list only while its panel is still there.
+    if (this.__selectedPanelFor !== state.devices.selected) {
+      this.__selectedPanelFor = state.devices.selected;
+      this._selectedPanelKey = null;
+    } else if (this._selectedPanelKey
+      && !(state.devices.byName[state.devices.selected]?.panels || []).some(
+        (panel) => panel.key === this._selectedPanelKey,
+      )) {
+      this._selectedPanelKey = null;
+    }
     this._deviceConfig = state.devices.selected
       ? this._store.selectors.configFor(state.devices.selected)
       : null;
@@ -338,7 +375,7 @@ class NSPanelEditor extends LitElement {
     };
     document.addEventListener('keydown', this.__onDocEscape);
     // A popover is placed once, with a fixed position: follow its trigger when
-    // the window resizes (into or out of the bottom sheet) or the page scrolls.
+    // the window resizes or the page scrolls.
     this.__onViewportChange = () => {
       if (isAnchoredOverlayKind(this._store.getState().ui.overlays.at(-1)?.kind)) placeOpenPopovers(this.renderRoot);
     };
@@ -410,6 +447,9 @@ class NSPanelEditor extends LitElement {
         this.__notificationsFor = this.entryId;
         this._store.actions.loadNotifications();
       }
+    }
+    if (this._route?.view === 'device' && this._route.panelView === 'panels' && this.entryId) {
+      this._loadThemeLibrary();
     }
     if (changed.has("_selectedDevice") && this._selectedDevice && !this._loading) {
       this._store.actions.startSelectedStatusPolling();
@@ -544,6 +584,37 @@ class NSPanelEditor extends LitElement {
     DeviceConfig.loadDeviceConfig(this, name);
   }
 
+  async _loadThemeLibrary(entryId = this.entryId, force = false) {
+    if (!entryId || (!force && this.__themeLibraryEntry === entryId)
+        || this.__themeLibraryLoadingEntry === entryId) return;
+    this.__themeLibraryLoadingEntry = entryId;
+    this._themesLoading = true;
+    this._themesError = '';
+    if (this.__themeLibraryEntry !== entryId) {
+      this._builtinThemes = {};
+      this._customThemes = {};
+    }
+    this.requestUpdate();
+    try {
+      const data = await this.api.editor.themes(entryId);
+      if (this.entryId !== entryId) return;
+      this._builtinThemes = data.builtins || {};
+      this._customThemes = data.themes || {};
+      this.__themeLibraryEntry = entryId;
+    } catch (_error) {
+      if (this.entryId === entryId) {
+        this._themesError = t('Unable to load color themes.');
+        this.__themeLibraryEntry = entryId;
+      }
+    } finally {
+      if (this.__themeLibraryLoadingEntry === entryId) {
+        this.__themeLibraryLoadingEntry = null;
+        this._themesLoading = false;
+        this.requestUpdate();
+      }
+    }
+  }
+
   /* ── CRUD actions ─────────────────────────────────────────────────────── */
 
   _captureSidebarFocus() {
@@ -587,6 +658,8 @@ class NSPanelEditor extends LitElement {
     } else if (kind === 'panel-catalog') this._closeCatalog();
     else if (kind === 'firmware') this._closeFirmware();
     else if (kind === 'theme') this._closeThemeSidebar();
+    else if (kind === 'device-schedule') this._closeDeviceOption('schedule');
+    else if (kind === 'device-gestures') this._closeDeviceOption('gestures');
     else if (kind === 'logs') this._closeLogs();
   }
 
@@ -684,28 +757,38 @@ class NSPanelEditor extends LitElement {
     this._store.actions.closeOverlay('panel-catalog', 'add-panel');
     this._restoreSidebarFocus();
   }
+  /** The catalog's preview size is a per-browser preference: the next open keeps it. */
+  _chooseCatalogPreviewSize(compact) {
+    this._panelCatalogCompact = compact;
+    writeStorage(CATALOG_COMPACT_KEY, compact ? '1' : '0');
+  }
   _openEdit(i) { this._captureSidebarFocus(); Crud.openEdit(this, i); }
   _closeEdit() {
     Crud.closeEdit(this);
     this._restoreSidebarFocus();
   }
   _toggleNavVisibility(key) { Crud.toggleNavVisibility(this, key); }
-  async _setSpecialPanel(field, panelKey) {
-    const idleKeys = field === 'idle_panels' ? panelKeys(panelKey) : [];
-    const dc = field === 'idle_panels'
-      ? { ...this._deviceConfig, ...idlePanelConfig(idleKeys) }
-      : { ...this._deviceConfig, [field]: panelKey };
-    const role = field === 'home_panel' ? t('Home panel')
-      : field === 'idle_panels' ? t('Idle panels')
-        : field === 'idle_panel_extra' ? t('Extra idle panels') : t('Idle panel');
-    const selectedKeys = field === 'idle_panels' || field === 'idle_panel_extra'
-      ? panelKeys(panelKey) : panelKey ? [panelKey] : [];
-    const panelTitles = new Map(this._devicePanels().map((panel) => [panel.key, panel.title || panel.key]));
-    const titles = selectedKeys.map((key) => panelTitles.get(key) || key).join(', ');
-    const message = selectedKeys.length
-      ? t('{role} set to "{panel}"').replace('{role}', role).replace('{panel}', titles)
-      : t('{role} cleared').replace('{role}', role);
-    await this._savePanels(this._devicePanels(), message, dc);
+  /**
+   * Open one device option's editor in the modal sidebar.
+   * @param {'schedule'|'gestures'} option
+   */
+  _openDeviceOption(option) {
+    const name = this._selectedDevice;
+    if (!name) return;
+    // A new history entry: Back returns to Fleet, where the sidebar was opened.
+    if (this._route?.view !== 'device' || this._route.device !== name) {
+      this._router?.navigate({ view: 'device', device: name, panelView: 'preview' });
+    }
+    const kind = `device-${option}`;
+    this._store.actions.pushOverlay({ kind, anchorKey: kind, subject: name, draft: null });
+  }
+
+  /** Close a device option's sidebar; an unsaved draft goes with it. @param {string} option */
+  _closeDeviceOption(option) {
+    if (option === 'schedule') this._scheduleDraft = null;
+    if (option === 'gestures') this._gestureDraft = null;
+    this._store.actions.closeOverlay(`device-${option}`, `device-${option}`);
+    this._restoreSidebarFocus();
   }
   _changeGestures(draft) {
     if (!this._selectedDevice || !this._deviceConfig || this._saving) return;
@@ -725,6 +808,7 @@ class NSPanelEditor extends LitElement {
     const config = { ...this._deviceConfig, gestures: clone(draft.gestures) };
     if (await this._savePanels(this._devicePanels(), t('Device configuration saved'), config)) {
       this._gestureDraft = null;
+      this._closeDeviceOption('gestures');
     }
     this.requestUpdate();
   }
@@ -764,6 +848,7 @@ class NSPanelEditor extends LitElement {
     };
     if (await this._savePanels(this._devicePanels(), t('Device configuration saved'), config)) {
       this._scheduleDraft = null;
+      this._closeDeviceOption('schedule');
     }
     this.requestUpdate();
   }
@@ -935,7 +1020,7 @@ class NSPanelEditor extends LitElement {
   }
 
 
-  /* ── toast ────────────────────────────────────────────────────────────── */
+  /* ── haui-toast ────────────────────────────────────────────────────────────── */
 
   _showToast(m, kind)      { this._store.actions.showToast(m, kind); }
 
@@ -980,11 +1065,11 @@ class NSPanelEditor extends LitElement {
       deviceName: state.devices.byName[name].friendlyName,
       line,
     })));
-    const versions = [...new Set(devices.map(({ status }) => status?.haui_version).filter(Boolean))];
+    const versions = [...new Set(devices.map(({ status }) => status?.integration_version).filter(Boolean))];
     const hubVersion = versions.length === 1 ? versions[0] : versions.length > 1 ? t('Mixed versions') : t('Unknown');
     // Logs is Fleet's one sidebar: every device's lines, or one device's from its menu.
     const logs = state.ui.overlays.find((overlay) => overlay.kind === 'logs');
-    return html`<div class="container">
+    return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderFleetView({
         devices,
@@ -1058,9 +1143,14 @@ class NSPanelEditor extends LitElement {
     });
     const preview = state.ui.preview;
     const previewState = this.__previewState || {};
+    // Every open sidebar stays rendered and the topmost one is shown, so a nested
+    // editor keeps the draft below it.
+    const sidebarKinds = state.ui.overlays.map((overlay) => overlay.kind).filter(isSidebarOverlayKind);
+    const sidebarKind = sidebarKinds.at(-1);
     const interactiveSession = html`<nspanel-preview-workspace class="haui-inline-live-preview"
       .hass=${this.hass} .active=${true} .entryId=${this.entryId} .device=${name}
       .mode=${preview.mode} .showEntities=${preview.showEntities}
+      .optionSelection=${isDeviceOptionOverlayKind(sidebarKind) ? sidebarKind : ''}
       @preview-state=${(event) => this._onPreviewState(event)}
       @preview-notice=${(event) => this._showToast(event.detail.message, event.detail.type)}
     ></nspanel-preview-workspace>`;
@@ -1071,8 +1161,6 @@ class NSPanelEditor extends LitElement {
       : interactiveSession;
     // Every open sidebar stays rendered and the topmost one is shown, so a nested
     // editor keeps the draft below it.
-    const sidebarKinds = state.ui.overlays.map((overlay) => overlay.kind).filter(isSidebarOverlayKind);
-    const sidebarKind = sidebarKinds.at(-1);
     const panelEditor = sidebarKinds.includes('panel-editor') && this._editingPanel ? html`<nspanel-panel-editor
       .hass=${this.hass} .api=${this.api} .open=${true} .inline=${true}
       .panel=${this._editingPanel} .panelTypes=${this._panelTypes}
@@ -1089,6 +1177,7 @@ class NSPanelEditor extends LitElement {
     const deviceSettings = html`<nspanel-device-settings
       .hass=${this.hass} .open=${true} .inline=${true}
       .config=${this._deviceConfigForm}
+      .panels=${device.panels}
       .saving=${this._saving}
       .api=${this.api} .entryId=${this.entryId}
       @dialog-closed=${this._closeDeviceConfig}
@@ -1098,6 +1187,8 @@ class NSPanelEditor extends LitElement {
       panelTypes: this._panelTypes,
       query: this._panelCatalogSearch,
       onQuery: (query) => { this._panelCatalogSearch = query; },
+      compactPreviews: this._panelCatalogCompact,
+      onPreviewSize: (compact) => this._chooseCatalogPreviewSize(compact),
       onSelect: (type) => this._openAdd(type),
       templates: this._panelTemplates(),
       onSelectTemplate: (panel) => this._openAddFrom(panel),
@@ -1128,8 +1219,28 @@ class NSPanelEditor extends LitElement {
     const layer = (kind, content) => (sidebarKinds.includes(kind)
       ? html`<div class="haui-sidebar-layer" ?hidden=${kind !== sidebarKind}>${content()}</div>`
       : nothing);
+    // What the device's settings and its option sidebars edit.
+    const managerOptions = {
+      panels: device.panels,
+      systemPanels: state.hub.systemPanels || [],
+      config: device.config,
+      saving: state.hub.saving,
+      scheduleDraft: this._scheduleDraft?.device === name ? this._scheduleDraft : null,
+      deviceBrightness: deviceBrightness(status, this.hass),
+      builtinThemes: this._builtinThemes,
+      customThemes: this._customThemes,
+      onScheduleChange: (draft) => this._changeSchedule(draft),
+      onScheduleEntryToggle: (index, isOpen) => this._onScheduleEntryToggle(index, isOpen),
+      onScheduleSave: () => this._saveSchedule(),
+      gestureDraft: this._gestureDraft?.device === name ? this._gestureDraft : null,
+      onGestureChange: (draft) => this._changeGestures(draft),
+      onGestureEntryToggle: (index, isOpen) => this._onGestureEntryToggle(index, isOpen),
+      onGestureSave: () => this._saveGestures(),
+    };
     // The modal sidebar opens over the page; the side stack below it stays as it is.
     const sidebarContent = sidebarKind ? html`${layer('device-settings', () => deviceSettings)}${
+      layer('device-schedule', () => deviceOptionPanel('schedule', managerOptions))}${
+      layer('device-gestures', () => deviceOptionPanel('gestures', managerOptions))}${
       layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
       layer('firmware', firmware)}${layer('theme', theme)}${
       layer('logs', () => this._renderLogs(status?.logs || []))}` : null;
@@ -1144,28 +1255,17 @@ class NSPanelEditor extends LitElement {
           onSettings: () => this._openSettings(),
           onFirmware: () => this._openFirmware(name),
           onAdd: () => this._openCatalog(),
-          onTheme: () => this._openTheme(),
+          management: panelManager({
+            ...managerOptions,
+            // The theme has its own shared editor; the other two open theirs.
+            onOpen: (option) => (option === 'theme'
+              ? this._openTheme()
+              : this._openDeviceOption(option)),
+          }),
         });
     const sideContent = route.panelView === 'panels'
-      ? panelManager({
-          panels: device.panels,
-          systemPanels: state.hub.systemPanels || [],
-          config: device.config,
-          saving: state.hub.saving,
-          scheduleDraft: this._scheduleDraft?.device === name ? this._scheduleDraft : null,
-          deviceBrightness: deviceBrightness(status, this.hass),
-          onScheduleChange: (draft) => this._changeSchedule(draft),
-          onScheduleEntryToggle: (index, isOpen) => this._onScheduleEntryToggle(index, isOpen),
-          onScheduleSave: () => this._saveSchedule(),
-          onSetRole: (field, panelKey) => this._setSpecialPanel(field, panelKey),
-          gestureDraft: this._gestureDraft?.device === name ? this._gestureDraft : null,
-          onGestureChange: (draft) => this._changeGestures(draft),
-          onGestureEntryToggle: (index, isOpen) => this._onGestureEntryToggle(index, isOpen),
-          onGestureSave: () => this._saveGestures(),
-          expanded: this._panelCardsExpanded,
-          onToggle: (card) => this._togglePanelCard(card),
-        })
-        : deviceDetails({
+      ? panelSideCard(this._panelSideModel(device, status))
+      : deviceDetails({
             name,
             status,
             hass: this.hass,
@@ -1198,7 +1298,7 @@ class NSPanelEditor extends LitElement {
             },
           });
 
-    return html`<div class="container">
+    return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderDeviceView({
         devices: railDevices,
@@ -1212,6 +1312,7 @@ class NSPanelEditor extends LitElement {
         workspace,
         leadContent,
         sideContent,
+        sideLabel: route.panelView === 'panels' ? t('Panel details') : t('Device details'),
         sidebarContent,
         preview: {
           mode: previewState.mode || preview.mode,
@@ -1219,11 +1320,7 @@ class NSPanelEditor extends LitElement {
           canInteract: Boolean(previewState.canInteract),
         },
         sidebarOpen: Boolean(sidebarContent),
-        sidebarLabel: sidebarKind === 'device-settings' ? t('Device settings')
-          : sidebarKind === 'panel-editor' ? this._panelEditorLabel()
-            : sidebarKind === 'firmware' ? t('Updates')
-              : sidebarKind === 'theme' ? t('Theme')
-                : sidebarKind === 'logs' ? t('Logs') : t('Add panel'),
+        sidebarLabel: sidebarKind ? this._sidebarLabel(sidebarKind) : undefined,
         onCloseSide: () => this._closeSidebar(),
         onSelectDevice: (deviceName) => this._navigateToDevice(deviceName),
         onSwitchView: (panelView) => this._router?.navigate(
@@ -1259,6 +1356,27 @@ class NSPanelEditor extends LitElement {
     const system = (this._panels?.system_panels || []).some((entry) => entry.key === editing?.data?.key);
     // A system panel's first edit has no index yet, but it is not a new panel.
     return editing && editing.index < 0 && !system ? t('Add Panel') : t('Edit Panel');
+  }
+
+  /**
+   * The modal sidebar's title for a sidebar overlay kind.
+   * @param {string|undefined} kind
+   */
+  _sidebarLabel(kind) {
+    /** @type {Record<string, () => string>} */
+    const labels = {
+      'device-settings': () => t('Device settings'),
+      'device-schedule': () => t('Schedule'),
+      'device-gestures': () => t('Gestures'),
+      'panel-editor': () => this._panelEditorLabel(),
+      'panel-catalog': () => t('Add panel'),
+      firmware: () => t('Updates'),
+      theme: () => t('Theme'),
+      logs: () => t('Logs'),
+    };
+    const label = kind ? labels[kind] : undefined;
+    if (!label) throw new Error(`Unknown sidebar kind: ${kind}`);
+    return label();
   }
 
   /** The Fleet device menu: the actions the overview can reach without a route change. */
@@ -1341,6 +1459,9 @@ class NSPanelEditor extends LitElement {
     this._panelCardsExpanded = expanded.includes(card)
       ? expanded.filter((entry) => entry !== card) : [...expanded, card];
     writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
+    if (card === 'theme' && !expanded.includes(card) && this._themesError) {
+      this._loadThemeLibrary(this.entryId, true);
+    }
   }
 
   /** Copy a plain-text diagnostics report for a bug report. @param {string} name @param {any} status */
@@ -1378,6 +1499,13 @@ class NSPanelEditor extends LitElement {
     return this._panels.devices?.[this._selectedDevice]?.panels || [];
   }
 
+  /** @param {string} groupId */
+  _togglePanelGroup(groupId) {
+    this._collapsedPanelGroups = this._collapsedPanelGroups.includes(groupId)
+      ? this._collapsedPanelGroups.filter((id) => id !== groupId)
+      : [...this._collapsedPanelGroups, groupId];
+  }
+
   /**
    * Prepare the Device workspace's panel groups for `views/panel-list.js`.
    *
@@ -1412,7 +1540,6 @@ class NSPanelEditor extends LitElement {
     const renderKey = previewRenderKey(context);
     const descriptorFor = (panel) => this._panelTypes.find((type) => type.type_key === panel.type);
     const nameOf = (panel) => panel.title || descriptorFor(panel)?.label || panel.key || t('Unnamed panel');
-    const nextRole = (field, panel) => (config[field] === panel.key ? '' : panel.key);
 
     /**
      * @param {Array} list
@@ -1439,16 +1566,6 @@ class NSPanelEditor extends LitElement {
             label: isNavigation ? t('Hide from navigation') : t('Show in navigation'),
             iconName: isNavigation ? 'mdi:eye-off-outline' : 'mdi:eye-outline',
             onSelect: () => this._toggleNavVisibility(panel.key),
-          },
-          {
-            label: config.home_panel === panel.key ? t('Unset home panel') : t('Set as home panel'),
-            iconName: 'mdi:home-outline',
-            onSelect: () => this._setSpecialPanel('home_panel', nextRole('home_panel', panel)),
-          },
-          {
-            label: config.idle_panel === panel.key ? t('Unset idle panel') : t('Set as idle panel'),
-            iconName: 'mdi:weather-night',
-            onSelect: () => this._setSpecialPanel('idle_panel', nextRole('idle_panel', panel)),
           },
           'divider',
           { label: t('Delete'), iconName: 'mdi:delete-outline', danger: true, onSelect: () => this._confirmDelete(index) },
@@ -1477,10 +1594,17 @@ class NSPanelEditor extends LitElement {
     // the list is not a place to reorder, and groups without a match are left out.
     const query = (this._panelSearch || '').trim().toLocaleLowerCase();
     const matches = (entry) => `${entry.title} ${entry.key} ${entry.typeLabel || ''}`.toLocaleLowerCase().includes(query);
-    const narrowed = (groups) => (query
-      ? groups.map((group) => ({ ...group, dropEnabled: false, entries: group.entries.filter(matches) }))
-        .filter((group) => group.entries.length)
-      : groups);
+    const narrowed = (groups) => {
+      const visibleGroups = query
+        ? groups.map((group) => ({ ...group, dropEnabled: false, entries: group.entries.filter(matches) }))
+          .filter((group) => group.entries.length)
+        : groups;
+      // Search results stay visible; clearing the query restores each group's collapsed state.
+      return visibleGroups.map((group) => ({
+        ...group,
+        collapsed: !query && this._collapsedPanelGroups.includes(group.id),
+      }));
+    };
     return {
       emptyMessage: query ? t('No panels match this search.') : '',
       groups: narrowed([
@@ -1511,10 +1635,122 @@ class NSPanelEditor extends LitElement {
       ]),
       portrait,
       menuKey: state.ui.overlays.at(-1)?.kind === 'panel-menu' ? state.ui.overlays.at(-1)?.subject : null,
+      selectedKey: this._selectedPanelKey,
       onToggleMenu: (key) => this._togglePanelMenu(key),
       onCloseMenu: () => this._closePanelMenu(),
+      onToggleGroup: (groupId) => this._togglePanelGroup(groupId),
+      onSelect: (key) => this._togglePanelSelection(key),
       onDrop: (move) => Crud.movePanelToGroup(this, move.sourceKey, move.group, move.beforeKey),
     };
+  }
+
+  /**
+   * The Panels view's side card: the selected panel, or what the list is about
+   * while nothing is selected.
+   *
+   * @param {any} device - the routed device state (`{ name, panels, config }`)
+   * @param {any} status - that device's status payload
+   */
+  _panelSideModel(device, status) {
+    const state = this._store.getState();
+    const panels = device?.panels || [];
+    const config = device?.config || {};
+    const grouped = groupPanels(panels, state.hub.systemPanels || []);
+    const systemPanels = state.hub.systemPanels || [];
+    const descriptorFor = (panel) => this._panelTypes.find((type) => type.type_key === panel?.type);
+    const key = this._selectedPanelKey;
+    // Every listed row is either one of the device's panels or a popup it
+    // replaces (stored among them), so the panel configs answer both.
+    const panel = key ? panels.find((entry) => entry.key === key) : null;
+    const titleOf = (panelKey) => {
+      const entry = panelKey ? panels.find((panelEntry) => panelEntry.key === panelKey) : null;
+      const system = panelKey ? systemPanels.find((systemEntry) => systemEntry.key === panelKey) : null;
+      if (!entry && !system) return '';
+      return entry?.title || descriptorFor(entry)?.label || entry?.key || system?.label || panelKey;
+    };
+    if (!panel) {
+      // What the device opens at both ends of its idle cycle: the configured home
+      // panel (or the hub's fallback to the first navigation panel) and the idle
+      // page, whose panel comes from the ordered idle list.
+      const idleKeys = idlePanelKeys(config.idle_panel, config.idle_panel_extra);
+      const idleTitles = idleKeys.map(titleOf).filter(Boolean);
+      const configuredHomeKey = config.home_panel || grouped.navigation[0]?.key || '';
+      const homePanelKey = panels.some((entry) => entry.key === configuredHomeKey) ? configuredHomeKey : '';
+      const idlePanelKey = idleKeys[0] && panels.some((entry) => entry.key === idleKeys[0])
+        ? idleKeys[0]
+        : '';
+      return {
+        kind: 'overview',
+        navigationCount: grouped.navigation.length,
+        hiddenCount: grouped.hidden.length,
+        popupCount: grouped.popups.length,
+        homePanel: titleOf(configuredHomeKey),
+        homePanelKey,
+        idlePanels: idleTitles.length > 1
+          ? t('{name} and {count} more')
+            .replace('{name}', idleTitles[0]).replace('{count}', String(idleTitles.length - 1))
+          : idleTitles[0] || '',
+        idlePanelKey: idleKeys[0] || '',
+        onSelectPanel: (panelKey) => this._togglePanelSelection(panelKey),
+      };
+    }
+    const descriptor = descriptorFor(panel);
+    const systemEntry = systemPanels.find((entry) => entry.key === key);
+    const index = panels.indexOf(panel);
+    const facts = [
+      [t('Type'), descriptor?.label || panel.type || ''],
+      [t('Key'), html`<code class="haui-panel-info-key">${panel.key}</code>`],
+      [t('Group'), systemEntry ? t('Popup') : panel.show_in_navigation === false ? t('Hidden') : t('Navigation')],
+    ];
+    if (Array.isArray(panel.items)) facts.push([t('Items'), String(panel.items.length)]);
+    // The hub opens the first navigation panel as home while none is configured.
+    const home = panel.key === (config.home_panel || grouped.navigation[0]?.key);
+    const roles = [
+      ...(home ? [t('Home panel')] : []),
+      ...(panel.key === config.idle_panel ? [t('Idle panel')] : []),
+    ];
+    if (roles.length) facts.push([t('Role'), roles.join(' · ')]);
+    const context = buildPreviewContext(
+      this.entryId, device?.name ?? this._selectedDevice, device, status, this.api, state.hub.themes,
+    );
+    // A popup override is edited and reset; a panel of the device is edited,
+    // duplicated and deleted, as its row's menu offers.
+    const actions = systemEntry
+      ? [
+        { label: t('Edit'), iconName: 'edit', variant: 'primary', onClick: () => this._openSysPanelEdit(systemEntry) },
+        { label: t('Reset to default'), iconName: 'restore', onClick: () => this._resetSysPanelOverride(panel.key) },
+      ]
+      : [
+        { label: t('Edit'), iconName: 'edit', variant: 'primary', onClick: () => this._openEdit(index) },
+        { label: t('Duplicate'), iconName: 'mdi:content-copy', onClick: () => Crud.duplicatePanel(this, panel.key) },
+        { label: t('Delete'), iconName: 'delete', danger: true, onClick: () => this._confirmDelete(index) },
+      ];
+    return {
+      kind: 'panel',
+      iconName: descriptor?.icon || 'panels',
+      title: panel.title || descriptor?.label || panel.key,
+      subtitle: descriptor?.label || panel.type || '',
+      description: descriptor?.description || '',
+      preview: renderSimulatorPreview(context, panel, systemEntry ? -1 : index, previewRenderKey(context)),
+      portrait: isPortraitModel(config.display_model),
+      facts,
+      actions,
+      previewExpanded: !this._panelPreviewCollapsed,
+      onTogglePreview: () => this._togglePanelPreview(),
+      onClose: () => { this._selectedPanelKey = null; },
+    };
+  }
+
+  /** Select a panel row; picking the selected row again clears the selection.
+   * @param {string} key */
+  _togglePanelSelection(key) {
+    this._selectedPanelKey = this._selectedPanelKey === key ? null : key;
+  }
+
+  /** Fold or unfold the selected panel's render; the choice is remembered per browser. */
+  _togglePanelPreview() {
+    this._panelPreviewCollapsed = !this._panelPreviewCollapsed;
+    writeStorage(PANEL_PREVIEW_FOLDED_KEY, this._panelPreviewCollapsed ? '1' : '0');
   }
 
   /** @param {string} key */
@@ -1538,24 +1774,14 @@ class NSPanelEditor extends LitElement {
   }
 
   _renderLoading(message) {
-    return html`<div class="container">
+    return html`<div class="haui-container">
       ${renderTitleHeader(this)}
-      <div class="main-content">
-      <div class="loading">
-        <div>${message}</div>
-        ${this._haElementsSlow ? html`
-          <div style="margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-            <button
-              style="padding:8px 16px; border-radius:8px; border:1px solid var(--divider-color,#ddd); background:transparent; color:inherit; font:inherit; cursor:pointer;"
-              @click=${() => this._forceRenderWithoutHaElements()}
-            >${t('Continue anyway')}</button>
-            <button
-              style="padding:8px 16px; border-radius:8px; border:none; background:var(--primary-color,#03a9f4); color:var(--text-primary-color,#fff); font:inherit; cursor:pointer;"
-              @click=${() => this._reloadPage()}
-            >${t('Reload page')}</button>
-          </div>
-        ` : ''}
-      </div>
+      <div class="haui-main-content">
+        ${emptyState({ message, iconName: null, className: 'haui-empty-state-loading' })}
+        ${this._haElementsSlow ? html`<div class="haui-loading-actions">
+          ${button({ label: t('Continue anyway'), variant: 'outline', onClick: () => this._forceRenderWithoutHaElements() })}
+          ${button({ label: t('Reload page'), variant: 'primary', onClick: () => this._reloadPage() })}
+        </div>` : nothing}
       </div>
       ${renderFooter(this)}
     </div>`;
@@ -1570,11 +1796,11 @@ class NSPanelEditor extends LitElement {
     }
 
     if (this._entriesError) {
-      return html`<div class="container">
+      return html`<div class="haui-container">
         ${renderTitleHeader(this)}
-        <div class="main-content">
-        <ha-card outlined class="content-card">
-          <div class="card-content"><p>${this._entriesError}</p></div>
+        <div class="haui-main-content">
+        <ha-card outlined class="haui-content-card">
+          <div class="haui-card-content"><p>${this._entriesError}</p></div>
         </ha-card>
         </div>
         ${renderFooter(this)}
@@ -1582,11 +1808,11 @@ class NSPanelEditor extends LitElement {
     }
 
     if (!this.entryId) {
-      return html`<div class="container">
+      return html`<div class="haui-container">
         ${renderTitleHeader(this)}
-        <div class="main-content">
-        <ha-card outlined class="content-card">
-          <div class="card-content"><p>${t("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.")}</p></div>
+        <div class="haui-main-content">
+        <ha-card outlined class="haui-content-card">
+          <div class="haui-card-content"><p>${t("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.")}</p></div>
         </ha-card>
         </div>
         ${renderFooter(this)}
@@ -1649,7 +1875,7 @@ class NSPanelEditor extends LitElement {
     if (!cfg || !this._selectedDevice) return;
     const previousModel = this._deviceConfig?.display_model;
 
-    // savePanels shows the success or error toast; keep the dialog open on failure.
+    // savePanels shows the success or error haui-toast; keep the dialog open on failure.
     if (await this._savePanels(this._devicePanels(), t("Device configuration saved"), clone(cfg))) {
       this._closeDeviceConfig();
       // The display cannot report which layout it runs, so a model change
@@ -1777,7 +2003,10 @@ class NSPanelEditor extends LitElement {
     return ThemeEditor.openThemeSidebar(this);
   }
   _closeThemeSidebar()                   { return ThemeEditor.closeThemeSidebar(this); }
-  async _onThemeSave(e)                 { return ThemeEditor.saveTheme(this, e.detail); }
+  async _onThemeSave(e) {
+    await ThemeEditor.saveTheme(this, e.detail);
+    await this._loadThemeLibrary(this.entryId, true);
+  }
 }
 
 customElements.define("nspanel-haui-editor", NSPanelEditor);

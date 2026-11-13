@@ -7,12 +7,13 @@ const ICONS = Object.freeze({
   more: 'dots-horizontal', edit: 'pencil-outline', list: 'format-list-bulleted',
   chevronLeft: 'chevron-left', chevronRight: 'chevron-right', close: 'close',
   wifi: 'wifi', signal: 'signal', panels: 'view-dashboard-outline', screen: 'monitor',
-  refresh: 'refresh', download: 'download', clock: 'clock-outline', sleep: 'moon-waning-crescent',
+  refresh: 'refresh', download: 'download', clock: 'clock-outline', sleep: 'sleep',
   info: 'information-outline', activity: 'pulse', alert: 'alert-outline', light: 'lightbulb-outline',
   thermo: 'thermometer', cover: 'window-shutter', media: 'play-outline', cloud: 'cloud-outline',
   network: 'lan', search: 'magnify', log: 'text-box-outline', lightning: 'lightning-bolt-outline',
   upload: 'upload', file: 'file-document-outline', github: 'github', help: 'help-circle-outline',
   notification: 'bell-outline', menu: 'menu', color: 'palette-outline',
+  duplicate: 'content-duplicate', delete: 'delete-outline',
 });
 
 /** Render a Home Assistant icon; icon-only controls own their accessible name. */

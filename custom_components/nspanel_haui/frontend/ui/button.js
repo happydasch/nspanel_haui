@@ -7,7 +7,7 @@ import { t } from '../localize.js';
  * `anchorKey` marks a control that owns an anchored popover.
  */
 export function button({
-  label, iconName, variant = 'outline', onClick, disabled = false, busy = false,
+  label, iconName = null, variant = 'outline', onClick, disabled = false, busy = false,
   type = 'button', className = '', title = '', anchorKey = null, id = null,
 }) {
   return html`<button type=${type} id=${id ?? nothing}
@@ -41,7 +41,7 @@ export function iconButton({
  */
 export function addButton({ label, onClick, disabled = false, id = null, className = '' }) {
   return html`<button type="button" id=${id ?? nothing}
-    class=${`add-item-btn ${className}`.trim()} ?disabled=${disabled}
+    class=${`haui-item-add-button ${className}`.trim()} ?disabled=${disabled}
     @click=${onClick || nothing}>+ ${label}</button>`;
 }
 

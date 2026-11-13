@@ -2,16 +2,16 @@
  * Theme sidebar body. The shell supplies the sidebar frame and its title;
  * this component edits the shared theme library and this device's selection.
  */
-import { css, html, nothing } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 import { t } from '../localize.js';
 import { renderSelect, renderToggle } from '../form-fields.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
-import { colorDialogStyles } from '../styles/color-dialog-styles.js';
-import { colorPickerStyles } from '../styles/color-picker-styles.js';
 import { themeSelectorStyles } from '../styles/theme-selector-styles.js';
+import { themeSidebarStyles } from '../styles/theme-sidebar-styles.js';
 import { themeSelector } from '../ui/theme-selector.js';
+import { emptyState } from '../ui/empty-state.js';
 import {
   builtinThemeLabel,
   downloadThemes,
@@ -111,58 +111,12 @@ function getIconColorGroups(icons, variant) {
 /* ── dialog component ────────────────────────────────────────────────── */
 
 class ThemeSidebar extends HauiDialog {
-  static styles = [...HauiDialog.styles, sidebarFooterStyles, colorDialogStyles, colorPickerStyles, themeSelectorStyles, css`
-    .haui-theme-sidebar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-    .haui-theme-sidebar > .cp-preview {
-      flex: 0 0 auto;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--divider-color);
-      background: var(--secondary-background-color);
-    }
-    .haui-theme-sidebar > .dialog-body {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      box-sizing: border-box;
-      padding: 16px;
-    }
-    .haui-theme-sidebar > .footer-wrapper { flex-wrap: wrap; gap: 8px 12px; }
-    .haui-theme-loading { margin: 0; padding: 32px 16px; color: var(--secondary-text-color); text-align: center; }
-    .haui-theme-section { margin: 0 0 20px; }
-    .haui-theme-section-title { margin: 0 0 4px; font-size: 1.15em; font-weight: 600; }
-    .haui-theme-section-description { margin: 0 0 12px; color: var(--secondary-text-color); }
-    .haui-theme-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px; }
-    .haui-theme-options .cp-theme { margin: 0; }
-    .haui-theme-options .cp-theme select { width: 100%; max-width: none; }
-    .haui-theme-color-group { padding-block: 12px; border-bottom: 1px solid var(--divider-color); }
-    .haui-theme-color-group:first-child { padding-top: 0; }
-    .haui-theme-color-group:last-child { padding-bottom: 0; border-bottom: 0; }
-    .haui-theme-color-group h3 { margin: 0 0 4px; font-size: 1em; font-weight: 600; }
-    .haui-theme-color-group > .config-section-intro { margin-bottom: 10px; }
-    .haui-theme-color-controls {
-      display: grid;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding: 14px;
-      border: 1px solid var(--divider-color);
-      border-radius: 12px;
-      background: var(--secondary-background-color);
-    }
-    .haui-theme-color-controls .cp-theme { margin: 0; }
-    .haui-theme-color-controls .cp-theme select { width: 100%; max-width: none; }
-    .haui-theme-color-scope-note { margin: -4px 0 0; color: var(--secondary-text-color); font-size: 0.9em; line-height: 1.45; }
-    .haui-theme-reset-row { margin: 0; }
-    .haui-theme-reset-row .checkbox-row { align-items: flex-start; }
-    .haui-theme-reset-row .checkbox-row label { line-height: 1.4; }
-    .cp-pv-card { border-radius: 14px; box-shadow: var(--haui-shadow-card); }
-    .cp-item { min-height: 48px; padding: 6px 8px; border-radius: 8px; }
-    .cp-item:hover { background: var(--secondary-background-color); }
-    .cp-theme select { min-height: 40px; border-radius: 8px; }
-    @media (max-width: 600px) {
-      .haui-theme-sidebar > .dialog-body { padding: 12px; }
-    }
-  `];
+  static styles = [
+    ...HauiDialog.styles,
+    sidebarFooterStyles,
+    themeSelectorStyles,
+    themeSidebarStyles,
+  ];
 
   static get properties() {
     return {
@@ -237,7 +191,7 @@ class ThemeSidebar extends HauiDialog {
 
   updated(changed) {
     if (changed.has("open") && this.open) {
-      this.renderRoot.querySelectorAll("details.config-section").forEach((d) => {
+      this.renderRoot.querySelectorAll("details.haui-config-section").forEach((d) => {
         d.removeAttribute("open");
       });
     }
@@ -472,14 +426,15 @@ class ThemeSidebar extends HauiDialog {
     }
   }
 
-  _exportTheme(themeId) {
-    const theme = this._customThemes[themeId];
-    if (!theme) return;
-    downloadThemes({ [themeId]: theme }, `nspanel-haui-${themeId}.json`);
-  }
-
-  _exportThemes() {
-    downloadThemes(this._customThemes, "nspanel-haui-themes.json");
+  _exportSelectedTheme() {
+    const theme = this._themeData();
+    downloadThemes({
+      [this.themeId]: {
+        name: theme.name,
+        colors: { ...this._colors },
+        icons: JSON.parse(JSON.stringify(this._icons)),
+      },
+    }, `nspanel-haui-${this.themeId}.json`);
   }
 
   async _importThemes(e) {
@@ -527,56 +482,56 @@ class ThemeSidebar extends HauiDialog {
   _renderPreview() {
     const c = (k) => this._getDisplayHex(k);
     return html`
-      <div class="cp-preview">
-        <div class="cp-pv-card" style="background:${c("background")}">
+      <div class="haui-theme-preview">
+        <div class="haui-theme-preview-card" style="--vp-theme-background:${c("background")}">
           <div
-            class="cp-pv-header"
-            style="background:${c("header_background")};color:${c("header_text")}"
+            class="haui-theme-preview-header"
+            style="--vp-theme-header-background:${c("header_background")};--vp-theme-header-text:${c("header_text")}"
           >
-            <span class="cp-pv-title">${t("Living Room")}</span>
-            <span class="cp-pv-hicons">
-              <ha-icon icon="mdi:home" style="color:${c("header_text")}"></ha-icon>
-              <ha-icon icon="mdi:bell" style="color:${c("header_accent")}"></ha-icon>
+            <span class="haui-theme-preview-title">${t("Living Room")}</span>
+            <span class="haui-theme-preview-hicons">
+              <ha-icon icon="mdi:home" style="--vp-theme-icon-color:${c("header_text")}"></ha-icon>
+              <ha-icon icon="mdi:bell" style="--vp-theme-icon-color:${c("header_accent")}"></ha-icon>
             </span>
           </div>
-          <div class="cp-pv-body">
-            <div class="cp-pv-texts">
-              <span style="color:${c("text")}">${t("Text")}</span>
-              <span style="color:${c("text_inactive")}">${t("Inactive")}</span>
-              <span style="color:${c("text_disabled")}">${t("Disabled")}</span>
+          <div class="haui-theme-preview-body">
+            <div class="haui-theme-preview-texts">
+              <span style="--vp-theme-text-color:${c("text")}">${t("Text")}</span>
+              <span style="--vp-theme-text-color:${c("text_inactive")}">${t("Inactive")}</span>
+              <span style="--vp-theme-text-color:${c("text_disabled")}">${t("Disabled")}</span>
             </div>
-            <div class="cp-pv-comps">
+            <div class="haui-theme-preview-comps">
               <span
-                class="cp-pv-btn"
-                style="background:${c("component_background")};color:${c("component_text")}"
+                class="haui-theme-preview-btn"
+                style="--vp-theme-component-background:${c("component_background")};--vp-theme-component-text:${c("component_text")}"
               >${t("Component")}</span>
               <span
-                class="cp-pv-btn"
-                style="background:${c("component_pressed")};color:${c("component_text")}"
+                class="haui-theme-preview-btn"
+                style="--vp-theme-component-background:${c("component_pressed")};--vp-theme-component-text:${c("component_text")}"
               >${t("Pressed")}</span>
               <span
-                class="cp-pv-btn"
-                style="background:${c("component_active")};color:${c("component_text")}"
+                class="haui-theme-preview-btn"
+                style="--vp-theme-component-background:${c("component_active")};--vp-theme-component-text:${c("component_text")}"
               >${t("Active")}</span>
               <div
-                class="cp-pv-slider"
-                style="background:${c("component_active")}"
+                class="haui-theme-preview-slider"
+                style="--vp-theme-slider-background:${c("component_active")}"
               >
                 <span
-                  class="cp-pv-slider-hdl"
-                  style="background:${c("component_active_dark")};border-color:${c("component_active_dark")}"
+                  class="haui-theme-preview-slider-hdl"
+                  style="--vp-theme-slider-handle:${c("component_active_dark")}"
                 ></span>
               </div>
               <ha-icon
-                class="cp-pv-accent"
+                class="haui-theme-preview-accent"
                 icon="mdi:star"
-                style="color:${c("component_accent")}"
+                style="--vp-theme-accent:${c("component_accent")}"
               ></ha-icon>
             </div>
-            <div class="cp-pv-entities" style="color:${c("text")}">
-              <span class="cp-pv-ent"><i style="background:${c("entity_on")}"></i>${t("On")}</span>
-              <span class="cp-pv-ent"><i style="background:${c("entity_off")}"></i>${t("Off")}</span>
-              <span class="cp-pv-ent"><i style="background:${c("entity_unavailable")}"></i>${t("Unavailable")}</span>
+            <div class="haui-theme-preview-entities" style="--vp-theme-entity-text:${c("text")}">
+              <span class="haui-theme-preview-ent"><i style="--vp-theme-entity-color:${c("entity_on")}"></i>${t("On")}</span>
+              <span class="haui-theme-preview-ent"><i style="--vp-theme-entity-color:${c("entity_off")}"></i>${t("Off")}</span>
+              <span class="haui-theme-preview-ent"><i style="--vp-theme-entity-color:${c("entity_unavailable")}"></i>${t("Unavailable")}</span>
             </div>
           </div>
         </div>
@@ -589,17 +544,17 @@ class ThemeSidebar extends HauiDialog {
       <section class="haui-theme-color-group">
         <h3>${group.name}</h3>
         ${group.description
-          ? html`<p class="config-section-intro">${group.description}</p>`
+          ? html`<p class="haui-config-section-intro">${group.description}</p>`
           : nothing}
-        <div class="cp-items">
+        <div class="haui-color-items">
           ${group.keys.map(([key, label]) => {
             const color = this._getHex(key);
             const modified = this._isModified(key);
             return html`
-              <div class="cp-item ${modified ? "is-mod" : ""}">
+              <div class="haui-color-item ${modified ? "is-mod" : ""}">
                 <label
-                  class="cp-sw"
-                  style="background:${color}"
+                  class="haui-color-swatch"
+                  style="--vp-color-swatch:${color}"
                   title="${label} — ${color}"
                 >
                   <input
@@ -609,12 +564,12 @@ class ThemeSidebar extends HauiDialog {
                     @input=${(e) => this._onColorChange(key, e)}
                   />
                 </label>
-                <span class="cp-name">${label}</span>
+                <span class="haui-color-name">${label}</span>
                 ${modified
                   ? html`
                       <ha-icon-button
-                        class="cp-reset"
-                        title="${t("Reset to default")}" 
+                        class="haui-color-reset"
+                        title="${t("Reset to default")}"
                         @click=${() => this._resetColor(key)}
                       >
                         <ha-icon icon="mdi:undo-variant"></ha-icon>
@@ -631,20 +586,19 @@ class ThemeSidebar extends HauiDialog {
 
   render() {
     if (!this.hass) return "";
-    const loading = this._loading || !_themeDefaults;
-    if (loading) {
+    const isLoading = this._loading || !_themeDefaults;
+    if (isLoading) {
       return html`<div class="haui-theme-sidebar">
-        <p class="haui-theme-loading">${t("Loading default colors...")}</p>
+        ${emptyState({ message: t("Loading default colors..."), iconName: null, className: 'haui-empty-state-compact' })}
       </div>`;
     }
     const changed = this._changedCount();
     return html`
       <div class="haui-theme-sidebar">
         ${this._renderPreview()}
-        <div class="dialog-body">
+        <div class="haui-dialog-body">
           <section class="haui-theme-section" aria-label=${t("Theme")}>
-            <h2 class="haui-theme-section-title">${t("Theme")}</h2>
-            <p class="haui-theme-section-description">
+            <p class="haui-config-section-intro">
               ${t("Choose a predefined theme or create a custom theme for this device.")}
             </p>
             ${themeSelector({
@@ -655,13 +609,12 @@ class ThemeSidebar extends HauiDialog {
               builtinLabel: builtinThemeLabel,
               onSelect: (id) => this._applyTheme(id),
               actions: this._isBuiltin() ? [] : [
-                { label: t("Duplicate"), onClick: () => this._startNameAction("save-as") },
-                { label: t("Rename"), onClick: () => this._startNameAction("rename") },
-                { label: t("Delete"), onClick: () => this._deleteTheme() },
-                { label: t("Export"), onClick: () => this._exportTheme(this.themeId) },
+                { label: t("Duplicate"), iconName: "duplicate", onClick: () => this._startNameAction("save-as") },
+                { label: t("Rename"), iconName: "edit", onClick: () => this._startNameAction("rename") },
+                { label: t("Delete"), iconName: "delete", danger: true, onClick: () => this._deleteTheme() },
               ],
               onNew: () => this._startNameAction("save-as"),
-              onExportAll: () => this._exportThemes(),
+              onExport: () => this._exportSelectedTheme(),
               onImport: (event) => this._importThemes(event),
               notice: this._themeNotice,
               error: this._themeError,
@@ -673,64 +626,63 @@ class ThemeSidebar extends HauiDialog {
             })}
           </section>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Icon colors")}</summary>
-            <div class="config-section-body haui-theme-options">
-              <div class="cp-theme">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
+                ${t("Colors the display uses for weather, alarm and climate state icons.")}
+              </p>
+              <div class="haui-field">
                 <label for="cp-icon-theme">${t("Default icon color variant")}</label>
                 ${renderSelect("cp-icon-theme", this.themeVariant, [
                   { value: "dark", label: t("Dark background") },
                   { value: "light", label: t("Light background") },
                 ], (value) => { this.themeVariant = value; })}
               </div>
-              <div class="cp-theme">
+              <div class="haui-field">
                 <label for="cp-icon-variant">${t("Edit icon colors for")}</label>
                 ${renderSelect("cp-icon-variant", this.iconVariant, [
                   { value: "dark", label: t("Dark backgrounds") },
                   { value: "light", label: t("Light backgrounds") },
                 ], (value) => { this.iconVariant = value; })}
               </div>
-            </div>
-            <div class="config-section-body">
               ${getIconColorGroups(this._icons, this.iconVariant).map((group) => this._renderGroup(group, "theme"))}
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Theme colors")}</summary>
-            <div class="config-section-body">
+            <div class="haui-config-section-body">
               ${this._isBuiltin()
-                ? html`<p class="config-section-intro">${t("Built-in themes cannot be edited. Changing a color creates a custom theme.")}</p>`
+                ? html`<p class="haui-config-section-intro">${t("Built-in themes cannot be edited. Changing a color creates a custom theme.")}</p>`
                 : nothing}
-              <div class="haui-theme-color-controls">
-                <p class="haui-theme-color-scope-note">
-                  ${t("Changes update the selected theme and are shared by devices using it.")}
-                </p>
-                ${this._panelColorOverrideCount() > 0
-                  ? html`
-                      <div class="checkbox-wrap haui-theme-reset-row">
-                        <div class="checkbox-row">
-                          ${renderToggle("cp-reset-overrides", this._resetPanelColors, (checked) => {
-                            this._resetPanelColors = checked;
-                          })}
-                          <label for="cp-reset-overrides">
-                            ${t("Reset existing panel and item color overrides when applying this theme")}
-                          </label>
-                        </div>
-                        <div class="field-hint">
-                          ${t("Panel and item color overrides still take precedence until they are reset.")}
-                        </div>
+              <p class="haui-config-section-intro">
+                ${t("Changes update the selected theme and are shared by devices using it.")}
+              </p>
+              ${this._panelColorOverrideCount() > 0
+                ? html`
+                    <div class="haui-checkbox-wrap">
+                      <div class="haui-checkbox-row">
+                        ${renderToggle("cp-reset-overrides", this._resetPanelColors, (checked) => {
+                          this._resetPanelColors = checked;
+                        })}
+                        <label for="cp-reset-overrides">
+                          ${t("Reset existing panel and item color overrides when applying this theme")}
+                        </label>
                       </div>
-                    `
-                  : nothing}
-              </div>
+                      <div class="haui-field-hint">
+                        ${t("Panel and item color overrides still take precedence until they are reset.")}
+                      </div>
+                    </div>
+                  `
+                : nothing}
               ${getColorGroups().map((group) => this._renderGroup(group))}
             </div>
           </details>
         </div>
 
-        <div class="footer-wrapper">
-          <div class="footer-toggle-wrapper">
+        <div class="haui-footer-wrapper">
+          <div class="haui-footer-toggle-wrapper">
             <ha-button
               variant="neutral"
               appearance="plain"
@@ -740,7 +692,7 @@ class ThemeSidebar extends HauiDialog {
               ${t("Reset colors")}
             </ha-button>
             ${changed > 0
-              ? html`<span class="footer-changed">${t("{count} changed").replace("{count}", changed)}</span>`
+              ? html`<span class="haui-footer-changed">${t("{count} changed").replace("{count}", changed)}</span>`
               : nothing}
           </div>
           <ha-dialog-footer>

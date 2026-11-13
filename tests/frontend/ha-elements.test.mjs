@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +19,7 @@ function markup(value) {
 
 /** The editor element without Lit's constructor, which needs a real DOM. */
 function loadedEditor() {
-  const ed = Object.create(NSPanelEditor.prototype);
+  const ed = document.createElement('nspanel-haui-editor');
   Object.assign(ed, {
     entryId: 'entry1',
     _loading: false,

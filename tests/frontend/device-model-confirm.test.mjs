@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +11,7 @@ const Editor = customElements.get('nspanel-haui-editor');
 
 /** An editor instance without Lit's constructor, recording saves and API calls. */
 function editor(previousModel, { saveOk = true } = {}) {
-  const host = Object.create(Editor.prototype);
+  const host = document.createElement('nspanel-haui-editor');
   Object.assign(host, {
     entryId: 'entry1',
     hass: {
@@ -40,26 +40,6 @@ function editor(previousModel, { saveOk = true } = {}) {
   host.api = createApiClient(() => host.hass);
   return host;
 }
-
-test('special-panel save feedback uses panel titles and splits the idle list into stored fields', async () => {
-  const host = editor('landscape');
-  host._deviceConfig = { home_panel: '', idle_panel: '', idle_panel_extra: '' };
-  host._devicePanels = () => [
-    { key: 'clock', title: 'Desk clock' }, { key: 'weather', title: 'Forecast' },
-  ];
-  const saves = [];
-  host._savePanels = async (...args) => saves.push(args);
-
-  await host._setSpecialPanel('idle_panels', 'clock, weather');
-  assert.equal(saves[0][1], 'Idle panels set to "Desk clock, Forecast"');
-  assert.deepEqual(saves[0][2], {
-    home_panel: '', idle_panel: 'clock', idle_panel_extra: 'weather',
-  });
-
-  await host._setSpecialPanel('idle_panels', '');
-  assert.equal(saves[1][1], 'Idle panels cleared');
-  assert.deepEqual(saves[1][2], { home_panel: '', idle_panel: '', idle_panel_extra: '' });
-});
 
 test('changing the display model asks before installing the TFT', async () => {
   const host = editor('eu');

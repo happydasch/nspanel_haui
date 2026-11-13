@@ -3,8 +3,6 @@ import { html, nothing } from '../lit-import.js';
 import { icon } from './icon.js';
 
 const VIEWPORT_MARGIN = 12;
-/** Below this width an anchored popover becomes a bottom sheet (see the CSS). */
-const SHEET_MAX_WIDTH = 600;
 const ANCHOR_GAP = 6;
 
 /**
@@ -147,8 +145,8 @@ export function placePopover(panel, anchor, { align = 'end', win = globalThis, m
 }
 
 /**
- * Place every open anchored popover in `root`. Narrow widths drop the inline
- * placement so the CSS bottom-sheet rule applies.
+ * Place every open anchored popover next to its trigger, clamped to the viewport.
+ * Static surfaces keep the placement declared by their own styles.
  *
  * @param {ParentNode|null|undefined} root
  * @param {any} [win]
@@ -156,14 +154,8 @@ export function placePopover(panel, anchor, { align = 'end', win = globalThis, m
 export function placeOpenPopovers(root, win = globalThis) {
   const panels = /** @type {any} */ (root?.querySelectorAll?.('[data-popover-anchor]'));
   if (!panels) return;
-  const narrow = (win.innerWidth || 0) < SHEET_MAX_WIDTH;
   panels.forEach((panel) => {
     if (panel.dataset.popoverStatic === 'true') return;
-    if (narrow) {
-      // Every property placePopover set, or the leftover `auto`s override the sheet.
-      for (const property of ['top', 'left', 'right', 'bottom']) panel.style.removeProperty(property);
-      return;
-    }
     const anchor = anchorElement(root, panel.dataset.popoverAnchor);
     if (!anchor) return;
     placePopover(panel, anchor, {

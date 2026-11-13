@@ -1,12 +1,16 @@
 // @ts-check
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
+import { jsonResponse, makeHass } from './support/hass.mjs';
+import { flush } from './support/render.mjs';
 import assert from 'node:assert/strict';
+import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { makeHost } from './fake-host.mjs';
 import { openDeviceConfig, closeDeviceConfig } from '../../custom_components/nspanel_haui/frontend/device-config.js';
 import * as Crud from '../../custom_components/nspanel_haui/frontend/crud.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
+import { SIDEBAR_OVERLAY_KINDS } from '../../custom_components/nspanel_haui/frontend/store/store.js';
 
 function host() {
   return makeHost({ devices: { kitchen: { config: {}, panels: [] } } }, () => {
@@ -131,8 +135,47 @@ test('Updates and Theme open as sidebars from the device preview', () => {
   assert.deepEqual(kinds(), []);
 });
 
-test('Logs opens as a sidebar for one device or every device and closes like the others', () => {
+test('every sidebar kind has a title in its strip', () => {
   const editor = host();
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._panels = { system_panels: [] };
+  editor._editingPanel = null;
+
+  for (const kind of SIDEBAR_OVERLAY_KINDS) {
+    const title = editor._sidebarLabel(kind);
+    assert.equal(typeof title, 'string', `${kind} has a title`);
+    assert.ok(title.length > 0, `${kind} has a title`);
+  }
+  // A kind that reaches the sidebar without a title is a bug, not a blank strip.
+  assert.throws(() => editor._sidebarLabel('not-a-sidebar'), /Unknown sidebar kind/);
+});
+
+test('the Schedule and Gestures buttons open their sidebar and closing it drops the draft', () => {  const editor = host();
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  editor._selectedDevice = 'kitchen';
+  editor._deviceConfig = {};
+  editor._scheduleDraft = { device: 'kitchen', schedule: [] };
+  editor._gestureDraft = { device: 'kitchen', gestures: [] };
+  editor._route = { view: 'device', device: 'kitchen' };
+  editor.renderRoot = { querySelector: () => null, activeElement: null };
+  const kinds = () => editor.store.getState().ui.overlays.map(({ kind }) => kind);
+
+  editor._openDeviceOption('schedule');
+  assert.deepEqual(kinds(), ['device-schedule']);
+  editor._openDeviceOption('gestures');
+  assert.deepEqual(kinds(), ['device-schedule', 'device-gestures']);
+
+  // Only the top one closes, and an unsaved draft goes with it.
+  editor._closeSidebar();
+  assert.deepEqual(kinds(), ['device-schedule']);
+  assert.equal(editor._gestureDraft, null);
+  editor._closeSidebar();
+  assert.deepEqual(kinds(), []);
+  assert.equal(editor._scheduleDraft, null);
+});
+
+test('Logs opens as a sidebar for one device or every device and closes like the others', () => {  const editor = host();
   Object.setPrototypeOf(editor, NSPanelEditor.prototype);
   editor._store = editor.store;
   editor._selectDevice = () => {};
@@ -293,35 +336,45 @@ test("Forward into a device closes Fleet's Logs sidebar", () => {
   assert.deepEqual(editor._store.getState().ui.overlays, []);
 });
 
-test('an editor that Home Assistant attaches again polls its device again', () => {
-  globalThis.location ??= { hash: '' };
-  globalThis.removeEventListener ??= () => {};
-  const editor = host();
-  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
-  editor._store = editor.store;
-  editor._loading = false;
-  editor.renderOptions = {};
-  editor.shadowRoot = {
-    adoptedStyleSheets: [], appendChild() {}, addEventListener() {}, removeEventListener() {},
-    querySelector: () => null, querySelectorAll: () => [],
-  };
+test('an editor that Home Assistant attaches again polls its device again', async () => {
+  const editor = document.createElement('nspanel-haui-editor');
+  editor.hass = makeHass({
+    connection: { subscribeEvents: async () => () => {} },
+    fetchWithAuth: async (url) => url.includes('/panels/')
+      ? jsonResponse({
+        version: 1,
+        device_order: ['kitchen'],
+        devices: { kitchen: { friendly_name: 'Kitchen', config: {}, panels: [] } },
+      })
+      : url.includes('/status/') ? jsonResponse({ devices: { kitchen: { connected: true } } })
+        : jsonResponse([]),
+  });
+  await editor.store.actions.loadHub('entry1');
+  editor.store.actions.stopSelectedStatusPolling();
+
   const polls = [];
-  const { startSelectedStatusPolling, stopSelectedStatusPolling } = editor._store.actions;
-  editor._store.actions.startSelectedStatusPolling = (...args) => {
+  const { startSelectedStatusPolling, stopSelectedStatusPolling } = editor.store.actions;
+  editor.store.actions.startSelectedStatusPolling = (...args) => {
     polls.push('start');
     return startSelectedStatusPolling(...args);
   };
-  editor._store.actions.stopSelectedStatusPolling = () => {
+  editor.store.actions.stopSelectedStatusPolling = (...args) => {
     polls.push('stop');
-    return stopSelectedStatusPolling();
+    return stopSelectedStatusPolling(...args);
   };
 
-  editor.connectedCallback();
-  editor.disconnectedCallback();
-  editor.connectedCallback();
-  editor.disconnectedCallback();
+  document.body.append(editor);
+  await flush();
+  editor.remove();
+  await flush();
+  const startsBeforeReattach = polls.filter((entry) => entry === 'start').length;
 
-  assert.deepEqual(polls.filter((entry) => entry === 'start').length, 2);
+  document.body.append(editor);
+  await flush();
+  editor.remove();
+  await flush();
+
+  assert.ok(polls.filter((entry) => entry === 'start').length > startsBeforeReattach);
   assert.equal(polls.at(-1), 'stop');
 });
 

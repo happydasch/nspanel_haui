@@ -1,5 +1,5 @@
 // @ts-check
-import { html, css, nothing } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { icon } from './icon.js';
 import { sortHandle } from './sort-handle.js';
@@ -117,7 +117,7 @@ export function panelPills({
           @click=${() => onChange(keys.filter((_, i) => i !== index))}>${icon('close')}</button>
       </li>`;
     })}
-    ${addable.length ? html`<li><select id=${id} class="native-select" ?disabled=${disabled}
+    ${addable.length ? html`<li><select id=${id} class="haui-select" ?disabled=${disabled}
       @change=${(event) => {
         const select = event.currentTarget;
         if (select.value) onChange(single ? [select.value] : [...keys, select.value]);
@@ -129,17 +129,3 @@ export function panelPills({
     </select></li>` : nothing}
   </ul>`;
 }
-
-/** Self-contained, so the editor shell and the dialogs (their own shadow roots) can both adopt it. */
-export const panelPillStyles = css`
-  .haui-pill-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
-  .haui-pill-list li { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; }
-  .haui-pill { height: 26px; padding-inline: 10px 3px; border-radius: 999px; background: var(--haui-surface-soft, var(--secondary-background-color, #f5f5f5)); color: var(--primary-text-color, #212121); font-size: 12px; }
-  .haui-pill-order { color: var(--secondary-text-color, #666); font-variant-numeric: tabular-nums; }
-  .haui-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-pill button { display: inline-grid; flex: 0 0 auto; width: 20px; height: 20px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--secondary-text-color, #666); cursor: pointer; --mdc-icon-size: 14px; }
-  .haui-pill button:hover:not(:disabled) { background: var(--divider-color, #e0e0e0); color: var(--primary-text-color, #212121); }
-  .haui-pill button:disabled { cursor: not-allowed; opacity: .55; }
-  .haui-pill button:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 1px; }
-  .haui-pill-list select.native-select { display: inline-block; width: fit-content; max-width: 100%; height: 26px; min-height: 26px; padding: 0 26px 0 10px; border-style: dashed; border-radius: 999px; background-position: right 8px center; color: var(--secondary-text-color, #666); font-size: 12px; }
-`;

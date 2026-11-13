@@ -1,16 +1,16 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { gestureEditor, gestureSummary } from '../../custom_components/nspanel_haui/frontend/ui/gesture-editor.js';
-import { panelManager } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { DEVICE_CONFIG_DEFAULTS, GESTURE_NAMES } from '../../custom_components/nspanel_haui/frontend/constants.js';
 
 /** A dialog instance without Lit's constructor (which needs a real DOM). */
 function dialog(props = {}) {
-  const dlg = Object.create(customElements.get('nspanel-device-settings').prototype);
+  const dlg = document.createElement('nspanel-device-settings');
   const events = [];
   Object.assign(dlg, { requestUpdate() {}, dispatchEvent(e) { events.push(e); return true; } }, props);
   return { dlg, events };
@@ -30,13 +30,17 @@ function templates(value) {
   return [];
 }
 
-test('device settings leave schedule, panel assignments, and gestures in the Panels view', () => {
+test('device settings include Special pages and save Home and Idle assignments', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS, use_relay_left: false, use_relay_right: false };
-  const { dlg, events } = dialog({ config, _deviceConfigForm: config, inline: true });
+  const panels = [
+    { key: 'kitchen', title: 'Kitchen' },
+    { key: 'clock', title: 'Clock' },
+    { key: 'weather', title: 'Weather' },
+  ];
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, inline: true, panels });
   const output = flat(dlg.render());
   const separatelyManagedDefaults = new Set([
-    'theme_variant', 'theme_id', 'home_panel', 'idle_panel',
-    'idle_panel_extra', 'schedule', 'gestures',
+    'theme_variant', 'theme_id', 'home_panel', 'idle_panel', 'idle_panel_extra', 'schedule', 'gestures',
   ]);
 
   assert.match(output, /haui-device-settings-sidebar/);
@@ -46,15 +50,69 @@ test('device settings leave schedule, panel assignments, and gestures in the Pan
     const renderedKey = key === 'snapshot_max_age_seconds' ? 'snapshot_max_age_mode' : key;
     assert.ok(output.includes(renderedKey), `settings form exposes ${key}`);
   }
+  assert.match(output, /Special pages/);
+  assert.match(output, /Home panel/);
+  assert.match(output, /Idle panels/);
   assert.doesNotMatch(output, /Panel Assignments|<summary>Schedule|<summary>Gestures/);
-  assert.doesNotMatch(output, /dc-schedule|dc-gesture|dc-home_panel|dc-idle-panels/);
+  assert.doesNotMatch(output, /dc-schedule|dc-gesture/);
+
+  const selectFor = (id) => {
+    const select = templates(dlg.render()).find((template) =>
+      template.strings[0].includes('<select id=') && template.values.includes(id));
+    assert.ok(select, `${id} select is rendered`);
+    const eventIndex = select.strings.findIndex((part) => part.trimEnd().endsWith('@change='));
+    return select.values[eventIndex];
+  };
+  selectFor('dc-home-panel')({ currentTarget: { value: 'kitchen' } });
+  selectFor('dc-idle-panels')({ currentTarget: { value: 'clock' } });
 
   dlg._dispatchSave();
-  assert.deepEqual(events[0].detail.config, config);
+  assert.deepEqual(events[0].detail.config, {
+    ...config, home_panel: 'kitchen', idle_panel: 'clock', idle_panel_extra: '',
+  });
 });
 
 test('the gesture names offered match the Python GESTURES tuple', () => {
   assert.deepEqual(GESTURE_NAMES, ['swipe_left', 'swipe_right', 'swipe_up', 'swipe_down']);
+});
+
+test('Special pages preserves idle order and lets panels be reordered by dragging', () => {
+  const config = {
+    ...DEVICE_CONFIG_DEFAULTS, home_panel: 'light', idle_panel: 'clock',
+    idle_panel_extra: 'weather, photo',
+  };
+  const panels = [
+    { key: 'clock', title: 'Clock' }, { key: 'weather', title: 'Weather' },
+    { key: 'photo', title: 'Photo' }, { key: 'light', title: 'Light' },
+  ];
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels });
+  const view = dlg.render();
+  const idleRows = templates(view).filter((template) => template.strings[0].includes('<li class="haui-pill"'));
+  const row = (name) => idleRows.find((template) => flat(template).includes(name));
+  const weather = row('Weather');
+  const clock = row('Clock');
+  assert.ok(weather);
+  assert.ok(clock);
+
+  const handle = templates(weather).find((template) => template.strings[0].includes('haui-sort-handle'));
+  assert.ok(handle, 'the idle pill has a drag handle');
+  const start = handle.values[handle.strings.findIndex((part) => part.trimEnd().endsWith('@dragstart='))];
+  const sourceRow = { classList: { add() {}, remove() {} } };
+  start({
+    currentTarget: { closest: () => sourceRow },
+    dataTransfer: { setData() {}, setDragImage() {}, effectAllowed: '' },
+  });
+  const drop = clock.values[clock.strings.findIndex((part) => part.trimEnd().endsWith('@drop='))];
+  const targetRow = {
+    classList: { remove() {} },
+    getBoundingClientRect: () => ({ top: 0, height: 20 }),
+  };
+  drop({ currentTarget: targetRow, clientY: 1, preventDefault() {} });
+
+  dlg._dispatchSave();
+  assert.deepEqual(events[0].detail.config, {
+    ...config, idle_panel: 'weather', idle_panel_extra: 'clock, photo',
+  });
 });
 
 test('removing a gesture keeps the others, and their fold states, as they were', () => {
@@ -86,12 +144,13 @@ test('an unfinished gesture says what it still lacks', () => {
 
 test('gestures are edited in a draft: only a new one opens, and Save writes them', async () => {
   const { NSPanelEditor } = await import('../../custom_components/nspanel_haui/frontend/app/shell.js');
-  const editor = Object.assign(Object.create(NSPanelEditor.prototype), {
+  const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
     _selectedDevice: 'kitchen', _deviceConfig: { ...DEVICE_CONFIG_DEFAULTS, locale: 'de_DE' }, _saving: false,
+    _store: { actions: { closeOverlay() {} } },
+    _restoreSidebarFocus() {},
   });
-  const render = () => panelManager({
+  const render = () => deviceOptionPanel('gestures', {
     panels: [], config: editor._deviceConfig, gestureDraft: editor._gestureDraft,
-    expanded: ['gestures'], onSetRole() {},
     onGestureChange: (draft) => editor._changeGestures(draft),
     onGestureEntryToggle: (index, isOpen) => editor._onGestureEntryToggle(index, isOpen),
     onGestureSave: () => editor._saveGestures(),

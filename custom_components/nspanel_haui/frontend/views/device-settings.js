@@ -7,38 +7,28 @@
 import { html, css, nothing } from '../lit-import.js';
 import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
-import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
+import { renderField, renderNumberInput, renderSelect, renderToggle, renderToggleField } from '../form-fields.js';
 import { dialogHeader } from '../dialogs/dialog-header.js';
 import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
-import { colorDialogStyles } from '../styles/color-dialog-styles.js';
-import { themeSelectorStyles } from '../styles/theme-selector-styles.js';
-import { themeSelector } from '../ui/theme-selector.js';
-import {
-  builtinThemeLabel,
-  downloadThemes,
-  parseThemeFile,
-  themeIdFromName,
-} from '../theme-library.js';
+import { idlePanelConfig, idlePanelKeys, panelPills } from '../ui/panel-pills.js';
 
 /**
  * Render a toggle row used within the device config form.
  * Uses native toggle checkbox via renderToggle.
  */
 function checkbox(host, id, key, cfg, label, hint = "") {
-  return html`
-    <div class="checkbox-wrap">
-      <div class="checkbox-row">
-        ${renderToggle(id, Boolean(cfg[key]), (checked) => {
-          host._deviceConfigForm = { ...host._deviceConfigForm, [key]: checked };
-          host.requestUpdate();
-        })}
-        <label for=${id}>${label}</label>
-      </div>
-      ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
-    </div>
-  `;
+  return renderToggleField({
+    id,
+    checked: Boolean(cfg[key]),
+    label,
+    hint,
+    onChange: (checked) => {
+      host._deviceConfigForm = { ...host._deviceConfigForm, [key]: checked };
+      host.requestUpdate();
+    },
+  });
 }
 /** Render one side of the physical hardware-button settings. */
 function renderHardwareButton(host, cfg, side) {
@@ -80,16 +70,18 @@ function renderHardwareButton(host, cfg, side) {
  * (empty or invalid input counts as min).
  */
 function intField(host, id, key, cfg, label, fallback, min, max, hint) {
-  return html`
-    <div class="form-group">
-      <label for=${id}>${label}</label>
-      ${renderNumberInput(id, cfg[key] ?? fallback, (raw) => {
-        const v = parseInt(raw, 10);
-        host._deviceConfigForm = { ...host._deviceConfigForm, [key]: isNaN(v) || v < min ? min : Math.min(v, max) };
-      }, { min, max })}
-      <div class="field-hint">${hint}</div>
-    </div>
-  `;
+  return renderField({
+    id,
+    label,
+    control: renderNumberInput(id, cfg[key] ?? fallback, (raw) => {
+      const value = parseInt(raw, 10);
+      host._deviceConfigForm = {
+        ...host._deviceConfigForm,
+        [key]: Number.isNaN(value) || value < min ? min : Math.min(value, max),
+      };
+    }, { min, max }),
+    hint,
+  });
 }
 
 /**
@@ -103,47 +95,41 @@ function intField(host, id, key, cfg, label, fallback, min, max, hint) {
 function formatSelectField(host, baseId, key, cfg, label, options, hint) {
   const CUSTOM = "__custom__";
   const current = cfg[key] ?? "";
-  const isCustom = current !== "" && !options.some((o) => o.value === current);
+  const isCustom = current !== "" && !options.some((option) => option.value === current);
   const selectValue = isCustom ? CUSTOM : current;
   const selectOptions = [...options, { value: CUSTOM, label: t("Custom strftime\u2026") }];
-  return html`
-    <div class="form-group">
-      <label for=${baseId}>${label}</label>
-      ${renderSelect(baseId, selectValue, selectOptions, (v) => {
-        const next = v === CUSTOM ? (cfg[key] ?? "") : v;
-        host._deviceConfigForm = { ...host._deviceConfigForm, [key]: next };
-        host.requestUpdate();
-      })}
-      ${isCustom || selectValue === CUSTOM ? html`
-        <input
-          id=${`${baseId}-custom`}
-          class="native-input"
-          .value=${current}
-          @input=${(e) => {
-            host._deviceConfigForm = { ...host._deviceConfigForm, [key]: e.target.value };
-          }}
-        />
-      ` : ""}
-      <div class="field-hint">${hint}</div>
-    </div>
-  `;
+  const select = renderSelect(baseId, selectValue, selectOptions, (value) => {
+    const next = value === CUSTOM ? (cfg[key] ?? "") : value;
+    host._deviceConfigForm = { ...host._deviceConfigForm, [key]: next };
+    host.requestUpdate();
+  });
+  const customInput = isCustom || selectValue === CUSTOM ? html`
+    <input
+      id=${`${baseId}-custom`}
+      class="haui-input"
+      .value=${current}
+      @input=${(event) => {
+        host._deviceConfigForm = { ...host._deviceConfigForm, [key]: event.target.value };
+      }}
+    />
+  ` : nothing;
+  return renderField({ id: baseId, label, control: html`${select}${customInput}`, hint });
 }
 
 /**
  * Render a select/combobox field within the device config form.
  * Fires `@selected` to update internal state.
  */
-function selectField(host, id, key, cfg, label, options, parser = (v) => v, hint = "") {
-  return html`
-    <div class="form-group">
-      <label for=${id}>${label}</label>
-      ${renderSelect(id, cfg[key] ?? "", options, (v) => {
-        host._deviceConfigForm = { ...host._deviceConfigForm, [key]: parser(v) };
-        host.requestUpdate();
-      })}
-      ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
-    </div>
-  `;
+function selectField(host, id, key, cfg, label, options, parser = (value) => value, hint = "") {
+  return renderField({
+    id,
+    label,
+    control: renderSelect(id, cfg[key] ?? "", options, (value) => {
+      host._deviceConfigForm = { ...host._deviceConfigForm, [key]: parser(value) };
+      host.requestUpdate();
+    }),
+    hint,
+  });
 }
 
 class DeviceSettings extends HauiDialog {
@@ -154,15 +140,11 @@ class DeviceSettings extends HauiDialog {
       saving: { type: Boolean },
       api: { type: Object },
       entryId: { type: String },
+      panels: { type: Array },
     };
   }
 
-  static styles = [HauiDialog.styles, sidebarFooterStyles, colorDialogStyles, themeSelectorStyles, css`
-    .footer-toggle-wrapper label {
-      margin: 0;
-      font-weight: 500;
-      font-size: 0.92em;
-    }
+  static styles = [HauiDialog.styles, sidebarFooterStyles, css`
     .haui-device-settings-sidebar {
       display: flex;
       flex-direction: column;
@@ -178,6 +160,7 @@ class DeviceSettings extends HauiDialog {
       padding: 16px;
       overscroll-behavior: contain;
     }
+    .haui-device-settings-snapshot-custom { margin-top: 8px; }
   `];
 
   constructor() {
@@ -187,167 +170,14 @@ class DeviceSettings extends HauiDialog {
     this.saving = false;
     this.api = null;
     this.entryId = "";
+    this.panels = [];
     this._deviceConfigForm = null;
-    this._builtinThemes = {};
-    this._customThemes = {};
-    this._themesLoading = false;
-    this._themeError = "";
-    this._themeNotice = "";
-    this._nameAction = "";
-    this._themeName = "";
   }
 
   willUpdate(changed) {
     if (changed.has("config")) {
       this._deviceConfigForm = this.config ? { ...this.config } : null;
     }
-    if (changed.has("entryId")) this._loadThemes();
-  }
-
-  /* ── theme library ─────────────────────────────────────────────────────── */
-
-  /** The theme library is shared by the hub's devices; the sidebar edits it. */
-  async _loadThemes() {
-    if (!this.api || !this.entryId) return;
-    this._themesLoading = true;
-    try {
-      const data = await this.api.editor.themes(this.entryId);
-      this._builtinThemes = data.builtins || {};
-      this._customThemes = data.themes || {};
-      this._themeError = "";
-    } catch (_err) {
-      this._themeError = t("Unable to load color themes.");
-    } finally {
-      this._themesLoading = false;
-      this.requestUpdate();
-    }
-  }
-
-  _themeData() {
-    const id = this._deviceConfigForm?.theme_id || "dark";
-    return this._customThemes[id] || this._builtinThemes[id] || this._builtinThemes.dark;
-  }
-
-  _selectTheme(id) {
-    this._deviceConfigForm = { ...this._deviceConfigForm, theme_id: id };
-    this._themeError = "";
-    this._themeNotice = "";
-    this.requestUpdate();
-  }
-
-  _startNewTheme() {
-    this._nameAction = "new";
-    this._themeName = "";
-    this._themeError = "";
-    this._themeNotice = "";
-    this.requestUpdate();
-  }
-
-  async _saveNamedTheme() {
-    const name = this._themeName.trim();
-    if (!name || name.length > 64) {
-      this._themeError = t("Enter a name up to 64 characters.");
-      this.requestUpdate();
-      return;
-    }
-    const id = themeIdFromName(name);
-    const taken = Object.values({ ...this._builtinThemes, ...this._customThemes })
-      .some((theme) => theme.name.toLowerCase() === name.toLowerCase());
-    if (!id || taken || this._builtinThemes[id] || this._customThemes[id]) {
-      this._themeError = t("A color theme with this name already exists.");
-      this.requestUpdate();
-      return;
-    }
-    const source = this._themeData();
-    const themes = {
-      ...this._customThemes,
-      [id]: {
-        name,
-        colors: { ...source.colors },
-        icons: JSON.parse(JSON.stringify(source.icons)),
-      },
-    };
-    if (await this._persistThemes(themes)) {
-      this._selectTheme(id);
-      this._themeNotice = t('Created the custom theme "{name}". Edit its colors in the Theme sidebar.').replace("{name}", name);
-    }
-  }
-
-  _exportThemes() {
-    downloadThemes(this._customThemes, "nspanel-haui-themes.json");
-  }
-
-  async _importThemes(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    try {
-      const imported = parseThemeFile(await file.text());
-      const existingNames = new Set(
-        Object.values({ ...this._builtinThemes, ...this._customThemes })
-          .map((theme) => theme.name.toLowerCase()),
-      );
-      for (const [id, theme] of Object.entries(imported)) {
-        if (this._builtinThemes[id] || this._customThemes[id] || existingNames.has(String(theme.name).toLowerCase())) {
-          this._themeError = t("Import has a color theme name or ID that already exists.");
-          this.requestUpdate();
-          return;
-        }
-        existingNames.add(String(theme.name).toLowerCase());
-      }
-      await this._persistThemes({ ...this._customThemes, ...imported });
-    } catch (_err) {
-      this._themeError = t("Invalid color theme file.");
-      this.requestUpdate();
-    }
-  }
-
-  async _persistThemes(themes) {
-    try {
-      const data = await this.api.editor.saveThemes(this.entryId, { version: 1, themes });
-      this._customThemes = data.themes || {};
-      this._themeError = "";
-      this._nameAction = "";
-      this.requestUpdate();
-      return true;
-    } catch (_err) {
-      this._themeError = t("Unable to save color themes. Check for duplicate names or themes in use.");
-      this.requestUpdate();
-      return false;
-    }
-  }
-
-  _renderThemeSection(cfg) {
-    return html`
-      <details class="config-section" @toggle=${(event) => { if (event.target.open) this._loadThemes(); }}>
-        <summary>${t("Theme")}</summary>
-        <div class="config-section-body">
-          <p class="config-section-intro">
-            ${t("The display colors and icon palettes this device uses. Custom themes are shared by every device that selects them; edit their colors in the Theme sidebar on the device Preview.")}
-          </p>
-          ${this._themesLoading
-            ? html`<p class="config-section-intro">${t("Loading themes...")}</p>`
-            : themeSelector({
-              builtins: this._builtinThemes,
-              custom: this._customThemes,
-              selectedId: cfg.theme_id || "dark",
-              label: t("Color theme"),
-              builtinLabel: builtinThemeLabel,
-              onSelect: (id) => this._selectTheme(id),
-              onNew: () => this._startNewTheme(),
-              onExportAll: () => this._exportThemes(),
-              onImport: (event) => this._importThemes(event),
-              notice: this._themeNotice,
-              error: this._themeError,
-              nameAction: this._nameAction,
-              themeName: this._themeName,
-              onNameInput: (value) => { this._themeName = value; },
-              onSaveName: () => this._saveNamedTheme(),
-              onCancelName: () => { this._nameAction = ""; this.requestUpdate(); },
-            })}
-        </div>
-      </details>
-    `;
   }
 
   render() {
@@ -363,16 +193,16 @@ class DeviceSettings extends HauiDialog {
         ${this._renderHeader(t("Device Settings"))}
 
         <form id="device-config-form" @submit=${(e) => e.preventDefault()}>
-          <div class="dialog-body">
+          <div class="haui-dialog-body">
 
-          <p class="config-section-intro">
-            ${t("Configure how this device behaves: display theme, language and regional formats, diagnostics, audible alerts, hardware buttons, navigation, display dimming and display-off, and automatic page switching.")}
+          <p class="haui-config-section-intro">
+            ${t("Configure how this device behaves: language and regional formats, diagnostics, audible alerts, hardware buttons, navigation, display dimming and display-off, and automatic page switching.")}
           </p>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Language & region")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("The display language and its regional formats. Time and date formats apply to the clock, clock-two and weather pages; leave them at Default to follow the language.")}
               </p>
               ${selectField(this, "dc-locale", "locale", cfg, t("Language"), LOCALE_OPTIONS, (v) => v,
@@ -393,12 +223,10 @@ class DeviceSettings extends HauiDialog {
             </div>
           </details>
 
-          ${this._renderThemeSection(cfg)}
-
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("General Settings")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("General device behavior: display model, diagnostic logging verbosity and the stale-data indicator.")}
               </p>
                 ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
@@ -408,50 +236,50 @@ class DeviceSettings extends HauiDialog {
                   t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
               ${intField(this, "dc-stale_data_seconds", "stale_data_seconds", cfg, t("Stale data threshold (seconds)"), 0, 0, 86400,
                 t("When a sensor value has not updated for this many seconds, the row page shows it dimmed with a … suffix so an old value is not mistaken for current. 0 = off."))}
-              <div class="form-group">
+              <div class="haui-field">
                 <label for="dc-page_settle_delay">${t("Page settle delay (seconds)")}</label>
                 ${renderNumberInput("dc-page_settle_delay", cfg.page_settle_delay, (raw) => {
                   const v = parseFloat(raw);
                   this._deviceConfigForm = { ...this._deviceConfigForm, page_settle_delay: isNaN(v) ? 0 : Math.max(0, Math.min(v, 2)) };
                 }, { min: 0, max: 2, step: "any" })}
-                <div class="field-hint">${t("How long the hub waits after the display confirms a page change before it draws the page. Raise it only if the log shows invalid-variable errors right after a page change.")}</div>
+                <div class="haui-field-hint">${t("How long the hub waits after the display confirms a page change before it draws the page. Raise it only if the log shows invalid-variable errors right after a page change.")}</div>
               </div>
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Display dimming & off")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("Controls the display brightness over time. These settings only dim and turn the screen off - they never switch pages. Turning the display off never requires an idle page.")}
               </p>
-                <div class="form-group">
+                <div class="haui-field">
                   <label for="dc-brightness">${t("Brightness full (%)")}</label>
                   ${renderNumberInput("dc-brightness", cfg.brightness, (raw) => {
                     const v = parseInt(raw, 10);
                     this._deviceConfigForm = { ...this._deviceConfigForm, brightness: isNaN(v) ? null : Math.max(0, Math.min(v, 100)) };
                   }, { min: 0, max: 100 })}
-                  <div class="field-hint">${t("Full display brightness. Leave empty to keep the brightness set on the panel. A schedule needs a value here: it is the brightness outside the schedule's entries.")}</div>
+                  <div class="haui-field-hint">${t("Full display brightness. Leave empty to keep the brightness set on the panel. A schedule needs a value here: it is the brightness outside the schedule's entries.")}</div>
                 </div>
-                <div class="form-group">
+                <div class="haui-field">
                   <label for="dc-brightness_dim">${t("Brightness dimmed (%)")}</label>
                   ${renderNumberInput("dc-brightness_dim", cfg.brightness_dim, (raw) => {
                     const v = parseInt(raw, 10);
                     this._deviceConfigForm = { ...this._deviceConfigForm, brightness_dim: isNaN(v) ? null : Math.max(0, Math.min(v, 100)) };
                   }, { min: 0, max: 100 })}
-                  <div class="field-hint">${t("Brightness the display dims to. Leave empty to keep the value set on the panel.")}</div>
+                  <div class="haui-field-hint">${t("Brightness the display dims to. Leave empty to keep the value set on the panel.")}</div>
                 </div>
                 ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
                   t("When enabled, the display dims automatically after the dimming timeout. Disable to keep full brightness. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
                 ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (seconds)"), 10, 0, 3600,
                   t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
-                <div class="form-group">
+                <div class="haui-field">
                   <label for="dc-duration_dimming">${t("Dimming duration (seconds)")}</label>
                   ${renderNumberInput("dc-duration_dimming", cfg.duration_dimming, (raw) => {
                     const v = parseFloat(raw);
                     this._deviceConfigForm = { ...this._deviceConfigForm, duration_dimming: isNaN(v) ? 0 : Math.max(0, Math.min(v, 5)) };
                   }, { min: 0, max: 5, step: "any" })}
-                  <div class="field-hint">${t("How long the fade between full and dimmed brightness takes (0-5 seconds).")}</div>
+                  <div class="haui-field-hint">${t("How long the fade between full and dimmed brightness takes (0-5 seconds).")}</div>
                 </div>
 
                 ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
@@ -462,10 +290,10 @@ class DeviceSettings extends HauiDialog {
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Automatic page switching")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("Switches to the idle page after inactivity. This only changes the shown page - use Auto display-off to also turn the display off.")}
               </p>
                 ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
@@ -475,29 +303,69 @@ class DeviceSettings extends HauiDialog {
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
+            <summary>${t("Special pages")}</summary>
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
+                ${t("Choose the page opened by Home and the ordered pages shown while the device is idle.")}
+              </p>
+              <div class="haui-field">
+                <label for="dc-home-panel">${t("Home panel")}</label>
+                ${panelPills({
+                  id: "dc-home-panel", panels: this.panels || [],
+                  keys: cfg.home_panel ? [String(cfg.home_panel)] : [], single: true,
+                  addLabel: t("Set panel"), disabled: this.saving,
+                  onChange: (keys) => {
+                    this._deviceConfigForm = { ...this._deviceConfigForm, home_panel: keys[0] || "" };
+                    this.requestUpdate();
+                  },
+                })}
+                <div class="haui-field-hint">${t("If no home panel is set, the first panel in navigation is used.")}</div>
+              </div>
+              <div class="haui-field">
+                <label for="dc-idle-panels">${t("Idle panels")}</label>
+                ${panelPills({
+                  id: "dc-idle-panels", panels: this.panels || [],
+                  keys: idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra),
+                  numbered: true, reorderable: true, disabled: this.saving,
+                  onChange: (keys) => {
+                    this._deviceConfigForm = { ...this._deviceConfigForm, ...idlePanelConfig(keys) };
+                    this.requestUpdate();
+                  },
+                })}
+                <div class="haui-field-hint">
+                  ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
+                </div>
+                ${idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra).length ? "" : html`
+                  <div class="haui-field-hint">${t("Nothing opens automatically until you add a panel.")}</div>
+                `}
+              </div>
+            </div>
+          </details>
+
+          <details class="haui-config-section">
             <summary>${t("Hardware Buttons")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.")}
               </p>
               ${renderHardwareButton(this, cfg, "left")}
 
-              <div class="section-divider"></div>
+              <div class="haui-section-divider"></div>
 
               ${renderHardwareButton(this, cfg, "right")}
-              <div class="section-divider"></div>
-            <div class="section-divider"></div>
+              <div class="haui-section-divider"></div>
+            <div class="haui-section-divider"></div>
               ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
                 t("Interact on button press"),
                 t("When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or turning off. Disable to allow buttons to work without delaying the display-off."))}
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Display Buttons")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("Toggle visibility of on-screen navigation buttons on panels.")}
               </p>
               ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, t("Show home button"),
@@ -509,10 +377,10 @@ class DeviceSettings extends HauiDialog {
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Notifications")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("Configure audible alerts for startup and incoming notifications. To silence sounds during specific hours, add a Schedule entry with sound off.")}
               </p>
               ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, t("Sound on startup"),
@@ -524,13 +392,13 @@ class DeviceSettings extends HauiDialog {
             </div>
           </details>
 
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t("Idle & Wake Behavior")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
                 ${t("Controls what happens when the idle page is shown and what is restored when the user wakes the device again.")}
               </p>
-              <div class="form-group">
+              <div class="haui-field">
                 <label>${t("Snapshot max age")}</label>
                 ${renderSelect("dc-snapshot_max_age_mode", snapMode, [
                   { value: "-1", label: t("Always restore") },
@@ -546,9 +414,9 @@ class DeviceSettings extends HauiDialog {
                   this._deviceConfigForm = { ...this._deviceConfigForm, snapshot_max_age_seconds: modeVal };
                   this.requestUpdate();
                 })}
-                <div class="field-hint">${t("Controls whether the panel you were on before the idle page is restored when waking. With Auto display-off, the display can still turn off and wake without any panel switch.")}</div>
+                <div class="haui-field-hint">${t("Controls whether the panel you were on before the idle page is restored when waking. With Auto display-off, the display can still turn off and wake without any panel switch.")}</div>
                 ${snapMode === "custom" ? html`
-                  <div style="margin-top: 8px;">
+                  <div class="haui-device-settings-snapshot-custom">
                     ${renderNumberInput("dc-snapshot_max_age_custom", snapCustomVal, (raw) => {
                       const v = parseInt(raw, 10);
                       this._deviceConfigForm = {
@@ -557,7 +425,7 @@ class DeviceSettings extends HauiDialog {
                       };
                       this.requestUpdate();
                     })}
-                    <div class="field-hint">${t("Maximum age in seconds before falling back to the home panel.")}</div>
+                    <div class="haui-field-hint">${t("Maximum age in seconds before falling back to the home panel.")}</div>
                   </div>
                 ` : ""}
               </div>
@@ -569,13 +437,13 @@ class DeviceSettings extends HauiDialog {
           </div>
         </form>
 
-        <div slot="footer" class="footer-wrapper">
-          <div class="footer-toggle-wrapper">
+        <div slot="footer" class="haui-footer-wrapper">
+          <div class="haui-footer-toggle-wrapper">
             ${renderToggle("dc-enabled", Boolean(cfg.enabled), (checked) => {
               this._deviceConfigForm = { ...this._deviceConfigForm, enabled: checked };
               this.requestUpdate();
             })}
-            <label for="dc-enabled" style="margin-inline-start:8px;">${t("Device Enabled")}</label>
+            <label for="dc-enabled">${t("Device Enabled")}</label>
           </div>
           <ha-dialog-footer>
             <ha-button slot="secondaryAction" variant="neutral" appearance="plain" @click=${this._dispatchClose}>

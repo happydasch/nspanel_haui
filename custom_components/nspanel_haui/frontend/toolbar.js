@@ -20,7 +20,7 @@ function renderMenuButton(host) {
   if (!host.narrow) return "";
   return html`
     <ha-icon-button
-      class="menu-toggle-btn"
+      class="haui-toolbar-menu-toggle"
       label=${t('Toggle sidebar')}
       @click=${() => host.dispatchEvent(
         new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true })
@@ -36,30 +36,30 @@ function renderMenuButton(host) {
  */
 export function renderTitleHeader(host) {
   return html`
-    <div class="toolbar-header">
+    <div class="haui-toolbar-header">
       ${renderMenuButton(host)}
-      <div class="toolbar-brand">
-        <span class="toolbar-title">${t('NSPanel HAUI')}</span>
-        <span class="toolbar-context">${host._route?.view === 'device'
+      <div class="haui-toolbar-brand">
+        <span class="haui-toolbar-title">${t('NSPanel HAUI')}</span>
+        <span class="haui-toolbar-context">${host._route?.view === 'device'
           ? host._panels?.devices?.[host._route.device]?.friendly_name || host._route.device
           : t('Dashboard')}</span>
       </div>
       ${host.entryId ? html`<ha-icon-button
-        class="notifications-button"
+        class="haui-toolbar-notifications-button"
         label=${t('Notifications')}
         title=${t('Notifications')}
         data-overlay-anchor=${overlayAnchor('notification-centre')}
         @click=${() => host._openNotifications()}
       >
         <ha-icon icon="mdi:bell-outline"></ha-icon>
-        ${host._notifications?.length ? html`<span class="notification-count">${host._notifications.length}</span>` : ''}
+        ${host._notifications?.length ? html`<span class="haui-toolbar-notification-count">${host._notifications.length}</span>` : ''}
       </ha-icon-button>` : ''}
     </div>
   `;
 }
 
 /** Read the integration version embedded in the registered frontend asset URL. */
-export function getEditorVersion(moduleUrl) {
+export function getIntegrationVersion(moduleUrl) {
   const pathname = new URL(moduleUrl).pathname;
   const assetVersion = pathname.match(/\/nspanel_haui_frontend\/([^/]+)\/toolbar\.js$/)?.[1];
   return assetVersion?.replace(/-[\da-f]{12}$/, '') || null;
@@ -81,13 +81,13 @@ export function docsUrl(version) {
 }
 
 /** Render version information alongside the persistent editor links. */
-export function renderFooter(host) {
+export function renderFooter(host, integrationVersion = INTEGRATION_VERSION) {
   return html`
     <div class="editor-footer">
-      ${EDITOR_VERSION ? html`
+      ${integrationVersion ? html`
         <span class="footer-version-group">
-          <span class="footer-version" title=${t('Version')}>v${EDITOR_VERSION}</span>
-          ${isPrereleaseVersion(EDITOR_VERSION) ? html`
+          <span class="footer-version" title=${t('Integration version')}>v${integrationVersion}</span>
+          ${isPrereleaseVersion(integrationVersion) ? html`
             <span class="footer-dev-badge" title=${t('Development prerelease')}>${t('Dev')}</span>
           ` : ''}
         </span>
@@ -96,7 +96,7 @@ export function renderFooter(host) {
         target="_blank" rel="noopener noreferrer" title=${t('GitHub')}>
         <ha-icon icon="mdi:github"></ha-icon><span>${t('GitHub')}</span>
       </a>
-      <a class="footer-link" href=${docsUrl(EDITOR_VERSION)} target="_blank"
+      <a class="footer-link" href=${docsUrl(integrationVersion)} target="_blank"
         rel="noopener noreferrer" title=${t('Documentation')}>
         <ha-icon icon="mdi:help-circle-outline"></ha-icon><span>${t('Documentation')}</span>
       </a>
@@ -104,4 +104,4 @@ export function renderFooter(host) {
   `;
 }
 
-const EDITOR_VERSION = getEditorVersion(import.meta.url);
+const INTEGRATION_VERSION = getIntegrationVersion(import.meta.url);

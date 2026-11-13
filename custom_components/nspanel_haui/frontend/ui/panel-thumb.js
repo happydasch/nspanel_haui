@@ -85,7 +85,7 @@ export function panelThumb({ content = nothing, portrait = false, label, roles =
     if (event.pointerType !== 'mouse') return;
     (open ? openZoom : closeZoom)(event.currentTarget);
   };
-  return html`<button type="button" class=${'haui-panel-thumb' + (portrait ? ' portrait' : '')}
+  return html`<button type="button" class=${'haui-panel-thumb' + (portrait ? ' is-portrait' : '')}
     aria-label=${t('Preview of {name}').replace('{name}', label)} aria-expanded="false"
     @pointerenter=${(event) => hover(event, true)}
     @pointerleave=${(event) => hover(event, false)}

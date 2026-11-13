@@ -81,7 +81,7 @@ export async function installTft(host, e) {
     // Single-device failures are returned as HTTP errors and land in the
     // catch below; the `*` path aggregates failures server-side.  A body with
     // a 200 but an error update state is only possible by contract change on
-    // the backend — still surface it instead of a false success toast.
+    // the backend — still surface it instead of a false success haui-toast.
     const update = result.update;
     if (update?.state === "error") {
       const message = update.last_error || t("TFT update failed");

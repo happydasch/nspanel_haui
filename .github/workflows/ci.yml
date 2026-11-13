@@ -37,6 +37,7 @@ jobs:
         with:
           python: ${{ matrix.python-version }}
           node: "24"
+          npm: "true"
           requirements: dev
 
       - name: Check icon cheatsheet is up to date
@@ -79,6 +80,9 @@ jobs:
           python -m scripts.verify_nextion.verify_nextion --require-portrait
           python -m scripts.hmi_layout.gen_layout --check
           python -m scripts.hmi_layout.gen_layout --spec portrait --check
+
+      - name: Check frontend styles
+        run: python scripts/check_frontend_styles.py
 
       - name: Run tests
         run: pytest tests/

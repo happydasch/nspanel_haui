@@ -16,7 +16,7 @@
 // commands, no solid page or visible widget may show the HMI's background or
 // header colour — the theme the hub sends ahead of the page switch is painted
 // by the page's Preinitialize code, so no colour change is visible.
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { readFileSync } from 'node:fs';
 

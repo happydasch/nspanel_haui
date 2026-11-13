@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ function flatten(value) {
 function rowsOf(value) {
   if (Array.isArray(value)) return value.flatMap(rowsOf);
   if (!value?.strings) return [];
-  if (value.strings[0].includes('item-list-row')) return [value];
+  if (value.strings[0].includes('haui-item-list-row')) return [value];
   return value.values.flatMap(rowsOf);
 }
 
@@ -61,13 +61,13 @@ function drag(host, from, onto, after) {
 test('an item list row is dragged by a grip and has no move buttons', () => {
   const output = flatten(field(listHost(['light.a', 'light.b'])));
   assert.match(output, /draggable=true/);
-  assert.match(output, /item-row-grip/);
+  assert.match(output, /haui-item-row-grip/);
   assert.doesNotMatch(output, /Move up|Move down|chevron-up|chevron-down/);
 });
 
 test('a single item row is not draggable', () => {
   const row = renderItemListRow({}, { item: 'light.a' }, { onEdit() {} });
-  assert.doesNotMatch(flatten(row), /item-row-grip|draggable=true/);
+  assert.doesNotMatch(flatten(row), /haui-item-row-grip|draggable=true/);
 });
 
 test('dropping a row on the lower half of another moves it after that row', () => {

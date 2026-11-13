@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -172,7 +172,7 @@ test('toggling a device that is not selected leaves the selected config alone', 
 
   assert.equal(host._panels.devices.office.config.enabled, false);
   assert.equal(host._deviceConfig.enabled, true);
-});test('installing the TFT posts to the update endpoint and shows a success toast', async () => {
+});test('installing the TFT posts to the update endpoint and shows a success haui-toast', async () => {
   const paths = [];
   const host = makeHost({ devices: { kitchen } }, (method, path, opts) => {
     paths.push([method, path, JSON.parse(opts.body)]);

@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +27,7 @@ function collect(value, out = []) {
 /** An edit dialog without Lit's constructor (which needs a real DOM). */
 function makeDialog(index, data) {
   const Edit = customElements.get('nspanel-panel-editor');
-  const dlg = Object.create(Edit.prototype);
+  const dlg = document.createElement('nspanel-panel-editor');
   const panel = { index, data };
   Object.assign(dlg, {
     open: true,
@@ -147,6 +147,7 @@ test('the Popups group lists only extended popups, with edit and reset; fixed sy
     Object.setPrototypeOf(host, NSPanelEditor.prototype);
     host._store = host.store;
     host._panelTypes = [];
+    host._collapsedPanelGroups = [];
     return host._panelListModel(device, null);
   };
 

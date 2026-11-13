@@ -1,9 +1,8 @@
 /**
  * NSPanel HAUI - color theme library helpers.
  *
- * Pure helpers shared by the Theme sidebar and the device settings' Theme
- * section: built-in theme labels, unique names and ids for new custom themes,
- * and the JSON file format behind Export all / Import.
+ * Pure helpers for the Theme sidebar: built-in theme labels, unique names and
+ * ids for new custom themes, and the JSON file format behind Export / Import.
  */
 import { t } from './localize.js';
 

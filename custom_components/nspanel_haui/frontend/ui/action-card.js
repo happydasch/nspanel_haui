@@ -11,13 +11,18 @@ import { icon } from './icon.js';
  * `tool` is an icon-only control at the end of the heading (the device settings).
  *
  * @param {{ iconName: string, title: unknown, subtitle?: unknown, tool?: unknown, primary: unknown,
- *   secondary?: unknown[], stacked?: boolean, inlineActions?: boolean, note?: unknown }} options
+ *   secondary?: unknown[], stacked?: boolean, inlineActions?: boolean, note?: unknown, management?: unknown }} options
  */
 export function actionCard({
-  iconName, title, subtitle, tool, primary, secondary = [], stacked = false, inlineActions = false, note,
+  iconName, title, subtitle, tool, primary, secondary = [], stacked = false, inlineActions = false, note, management,
 }) {
+  const innerClasses = [
+    'haui-action-card-inner',
+    ...(note ? ['is-with-note'] : []),
+    ...(management ? ['is-with-management'] : []),
+  ].join(' ');
   return html`<section class="haui-action-card">
-    <div class="haui-action-card-inner">
+    <div class=${innerClasses}>
       <span class="haui-action-card-icon">${icon(iconName)}</span>
       <div class="haui-action-card-copy"><h2>${title}</h2>${subtitle ? html`<p>${subtitle}</p>` : nothing}</div>
       ${tool ? html`<div class="haui-action-card-tool">${tool}</div>` : nothing}
@@ -26,6 +31,7 @@ export function actionCard({
         ${secondary.length ? html`<div class="haui-action-card-secondary">${secondary}</div>` : nothing}
       </div>
       ${note ? html`<p class="haui-action-card-note">${note}</p>` : nothing}
+      ${management ? html`<div class="haui-action-card-management">${management}</div>` : nothing}
     </div>
   </section>`;
 }

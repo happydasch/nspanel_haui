@@ -224,6 +224,28 @@ def test_power_button_of_an_on_off_light_uses_the_entity_on_color():
 # color temperature
 
 
+def test_color_marker_is_cleared_when_switching_to_brightness():
+    entity = _Entity(
+        "on",
+        _attributes(supported_color_modes=["rgb"], rgb_color=[255, 128, 64]),
+    )
+    app, page = _show(entity)
+    color_function = page.get_light_function("color")
+    brightness_function = page.get_light_function("brightness")
+    assert color_function is not None
+    assert brightness_function is not None
+
+    page.callback_light_function_button(None, color_function["btn"])
+    assert any(command.startswith("cirs ") for command in app.cmds)
+
+    app.cmds.clear()
+    page.callback_light_function_button(None, brightness_function["btn"])
+
+    clear_index = app.cmds.index("ref 12")
+    hide_index = app.cmds.index("vis pColorWheel,0")
+    assert clear_index < hide_index
+
+
 def test_show_kelvin_defaults_to_kelvin_in_editor_and_at_runtime():
     option = next(o for o in LightPage.DESCRIPTOR.options if o.key == "show_kelvin")
     app, page = _show(_Entity("on", _attributes()))

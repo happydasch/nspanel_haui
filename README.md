@@ -24,32 +24,23 @@ Requires Home Assistant 2026.11 or later.
 
 **On the panel**
 
-- **Landscape and portrait**: one layout for the EU panel, one for the upright US panel
-- **Multiple panel types**: clocks, weather, grid, row, light, media, climate, cover, vacuum,
-  timer, alarm and QR code, plus built-in popups
-- **Touch and gestures**: tap, slide and swipe, configurable gesture sequences, long press to go back
-- **Idle page and dimming**: clock, weather or word clock as idle page, auto-dimming and a schedule
-  for brightness, sound and display-off
-- **Notifications and PINs**: a queue with severities, persistent alerts, silent times and protected
-  panels
-- **Hardware buttons**: switch the built-in relays or toggle any entity
-- **Themes and pictures**: theme colours, per-item colour and icon overrides, background pictures
-- **Updates**: firmware and display updates as Home Assistant update entities, stable or dev channel
-- **Local and multilingual**: ESPHome native API, no cloud; English, German, Dutch, Polish, French
-  and Slovak
+- **Landscape and portrait** layouts for the EU and US panel
+- **13 panel types**: clocks, weather, grid, row, light, media, climate, cover, vacuum, timer,
+  alarm, QR code and popups
+- **Gestures**: tap, slide, swipe, configurable sequences and long press to go back
+- **Idle page and dimming**: clock or weather idle page, auto-dimming and schedules
+- **Notifications**: severity queue, persistent alerts, silent times and PIN-protected panels
+- **Hardware buttons, themes and pictures**: relays or any entity, theme colours, backgrounds
+- **Updates**: firmware and display updates as Home Assistant entities
+- **Local and multilingual**: ESPHome native API, no cloud; six languages
 
 **In the editor**
 
-- **Compose panels visually**: choose from the panel catalog, add Home Assistant entities, text items
-  or actions, then customise titles, icons and colours
-- **Arrange the display**: drag panels between navigation, hidden and popup groups, and reorder them
-  for each device
-- **Preview as you work**: inspect panel thumbnails and the interactive virtual display, or switch to
-  the live view of a connected panel
-- **Tune each device**: set themes, language and regional formats, gestures, schedules, idle
-  behaviour, dimming, hardware buttons and notifications
-- **Manage a fleet**: see device connection and firmware details, recent events and available updates;
-  back up or restore a device from its workspace
+- **Visual panel builder**: panel catalog, entities, text and actions, titles, icons and colours
+- **Preview as you work**: thumbnails, an interactive virtual display or the live device view
+- **Arrange per device**: drag panels between navigation, hidden and popup groups
+- **Device settings**: language, theme, gestures, schedules, dimming, buttons and notifications
+- **Fleet management**: status, firmware, events, updates, backup and restore
 
 ## Quick start
 

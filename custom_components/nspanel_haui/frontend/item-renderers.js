@@ -36,7 +36,9 @@ import {
 import { parseRgbListToHex, hexToColorMatching } from './color-utils.js';
 import { formVal } from './dom-helpers.js';
 import { dropsAfter } from './ui/panel-row.js';
+import { badge } from './ui/badge.js';
 import { addButton } from './ui/button.js';
+import { emptyState } from './ui/empty-state.js';
 
 /* ── color popover helpers ──────────────────────────────────────────────── */
 
@@ -50,8 +52,8 @@ function toggleColorPopover(e) {
   const btn = e.currentTarget;
   const root = btn.getRootNode();
   // Close all other open color popovers in this shadow root
-  root.querySelectorAll(".color-popover.open").forEach(el => el.classList.remove("open"));
-  const pop = btn.closest(".form-group").querySelector(".color-popover");
+  root.querySelectorAll(".haui-color-popover.open").forEach(el => el.classList.remove("open"));
+  const pop = btn.closest(".haui-field").querySelector(".haui-color-popover");
   if (!pop) return;
   const wasOpen = pop.classList.contains("open");
   pop.classList.toggle("open");
@@ -101,12 +103,10 @@ export function renderItemListRow(host, item, actions, drag = null) {
       : '';
   const itemColor = parseItemColor(item?.color);
   const itemBackColor = parseItemColor(item?.back_color);
-  const iconBgStyle = itemBackColor
-    ? `background-color:${itemBackColor};`
-    : '';
-  const iconColorStyle = itemColor
-    ? `color:${itemColor};`
-    : '';
+  const iconStyle = [
+    itemBackColor && `--haui-item-row-icon-background:${itemBackColor}`,
+    itemColor && `--haui-item-row-icon-color:${itemColor}`,
+  ].filter(Boolean).join(';');
   const clearDrop = (row) => row.classList.remove('is-drop-before', 'is-drop-after');
   // A row takes a drop only from another row of its own list.
   const takesDrop = () => draggedItem && draggedItem.list === drag.list && draggedItem.index !== drag.index;
@@ -145,33 +145,31 @@ export function renderItemListRow(host, item, actions, drag = null) {
   const gripLabel = drag ? t('Drag to reorder {name}').replace('{name}', primary) : '';
   // The whole row opens the item; the narrow sidebar keeps its width for the name.
   return html`
-    <div class="item-list-row" draggable=${drag ? 'true' : nothing}
+    <div class="haui-item-list-row" draggable=${drag ? 'true' : nothing}
       @dragstart=${startDrag ?? nothing} @dragend=${endDrag ?? nothing}
       @dragover=${allowDrop ?? nothing} @dragleave=${leaveDrop ?? nothing} @drop=${acceptDrop ?? nothing}>
       ${drag
-        ? html`<span class="item-row-grip" role="img" aria-label=${gripLabel} title=${gripLabel}>
+        ? html`<span class="haui-item-row-grip" role="img" aria-label=${gripLabel} title=${gripLabel}>
             <ha-icon icon="mdi:drag" aria-hidden="true"></ha-icon>
           </span>`
         : ''}
-      <button type="button" class="item-row-main" title=${t("Edit")} @click=${actions.onEdit}>
-        <span class="item-row-icon" style=${iconBgStyle || ''}>
-          <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
+      <button type="button" class="haui-item-row-main" title=${t("Edit")} @click=${actions.onEdit}>
+        <span class="haui-item-row-icon" style=${iconStyle || nothing}>
+          <ha-icon icon=${icon}></ha-icon>
         </span>
-        <span class="item-row-text">
-          <span class="item-row-primary">
-            <span class="item-row-name">${primary}</span>
-            ${showTypeChip
-              ? html`<span class="item-row-chip">${typeLabel}</span>`
-              : ''}
+        <span class="haui-item-row-text">
+          <span class="haui-item-row-primary">
+            <span class="haui-item-row-name">${primary}</span>
+            ${showTypeChip ? badge(typeLabel, 'neutral', 'haui-item-row-chip') : ''}
           </span>
           ${secondary
-            ? html`<span class="item-row-secondary">${secondary}</span>`
+            ? html`<span class="haui-item-row-secondary">${secondary}</span>`
             : ''}
         </span>
-        <ha-icon class="item-row-edit" icon="mdi:pencil-outline"></ha-icon>
+        <ha-icon class="haui-item-row-edit" icon="mdi:pencil-outline"></ha-icon>
       </button>
       ${actions.onRemove
-        ? html`<ha-icon-button class="item-row-remove" label=${t("Remove")} title=${t("Remove")}
+        ? html`<ha-icon-button class="haui-item-row-remove" label=${t("Remove")} title=${t("Remove")}
             @click=${actions.onRemove}
           ><ha-icon icon="mdi:delete-outline"></ha-icon></ha-icon-button>`
         : ''}
@@ -179,7 +177,7 @@ export function renderItemListRow(host, item, actions, drag = null) {
   `;
 }
 
-/* ── list-items / list-entities field ───────────────────────────────── */
+/* ── haui-item-list-items / list-entities field ───────────────────────────────── */
 
 /**
  * Render a list-of-strings editor for `kind: list_items` and `kind: list_entities`.
@@ -210,11 +208,11 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
   };
 
   return html`
-    <div class="form-group" id=${id}>
+    <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
-      ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+      ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
 
-      <div class="item-list">
+      <div class="haui-item-list">
         ${list.map((val, i) => {
           const rem = html`
             <ha-icon-button
@@ -257,7 +255,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
             <div class="list-item-row">
               ${rem}
               <input
-                class="native-input"
+                class="haui-input"
                 .value=${String(val != null ? val : "")}
                 @input=${(e) => {
                   mutate((arr) => { arr[i] = e.target.value; });
@@ -269,7 +267,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
       </div>
 
       ${max != null && list.length >= max
-        ? html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`
+        ? html`<div class="haui-item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`
         : addButton({
           label: t("Add"),
           onClick: () => {
@@ -306,13 +304,13 @@ export function renderItemListField(host, opt, currentValue) {
   const editingIndex = isEditing ? host._editingItem.index : null;
 
   return html`
-    <div class="form-group" id=${id}>
+    <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
-      ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+      ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
 
-      <div class="item-list">
+      <div class="haui-item-list">
         ${entities.length === 0 && editingIndex !== -1
-          ? html`<div class="item-list-empty">${t('No items yet. Click "+ Add Item" below.')}</div>`
+          ? emptyState({ message: t('No items yet. Click "+ Add Item" below.'), iconName: null, className: 'haui-empty-state-inset' })
           : ''}
         ${entities.map((item, i) => {
           if (editingIndex === i) {
@@ -364,7 +362,7 @@ export function renderItemListField(host, opt, currentValue) {
         : (() => {
             const max = opt.max_items;
             if (max != null && entities.length >= max) {
-              return html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`;
+              return html`<div class="haui-item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`;
             }
             return addButton({
               label: t("Add Item"),
@@ -392,15 +390,16 @@ function renderItemColorEditor(host, { id, label, hint, value, getValue, setValu
     saveColor(hex);
     setValue(nextValue);
   };
-  const closePopover = () => host.renderRoot?.querySelectorAll(".color-popover.open")
+  const closePopover = () => host.renderRoot?.querySelectorAll(".haui-color-popover.open")
     .forEach((element) => element.classList.remove("open"));
 
   return html`
-    <div class="form-group">
+    <div class="haui-field">
       <label for=${id} title=${hint}>${label}</label>
-      <div class="field-row">
+      <div class="haui-field-row">
         <div class="input-preview-wrap">
-          <div class="cp-sw input-preview" style=${`pointer-events:auto;background-color:${colorHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);`}
+          <div class="haui-color-swatch haui-color-editor-swatch input-preview"
+            style=${`--haui-color-swatch:${colorHex || "#888"}`}
             title=${colorHex || t("no color")}
             @click=${(event) => event.currentTarget.querySelector("input[type=color]")?.click()}
           >
@@ -410,7 +409,7 @@ function renderItemColorEditor(host, { id, label, hint, value, getValue, setValu
           </div>
           <input
             id=${id}
-            class="native-input"
+            class="haui-input"
             .value=${colorFieldText(value)}
             @input=${(event) => {
               const raw = event.target.value;
@@ -424,18 +423,18 @@ function renderItemColorEditor(host, { id, label, hint, value, getValue, setValu
             }}
           />
         </div>
-        <ha-icon-button class="color-picker-btn" @click=${toggleColorPopover} title=${t("Presets")}>
+        <ha-icon-button class="haui-color-picker-btn" @click=${toggleColorPopover} title=${t("Presets")}>
           <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
         </ha-icon-button>
       </div>
-      <div class="color-popover" @click=${(event) => event.stopPropagation()}>
+      <div class="haui-color-popover" @click=${(event) => event.stopPropagation()}>
         ${!hasTemplate ? renderColorPresets(colorHex, (hex) => {
           applyColor(hex);
           closePopover();
         }) : ""}
       </div>
-      ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
-      <div class="template-preview" ?hidden=${!hasTemplate}>
+      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : ""}
+      <div class="haui-template-preview" ?hidden=${!hasTemplate}>
         <span id=${`tp-${id}`}>${hasTemplate ? "..." : ""}</span>
       </div>
     </div>`;
@@ -465,21 +464,21 @@ function renderItemOptionField(host, opt, currentValue) {
   switch (opt.kind) {
     case "bool":
       return html`
-        <div class="checkbox-wrap">
-          <div class="checkbox-row">
+        <div class="haui-checkbox-wrap">
+          <div class="haui-checkbox-row">
             ${renderToggle(id, val, setVal)}
             <label for=${id} title=${opt.description}>${opt.label}</label>
           </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
     case "int":
       return html`
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
           ${renderNumberInput(id, val, (raw) => setVal(parseInt(raw, 10) || 0), { step: "1" })}
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
@@ -495,21 +494,21 @@ function renderItemOptionField(host, opt, currentValue) {
 
     case "select":
       return html`
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
           ${renderSelect(id, val, opt.choices || [], setVal)}
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
     case "str":
     default:
       return html`
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
           <input
             id=${id}
-            class="native-input"
+            class="haui-input"
             .value=${String(val != null ? val : "")}
             @input=${(e) => {
               if (host.api) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target);
@@ -517,10 +516,10 @@ function renderItemOptionField(host, opt, currentValue) {
             }}
             @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
           />
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
           ${host.hass
             ? html`
-                <div class="template-preview" ?hidden=${!(String(val).includes("{{"))}>
+                <div class="haui-template-preview" ?hidden=${!(String(val).includes("{{"))}>
                   <span id="tp-${id}">${(String(val).includes("{{")) ? "..." : ""}</span>
                 </div>
               `
@@ -558,13 +557,13 @@ function renderPromotedField(host, ee, f, label, hint) {
       ? t("State-keyed: {value}").replace("{value}", Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", "))
       : "";
     return html`
-      <div class="form-group">
+      <div class="haui-field">
         <label for="item-${f}" title=${hint}>${label}</label>
         ${renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
           host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
           setTimeout(() => host.requestUpdate(), 0);
         })}
-        <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
+        <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
       </div>`;
   }
   const rawVal = ee.config?.[f];
@@ -575,9 +574,9 @@ function renderPromotedField(host, ee, f, label, hint) {
     : "";
   const hasTpl = displayStr.includes("{{");
   return html`
-    <div class="form-group">
+    <div class="haui-field">
       <label for="item-${f}" title=${hint}>${label}</label>
-      <input id="item-${f}" .value=${displayStr} class="native-input"
+      <input id="item-${f}" .value=${displayStr} class="haui-input"
         @input=${(e) => {
           const raw = e.target.value;
           if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
@@ -587,11 +586,11 @@ function renderPromotedField(host, ee, f, label, hint) {
         @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
       />
       ${host.hass
-        ? html`<div class="template-preview" ?hidden=${!hasTpl}>
+        ? html`<div class="haui-template-preview" ?hidden=${!hasTpl}>
             <span id="tp-item-${f}">${hasTpl ? "..." : ""}</span>
           </div>`
         : ""}
-      <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
+      <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
     </div>`;
 }
 
@@ -617,8 +616,8 @@ export function renderItemEditFields(host, descriptor) {
   const uid = `item-edit-${ee.optKey}-${ee.index}`;
 
   return html`
-    <div class="item-edit-inline" id="${uid}">
-      <div class="form-group">
+    <div class="haui-item-edit-inline" id="${uid}">
+      <div class="haui-field">
         <label for="item-type" title=${t("Type of item this entity slot represents")}>${t("Type")}</label>
         ${renderSelect("item-type", itemType, [
           { value: ITEM_TYPE.ENTITY_ID, label: t("Entity") },
@@ -632,7 +631,7 @@ export function renderItemEditFields(host, descriptor) {
         })}
       </div>
 
-      <div class="form-group">
+      <div class="haui-field">
         ${(() => {
           const labels = itemLabels();
           const info = labels[itemType] || labels.entity_id;
@@ -673,7 +672,7 @@ export function renderItemEditFields(host, descriptor) {
             <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, service name, or custom text")}`}>${info.label}</label>
             <input
               id="item-entity"
-              class="native-input"
+              class="haui-input"
               .value=${itemValue}
               placeholder=${info.placeholder}
               @input=${(e) => {
@@ -687,7 +686,7 @@ export function renderItemEditFields(host, descriptor) {
               @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-entity`, e.target); }}
             />
             ${host.hass
-              ? html`<div class="template-preview" ?hidden=${!(String(itemValue).includes("{{"))}>
+              ? html`<div class="haui-template-preview" ?hidden=${!(String(itemValue).includes("{{"))}>
                   <span id="tp-item-entity">${(String(itemValue).includes("{{")) ? "..." : ""}</span>
                 </div>`
               : ""}
@@ -701,19 +700,19 @@ export function renderItemEditFields(host, descriptor) {
         { f: 'color', label: t("Color"), hint: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.") },
       ].map(fd => renderPromotedField(host, ee, fd.f, fd.label, fd.hint))}
       <div
-        class="collapsible-title"
+        class="haui-collapsible-title"
         @click=${(e) => {
           const toggle = e.currentTarget;
-          const arrow = toggle.querySelector(".collapsible-icon");
+          const arrow = toggle.querySelector(".haui-collapsible-icon");
           const section = toggle.nextElementSibling;
           if (arrow) arrow.classList.toggle("is-open");
-          if (section) section.classList.toggle("open");
+          if (section) section.classList.toggle("is-open");
         }}
       >
-        <ha-icon icon="mdi:chevron-right" class="collapsible-icon"></ha-icon>
+        <ha-icon icon="mdi:chevron-right" class="haui-collapsible-icon"></ha-icon>
         ${t("Advanced")}
       </div>
-      <div class="item-advanced-section">
+      <div class="haui-item-advanced-section">
         ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
           (f) => {
             const fieldLabels = {
@@ -735,11 +734,11 @@ export function renderItemEditFields(host, descriptor) {
               ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
               : "";
             return html`
-              <div class="form-group">
+              <div class="haui-field">
                 <label for="item-${f}" title=${hints[f]}>${fieldLabels[f]}</label>
                 <input
                   id="item-${f}"
-                  class="native-input"
+                  class="haui-input"
                   .value=${displayStr}
                   @input=${(e) => {
                     const raw = e.target.value;
@@ -753,23 +752,22 @@ export function renderItemEditFields(host, descriptor) {
                   @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
                 />
                 ${host.hass
-                  ? html`<div class="template-preview" ?hidden=${!displayStr.includes("{{")}>
+                  ? html`<div class="haui-template-preview" ?hidden=${!displayStr.includes("{{")}>
                       <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
                     </div>`
                   : ""}
-                <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
+                <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
               </div>
             `;
           }
         )}
         ${host._editingItemType === ITEM_TYPE.ACTION
           ? html`
-            <div class="form-group">
+            <div class="haui-field">
               <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
               <textarea
                 id="item-service_data"
-                class="w-full"
-                style="min-height:80px;font-family:var(--code-font-family,monospace);font-size:13px;"
+                class="haui-w-full haui-item-service-data"
                 .value=${(() => {
                   const sd = host._editingItem?.config?.service_data;
                   if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);
@@ -786,7 +784,7 @@ export function renderItemEditFields(host, descriptor) {
                 }}
                 placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
               ></textarea>
-              <div class="field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
+              <div class="haui-field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
             </div>`
           : ""}
         ${(() => {
@@ -797,7 +795,7 @@ export function renderItemEditFields(host, descriptor) {
         })()}
       </div>
 
-      <div class="item-edit-actions">
+      <div class="haui-item-edit-actions">
         <ha-button variant="neutral" appearance="plain" @click=${() => { host._editingItem = null; host._editingItemType = null; host.requestUpdate(); }}>
           ${t("Cancel")}
         </ha-button>

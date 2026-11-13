@@ -4,12 +4,13 @@ import { t } from '../localize.js';
 import { iconButton } from '../ui/button.js';
 import { popover, overlayAnchor } from '../ui/popover.js';
 import { notificationItem } from '../ui/notification-item.js';
+import { emptyState } from '../ui/empty-state.js';
 
 /** Render the queued notification centre as one anchored overlay surface. */
 export function notificationsView({ open, notifications, onDismiss, onClose }) {
   const body = notifications.length
     ? html`<div class="haui-notification-list">${notifications.map((notification) => notificationItem(notification, onDismiss))}</div>`
-    : html`<p class="haui-notification-empty">${t('No notifications queued.')}</p>`;
+    : emptyState({ message: t('No notifications queued.'), iconName: null, className: 'haui-empty-state-compact' });
   return popover({
     open,
     id: 'haui-notification-centre',

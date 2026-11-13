@@ -9,13 +9,13 @@
  */
 import { LitElement, css, html, nothing } from '../lit-import.js';
 import { haStyle, dialogStyles } from '../styles.js';
+import { previewStyles } from '../styles/preview-styles.js';
 import { previewStage } from '../ui/preview-stage.js';
 import { t } from '../localize.js';
 import { renderDisplay } from '../virtual/nextion-view.js';
 import { entityAt, toDisplayCoords } from '../virtual/touch-input.js';
 import { LivePanelSession } from '../virtual/live-panel-session.js';
 import { VirtualPanelSession } from '../virtual/virtual-panel-session.js';
-import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 
 // Largest on-screen scale; the workspace shrinks it to fit the available width.
 const MAX_SCALE = 1.25;
@@ -49,159 +49,13 @@ class PreviewWorkspace extends LitElement {
       _hover: { state: true },
       mode: { type: String },
       showEntities: { type: Boolean },
+      optionSelection: { type: String },
     };
   }
 
-  static styles = [
-    haStyle,
-    dialogStyles,
-    virtualPanelStyles,
-    css`
-      :host { display: block; width: 100%; min-width: 0; }
-      .vp-workspace, .vp-body { display: flex; flex-direction: column; width: 100%; }
-      /* The stage fills the workspace card edge to edge; the card clips its corners. */
-      .haui-preview-stage {
-        display: grid;
-        min-height: 360px;
-        box-sizing: border-box;
-        place-items: center;
-        align-content: center;
-        gap: 12px;
-        padding: 40px;
-        background: var(--haui-screen);
-        transition: background 200ms ease;
-      }
-      @media (max-width: 600px) {
-        .haui-preview-stage { min-height: 240px; padding: 24px; }
-      }
-      .haui-preview-stage.is-live {
-        background: radial-gradient(ellipse at 50% 8%, light-dark(#f1f8f6, #294b48) 0,
-          light-dark(#dcece8, #1c3534) 58%, light-dark(#cbe0db, #142624) 100%);
-      }
-      .haui-preview-bezel {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        gap: var(--vp-frame-pad);
-        padding: var(--vp-frame-pad);
-        overflow: hidden;
-        border-radius: calc(var(--vp-frame-pad) * 1.5);
-        background: #17191e;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-      }
-      .haui-preview-loading {
-        display: flex;
-        min-height: 200px;
-        align-items: center;
-        justify-content: center;
-        color: light-dark(#5f6b76, #aaa);
-      }
-      .haui-preview-error {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 14px;
-        border-radius: 8px;
-        background: light-dark(color-mix(in srgb, var(--error-color, #db4437) 14%, #fff),
-          color-mix(in srgb, var(--error-color, #db4437) 22%, #14181c));
-        color: light-dark(#8c1d13, #ffd2cc);
-        font-size: 0.9em;
-      }
-      .haui-preview-stage .haui-empty-state { color: light-dark(#3c4650, #c9d1d9); }
-      .vp-screen-wrap {
-        position: relative;
-        overflow: hidden;
-        border-radius: 4px;
-        cursor: pointer;
-        touch-action: none;
-      }
-      .vp-off {
-        position: absolute;
-        inset: 0;
-        background: #000;
-        pointer-events: none;
-      }
-      .vp-hw-buttons {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: var(--vp-frame-pad);
-      }
-      .vp-hw {
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-        box-sizing: border-box;
-        width: 100%;
-        height: var(--vp-hw-height);
-        padding: calc(var(--vp-hw-height) * 0.15) 0 0;
-        border: 1px solid #34383f;
-        border-radius: 6px;
-        background: #22252b;
-        cursor: pointer;
-      }
-      .vp-hw:disabled {
-        cursor: default;
-        opacity: 0.6;
-      }
-      .vp-hw:active:not(:disabled) {
-        background: #292d34;
-      }
-      /* The lights follow the button: its width, and its height for their thickness. */
-      .vp-relay-light {
-        width: 23%;
-        height: max(2px, calc(var(--vp-hw-height) * 0.07));
-        border-radius: 999px;
-        background: #20242a;
-        box-shadow: inset 0 1px 2px #000a;
-        transition: background-color 150ms ease, box-shadow 150ms ease;
-      }
-      .vp-relay-light[data-state="on"] {
-        background: #58b3ff;
-        box-shadow: 0 0 6px #55adff, 0 0 15px #308bffb3;
-      }
-      /* A button that switches an entity instead of its relay shows that entity. */
-      .vp-relay-light.entity[data-state="on"] {
-        background: #ffd23f;
-        box-shadow: 0 0 6px #ffcc33, 0 0 15px #ffb300b3;
-      }
-      .vp-relay-indicators {
-        display: flex;
-        width: 100%;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-      }
-      .vp-relay-dot {
-        width: max(3px, calc(var(--vp-hw-height) * 0.08));
-        height: max(3px, calc(var(--vp-hw-height) * 0.08));
-        border-radius: 50%;
-        background: #20242a;
-      }
-      .vp-relay-dot[data-state="on"] {
-        background: #58b3ff;
-        box-shadow: 0 0 5px #55adff;
-      }
-      .vp-tooltip {
-        position: absolute;
-        z-index: 2;
-        max-width: 260px;
-        padding: 6px 10px;
-        border-radius: 6px;
-        background: rgba(0, 0, 0, 0.85);
-        color: #fff;
-        font-size: 0.85em;
-        line-height: 1.35;
-        pointer-events: none;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .vp-tooltip .vp-tooltip-id {
-        opacity: 0.7;
-        font-family: var(--code-font-family, monospace);
-      }
-    `,
-  ];
+  static styles = [haStyle, dialogStyles, previewStyles, css`
+    :host { display: block; width: 100%; min-width: 0; container-type: inline-size; container-name: haui-editor; }
+  `];
 
   constructor() {
     super();
@@ -215,6 +69,7 @@ class PreviewWorkspace extends LitElement {
     this._hover = null;
     this.mode = 'simulated';
     this.showEntities = false;
+    this.optionSelection = '';
     this._pointerId = null;
     this._resizeObserver = null;
   }
@@ -232,6 +87,7 @@ class PreviewWorkspace extends LitElement {
     }
     if (changed.has('mode')) this.setLive(this.mode === 'live');
     if (changed.has('showEntities') && !this.showEntities) this._hover = null;
+    if (changed.has('optionSelection')) this._hover = null;
     const stage = this.renderRoot.querySelector('.haui-preview-stage');
     if (stage && !this._resizeObserver && typeof ResizeObserver === 'function') {
       this._resizeObserver = new ResizeObserver(entries => {
@@ -297,12 +153,12 @@ class PreviewWorkspace extends LitElement {
     }
   }
 
-  /** Hand a message to the editor, which shows it as a toast. */
+  /** Hand a message to the editor, which shows it as a haui-toast. */
   _notify(message, type) {
     this._emit('preview-notice', { message, type });
   }
 
-  /** Tell the Device screen something it owns, such as a toast. */
+  /** Tell the Device screen something it owns, such as a haui-toast. */
   _emit(type, detail = {}) {
     if (typeof this.dispatchEvent !== 'function') return;
     this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true, detail }));
@@ -399,13 +255,13 @@ class PreviewWorkspace extends LitElement {
     // Keep it inside the frame: left of the cursor on the right side, above it
     // near the bottom.
     const horizontal = hover.x > hover.width * TOOLTIP_FLIP_SHARE
-      ? `right:${hover.width - hover.x + TOOLTIP_OFFSET}px;`
-      : `left:${hover.x + TOOLTIP_OFFSET}px;`;
+      ? `--vp-tooltip-right:${hover.width - hover.x + TOOLTIP_OFFSET}px`
+      : `--vp-tooltip-left:${hover.x + TOOLTIP_OFFSET}px`;
     const vertical = hover.y > hover.height * TOOLTIP_FLIP_SHARE
-      ? `bottom:${hover.height - hover.y + TOOLTIP_OFFSET}px;`
-      : `top:${hover.y + TOOLTIP_OFFSET}px;`;
+      ? `--vp-tooltip-bottom:${hover.height - hover.y + TOOLTIP_OFFSET}px`
+      : `--vp-tooltip-top:${hover.y + TOOLTIP_OFFSET}px`;
     return html`
-      <div class="vp-tooltip" style="${horizontal}${vertical}">
+      <div class="vp-tooltip" style="${horizontal};${vertical}">
         ${name ? html`<div>${name}</div>` : nothing}
         <div class="vp-tooltip-id">${hover.entityId}</div>
       </div>
@@ -516,7 +372,7 @@ class PreviewWorkspace extends LitElement {
     return html`
       <div
         class="vp-screen-wrap"
-        style="width:${width}px;height:${height}px;filter:brightness(${session.screenBrightness});"
+        style="--vp-screen-width:${width}px;--vp-screen-height:${height}px;--vp-screen-brightness:${session.screenBrightness};"
         @pointerdown=${this._onPointerDown}
         @pointermove=${this._onPointerMove}
         @pointerup=${this._onPointerUp}
@@ -524,7 +380,7 @@ class PreviewWorkspace extends LitElement {
         @pointerleave=${() => { this._hover = null; }}
         @contextmenu=${e => e.preventDefault()}
       >
-        <div style="transform:scale(${scale});transform-origin:0 0;">
+        <div class="vp-screen-scaler" style="--vp-screen-scale:${scale};">
           ${renderDisplay(session.display, {
             iconName: ch => session.iconName(ch),
             pictureUrl: id => session.pictureUrl(id),
@@ -559,7 +415,8 @@ class PreviewWorkspace extends LitElement {
     });
     return html`<section class="vp-workspace" aria-label=${title}>
       <div class="vp-body">${stage}</div>
-    </section>`;
+    </section>
+`;
   }
 }
 customElements.define('nspanel-preview-workspace', PreviewWorkspace);

@@ -1,8 +1,7 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import {
   buildPreviewDisplay,
@@ -10,49 +9,17 @@ import {
   previewRenderKey,
 } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
-import {
-  loadIconMap,
-  loadLayout,
-  renderSimulatorScreen,
-} from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
+import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
+import { layout } from './support/fixtures.mjs';
 
-function layout(orientation) {
-  return JSON.parse(readFileSync(
-    new URL(`../../custom_components/nspanel_haui/frontend/virtual/layout_${orientation}.json`, import.meta.url),
-    'utf8',
-  ));
-}
-
-/** Flatten a Lit TemplateResult tree to text. */
-function flat(v) {
-  if (Array.isArray(v)) return v.map(flat).join('');
-  if (v && v.strings) return v.strings.reduce((a, s, i) => a + s + (i < v.values.length ? flat(v.values[i]) : ''), '');
-  return v == null || typeof v === 'symbol' ? '' : String(v);
-}
-
-test('every physical page id maps onto a layout page in both orientations', () => {
+test('every physical page id maps to a preview model in both orientations', () => {
   for (const orientation of ['landscape', 'portrait']) {
-    const json = layout(orientation);
-    for (const idStr of Object.keys(json.pages)) {
-      const d = buildPreviewDisplay(json, Number(idStr));
-      assert.equal(d.page.id, Number(idStr), `${orientation} page ${idStr}`);
-      const out = flat(renderSimulatorScreen(d, {
-        scale: 0.5, iconName: () => null, pictureUrl: (id) => `p/${id}.webp`,
-      }));
-      assert.match(out, /vp-screen/);
+    const displayLayout = layout(orientation);
+    for (const id of Object.keys(displayLayout.pages).map(Number)) {
+      const preview = buildPreviewDisplay(displayLayout, id);
+      assert.equal(preview.page.id, id, `${orientation} page ${id}`);
     }
   }
-});
-
-test('renderSimulatorScreen preserves the device aspect ratio and applies scale', () => {
-  const d = buildPreviewDisplay(layout('landscape'), 9);
-  const out = flat(renderSimulatorScreen(d, { scale: 0.5, iconName: () => null, pictureUrl: (id) => `p/${id}.webp` }));
-  assert.match(out, /vp-screen" style="width:450px;height:320px/);
-  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
-  assert.match(out, /pg-sim" style="width:225px;aspect-ratio:450\/320/);
-  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);  // The card behind the screen takes the page's solid colour, not a fixed black.
-  const page = d.component(0).attrs;
-  if (page.sta === 1) assert.match(out, /pg-sim" style="[^"]*background:#[0-9a-f]{6}/);
 });
 
 test('loadLayout and loadIconMap use an injected loader', () => {

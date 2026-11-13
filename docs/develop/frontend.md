@@ -66,9 +66,10 @@ service-call wiring.
    time, positioned against the trigger that carries
    data-overlay-anchor="<kind>[:<subject>]", closed by the shell on Escape or an
    outside click, with focus returned to that trigger.
-8. Dialog surfaces that have not migrated keep their own element and behaviour:
-   item editing (inline in the panel editor), confirmation, colors, logs and the
-   device-manager/diagnostics dialog.
+8. Device settings and option editors, panel editing and logs use the modal sidebar; the
+   Panels view's side card summarizes the selected panel or the list overview. The
+   former Device Manager and Device Info dialogs are gone. Confirmation and other
+   specialized overlays remain separate UI elements.
 
 ## Target v0.5 dashboard
 
@@ -92,7 +93,7 @@ popovers, and dialogs overlay the screen rather than becoming more routes.
 | Hash | Screen | Main regions | Opens initially |
 |---|---|---|---|
 | `#/` | Fleet | Device carousel; fleet summary; device inventory; latest events | None |
-| `#/device/<device-name>` | Device | Device rail; panel workspace; contextual side stack | Preview + device details |
+| `#/device/<device-name>` | Device | Device rail; full-width panel workspace or Preview + contextual side stack | Preview + device details |
 | `#/device/<device-name>/panels` | Device | Same regions | Panel list + panel manager |
 | `#/device/<device-name>/panel/<panel-key>` | Device | Same regions | Panel editor sidebar for the addressed panel |
 
@@ -131,14 +132,14 @@ The titlebar and overlay layer are shared by both screens. Fleet uses a two-colu
 sidebar has its own scrollable body. The existing editor footer remains at the bottom of the page,
 after the screen content, using the existing `renderFooter()` and `.editor-footer` styling on Fleet
 and Device screens and on loading/error states. Do not replace it with a titlebar menu or change its
-version, Dev badge, GitHub, or Documentation links.
+integration version, Dev badge, GitHub, or Documentation links.
 
 ### Shared shell regions
 
 | Region | Anatomy and content | Data / interactions | Required states |
 |---|---|---|---|
 | Titlebar | Existing HAUI title, current screen/device name, notification button/count (plus HA's narrow sidebar toggle) | Current entry, notification queue; opens existing surfaces | No hub / configured hub; no notifications / nonzero count; narrow mode |
-| Global editor footer | The current `renderFooter()` output, unchanged: centered version label; `Dev` badge for prereleases only; GitHub and Documentation links | `EDITOR_VERSION` parsed from the content-hashed asset URL; `docsUrl()` targets `/dev/` on prereleases and the stable docs root otherwise | Version unavailable hides version group; Dev badge only for prerelease; both links always present |
+| Global editor footer | The current `renderFooter()` output, unchanged: centered integration version label; `Dev` badge for prereleases only; GitHub and Documentation links | `INTEGRATION_VERSION` parsed from the content-hashed asset URL; `docsUrl()` targets `/dev/` on prereleases and the stable docs root otherwise | Version unavailable hides version group; Dev badge only for prerelease; both links always present |
 
 Footer placement and preservation are intentional: it stays after the main screen content on Fleet and
 Device, and on loading, error, and empty-entry states. Reuse the current `renderFooter()` and
@@ -152,8 +153,8 @@ Cancel/Save footer is a separate local control, not a replacement for this globa
 |---|---|---|---|
 | Device carousel | Scroll-snap horizontal row; 264px device cards with 196px screen covers; left/right arrows appear on hover/focus; a swipe anywhere on a card, its cover included, scrolls the row | `devices.order`, device config/status, update state; card opens the device, arrows scroll by one card, drag handle reorders | empty devices; one device (no arrows); online/offline; pending update; loading/failed cover; dragging/drop target |
 | Device card | Real home-panel cover in device orientation; selected check; update badge; status dot; name; current page; drag grip (upper left) and update badge (lower right) on the cover | Home panel render via `previews/simulator-frame.js` and `previewRenderKey`; select opens `#/device/<name>` | empty bezel if no home panel; offline status; stale current-page data; active update; render error |
-| Fleet summary | The top of the Device inventory card: its heading (count chip, **Install updates** while any are installable) beside a health line (online/total plus a sentence — all connected, N offline, or none connected) whose icon carries the health colour and the updates-pending and hub-version figures as small labelled facts on the right; one column on narrow screens. Below it, a thin segment per device in its connection tone (`fleetBar`) | Counts from actual device/status/update data (online, updates available, total) | no devices; all online; partial/offline; pending updates; no hub version; placeholders until the first status arrives |
-| Device inventory | Table of same devices (card is the selector, table is the at-a-glance comparison); columns device (with the **Connection & device** card's connection icon in front of the name), IP, firmware, TFT, actions; rows drag-sort. Dense table: 46 px rows, 13 px cells, 10 px uppercase column labels, addresses and versions in the mono face | IP/RSSI/versions from status, update state, device identity/config; row opens device; menu offers supported actions | loading; empty; offline/stale; update; dragging; narrow layout |
+| Fleet summary | The top of the Device inventory card: the health-coloured icon, its heading, then online/total plus a sentence — all connected, N offline, or none connected — followed by small labelled updates-pending and hub-version facts on the right; **Install updates** appears while any are installable. Below it, a thin segment per device in its connection tone (`fleetBar`); one column on narrow screens | Counts from actual device/status/update data (online, updates available, total) | no devices; all online; partial/offline; pending updates; no hub version; placeholders until the first status arrives |
+| Device inventory | Table of same devices (card is the selector, table is the at-a-glance comparison); columns device (with the **Connection & device** card's connection icon in front of the name), IP, firmware (`yaml_version`), TFT, actions; rows drag-sort. The firmware cell shows a danger **Mismatch** badge below the firmware version when it differs from the integration version. At narrower widths, the IP column is hidden while firmware and TFT stay visible. Dense table: 46 px rows, 13 px cells, 10 px uppercase column labels, addresses and versions in the mono face | IP/RSSI/versions and the `integration_version_mismatch` flag from status, update state, device identity/config; row opens device; menu offers supported actions | loading; empty; offline/stale; update; mismatch; dragging; narrow layout |
 | Latest events | Up to eight different recent status-log entries from devices as a timeline: a hairline rail through a level dot per entry (the level drives the dot's icon and colour), the message's first line (two lines at most), then the device name, relative time and, for a message the device repeated, its count (×N, the newest time shown); debug lines are left out; the header shows the visible count as a chip | `status.logs` strings formatted `[ISO 8601 timestamp with offset] LEVEL message` (the level's full name, written by `HAAdapter.log`), grouped by device, level and message (`latestEvents`), because the hub writes some warnings, such as a missing entity, on every render; **Logs** opens every device's lines in the Logs sidebar | no events; mixed levels; long/truncated messages; one warning repeated many times |
 
 The prototype's availability percentage, spark bars, static "mostly healthy" line, per-device
@@ -185,20 +186,22 @@ the current editor.
 |---|---|---|
 | Device settings sidebar (380px) | General/device identity; display model; dimming/off; schedule; automatic page switching; hardware buttons; display buttons; update channel/auto-update; gestures; notifications; idle/wake; time/date (strftime and locale-aware layout); panel assignments; YAML actions | Configure/menu opens from right with scrim; Cancel discards draft; Save persists via panel store |
 | Panel editor sidebar (380px) | Preview in the form; once it scrolls away a small copy with the panel's name, type and key pins above the form (an entity popup with no entity of its own shows a random one of its domain); title/type/key; navigation/home/idle/long-press behavior; descriptor options grouped by `PageOption.section`, the section holding the items open with their count in its heading; item rows that open on click, with stacked move arrows and remove | Row/menu opens; `/panel/<key>` deep-link; Cancel/Save; item editing opens existing item editor dialog |
-| Panel catalog sidebar (380px) | Search/filter; a stack of collapsible sections drawn like the panel editor's config sections — a heading row in the content (icon, name, count, chevron), tinted while open or hovered, no box around it — closed until a search opens it: one per panel type `category` (Backgrounds, Entities, Grouping, Tools, in that order; cards led by the panel's full-width render, then label and description), then *Extend a popup* (built-in popups the device does not extend yet) and *Copy an existing panel* (one group per device inside the section) | Add panel; choosing a type creates the draft and transitions to editor; close without footer |
+| Panel catalog sidebar (380px) | Sticky search/preview toolbar with a pill search field in Home Assistant's outlined style (labelled by its placeholder, no visible label) and an icon-only Large/Compact toggle of the same height beside it; the shared `config-section-intro` line under the toolbar; shared search across panel types/popups/copies; spacing between toolbar and collapsible panel-category, popup, and copy sections | Add panel; choosing a starting point creates the draft and transitions to editor; close without footer |
 | Device/panel/actions menu | Menu items, dividers, destructive item styling; actions only where supported | Anchored to trigger; Escape/outside click closes and restores focus |
-| Updates sidebar (380px) | Firmware and display version rows; update state; note; check/install/queue action; release picker and local upload where existing flow supports them | Opens from the update action or ⋯ → Firmware and display updates; API-driven state; close or complete action; no footer |
+| Updates sidebar (380px) | Integration, firmware and display version rows; update state; note; check/install/queue action; release picker and local upload where existing flow supports them | Opens from the update action or ⋯ → Firmware and display updates; API-driven state; close or complete action; no footer |
 | Panel preview popover | Larger preview thumbnail with panel name/key | Hover/focus on thumb (hover presentation is not the only way to open it) |
 | Notification centre | Current queued notifications and dismiss actions, plus empty state; count is actual queue length | Bell opens; WebSocket notification events update store; close on Escape/outside click |
 | Toast | Brief success/error/info message | Live region; auto-dismiss; no focus stealing |
-| Theme sidebar (380px) | Draft palette preview; one **Color theme** dropdown for predefined and custom themes (`ui/theme-selector.js`, shared with the device settings' Theme section); icon variant; shared semantic and state-icon color editor; import/export; cancel/apply | **Choose theme** below **Add panel** on Device Preview; edits the entry-wide custom library and applies a theme selection to the current device |
+| Theme sidebar (380px) | Draft palette preview; one **Color theme** picker in Home Assistant's filled form style, with the selected theme's palette chip inside the field (`ui/theme-selector.js`); one action row under it (New/Export/Import, then icon-only Duplicate/Rename/Delete for a custom theme); intro notes in the shared `config-section-intro` style; icon variant; shared semantic and state-icon color editor; cancel/apply | The **Theme** button in the Preview view's **Manage this device** card; edits the entry-wide custom library and applies a theme selection to the current device |
+| Schedule and Gestures sidebars (380px) | `deviceOptionPanel` (`ui/panel-manager.js`): the option's form scrolling above one action — **Save**, which writes the draft and closes the sidebar | The **Schedule** and **Gestures** buttons in the Preview view's **Manage this device** card; closing one drops its unsaved draft |
 | Logs sidebar (380px) | The hub's recent log lines, newest first and grouped by day; level filter (All/Warnings/Errors with counts); search over message and device; level tag and tint on warnings, errors and debug lines; Copy writes the visible lines oldest first with their full timestamps | Device: Diagnostics **Logs** or its log warning count. Fleet: **Logs** beside Latest events (every device, the device name on each line) or ⋯ → Logs (one device); the only sidebar Fleet has, and entering a device closes it. Updates with each status poll; no footer |
 | Existing dialogs | Item editing, destructive confirmation | Keep existing `nspanel-dialog-*` elements and behavior until their phase migrates; live preview is a Device workspace component |
 
 Every sidebar opens 380px wide. Its inner edge (`ui/sidebar.js`) resizes it: drag it, or focus it and
 use the arrow keys (Home and End go to the limits); a double click restores 380px. The width, between
 320px and the window less 120px, is shared by every sidebar and kept in the browser
-(`haui_sidebarWidth`). On a phone the sidebar is a bottom sheet and has no edge to drag.
+(`haui_sidebarWidth`). At widths of 600px or less the sidebar becomes a page of its own: it fills the window, has no
+resize edge or scrim, and the strip's close button is the way back.
 
 Only one anchored popover is open at a time. A sidebar is modal and may have one topmost menu/popover;
 Escape closes the topmost layer first, then sidebar, then returns from Device to Fleet only if no
@@ -212,11 +215,11 @@ render or save. Hover previews must also be keyboard reachable. Use native butto
 | Existing feature | New location |
 |---|---|
 | Add/scan/select/remove/manage devices and enabled state | Fleet: scan on load and on request, Discovered Devices with Add/Add All, the inventory row menu (Enable/Disable, Remove with confirmation); carousel and inventory provide selection/reorder |
-| Per-device display/idle/update/gesture/time/button settings | Device settings sidebar, preserving all config fields and defaults; its Theme section selects the device's theme from the shared selector |
+| Per-device display/idle/update/gesture/time/button settings | Device settings sidebar, preserving all config fields and defaults; Theme, Schedule and Gestures are also exposed as quick-access buttons in the Preview lead card |
 | Add, edit, remove, reorder, show/hide panels, home/idle roles | Panel groups, row menu, catalog, panel manager, editor sidebar |
 | Popup overrides | Popups group lists extended popups only; the catalog's *Extend a popup* section offers the rest; fixed system panels are not listed; preserve fixed-key protection and popup-to-user-type mapping |
 | All panel types/options, entity/action/text/navigate items and overrides | Descriptor-driven panel editor and existing item editing form/dialog |
-| Themes and shared color editing | **Choose theme** on Device Preview, or the Theme section of Device settings for selection, new/export/import; custom library shared per config entry |
+| Themes and shared color editing | The **Theme** button on the Preview view's **Manage this device** card opens the sidebar for theme selection and shared color editing |
 | Simulated and live preview, touch/slider/button input, idle/reset/entity overlay | Workspace preview stage using existing session classes and APIs |
 | TFT/firmware check, release selection, upload, install | Device details/update chip → firmware surface; reuse existing update APIs and ordering semantics |
 | YAML import/export | **Backup** card of the Preview side stack, using the server YAML endpoint, not a client parser |
@@ -234,19 +237,31 @@ CSS variables and legacy aliases, rather than copying the prototype's full color
 | Token group | Target |
 |---|---|
 | Color | HA primary/text/secondary/disabled/surface/divider/error/warning/success tokens. Add a small `--haui-*` alias layer only for missing meanings (good/warn/bad soft fills, soft surface, strong border, screen/bezel gradient, live-preview tint), each with a fallback. Respect HA's active theme. |
-| Typography | HA body font; 10/12/13/14/16/20/22/24px scale; 400/500/600 weights; monospace for node, key, IP and versions. |
+| Typography | HA body font; 10/12/13/14/16/20/24px scale; 400/500/600 weights; monospace for node, key, IP and versions. `styles/tokens.js` defines `--haui-text-eyebrow`, `--haui-text-caption`, `--haui-text-label` (13px), `--haui-text-body`, `--haui-text-title`, `--haui-text-display` and `--haui-line-height`. |
 | Spacing | 4/8/12/16/20/24/28/32/40px; use measured prototype paddings for card, table, field and sidebar layouts. |
-| Radius | 8px controls/thumbs, 12px cards, pill for button/chip/toggle. |
-| Elevation | quiet card shadow; stronger popover/sidebar shadow; distinct screen shadow inside bezel. |
+| Radius | `--haui-radius-control` for 8px controls/thumbs, `--haui-card-radius` for 12px cards, `--haui-radius-pill` for pills and `--haui-radius-round` for dots. |
+| Elevation | `--haui-shadow-card` for cards; `--haui-shadow-overlay` for popovers/sidebars; device preview shadows remain distinct inside the bezel. |
 | Icon | Home Assistant `<ha-icon>` with MDI icon names, 18px default and 14–16px compact; existing HAUI brand icon for mark. Do not use prototype SVG `<use>` sprites across shadow roots. |
-| Motion | 150ms hover/color transitions; 240ms sidebar slide; disable/reduce motion for `prefers-reduced-motion`. |
-| Focus | Visible 2px primary-color outline with 2px offset. Never suppress keyboard focus. |
+| Motion | 120–150ms hover/color transitions; the scrim/sidebar entrance keeps its 140/180ms timing; pair motion with `prefers-reduced-motion`. |
+| Focus | `--haui-focus-ring` and `--haui-focus-offset`: visible 2px primary-color outline with 2px offset. Never suppress keyboard focus. |
+
+Typography utility classes in `styles.js` (`.haui-text-caption`, `.haui-text-label`, `.haui-text-body`,
+`.haui-text-title`, `.haui-text-display`, `.haui-eyebrow`, `.haui-text-mono`) keep repeated type
+choices consistent. `.haui-focusable` and the shared interactive-component rules use the same focus
+ring. Spacing aliases (`--haui-space-1` through `--haui-space-8` and `--haui-space-10`) map the
+measured spacing ladder onto HA's spacing variables where available.
+
+The `scripts/check_frontend_styles.py` guard checks the scale, raw colors, alias ownership, duplicate
+selectors, repeated style adoption, and reduced-motion overrides; `tests/test_frontend_styles.py` covers both valid styles and
+intentional violations. Run it directly with `python scripts/check_frontend_styles.py` when changing
+frontend CSS.
 
 Keep the existing `:host` container query (`styles.js`) as the responsive root because descendant
 container queries cannot reach outside the component's shadow tree. At approximately 1120px simplify
 inventory; at 980px collapse the two-column screens; at 720px reduce row/card detail and stack role
-controls; at 600px make the sidebar a bottom sheet (at most 90% of the height, below the status bar, so the
-page stays visible above it) and the notification popover a bottom sheet. The sidebar keeps the
+controls; at 600px the sidebar becomes a full-screen page. Anchored popovers remain floating overlays
+at every width, placed beside their trigger and clamped to the viewport. The notification centre
+keeps its top-right placement and adjusts its width to the available viewport. The sidebar keeps the
 Home Assistant app's `--safe-area-inset-*` free, so its strip and footer never sit under the
 status bar or home indicator.
 Exact breakpoints may be tuned to the available custom-panel width, not just viewport width.
@@ -257,6 +272,9 @@ Components are Lit template renderers in `frontend/ui/` unless noted. They recei
 callbacks; they do not read the store or call APIs. `views/` composes them. This keeps component
 markup/styles reusable and makes all data effects testable through the store/API layer. Retain custom
 elements only for the editor shell, existing dialogs and simulator frame.
+Shared form renderers in `form-fields.js` (`renderField` and `renderToggleField`) keep labels, controls,
+hints, and toggle rows on the same markup contract across editor surfaces. `renderField` accepts a
+`className` for surface-specific layout and `extra` content for validation messages or supplemental copy.
 
 For each component below, the contract names its anatomy, variants, states, inputs, emitted actions,
 and accessibility behavior. Components are listed once; each surface above is assembled from these
@@ -275,7 +293,7 @@ changed by the new styles.
 | `segmented` | labelled group of native buttons + optional count | two-or-more choices | selected, hover, focus, disabled choice | options/value → `select(key)` | `role=group` and `aria-pressed`; keyboard tab order and activation; current choice announced |
 | `sortHandle` | visible grip with 32px target | compact (row), overlay (card) | idle, grabbed, dragging, drop target | draggable item ID/kind → start/drop | Grip only: the card, row or group it is dragged onto takes the drop. It is the only reorder affordance — panels and devices carry no Move up/Move down menu entries |
 | `emptyState` | icon, title, explanatory line, optional action | fleet, panels, group, notifications, events | action/no-action | title/body/icon/action → action callback | Static message, optional native button; no live-region spam |
-| `popover` / `menuItem` | anchored panel, optional arrow; menu rows, separators, danger style | menu, info panel, notification panel, narrow bottom sheet | open/closed, focused item, disabled, destructive, loading | anchor key + content/actions → select, close | Trigger `aria-expanded`/`aria-controls`; Escape/outside close; menu keyboard navigation; restore focus; focus stays contained for modal sheet |
+| `popover` / `menuItem` | anchored panel, optional arrow; menu rows, separators, danger style | menu, info panel, notification panel | open/closed, focused item, disabled, destructive, loading | anchor key + content/actions → select, close | Trigger `aria-expanded`/`aria-controls`; Escape/outside close; menu keyboard navigation; restore focus; modal overlays manage focus while open |
 | `dialogFrame` | Existing `HauiDialog` custom element: labelled heading, close, scrollable body, optional footer | centered dialog, narrow/fullscreen | open/closed, loading, dirty, error | title/open/hass/content → close/confirm/save | Dialog role, labelled by title, modal focus containment/restoration, Escape policy consistent across all dialogs |
 | `toast` | transient message with optional icon | info, success, warning, error | visible, dismissed, timeout | message/tone → dismiss | `role=status` polite (assertive only for actionable failure); does not steal focus |
 | `editorFooter` | Existing `renderFooter()` version group + GitHub and Documentation links | Stable / prerelease | version missing; prerelease Dev badge; narrow wrapping | embedded asset version + `docsUrl(version)` → external links | Keep existing `.editor-footer` markup/styles, link URLs, `target`/`rel` security attributes, and translated titles; links keyboard-focusable |
@@ -298,13 +316,13 @@ changed by the new styles.
 | `previewStage` | Bezel, simulator/live frame, two hardware button targets | landscape, portrait; simulated, live | loading, no panel, error, idle, online, disconnected | preview context/session state → touch, slider, hardware button, idle, reset | Live state named; hardware controls labelled; simulator inputs keyboard-operable; disconnected live mode disabled with explanation |
 | `notificationItem` | Severity icon, title/message, time, dismiss | ordinary, persistent, critical | queued, active, dismissing | notification → dismiss/open | Severity is text/icon plus color; dismiss button has notification-specific label |
 | `catalogOption` | Preview, icon, label, description, feature/option hint | user panel type | hover/focus, selected, disabled/unsupported | `PageDescriptor` → add type | One button/card with accessible name and concise description |
-| `sidebar` | Fixed right panel (phone: bottom sheet), heading/close, scrollable body, sticky footer, scrim; one open from another (for example, a panel editor from the catalog) covers it as a layer | device settings, panel editor, catalog, updates, theme | opening, closing, focused, dirty, saving/error; catalog omits footer | kind/title/body/draft → close, cancel, save, choose item | Modal dialog semantics, labelled heading, focus moved/trapped/restored, Escape closes topmost; Save/Clear labels state |
+| `sidebar` | Fixed right panel (phone at widths of 600px or less: full-screen page), heading/close, scrollable body, sticky footer, desktop scrim; one open from another (for example, a panel editor from the catalog) covers it as a layer | device settings, panel editor, catalog, updates, theme | opening, closing, focused, dirty, saving/error; catalog omits footer | kind/title/body/draft → close, cancel, save, choose item | Modal dialog semantics, labelled heading, focus moved/trapped/restored, Escape closes topmost; Save/Clear labels state |
 | `deviceSettings` | Grouped settings sections with shared fields and bottom actions | ordinary / advanced sections | loading, dirty, saving, validation failure | device config + device metadata → field changes, check updates, save/cancel | Each field labelled and described; grouped sections are keyboard-toggleable; preserve all device-config fields |
 | `panelEditor` | Panel identity, behavior switches/roles, descriptor options, item counts in the section headings, inline item editing | user panel, popup override, system popup | new/edit, dirty, saving, duplicate key/error, hub-driven restrictions | panel draft + `PageDescriptor` → change fields, edit items, save/cancel | Label key/title/type; disabled fields explain why; errors associated with inputs; fixed system keys remain non-editable |
-| `panelCatalog` | Search field + descriptor cards (thumb/icon, title, description, hints) | all supported user panel descriptors | loading, empty search, result, selected/unsupported | descriptors + query → search, choose type, close | Search has label; cards are buttons with title and description; keyboard selection |
-| `panelManager` | Home/idle assignments, the schedule and gestures; `panelActions` is the view's lead card with the Add-panel action and the Settings cog, configured count and navigation count | compact side stack | empty, populated, role unassigned, no supported idle candidates | device panels + config + panel descriptors → add panel, set home/idle, open catalog | Selects have labels and explicit unassigned option; counts are text; changes save through the panel store |
+| `panelCatalog` | Search field + descriptor cards (thumb/icon, title, description, hints), with a top control to switch between large previews and compact side-by-side previews | all supported user panel descriptors | loading, empty search, result, selected/unsupported; large/compact preview layout | descriptors + query + preview layout → search, choose type, change layout, close | Search has label; layout control is a labelled segmented group; cards are buttons with title and description; keyboard selection |
+| `panelManager` | The Theme, Schedule and Gestures buttons of the Preview lead card, one row of three, plus the Schedule and Gestures sidebars (`deviceOptionPanel`); Home and idle page assignments live in Device Settings → Special pages | Preview management area, Schedule and Gestures sidebars, Device Settings form | empty, configured, dirty draft, saving | device panels + config + theme library → open the theme sidebar, edit/save schedule and gestures, assign special pages | The buttons name the setting and carry their summary as a tooltip; the sidebars retain labelled controls and explicit saves |
 | `entryList` | The list editors of the schedule (`scheduleEditor`) and the gestures (`gestureEditor`): an add row, then one folding card per entry whose head reads Entry N, the summary (what starts the entry: its window, its swipes; it gives way first), the note (what it does) and a remove button | schedule, gestures | folded, open, just added (only `expandedIndex` opens by state), removed (later cards hand their fold state up one) | entries + summary/note/body renderers → add, remove, toggle | Native `details`/`summary` fold control; the remove button is a named icon button and does not toggle the card |
-| `notificationCentre` | Heading/count, queued notification list, per-item dismiss, empty message | desktop popover, mobile bottom sheet | empty, queued, persistent/critical, dismissing, error | store notification queue + update events → dismiss, close | `dialog`/popover label, count, list semantics, per-item dismiss name; focus restore |
+| `notificationCentre` | Heading/count, queued notification list, per-item dismiss, empty message | viewport-clamped popover | empty, queued, persistent/critical, dismissing, error | store notification queue + update events → dismiss, close | `dialog`/popover label, count, list semantics, per-item dismiss name; focus restore |
 | `deviceManagerDialog` | Device rows, ESPHome discovery/scan and add controls, enabled/update/status indicators, row action menu | manage, add/scan result | loading, scanning, empty discovery, existing, disabled, error | device entries + statuses → add, select, move, enable, remove, update action | Table/list semantics; each icon action named; scan status announced; confirmation for remove |
 | `itemEditor` | Item list rows; add/reorder/remove; inline item fields (entity picker, type, icon, template, options) | entity, skip, text, navigate, action; single or list item | empty, max items, editing, invalid entity/value, saving | item config + `PageOption`/`item_options` + HA states → add/edit/reorder/remove/save/cancel | Entity picker combobox/listbox keyboard contract retained; inline errors labelled; reorder announced |
 | `themeSidebar` | Draft palette preview; one predefined/custom theme dropdown; icon variant; shared semantic and state-icon color editor; import/export | built-in/custom theme and device selection | loading, selected, dirty, invalid color, in-use/unsaved confirmation | builtins + saved themes + active device settings → select/edit/create/duplicate/rename/delete/import/export/apply | Sidebar strip title; each color has named label/value; color is not communicated by swatch alone |
@@ -356,10 +374,15 @@ The dashboard phases are implemented; the remaining dialog surfaces are listed b
 - `frontend/ui/` holds the render primitives and the data-driven Fleet/Device components. Views receive
   prepared data and callbacks; they never read the store or the API. `panel-utils.js` owns the panel
   grouping, move state and role markers.
-- `frontend/styles/tokens.js` defines the HA-backed `--haui-*` aliases, `styles/content.js` the shared
-  form/dialog content rules, and `styles/fleet-styles.js`, `styles/device-styles.js` and
-  `styles/panel-list-styles.js` the screen layout. Dialogs compose `dialogStyles` (tokens + component
-  rules + content); the shell composes `editorStyles` (the same plus the panel list and both screens).
+- `frontend/styles/tokens.js` is the single home for HA-backed `--haui-*` aliases and the measured
+  scale; `styles.js` composes shared tokens, primitives, panel pills, entries, form/dialog content
+  and per-screen fragments. `styles/content.js` is one fragment, not an aggregator. Device styles are
+  split between `styles/device-layout-styles.js` and `styles/device-panel-styles.js`; shared firmware
+  and preview rules live in `styles/firmware-styles.js` and `styles/preview-styles.js`. Logs, theme, and
+  panel-editor surfaces keep their focused rules in `styles/logs-styles.js`,
+  `styles/theme-sidebar-styles.js`, and `styles/panel-editor-styles.js`. The shell uses `editorStyles`,
+  dialogs use `dialogStyles`, and the preview simulator composes the shared tokens and `previewStyles`.
+  Element-local styles are reserved for layout specific to that element.
 - `frontend/app/router.js` parses/serializes the Fleet and Device hashes and binds history to the store.
 - Fleet: scroll-snap carousel of real home-panel covers with arrows that disable at the scroll extents, a
   summary that waits for the first status payload, the inventory (`Firmware`/`TFT` columns), latest events,
@@ -390,12 +413,30 @@ The dashboard phases are implemented; the remaining dialog surfaces are listed b
 - Panel list extras: a search field in the workspace header narrows the groups to matching rows
   (reordering is off while it is active); the row menu duplicates a panel
   (`crud.js:duplicatePanel`); menus move with the arrow, Home and End keys.
+- Panel selection: a click on a row outside its own controls (title, actions, grip, menu), Enter or
+  Space selects it (`ui/panel-row.js`, `aria-current`), and selecting it again clears the selection.
+  The shell keeps the key in `_selectedPanelKey`, drops it when the panel is gone or the device
+  changes, and reports it to `views/panel-list.js`; the Panels view's side card describes what is
+  selected (`ui/panel-info.js`), and shows the list's overview while nothing is.
+- Panel details card: `panelSideCard` renders the selected panel as the hub draws it (the same
+  `renderSimulatorPreview` render as the row thumbnail), its type icon, label and description, the
+  facts that decide its behaviour (type, key, group, item count, Home/Idle role) and the row menu's
+  actions (Edit, Duplicate, Delete; a popup override gets Edit and Reset to default). Its model comes
+  from `shell.js:_panelSideModel`, and it sits in the side stack under the view's lead card.
+  The render is its own toggle (`panelSideCard` model: `onTogglePreview`): large, it takes the card's
+  width with the description under it; folded, it is a thumbnail with the description beside it, and
+  the facts and actions stay. The choice is one `localStorage` flag (`haui_panelPreviewFolded`), so it
+  holds for every panel of the browser. With nothing selected the same function renders the overview
+  instead: one row per group with its count chip, the configured Home panel (or the hub's fallback to
+  the first navigation panel) and Idle page (`idlePanelKeys`, summarised as *Clock and 2 more*), then
+  two hints (drag to reorder, the row menu's actions).
 - Panel editor: a preview at the top of the sidebar asks the hub to render the form's unsaved state
   (`crud.js:buildPanelConfig`, debounced 400 ms); the key and PIN fields validate in place
   (`panelKeyError`) and Save is disabled while one is marked. The catalog shows each panel type with
   the hub's render of a new panel using fixed representative sample data shared with the card-gallery
   generator (preview-only; no Home Assistant entities are required and nothing is saved), and also
-  offers a copy of any panel of the hub (`crud.js:openAddFrom`).
+  offers a copy of any panel of the hub (`crud.js:openAddFrom`). The catalog's Large/Compact preview
+  size is one `localStorage` flag (`haui_panelCatalogCompact`), so it opens the way it was left.
 - Bulk updates: Install updates on Fleet installs what each connected device is offered, firmware
   first.
 - Device management: there is no device manager dialog and no header menu. The shell scans for
@@ -412,7 +453,12 @@ The dashboard phases are implemented; the remaining dialog surfaces are listed b
 - Lead card: each view's first card is its next actions (`ui/action-card.js`), tinted with the primary
   colour and never collapsed, so it stands apart from the side stack. Panels: the panel and navigation
   counts, Add panel and Settings (`panelActions`). Preview: Settings, Updates and Add panel, led by Install update
-  while an update is offered (`ui/device-actions.js`). It heads the side column beside the workspace
+  while an update is offered (`ui/device-actions.js`); below its actions the same card carries the three
+  device options as plain buttons in one row — Theme, Schedule and Gestures (`ui/panel-manager.js`), always
+  side by side at any card width, dropping their icons before a label truncates. Each one only opens its
+  editor: Theme the shared theme sidebar, Schedule and Gestures their own sidebar (`deviceOptionPanel`), so
+  the card never grows when an option is opened. A button's tooltip states what its option holds (the
+  selected theme, the entry counts). It heads the side column beside the workspace
   (`.haui-device-side`, sticky: it stays in view while a long workspace scrolls);
   once the layout is one column it moves above the workspace (grid areas of `.haui-device-layout`),
   and at 560px or wider its actions sit beside its heading.
@@ -429,18 +475,18 @@ The dashboard phases are implemented; the remaining dialog surfaces are listed b
   and the **Updates** sidebar own them. Diagnostics shows a status line and expands to two tiles of
   the same kind (`ui/info-tile.js`; integration, YAML and display versions) and the hub internals, which end with Copy
   report; a tap on the Hub log tile opens the logs instead of its card.
-  In the Panels view: Home & idle panels, Schedule and Gestures.
-  Each starts collapsed to its heading and expands the same way, remembered per browser. The modal sidebar
-  (settings, panel editor, catalog) is its own element (`haui-modal-sidebar`) over the page, so the
-  side stack stays in place beneath it. Panel thumbnails carry
+  In the Panels view the side column keeps its usual place: the lead card (Add panel, Settings) on
+  top, the selected panel's card under it, and the panel list fills the workspace. Home/Idle are
+  assigned in Device Settings → Special pages, and panel thumbnails carry
   the Home, Idle and edited-popup markers; the Home marker follows the hub's fallback to the first
-  navigation panel while no home panel is configured. `ui/sidebar.js` frames the modal side stack
-  (labelled strip, close control, 380px body);
+  navigation panel while no home panel is configured. The modal sidebar (settings, panel editor,
+  catalog) is its own element (`haui-modal-sidebar`) over the page. `ui/sidebar.js` frames the modal
+  side stack (labelled strip, close control, 380px body);
   device details report the connection facts, mark them stale while offline, and carry the diagnostics
   card (`ui/device-diagnostics.js`: a status icon before the title that counts the issues, a status line that expands to two tiles and the
   hub internals, Copy report at their end; expanded, it also holds the preview's tools: Show entities, Reset sandbox (only while the sandbox holds a simulated state), and in Live
-  Reset interaction and Redraw display), plus the firmware, logs and YAML actions; the panel manager assigns Home/Idle
-  roles.
+  Reset interaction and Redraw display), plus the firmware, logs and YAML actions; Device Settings assigns Home/Idle
+  pages under Special pages.
 - Overlays: `ui/popover.js` is the single anchored-popover implementation (one open at a time, placed
   against its trigger, Escape/outside click close with focus returned). The panel menu,
   device menu, notification centre and firmware surface use it; the notification centre and firmware
@@ -514,6 +560,48 @@ ruff, mypy and strict docs build when their touched code/docs require them.
 - Keep the existing frontend tests green. A migrated module may use the
   store-backed fake host in `tests/frontend/fake-host.mjs`, but its behavioural
   assertions stay.
+
+
+## Testing
+
+Frontend tests should protect decisions and observable behavior, not preserve a snapshot of how the
+markup or styles happen to be written. The tests use Node's built-in runner and the vendored Lit
+bundle; `happy-dom` supplies a real DOM for tests only and is a dev dependency, never shipped with
+the integration. Import `tests/frontend/support/browser.mjs` before importing any module that needs
+browser globals. Use `support/render.mjs` to render Lit templates or mount custom elements and
+`support/queries.mjs` to locate controls by role, accessible name, label, or text. Shared HA and
+panel/layout fixtures live in `support/`.
+
+### When to add a test
+
+| Change | Add a test? | Assert |
+|---|---|---|
+| Pure formatter, mapper, or utility | Yes, one case per branch | Exact return values |
+| Store action or selector | Yes | State transition |
+| API client method | Yes | Request shape and returned value |
+| New UI primitive | Yes | Semantics, accessible name, callback payload |
+| View composition | Only for its decision branches | Empty state, disabled action, chosen callback |
+| Element lifecycle (dialog, workspace, shell) | Yes for changed lifecycle branches | Mount, interact, observe event/state/result |
+| Simulator behavior | Yes | Parsed display state or emitted ESP command |
+| Styling, layout, color, or spacing | No | Review in the preview/gallery |
+| Copy or translation text | No | Test a translation mapping only when it is the subject |
+| Behavior-preserving refactor | No new test | Existing behavior tests pass without markup-driven edits |
+
+### Assertion boundaries
+
+Prefer return values, emitted events, and store state; then real DOM roles, accessible names, text,
+control presence, and meaning-carrying attributes (`aria-*`, `disabled`, `href`, `checked`). Use a
+functional state class such as `is-*` only when no semantic alternative exists. Do not assert CSS
+text, pixel geometry, inline style strings, Lit `TemplateResult.strings`/`values`, private members,
+or fabricate an element with `Object.create(prototype)` and assigned internals. Dispatch real DOM
+events instead of extracting template callback indices.
+
+A test covers one behavior and one module. Split files around 300 lines or when they cover more than
+two modules. Tests must not depend on run order or leave global state patched. Delete assertions whose
+subject is presentation, behavior already covered at a lower layer, or implementation detail. When a
+rename or refactor only requires changing an assertion because markup or copy moved, remove that
+assertion instead. Removed visual pins are reviewed in the editor preview or the card gallery; they
+are not replaced with new CSS or geometry tests.
 
 ## Trade-offs
 

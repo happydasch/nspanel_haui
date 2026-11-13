@@ -45,7 +45,7 @@ from ...haui.mapping.descriptor import _
 from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
 from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
 from ...haui.utils.text import get_translation
-from ...haui.version import get_version
+from ...haui.version import get_integration_version
 from ...hub.adapter import ItemProxy
 from ...hub.app import NSPanelHAUI
 from .button_lights import (
@@ -930,7 +930,7 @@ class VirtualPanelHost:
             "ssid": "",
             "rssi": 0,
             "uptime": 0,
-            "yaml_version": get_version() if device_info is None else "",
+            "yaml_version": get_integration_version() if device_info is None else "",
             "tft_version": "",
             "firmware_variant": "",
         }

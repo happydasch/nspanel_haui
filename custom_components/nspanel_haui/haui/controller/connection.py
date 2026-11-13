@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPRequest, ESPResponse, ServerRequest, ServerResponse
-from ..version import get_version
+from ..version import get_integration_version
 
 # How far back the connection health looks, and when a device heartbeat counts
 # as late: more than this many heartbeat intervals after the previous one.
@@ -210,7 +210,7 @@ class HAUIConnectionController(HAUIBase):
         self._set_state(ConnectionState.HANDSHAKING, reason="device reconnected")
         self.send_esphome(
             ServerResponse.HUB_CONNECTION_RESPONSE,
-            {"version": get_version()},
+            {"version": get_integration_version()},
             True,
         )
 

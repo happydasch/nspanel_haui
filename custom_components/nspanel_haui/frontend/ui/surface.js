@@ -2,7 +2,7 @@ import { html, nothing } from '../lit-import.js';
 
 /**
  * @typedef {{ title?: unknown, subtitle?: unknown, leading?: unknown, badge?: unknown, actions?: unknown,
- *   onToggle?: () => void }} SurfaceHeading
+ *   onToggle?: () => void, className?: string, titleId?: string }} SurfaceHeading
  *   `leading` (a status icon) sits before the title, `badge` and `actions` after it.
  */
 
@@ -15,13 +15,15 @@ const OWN_CLICK = 'button, a, input, select, textarea, label, [role="tooltip"]';
  *
  * @param {SurfaceHeading} options
  */
-export function sectionHeading({ title, subtitle, leading, badge: badgeContent, actions, onToggle }) {
+export function sectionHeading({
+  title, subtitle, leading, badge: badgeContent, actions, onToggle, className = '', titleId,
+}) {
   const onClick = onToggle && ((/** @type {Event} */ event) => {
     if (!(/** @type {Element} */ (event.target)).closest(OWN_CLICK)) onToggle();
   });
-  return html`<div class=${onToggle ? 'haui-surface-heading haui-surface-heading-toggle' : 'haui-surface-heading'}
+  return html`<div class=${`haui-surface-heading ${onToggle ? 'haui-surface-heading-toggle' : ''} ${className}`.trim()}
     @click=${onClick || nothing}>
-    ${leading || nothing}<div class="haui-surface-heading-copy"><h2>${title}</h2>${subtitle ? html`<p>${subtitle}</p>` : nothing}</div>
+    ${leading || nothing}<div class="haui-surface-heading-copy"><h2 id=${titleId || nothing}>${title}</h2>${subtitle ? html`<p>${subtitle}</p>` : nothing}</div>
     ${badgeContent || nothing}${actions || nothing}
   </div>`;
 }

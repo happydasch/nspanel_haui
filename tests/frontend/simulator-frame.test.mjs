@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +24,7 @@ loadIconMap(() => asset('icon_map.json'));
 test('simulator frame recalculates scale when its container width changes', () => {
   let width = 450;
   let updates = 0;
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   frame._containerWidth = null;
   frame._display = { layout: { visible_width: 450 } };
   frame._scale = null;
@@ -43,7 +43,7 @@ test('simulator frame recalculates scale when its container width changes', () =
 
 test('portrait previews stop growing once they reach the height cap', () => {
   let width = 640;
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   Object.assign(frame, {
     portrait: true,
     _containerWidth: null,
@@ -64,7 +64,7 @@ test('portrait previews stop growing once they reach the height cap', () => {
 
 test('simulator frame keeps the last usable size while its container is hidden', () => {
   let width = 450;
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   frame._containerWidth = null;
   frame._display = { layout: { visible_width: 450 } };
   frame._scale = null;
@@ -80,7 +80,7 @@ test('simulator frame keeps the last usable size while its container is hidden',
 });
 
 test('simulator frame rebuilds when what the hub renders with changes', () => {
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   const rebuilds = [];
   frame._started = true;
   frame._start = (force) => rebuilds.push(force);
@@ -95,7 +95,7 @@ test('simulator frame rebuilds when what the hub renders with changes', () => {
 
 function frameWith(render) {
   setPanelRenderSource(render);
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   Object.assign(frame, {
     panel: { type: 'weather', key: 'weather_0' },
     portrait: false,
@@ -178,7 +178,7 @@ test('a new frame shows the card\'s last render until the hub answers', async ()
     api: createApiClient(() => hass),
   });
   const frame = (ip, shown) => {
-    const element = Object.create(SimulatorFrameElement.prototype);
+    const element = document.createElement('nspanel-simulator-frame');
     Object.assign(element, {
       context: context(ip),
       panel: { type: 'weather', key: 'weather_0' },

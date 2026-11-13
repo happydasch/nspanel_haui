@@ -53,6 +53,11 @@ The configuration is built from the device's settings and panels in the panel st
 
 This class represents the whole device.
 
+The integration version comes from `manifest.json`. The device's `yaml_version` is
+its ESPHome firmware version, and `tft_version` identifies the display file. These
+values are reported separately; the release process expects integration and
+firmware versions to align, not to be the same underlying version field.
+
 The lifetime of a device is:
 
 - start
@@ -230,8 +235,8 @@ The fields of the status response that the editor's **Connection & device** and
 
 | Field | Meaning |
 |-------|---------|
-| `haui_version` | Version of the running NSPanel HAUI hub integration |
-| `haui_version_mismatch` | `true` when the known HAUI version differs from the device's `yaml_version`; `null` until both are reported |
+| `integration_version` | Version of the installed NSPanel HAUI integration |
+| `integration_version_mismatch` | `true` when the integration version differs from the device's ESPHome firmware `yaml_version`; `null` until both are reported |
 | `connection_uptime` | Seconds since the ESPHome connection was last (re)established |
 | `display_state` | Display brightness state reported by the firmware: `on`, `dim` or `off` |
 | `idle_page` | Where the idle page stands: `state` is `active` (shown), `suspended` (an overlay was opened from it), `offline` (the device is disconnected, so the idle page waits for it), `held` (the current page holds it off), `pending` (it opens after `idle_in` more seconds without an interaction) or `off` |

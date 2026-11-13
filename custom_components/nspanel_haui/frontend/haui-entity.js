@@ -111,23 +111,23 @@ export function matchEntities(entities, query, domain = '__all', limit = ENTITY_
 export function fillEntityDropdown(dropdown, { matches, total }) {
   const rows = matches.map((entity, index) => {
     const item = document.createElement('div');
-    item.className = 'entity-dropdown-item';
+    item.className = 'haui-entity-dropdown-item';
     item.id = `${dropdown.id}-opt-${index}`;
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', 'false');
     item.setAttribute('data-entity-id', entity.entityId);
     const name = document.createElement('div');
-    name.className = 'entity-friendly-name';
+    name.className = 'haui-entity-friendly-name';
     name.textContent = entity.name;
     const entityId = document.createElement('div');
-    entityId.className = 'entity-id';
+    entityId.className = 'haui-entity-id';
     entityId.textContent = entity.entityId;
     item.append(name, entityId);
     return item;
   });
   if (total > matches.length) {
     const more = document.createElement('div');
-    more.className = 'entity-dropdown-more';
+    more.className = 'haui-entity-dropdown-more';
     more.setAttribute('role', 'presentation');
     more.textContent = t('{count} more: type to narrow the list')
       .replace('{count}', String(total - matches.length));
@@ -158,12 +158,12 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
   };
 
   const hideDropdown = (wrap) => {
-    const dropdown = wrap?.querySelector(".entity-dropdown");
+    const dropdown = wrap?.querySelector(".haui-entity-dropdown");
     if (dropdown) {
-      dropdown.style.display = "none";
+      dropdown.hidden = true;
       dropdown.replaceChildren();
     }
-    const input = wrap?.querySelector(".entity-picker-input");
+    const input = wrap?.querySelector(".haui-entity-picker-input");
     if (input) {
       input.setAttribute("aria-expanded", "false");
       input.removeAttribute("aria-activedescendant");
@@ -172,19 +172,19 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
   };
 
   const showMatches = (input, rawValue = null) => {
-    const wrap = input?.closest(".entity-picker-wrap");
-    const dropdown = wrap?.querySelector(".entity-dropdown");
+    const wrap = input?.closest(".haui-entity-picker-wrap");
+    const dropdown = wrap?.querySelector(".haui-entity-dropdown");
     if (!dropdown) return;
     // Only show the dropdown when the input has focus
     if (!wrap?._entityFocused) {
-      dropdown.style.display = "none";
+      dropdown.hidden = true;
       return;
     }
     const query = ((rawValue ?? input.value) || "").toLowerCase();
     const found = matchEntities(entityList.entities(), query, wrap._entityDomain || "__all");
     fillEntityDropdown(dropdown, found);
     const any = found.total > 0;
-    dropdown.style.display = any ? "" : "none";
+    dropdown.hidden = !any;
     // The combobox state changes without a re-render, so sync the ARIA state
     // on the live elements rather than binding it in the template.
     if (input) {
@@ -200,21 +200,21 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
     // dropdown is open must not drop the chosen domain.
     if (wrap) wrap._entityDomain = d;
     // Update chip active states
-    const chips = wrap?.querySelectorAll(".domain-filter-chip");
+    const chips = wrap?.querySelectorAll(".haui-domain-filter-chip");
     if (chips) {
       chips.forEach((chip) => {
-        chip.classList.toggle("active", chip.getAttribute("data-domain") === d);
+        chip.classList.toggle("is-active", chip.getAttribute("data-domain") === d);
       });
     }
-    const input = wrap?.querySelector(".entity-picker-input");
+    const input = wrap?.querySelector(".haui-entity-picker-input");
     showMatches(input, "");
   };
 
   const picker = html`
-    <div class="entity-picker-wrap">
+    <div class="haui-entity-picker-wrap">
       <input
         id=${id}
-        class="entity-picker-input native-input"
+        class="haui-entity-picker-input haui-input"
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded="false"
@@ -227,64 +227,64 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
           updateTypedValue(e.target, eventValue(e));
         }}
         @focus=${(e) => {
-          const wrap = e.target.closest(".entity-picker-wrap");
+          const wrap = e.target.closest(".haui-entity-picker-wrap");
           if (wrap) {
             wrap._entityFocused = true;
             wrap._entityDomain = "__all";
           }
-          const chips = wrap?.querySelectorAll(".domain-filter-chip");
-          if (chips) chips.forEach(c => c.classList.remove("active"));
+          const chips = wrap?.querySelectorAll(".haui-domain-filter-chip");
+          if (chips) chips.forEach(c => c.classList.remove("is-active"));
           showMatches(e.target, eventValue(e));
         }}
         @blur=${(e) => {
-          const wrap = e.target?.closest(".entity-picker-wrap");
+          const wrap = e.target?.closest(".haui-entity-picker-wrap");
           if (wrap) wrap._entityFocused = false;
           setTimeout(() => hideDropdown(wrap), 80);
         }}
         @keydown=${createDropdownKeyboardController({
-          getWrap: (e) => e.target.closest('.entity-picker-wrap'),
-          dropdownSelector: '.entity-dropdown',
-          itemSelector: '.entity-dropdown-item',
+          getWrap: (e) => e.target.closest('.haui-entity-picker-wrap'),
+          dropdownSelector: '.haui-entity-dropdown',
+          itemSelector: '.haui-entity-dropdown-item',
           indexField: '_entityActiveIndex',
           onSelect: (visibleItems, idx, e) => {
             const entityId = visibleItems[idx].getAttribute('data-entity-id') || '';
             applyValue(e.target, entityId);
-            hideDropdown(e.target.closest('.entity-picker-wrap'));
+            hideDropdown(e.target.closest('.haui-entity-picker-wrap'));
           },
-          onDismiss: (e) => hideDropdown(e.target.closest('.entity-picker-wrap')),
+          onDismiss: (e) => hideDropdown(e.target.closest('.haui-entity-picker-wrap')),
         })}
       />
-      <div class="dropdown-filter-area">
+      <div class="haui-dropdown-filter-area">
         ${domains.length > 1 ? html`
-          <div class="domain-filter-bar">
+          <div class="haui-domain-filter-bar">
             <button
-              class="domain-filter-chip active"
+              class="haui-domain-filter-chip is-active"
               data-domain="__all"
-              @mousedown=${(e) => { e.preventDefault(); setActiveDomain(e.target.closest(".entity-picker-wrap"), "__all"); }}
+              @mousedown=${(e) => { e.preventDefault(); setActiveDomain(e.target.closest(".haui-entity-picker-wrap"), "__all"); }}
             >${t("All")}</button>
             ${domains.slice(0, 10).map(d => html`
               <button
-                class="domain-filter-chip"
+                class="haui-domain-filter-chip"
                 data-domain=${d}
-                @mousedown=${(e) => { e.preventDefault(); setActiveDomain(e.target.closest(".entity-picker-wrap"), d); }}
+                @mousedown=${(e) => { e.preventDefault(); setActiveDomain(e.target.closest(".haui-entity-picker-wrap"), d); }}
               >${d}</button>
             `)}
           </div>
         ` : ""}
       </div>
       <div
-        class="entity-dropdown"
+        class="haui-entity-dropdown"
         id=${dropdownId}
         role="listbox"
         aria-labelledby=${label ? `${id}-label` : nothing}
-        style="display:none;"
+        hidden
         @mousedown=${(e) => {
           // One listener for every row: the rows are filled in by showMatches.
           e.preventDefault();
-          const item = e.target.closest(".entity-dropdown-item");
+          const item = e.target.closest(".haui-entity-dropdown-item");
           if (!item) return;
-          const wrap = item.closest(".entity-picker-wrap");
-          applyValue(wrap?.querySelector(".entity-picker-input"), item.getAttribute("data-entity-id"));
+          const wrap = item.closest(".haui-entity-picker-wrap");
+          applyValue(wrap?.querySelector(".haui-entity-picker-input"), item.getAttribute("data-entity-id"));
           hideDropdown(wrap);
         }}
       ></div>
@@ -293,10 +293,10 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
 
   if (label || hint) {
     return html`
-      <div class="form-group">
+      <div class="haui-field">
         <label for=${id} id=${id}-label>${label || ""}</label>
         ${picker}
-        ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
+        ${hint ? html`<div class="haui-field-hint">${hint}</div>` : ""}
       </div>
     `;
   }

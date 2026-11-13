@@ -1,18 +1,13 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
+import '../../custom_components/nspanel_haui/frontend/views/device-settings.js';
 import { themeSelector } from '../../custom_components/nspanel_haui/frontend/ui/theme-selector.js';
+import { accessibleName, byLabel, byRole } from './support/queries.mjs';
+import { mount, render } from './support/render.mjs';
 
-/** The markup of a Lit template, nested templates included. */
-const source = (template) => `${template.strings.join(' ')} ${template.values.map((value) => {
-  if (Array.isArray(value)) return value.map((nested) => nested?.strings ? source(nested) : String(nested ?? '')).join(' ');
-  return value?.strings ? source(value) : String(value ?? '');
-}).join(' ')}`;
-
-/** A theme with the four swatch colors the selector draws. */
 function theme(name, background) {
   return {
     name,
@@ -29,143 +24,105 @@ function selector(fields = {}) {
     builtinLabel: (id) => id,
     onSelect: () => {},
     onNew: () => {},
-    onExportAll: () => {},
+    onExport: () => {},
     onImport: () => {},
     ...fields,
   });
 }
 
-/** A device settings view without Lit's constructor (which needs a real DOM). */
-function deviceSettings(fields = {}) {
-  const form = { theme_id: 'dark', ...fields };
-  return Object.assign(Object.create(customElements.get('nspanel-device-settings').prototype), {
-    requestUpdate() {},
-    config: form,
-    _deviceConfigForm: form,
-    entryId: 'entry',
-    _builtinThemes: { dark: theme('Dark', 1), light: theme('Light', 2) },
-    _customThemes: {},
-    _themesLoading: false,
-    _themeError: '',
-    _themeNotice: '',
-    _nameAction: '',
-    _themeName: '',
-    ...fields,
-  });
-}
+test('selecting a built-in or custom theme reports its id', () => {
+  const selected = [];
+  const root = render(selector({
+    custom: { evening: theme('Evening', 3) },
+    onSelect: (id) => selected.push(id),
+  }));
+  const select = byLabel(root, 'Theme');
 
-/** Every value of a Lit template, nested templates included. */
-function values(template) {
-  const found = [];
-  const walk = (value) => {
-    if (Array.isArray(value)) { value.forEach(walk); return; }
-    if (value?.strings) { value.values.forEach(walk); return; }
-    found.push(value);
-  };
-  walk(template);
-  return found;
-}
+  assert.ok(select);
+  assert.equal(select.value, 'dark');
+  assert.deepEqual([...select.options].map((option) => option.value), ['dark', 'light', 'evening']);
+  assert.equal(select.querySelectorAll('optgroup').length, 2);
 
-test('the theme selector offers predefined and custom themes in one dropdown', () => {
-  const template = selector({ custom: { evening: theme('Evening', 3) } });
-  const markup = source(template);
-  assert.match(markup, /id="haui-theme-select"/);
-  assert.equal((markup.match(/<optgroup label=/g) || []).length, 2);
-  assert.ok(values(template).includes('Predefined themes'));
-  assert.ok(values(template).includes('Custom themes'));
-  assert.ok(values(template).includes('Evening'));
-  assert.doesNotMatch(markup, /haui-theme-card/);
+  select.value = 'evening';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  assert.deepEqual(selected, ['evening']);
 });
 
-test('the theme selector leaves out the custom group while the library has none', () => {
-  const markup = source(selector());
-  assert.match(markup, /Predefined themes/);
-  assert.doesNotMatch(markup, /Custom themes/);
+test('the selector only offers the custom theme group when custom themes exist', () => {
+  const root = render(selector());
+  const select = byLabel(root, 'Theme');
+
+  assert.ok(select);
+  assert.deepEqual([...select.options].map((option) => option.value), ['dark', 'light']);
+  assert.equal(select.querySelectorAll('optgroup').length, 1);
 });
 
-test('the theme selector carries the library controls and the selected theme actions', () => {
-  const markup = source(selector({
+test('the picker shows the selected palette in its own field', () => {
+  const root = render(selector());
+  const field = byLabel(root, 'Theme').closest('.haui-theme-selector-field');
+
+  assert.ok(field);
+  assert.equal(field.querySelectorAll('.haui-theme-selector-chip i').length, 4);
+});
+
+test('theme library controls and selected-theme actions call their callbacks', () => {
+  const called = [];
+  const root = render(selector({
     custom: { evening: theme('Evening', 3) },
     selectedId: 'evening',
-    actions: [{ label: 'Delete', onClick: () => {} }],
+    actions: [{ label: 'Delete', iconName: 'delete', onClick: () => called.push('delete') }],
+    onNew: () => called.push('new'),
+    onExport: () => called.push('export'),
+    onImport: () => called.push('import'),
   }));
-  assert.match(markup, /cp-theme-actions/);
-  assert.match(markup, /type="file"/);
-  assert.match(markup, /New theme/);
-  assert.match(markup, /Export all/);
-  assert.match(markup, /Import/);
-  assert.match(markup, /haui-theme-selector-actions/);
-  assert.match(markup, /Delete/);
+  const action = (name) => [...root.querySelectorAll('ha-button, button')]
+    .find((button) => accessibleName(button) === name);
+
+  assert.ok(action('New'));
+  assert.ok(action('Export'));
+  assert.ok(action('Import'));
+  assert.ok(action('Delete'));
+  action('New').click();
+  action('Export').click();
+  action('Delete').click();
+  root.querySelector('input[type="file"]').dispatchEvent(new Event('change', { bubbles: true }));
+
+  assert.deepEqual(called, ['new', 'export', 'delete', 'import']);
 });
 
-test('the theme selector shows the name input, notice and error it is given', () => {
-  const markup = source(selector({
+test('name editing reports input and save actions and exposes status and error roles', () => {
+  const called = [];
+  const root = render(selector({
     nameAction: 'new',
     themeName: 'Evening',
-    notice: 'Created the custom theme.',
-    error: 'A color theme with this name already exists.',
+    notice: 'Saved',
+    error: 'Duplicate',
+    onNameInput: (value) => called.push(['input', value]),
+    onSaveName: () => called.push(['save']),
+    onCancelName: () => called.push(['cancel']),
   }));
-  assert.match(markup, /cp-theme-name/);
-  assert.match(markup, /Color theme name/);
-  assert.match(markup, /role="status"/);
-  assert.match(markup, /role="alert"/);
+  const name = byRole(root, 'textbox', { name: 'Color theme name' });
+
+  assert.ok(name);
+  assert.equal(name.value, 'Evening');
+  assert.equal(byRole(root, 'status')?.textContent.trim(), 'Saved');
+  assert.equal(byRole(root, 'alert')?.textContent.trim(), 'Duplicate');
+
+  name.value = 'Evening 2';
+  name.dispatchEvent(new Event('input', { bubbles: true }));
+  const action = (name) => [...root.querySelectorAll('ha-button')]
+    .find((button) => button.textContent.trim() === name);
+  action('Save').click();
+  action('Cancel').click();
+  assert.deepEqual(called, [['input', 'Evening 2'], ['save'], ['cancel']]);
 });
 
-test('device settings select a theme into the device config draft', () => {
-  const dlg = deviceSettings();
-  dlg._selectTheme('light');
-  assert.equal(dlg._deviceConfigForm.theme_id, 'light');
-});
+test('device settings is mounted without a theme selector', async () => {
+  const settings = await mount('nspanel-device-settings', {
+    inline: true,
+    config: { locale: 'en', snapshot_max_age_seconds: -1 },
+  });
 
-test('device settings create a custom theme from the selected one', async () => {
-  const dlg = deviceSettings();
-  let persisted;
-  dlg._persistThemes = async (themes) => { persisted = themes; return true; };
-
-  dlg._startNewTheme();
-  assert.equal(dlg._nameAction, 'new');
-  dlg._themeName = 'Evening';
-  await dlg._saveNamedTheme();
-
-  assert.equal(persisted.evening.name, 'Evening');
-  assert.equal(persisted.evening.colors.background, 1);
-  assert.equal(dlg._deviceConfigForm.theme_id, 'evening');
-  assert.match(dlg._themeNotice, /Evening/);
-});
-
-test('device settings refuse a custom theme name that is taken', async () => {
-  const dlg = deviceSettings();
-  let persisted = false;
-  dlg._persistThemes = async () => { persisted = true; return true; };
-
-  dlg._startNewTheme();
-  dlg._themeName = 'Dark';
-  await dlg._saveNamedTheme();
-
-  assert.equal(persisted, false);
-  assert.match(dlg._themeError, /already exists/);
-});
-
-test('device settings import theme files and reject colliding names', async () => {
-  const dlg = deviceSettings();
-  let persisted;
-  dlg._persistThemes = async (themes) => { persisted = themes; return true; };
-  const file = (themes) => ({ target: { files: [{ text: async () => JSON.stringify({ version: 1, themes }) }], value: 'file' } });
-
-  await dlg._importThemes(file({ evening: theme('Evening', 3) }));
-  assert.equal(persisted.evening.name, 'Evening');
-
-  await dlg._importThemes(file({ dark: theme('Dark', 4) }));
-  assert.match(dlg._themeError, /already exists/);
-
-  await dlg._importThemes({ target: { files: [{ text: async () => '{"version":2}' }], value: 'file' } });
-  assert.match(dlg._themeError, /Invalid color theme file/);
-});
-
-test('device settings render the theme selector in their Theme section', () => {
-  const dlg = deviceSettings();
-  const markup = source(dlg.render());
-  assert.match(markup, /Theme/);
-  assert.match(markup, /id="haui-theme-select"/);
-  assert.match(markup, /Predefined themes/);
+  assert.ok(settings.shadowRoot.querySelector('form'));
+  assert.equal(byLabel(settings.shadowRoot, 'Theme'), null);
 });

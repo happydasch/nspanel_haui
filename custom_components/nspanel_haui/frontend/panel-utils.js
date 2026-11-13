@@ -52,10 +52,10 @@ export function panelRoleMarkers(key, deviceConfig = {}) {
   const roles = [];
   if (!key || !deviceConfig) return roles;
   if (key === deviceConfig.home_panel) {
-    roles.push(html`<span class="haui-panel-role home" role="img" aria-label=${t('Home panel')}>${icon('home')}</span>`);
+    roles.push(html`<span class="haui-panel-role haui-panel-role-home" role="img" aria-label=${t('Home panel')}>${icon('home')}</span>`);
   }
   if (key === deviceConfig.idle_panel) {
-    roles.push(html`<span class="haui-panel-role idle" role="img" aria-label=${t('Idle panel')}>${icon('sleep')}</span>`);
+    roles.push(html`<span class="haui-panel-role haui-panel-role-idle" role="img" aria-label=${t('Idle panel')}>${icon('sleep')}</span>`);
   }
   return roles;
 }

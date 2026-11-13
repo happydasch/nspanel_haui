@@ -1,12 +1,12 @@
 // @ts-check
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 
 function editor() {
-  const instance = Object.create(NSPanelEditor.prototype);
+  const instance = document.createElement('nspanel-haui-editor');
   instance.toasts = [];
   instance.previewCalls = [];
   instance._showToast = (message, kind) => instance.toasts.push([message, kind]);

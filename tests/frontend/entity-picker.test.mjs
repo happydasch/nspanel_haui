@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,7 +39,7 @@ test('the entity picker exposes combobox and listbox semantics', () => {
   assert.match(out, /role="listbox"/);
   assert.match(out, /aria-labelledby=ent-label/);
   // The options are filled in when the dropdown opens, not rendered per entity.
-  assert.doesNotMatch(out, /entity-dropdown-item/);
+  assert.doesNotMatch(out, /role="option"/);
 });
 
 const entity = (entityId, name = entityId) => ({ entityId, name, search: `${entityId}\n${name}`.toLowerCase() });
@@ -72,7 +72,7 @@ test('the dropdown shows the matches as options and says how many it left out', 
     return el;
   };
   try {
-    const dropdown = new FakeEl('entity-dropdown');
+    const dropdown = new FakeEl('haui-entity-dropdown');
     dropdown.id = 'ent-dropdown';
     dropdown.replaceChildren = (...nodes) => { dropdown.children = nodes; };
 
@@ -86,7 +86,7 @@ test('the dropdown shows the matches as options and says how many it left out', 
     assert.deepEqual(first.children.map((child) => child.textContent), ['Light A', 'light.a']);
     assert.equal(second.id, 'ent-dropdown-opt-1');
     // The note is not an option: the keyboard controller only walks the items.
-    assert.equal(more.className, 'entity-dropdown-more');
+    assert.equal(more.getAttribute('role'), 'presentation');
     assert.match(more.textContent, /^3 more/);
 
     fillEntityDropdown(dropdown, { matches: [entity('light.a')], total: 1 });
@@ -119,19 +119,19 @@ class FakeEl {
 }
 
 function option(id, display) {
-  const el = new FakeEl('entity-dropdown-item');
+  const el = new FakeEl('haui-entity-dropdown-item');
   el.id = id;
   el.style.display = display;
   return el;
 }
 
 function fakePicker(items) {
-  const dropdown = new FakeEl('entity-dropdown');
+  const dropdown = new FakeEl('haui-entity-dropdown');
   dropdown.style.display = '';
   dropdown.querySelectorAll = () => items;
-  const input = new FakeEl('entity-picker-input');
-  const wrap = new FakeEl('entity-picker-wrap');
-  wrap.querySelector = (sel) => (sel === '.entity-dropdown' ? dropdown : null);
+  const input = new FakeEl('haui-entity-picker-input');
+  const wrap = new FakeEl('haui-entity-picker-wrap');
+  wrap.querySelector = (sel) => (sel === '.haui-entity-dropdown' ? dropdown : null);
   return { wrap, input };
 }
 
@@ -150,9 +150,9 @@ test('arrow keys highlight and select the visible option, not a hidden one', () 
 
   handler({ key: 'ArrowDown', preventDefault() {}, target: input });
 
-  assert.equal(visible.classList.contains('active'), true);
-  assert.equal(hiddenA.classList.contains('active'), false);
-  assert.equal(hiddenB.classList.contains('active'), false);
+  assert.equal(visible.classList.contains('is-active'), true);
+  assert.equal(hiddenA.classList.contains('is-active'), false);
+  assert.equal(hiddenB.classList.contains('is-active'), false);
   assert.equal(input.getAttribute('aria-activedescendant'), 'opt-c');
   assert.equal(visible.scrolled, true);
 

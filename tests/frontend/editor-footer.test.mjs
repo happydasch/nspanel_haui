@@ -1,21 +1,27 @@
+import './support/browser.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-await import('./dom-shim.mjs');
-const { docsUrl, getEditorVersion, isPrereleaseVersion } = await import(
-  '../../custom_components/nspanel_haui/frontend/toolbar.js'
-);
+import { render } from './support/render.mjs';
+import { byRole } from './support/queries.mjs';
+import {
+  docsUrl,
+  getIntegrationVersion,
+  isPrereleaseVersion,
+  renderFooter,
+} from '../../custom_components/nspanel_haui/frontend/toolbar.js';
 
 test('frontend asset version is read from the registered frontend URL', () => {
   assert.equal(
-    getEditorVersion('http://homeassistant.local/nspanel_haui_frontend/0.4.5.dev31-0123456789ab/toolbar.js'),
+    getIntegrationVersion('http://homeassistant.local/nspanel_haui_frontend/0.4.5.dev31-0123456789ab/toolbar.js'),
     '0.4.5.dev31',
   );
   assert.equal(
-    getEditorVersion('http://homeassistant.local/nspanel_haui_frontend/0.4.5-0123456789ab/toolbar.js'),
+    getIntegrationVersion('http://homeassistant.local/nspanel_haui_frontend/0.4.5-0123456789ab/toolbar.js'),
     '0.4.5',
   );
-  assert.equal(getEditorVersion('http://homeassistant.local/frontend/toolbar.js'), null);
+  assert.equal(getIntegrationVersion('http://homeassistant.local/frontend/toolbar.js'), null);
 });
 
 test('PEP 440 prerelease versions are identified as development builds', () => {
@@ -42,22 +48,23 @@ test('documentation links prereleases to the dev docs and releases to stable doc
   assert.equal(docsUrl(null), 'https://happydasch.github.io/nspanel_haui/');
 });
 
-const { renderFooter } = await import('../../custom_components/nspanel_haui/frontend/toolbar.js');
+test('the persistent footer keeps its external links when no version is available', () => {
+  const root = render(renderFooter({}, null));
+  const github = byRole(root, 'link', { name: 'GitHub' });
+  const documentation = byRole(root, 'link', { name: 'Documentation' });
 
-function flatten(value) {
-  if (Array.isArray(value)) return value.map(flatten).join('');
-  if (typeof value === 'string') return value;
-  if (!value || typeof value !== 'object') return '';
-  if (Array.isArray(value.strings) && Array.isArray(value.values)) {
-    return value.strings.map((part, index) => `${part}${flatten(value.values[index] ?? '')}`).join('');
-  }
-  return '';
-}
+  assert.ok(github);
+  assert.ok(documentation);
+  assert.equal(github.href, 'https://github.com/happydasch/nspanel_haui');
+  assert.equal(documentation.href, 'https://happydasch.github.io/nspanel_haui/');
+  assert.equal(root.querySelectorAll('[title="Integration version"]').length, 0);
+});
 
-test('persistent editor footer retains project links when no asset version is available', () => {
-  const output = flatten(renderFooter({}));
-  assert.match(output, /editor-footer/);
-  assert.match(output, /GitHub/);
-  assert.match(output, /Documentation/);
-  assert.doesNotMatch(output, /footer-version-group/);
+test('the footer shows version data and points prereleases at the development docs', () => {
+  const root = render(renderFooter({}, '0.5.0.dev16'));
+  const documentation = byRole(root, 'link', { name: 'Documentation' });
+
+  assert.equal(root.querySelector('[title="Integration version"]')?.textContent, 'v0.5.0.dev16');
+  assert.ok(root.querySelector('[title="Development prerelease"]'));
+  assert.equal(documentation.href, 'https://happydasch.github.io/nspanel_haui/dev/');
 });

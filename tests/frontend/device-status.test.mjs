@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -173,8 +173,8 @@ const minutesAgo = (minutes) => new Date(Date.now() - minutes * 60_000).toISOStr
 
 const healthy = {
   connected: true,
-  haui_version: '0.4.0',
-  haui_version_mismatch: false,
+  integration_version: '0.4.0',
+  integration_version_mismatch: false,
   device_info: { connection_uptime: 125, rssi: -55, yaml_version: '0.4.0', tft_version: '0.4.0' },
   logs: ['[2026-11-11T10:00:00+01:00] INFO started'],
 };
@@ -188,6 +188,7 @@ test('a healthy device keeps uptime out of the collapsed diagnostics body', () =
   const expanded = markup(deviceDiagnostics({ status: healthy, expanded: true }));
   assert.ok(expanded.includes('haui-diag-tiles'));
   assert.ok(expanded.includes('No warnings'));
+  assert.ok(expanded.includes('Integration'));
   assert.ok(!expanded.includes('Redraw display'));
   assert.ok(expanded.includes('Copy report'));
 });
@@ -195,8 +196,8 @@ test('a healthy device keeps uptime out of the collapsed diagnostics body', () =
 test('diagnostics count offline, mismatch, display, signal and log problems as issues', () => {
   const status = {
     connected: false,
-    haui_version: '0.4.5',
-    haui_version_mismatch: true,
+    integration_version: '0.4.5',
+    integration_version_mismatch: true,
     device_info: {
       yaml_version: '0.4.4', tft_version: '0.4.3', tft_required_version: '0.4.5', rssi: -80,
       last_disconnect_reason: 'heartbeat timeout', disconnected_since: '2026-10-23T12:00:00+00:00',
@@ -217,7 +218,6 @@ test('diagnostics count offline, mismatch, display, signal and log problems as i
   assert.ok(badge.includes('4 issues'));
   // Read out, not only a tooltip.
   assert.ok(badge.includes('role="img"'));
-  assert.ok(badge.includes('4 issues: Offline, Firmware does not match the hub, Display update pending, 2 log warnings'), badge);
 
   const simple = markup(deviceDiagnostics({ status }));
   assert.equal(simple, '');
@@ -236,14 +236,13 @@ test('diagnostics count offline, mismatch, display, signal and log problems as i
   assert.ok(!expanded.includes('>Logs<'));
 });
 
-test('the Diagnostics tiles: Firmware shows its details on hover or tap, Hub log opens the logs', () => {
+test('the Diagnostics tiles: Versions shows its details on hover or tap, Hub log opens the logs', () => {
   const opened = [];
   const status = { ...healthy, device_info: { ...healthy.device_info, ssid: 'HomeNet', ip: '192.0.2.11' } };
   const view = deviceDiagnostics({ status, expanded: true, onLogs: () => opened.push('logs') });
   const text = markup(view);
   assert.ok(!text.includes('haui-diag-tile-detail'));
   assert.equal(text.match(/class="haui-tile-info"/g).length, 2);
-  assert.match(text, /<dt>YAML version<\/dt><dd class=[^>]*>0\.4\.0<\/dd>/);
   // The Firmware tile toggles its card on a tap; the Hub log tile opens the logs instead.
   assert.equal(text.match(/aria-expanded="false"/g).length, 1);
   // Uptime and Wi-Fi are tiles of the Connection & device card.

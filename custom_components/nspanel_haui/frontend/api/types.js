@@ -168,8 +168,8 @@
  * @property {string} [connection_state]
  * @property {string} [current_page]
  * @property {string} [current_panel] - key of the panel the device shows, empty without one
- * @property {string} [haui_version]
- * @property {boolean} [haui_version_mismatch]
+ * @property {string} [integration_version]
+ * @property {boolean|null} [integration_version_mismatch]
  * @property {DeviceInfo} [device_info]
  * @property {UpdateState} [update]
  * @property {string[]} [logs]

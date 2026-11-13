@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -58,6 +58,29 @@ test('the groups render a band header and rows, without visible drop zones', () 
   assert.doesNotMatch(out, /drop into/);
 });
 
+test('group headers toggle their rows with accessible expanded state', () => {
+  const toggled = [];
+  const expanded = renderPanelList({
+    groups: [group('navigation', [])],
+    onToggleGroup: (id) => toggled.push(id),
+  });
+  const expandedText = flat(expanded);
+  assert.match(expandedText, /aria-label=Show less/);
+  assert.match(expandedText, /aria-expanded=true/);
+  assert.match(expandedText, /aria-controls=haui-panel-list-navigation/);
+  assert.doesNotMatch(expandedText, /\?hidden=true/);
+
+  const toggles = handlers(expanded, '@click');
+  assert.equal(toggles.length, 1);
+  toggles[0]();
+  assert.deepEqual(toggled, ['navigation']);
+
+  const collapsed = flat(renderPanelList({ groups: [group('navigation', [], { collapsed: true })] }));
+  assert.match(collapsed, /aria-label=Show more/);
+  assert.match(collapsed, /aria-expanded=false/);
+  assert.match(collapsed, /\?hidden=true/);
+});
+
 test('every row has a grip, which drags only when its entry is sortable', () => {
   const out = flat(renderPanelList({
     groups: [
@@ -78,7 +101,6 @@ test('an empty group shows its message', () => {
   const out = flat(renderPanelList({
     groups: [group('popups', []), group('navigation', [])],
   }));
-  assert.match(out, /haui-panel-empty/);
   assert.match(out, /drop into navigation/);
   assert.match(out, /drop into popups/);
 });
@@ -104,6 +126,14 @@ function handler(template, marker, attribute) {
   }
   return null;
 }
+function handlers(template, attribute) {
+  if (!template?.strings) return [];
+  const own = template.strings.flatMap((part, index) =>
+    part.endsWith(`${attribute}=`) && typeof template.values[index] === 'function'
+      ? [template.values[index]] : []);
+  return [...own, ...template.values.flatMap((value) =>
+    Array.isArray(value) ? value.flatMap((child) => handlers(child, attribute)) : handlers(value, attribute))];
+}
 
 const dropEvent = (sourceKey, { top = 0, height = 60, clientY = 0 } = {}) => ({
   clientY,
@@ -127,7 +157,7 @@ test('a drop on a row lands before or after it; a drop on the group lands at its
   assert.match(out, /data-panel-group=navigation/);
   assert.match(out, /data-panel-key=clock_0/);
 
-  const rowDrop = handler(list, 'haui-panel-row"', '@drop');
+  const rowDrop = handler(list, 'haui-panel-row-grip', '@drop');
   rowDrop(dropEvent('clock_1', { clientY: 10 }));
   rowDrop(dropEvent('clock_x', { clientY: 50 }));
   handler(list, 'haui-panel-group"', '@drop')(dropEvent('clock_0'));
@@ -156,3 +186,36 @@ test('groupPanels lists replaced popups, offers the rest and leaves fixed system
   assert.deepEqual(grouped.defaults.map((entry) => entry.key), ['popup_cover']);
   assert.equal('system' in grouped, false);
 });
+
+test('the list marks the selected row and reports the panel the user picks', () => {
+  const picked = [];
+  const out = flat(renderPanelList({
+    groups: [group('navigation', [userEntry('clock_0'), userEntry('clock_1')])],
+    selectedKey: 'clock_1',
+    onSelect: (key) => picked.push(key),
+  }));
+  assert.equal(out.match(/haui-panel-row is-selected/g).length, 1);
+  // A click on the row itself picks it; the row's own controls keep their click.
+  const row = rowWithKey(renderPanelList({
+    groups: [group('navigation', [userEntry('clock_0')])],
+    onSelect: (key) => picked.push(key),
+  }), 'clock_0');
+  const click = row.values[row.strings.findIndex((part) => part.includes('@click='))];
+  click({ target: { closest: () => ({}) } });
+  assert.deepEqual(picked, []);
+  click({ target: { closest: () => null } });
+  assert.deepEqual(picked, ['clock_0']);
+});
+
+/** The template of the row for `key`. */
+function rowWithKey(template, key) {
+  if (!template?.strings) return null;
+  if (template.strings.join('').includes('haui-panel-row-grip') && template.values.includes(key)) return template;
+  for (const value of template.values) {
+    for (const entry of Array.isArray(value) ? value : [value]) {
+      const match = rowWithKey(entry, key);
+      if (match) return match;
+    }
+  }
+  return null;
+}

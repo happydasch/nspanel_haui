@@ -1,24 +1,14 @@
+import './support/browser.mjs';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
+import { makeHass, jsonResponse } from './support/hass.mjs';
 
-function jsonResponse(body, status = 200) {
-  return { ok: status < 400, status, json: async () => body };
-}
-
-function hass({ language = 'en', fetchWithAuth, connection } = {}) {
-  return {
-    language,
-    locale: { language },
-    fetchWithAuth: fetchWithAuth || (async () => jsonResponse({})),
-    callWS: async () => [],
-    connection,
-  };
-}
 
 test('entries.list keeps only the NSPanel HAUI config entries', async () => {
-  const hassObject = hass({
+  const hassObject = makeHass({
     fetchWithAuth: async () => jsonResponse({}),
   });
   const api = createApiClient(() => hassObject);
@@ -34,12 +24,12 @@ test('entries.list keeps only the NSPanel HAUI config entries', async () => {
 });
 
 test('a server error message is surfaced and a non-JSON error falls back', async () => {
-  const api = createApiClient(() => hass({
+  const api = createApiClient(() => makeHass({
     fetchWithAuth: async () => jsonResponse({ message: 'Invalid panel config' }, 400),
   }));
   await assert.rejects(api.panels.save('entry1', { devices: {} }), /Invalid panel config/);
 
-  const plain = createApiClient(() => hass({
+  const plain = createApiClient(() => makeHass({
     fetchWithAuth: async () => ({
       ok: false,
       status: 500,
@@ -51,7 +41,7 @@ test('a server error message is surfaced and a non-JSON error falls back', async
 
 test('panels and status requests use the documented routes and query parameters', async () => {
   const seen = [];
-  const api = createApiClient(() => hass({
+  const api = createApiClient(() => makeHass({
     fetchWithAuth: async (url, options = {}) => {
       seen.push([options.method || 'GET', url]);
       if (url.includes('/status/')) return jsonResponse({ devices: { kitchen: {} } });
@@ -75,7 +65,7 @@ test('panels and status requests use the documented routes and query parameters'
 });
 
 test('status.getAll rejects an unfiltered response without a device map', async () => {
-  const api = createApiClient(() => hass({
+  const api = createApiClient(() => makeHass({
     fetchWithAuth: async () => jsonResponse({ connected: true }),
   }));
   await assert.rejects(api.status.getAll('entry1'), /Invalid device status response/);
@@ -83,7 +73,7 @@ test('status.getAll rejects an unfiltered response without a device map', async 
 
 test('notification dismissal encodes the device and id', async () => {
   let requested;
-  const api = createApiClient(() => hass({
+  const api = createApiClient(() => makeHass({
     fetchWithAuth: async (url) => { requested = url; return jsonResponse({ status: 'ok' }); },
   }));
 
@@ -93,7 +83,7 @@ test('notification dismissal encodes the device and id', async () => {
 
 test('a card render goes over the websocket with the panel or its key', async () => {
   const sent = [];
-  const api = createApiClient(() => hass({
+  const api = createApiClient(() => makeHass({
     connection: {
       sendMessagePromise: async (message) => { sent.push(message); return { page: 9 }; },
     },
@@ -110,7 +100,7 @@ test('a card render goes over the websocket with the panel or its key', async ()
 
 test('YAML export returns the text and import posts it as YAML', async () => {
   const seen = [];
-  const api = createApiClient(() => hass({
+  const api = createApiClient(() => makeHass({
     fetchWithAuth: async (url, options = {}) => {
       seen.push([options.method || 'GET', url, options.body]);
       return {

@@ -8,7 +8,7 @@ import { t } from './localize.js';
 import { COLOR_PRESETS, parseRgbListToHex } from './color-utils.js';
 
 export function renderSelect(id, value, options, onChange, opts = {}) {
-  const cls = ["native-select", opts.className].filter(Boolean).join(" ");
+  const cls = ["haui-select", opts.className].filter(Boolean).join(" ");
   return html`
     <select
       id=${id}
@@ -38,7 +38,7 @@ export function renderSelect(id, value, options, onChange, opts = {}) {
  * @returns {import('lit-html').TemplateResult}
  */
 export function renderToggle(id, checked, onChange, opts = {}) {
-  const cls = ["native-toggle", opts.className].filter(Boolean).join(" ");
+  const cls = ["haui-switch", opts.className].filter(Boolean).join(" ");
   return html`
     <input
       id=${id}
@@ -166,24 +166,24 @@ export function renderColorPresets(currentHex, onPick) {
   const showSaved = saved.length > 0;
   return html`
     ${showSaved ? html`
-      <div class="color-presets">
-        <span class="color-preset-label" style="margin-bottom:2px">${t("Recent")}</span>
+      <div class="haui-color-presets is-recent">
+        <span class="haui-color-preset-label">${t("Recent")}</span>
         ${saved.map(h => html`
           <div
-            class="color-preset-swatch"
-            style="background:${h}"
+            class="haui-color-preset-swatch"
+            style="--haui-color-preset:${h}"
             title=${h}
             @click=${() => onPick(h)}
           ></div>
         `)}
       </div>
     ` : ""}
-    <div class="color-presets">
-      <span class="color-preset-label">${t("Presets")}</span>
+    <div class="haui-color-presets">
+      <span class="haui-color-preset-label">${t("Presets")}</span>
       ${COLOR_PRESETS.map(h => html`
         <div
-          class="color-preset-swatch"
-          style="background:${h}"
+          class="haui-color-preset-swatch"
+          style="--haui-color-preset:${h}"
           title=${h}
           @click=${() => onPick(h)}
         ></div>
@@ -248,13 +248,13 @@ export function matchIcons(icons, query, limit = ICON_MATCH_LIMIT) {
  * replacing its children does not interfere with Lit's re-render.
  */
 export function fillIconDropdown(wrap, value, api, onInput) {
-  const dropdown = wrap?.querySelector(".icon-dropdown");
+  const dropdown = wrap?.querySelector(".haui-icon-dropdown");
   if (!dropdown) return;
   const query = iconNameOnly(value).toLowerCase();
   const icons = query ? matchIcons(_iconCache || MDI_ICONS, query) : MDI_ICONS;
   dropdown.replaceChildren(...icons.map((icon) => {
     const item = document.createElement("div");
-    item.className = "icon-dropdown-item";
+    item.className = "haui-icon-dropdown-item";
     item.setAttribute("data-icon", icon);
     const preview = document.createElement("ha-icon");
     preview.setAttribute("icon", `mdi:${icon}`);
@@ -272,10 +272,10 @@ export function fillIconDropdown(wrap, value, api, onInput) {
  *  reposition to avoid clipping by dialog scroll containers. */
 function _openIconDropdown(wrap, value, api, onInput) {
   fillIconDropdown(wrap, value, api, onInput);
-  const dropdown = wrap?.querySelector(".icon-dropdown");
+  const dropdown = wrap?.querySelector(".haui-icon-dropdown");
   if (!dropdown || dropdown.hidden) return;
 
-  const input = wrap.querySelector(".icon-picker-input");
+  const input = wrap.querySelector(".haui-icon-picker-input");
   if (input) positionPickerDropdown(dropdown, input);
 
   if (wrap._outsideHandler) return;
@@ -288,7 +288,7 @@ function _openIconDropdown(wrap, value, api, onInput) {
 
 /** Hide the icon dropdown and detach the outside listener. */
 function _hideIconDropdown(wrap) {
-  const dropdown = wrap?.querySelector(".icon-dropdown");
+  const dropdown = wrap?.querySelector(".haui-icon-dropdown");
   if (dropdown) {
     dropdown.hidden = true;
     dropdown.style.visibility = '';
@@ -388,7 +388,7 @@ export function scheduleTemplateRender(api, value, previewId, contextEl) {
   if (!api) return;
 
   const el = _findPreviewEl(previewId, contextEl);
-  const wrapper = el?.closest(".template-preview");
+  const wrapper = el?.closest(".haui-template-preview");
   const str = String(value || "");
 
   if (!str.includes("{{")) {
@@ -446,53 +446,53 @@ export function renderIconPicker(id, value, api = null, onInput = null) {
   const hasTpl = String(currentVal).includes("{{");
 
   return html`
-    <div class="icon-picker-wrap">
-      <div class="field-row">
-      <div class="input-preview-wrap">
-        <ha-icon class="icon-preview input-preview" style="pointer-events:none;"
+    <div class="haui-icon-picker-wrap">
+      <div class="haui-field-row">
+      <div class="haui-input-preview-wrap">
+        <ha-icon class="haui-icon-preview haui-input-preview haui-icon-preview-static"
           icon=${currentVal && !currentVal.startsWith("{") && !currentVal.startsWith("[") ? currentVal : "mdi:puzzle"}
           title=${currentVal || t("no icon selected")}
         ></ha-icon>
         <input
           id=${id}
-          class="native-input icon-picker-input"
+          class="haui-input haui-icon-picker-input"
           .value=${currentVal}
         placeholder=${t("mdi:home")}
         @input=${(e) => {
           const tf = e.target;
           const val = tf.value || "";
-          const wrap = tf.closest(".icon-picker-wrap");
-          const preview = wrap?.querySelector(".icon-preview");
+          const wrap = tf.closest(".haui-icon-picker-wrap");
+          const preview = wrap?.querySelector(".haui-icon-preview");
           if (preview) preview.icon = val || "mdi:puzzle";
           _openIconDropdown(wrap, val, api, onInput);
           if (api) scheduleTemplateRender(api, val, `tp-${id}`, tf);
           if (onInput) onInput(val);
         }}
         @focus=${async (e) => {
-          const wrap = e.target.closest(".icon-picker-wrap");
+          const wrap = e.target.closest(".haui-icon-picker-wrap");
           if (api) await _ensureIcons(api);
           _openIconDropdown(wrap, e.target.value, api, onInput);
           if (api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(api, e.target.value, `tp-${id}`, e.target);
         }}
         @blur=${(e) => {
-          const wrap = e.target?.closest(".icon-picker-wrap");
+          const wrap = e.target?.closest(".haui-icon-picker-wrap");
           setTimeout(() => { if (wrap) _hideIconDropdown(wrap); }, 80);
         }}
         @keydown=${createDropdownKeyboardController({
-          getWrap: (e) => e.target.closest('.icon-picker-wrap'),
-          dropdownSelector: '.icon-dropdown',
-          itemSelector: '.icon-dropdown-item',
+          getWrap: (e) => e.target.closest('.haui-icon-picker-wrap'),
+          dropdownSelector: '.haui-icon-dropdown',
+          itemSelector: '.haui-icon-dropdown-item',
           indexField: '_activeIndex',
           onSelect: (visibleItems, idx) => {
-            _selectIconItem(visibleItems[idx].closest('.icon-picker-wrap'), visibleItems[idx], api, onInput);
+            _selectIconItem(visibleItems[idx].closest('.haui-icon-picker-wrap'), visibleItems[idx], api, onInput);
           },
-          onDismiss: (e) => _hideIconDropdown(e.target.closest('.icon-picker-wrap')),
+          onDismiss: (e) => _hideIconDropdown(e.target.closest('.haui-icon-picker-wrap')),
         })}
       />
       </div>
-      <div class="icon-dropdown" hidden></div>
+      <div class="haui-icon-dropdown" hidden></div>
       </div>
-      <div class="template-preview" ?hidden=${!hasTpl}>
+      <div class="haui-template-preview" ?hidden=${!hasTpl}>
         <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
       </div>
     </div>
@@ -508,8 +508,8 @@ function _selectIcon(e, wrap, api, onInput) {
 
 /** Apply icon selection: set value, update preview, hide dropdown. */
 function _selectIconItem(wrap, item, api, onInput) {
-  const tf = wrap?.querySelector(".icon-picker-input");
-  const preview = wrap?.querySelector(".icon-preview");
+  const tf = wrap?.querySelector(".haui-icon-picker-input");
+  const preview = wrap?.querySelector(".haui-icon-preview");
   const icon = item.getAttribute("data-icon") || "";
   const val = `mdi:${icon}`;
   if (tf) tf.value = val;
@@ -542,7 +542,7 @@ export function renderNumberInput(id, value, onInput, { step, min, max, placehol
       min=${min ?? nothing}
       max=${max ?? nothing}
       placeholder=${placeholder ?? nothing}
-      class="native-input"
+      class="haui-input"
       .value=${typing ? noChange : String(value ?? "")}
       @input=${(e) => {
         _typingInput = e.target;

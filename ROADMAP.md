@@ -20,14 +20,17 @@ its known risks live in [docs/develop/release.md](docs/develop/release.md); day-
 belong in the issue tracker.
 
 **v0.5 is the current cycle.** So far it has delivered the Fleet/Device
-dashboard, a unified list of single- and multi-swipe gestures, device schedules
-with schedule-aware firmware dimming, and the shared theme library with a
-selector in both Preview and device settings. The editor strings are complete
-in English, German, French, Dutch and Polish. The schedule replaces Day/Night
-profiles and quiet hours; upgrade details are in the [release notes](.github/release-notes/v0.5.0.md).
+dashboard, contextual panel details, device-option sidebars, a unified list of
+single- and multi-swipe gestures, device schedules with schedule-aware firmware
+dimming, and the shared theme library with a selector in both Preview and device
+settings. The editor strings are complete in English, German, French, Dutch and
+Polish. The schedule replaces Day/Night profiles and quiet hours; upgrade details
+are in the [release notes](.github/release-notes/v0.5.0.md).
 The remaining 0.5 scope is multiple TFTs for normal- and high-speed updates,
-stronger update controls, notification grouping and history, and scoped
-device-settings endpoints. See [CHANGELOG.md](CHANGELOG.md) for the shipped work.
+stronger update controls, notification grouping/priority and history (the queue
+API and editor queue center are already in place), scoped device-settings
+endpoints, and the panel/device/accessibility polish below. See
+[CHANGELOG.md](CHANGELOG.md) for the shipped work.
 **v0.6** adds Display Repair Mode, an inspection and cleanup of the Nextion
 scripts and Home Assistant hub settings; multi-hub support remains subject to a
 needs decision.
@@ -110,20 +113,22 @@ device's version and action state correct across stale or failed updates.
 
 ### Remaining editor polish
 
-A "create from template" flow with predefined panels, field-level validation
-beyond the existing key and PIN checks, and the rest of the accessibility pass
-(contrast, screen-reader review of the dashboard, a keyboard way to reorder
-devices, which only drag today).
+A curated starter-template library (the Add panel catalog already supports
+starting from a default type, extending a popup, and copying an existing panel),
+field-level validation beyond the existing key and PIN checks, and the rest of the
+accessibility pass (contrast, screen-reader review of the dashboard, a keyboard
+way to reorder devices, which only drag today).
 
 ### Frontend rework, notifications & device settings (current cycle)
 
 The data/API foundation landed in v0.4.7 and the dashboard in this cycle. What
 is left of each area:
 
-- **Notifications** — add grouping and priority ordering to the controller plus a
-  read-only queue/history API and a Notification Center in the editor. The
-  service, `notify.*` and ESPHome entry points keep working, and the "never
-  auto-dismiss" and critical force-show rules stay unchanged.
+- **Notifications** — the read/dismiss queue API and the editor's queue center are
+  implemented. Still open: grouping and priority ordering in the controller, plus
+  notification history and its read-only API/editor view. The service, `notify.*`
+  and ESPHome entry points keep working, and the "never auto-dismiss" and
+  critical force-show rules stay unchanged.
 - **Device settings** — expose the existing per-device settings (speed,
   orientation, brightness, idle behaviour, notification defaults, update policy)
   through scoped read/update endpoints, stored per device and defaulted on load;
@@ -134,12 +139,13 @@ is left of each area:
   render needs fewer color commands, without flashing the default palette or
   showing a partially themed page; editor cards must continue to match the
   device render.
-- **Panel editors** — predefined templates and field-level validation of the
-  type-specific options. The preview of unsaved edits, inline rename, duplicate,
-  reorder and the key/PIN validation are in the editor.
+- **Panel editors** — a curated starter-template library and field-level validation
+  of type-specific options remain open. The Add panel catalog already supports
+  default-type creation, popup extension and copying an existing panel; unsaved
+  previews, inline rename, duplicate, reorder and key/PIN validation are in place.
 
-**Phasing:** notification grouping and history, then the scoped settings
-endpoints. Each ships on its own at behaviour parity with the current editor.
+**Phasing:** finish notification grouping/priority and history, then the scoped
+settings endpoints. Each ships on its own at behaviour parity with the current editor.
 
 ---
 

@@ -86,7 +86,7 @@ function rssiLevel(rssi) {
 }
 
 export function rssiStrengthClass(rssi) {
-  const classes = ["wifi-unknown", "wifi-weak", "wifi-fair", "wifi-good", "wifi-excellent"];
+  const classes = ["haui-wifi-unknown", "haui-wifi-weak", "haui-wifi-fair", "haui-wifi-good", "haui-wifi-excellent"];
   return classes[rssiLevel(rssi)];
 }
 

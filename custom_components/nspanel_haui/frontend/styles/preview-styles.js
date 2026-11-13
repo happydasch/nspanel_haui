@@ -49,11 +49,15 @@ export const previewStyles = css`
   .haui-preview-stage .haui-empty-state { color: var(--secondary-text-color); }
   .vp-screen-wrap {
     position: relative;
+    width: var(--vp-screen-width);
+    height: var(--vp-screen-height);
+    filter: brightness(var(--vp-screen-brightness));
     overflow: hidden;
     border-radius: var(--haui-radius-control);
     cursor: pointer;
     touch-action: none;
   }
+  .vp-screen-scaler { transform: scale(var(--vp-screen-scale)); transform-origin: 0 0; }
   .vp-off { position: absolute; inset: 0; background: var(--haui-screen-off); pointer-events: none; }
   .vp-hw-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--vp-frame-pad); }
   .vp-hw {
@@ -103,6 +107,10 @@ export const previewStyles = css`
   .vp-tooltip {
     position: absolute;
     z-index: 2;
+    top: var(--vp-tooltip-top, auto);
+    right: var(--vp-tooltip-right, auto);
+    bottom: var(--vp-tooltip-bottom, auto);
+    left: var(--vp-tooltip-left, auto);
     max-width: 260px;
     padding: 4px 8px;
     border-radius: var(--haui-radius-control);
@@ -133,16 +141,22 @@ export const previewStyles = css`
   .vp-workspace, .vp-body { display: flex; flex-direction: column; width: 100%; }
   .haui-preview-sim {
     position: relative;
+    width: var(--vp-preview-width);
+    aspect-ratio: var(--vp-preview-aspect-ratio);
     max-width: 100%;
     margin: 0 auto;
     overflow: hidden;
     /* A picture page or a card still loading; a solid page sets its theme colour inline. */
-    background: var(--haui-bezel);
+    background: var(--vp-preview-background, var(--haui-bezel));
   }
   .haui-preview-sim-scaler {
     position: absolute;
     left: 0;
     top: 0;
+    width: var(--vp-preview-source-width);
+    height: var(--vp-preview-source-height);
+    transform: scale(var(--vp-preview-scale));
+    transform-origin: 0 0;
   }
   .haui-preview-sim-loading {
     display: flex;

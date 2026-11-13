@@ -105,9 +105,9 @@ export function deviceDetails({
  */
 function connectionIconName(status) {
   const bars = rssiBarCount(status?.device_info?.rssi);
-  return !status ? 'haui-wifi-strength-off-outline'
-    : status.connected !== true ? 'haui-wifi-off'
-      : bars ? `haui-wifi-strength-${bars}` : 'haui-wifi-strength-outline';
+  return !status ? 'wifi-strength-off-outline'
+    : status.connected !== true ? 'wifi-off'
+      : bars ? `wifi-strength-${bars}` : 'wifi-strength-outline';
 }
 
 /**

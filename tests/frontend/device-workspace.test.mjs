@@ -234,7 +234,7 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
   for (const label of ['Disconnected', 'Wi-Fi signal', 'SSID', 'Last connected']) assert.match(card, new RegExp(label));
   assert.match(card, /-61 dBm/);
   assert.match(card, /haui-details-stale/);
-  assert.match(card, /mdi:haui-wifi-off|haui-wifi-off/);
+  assert.match(card, /mdi:wifi-off/);
 });
 
 test('the connection icon shows the Wi-Fi strength while connected', () => {
@@ -246,7 +246,7 @@ test('the connection icon shows the Wi-Fi strength while connected', () => {
   const [status] = templatesMatching(view, 'haui-conn-status-button');
   assert.equal(status.values[0], 'haui-conn-status online');
   const card = templateText(status);
-  assert.match(card, /haui-wifi-strength-4/);
+  assert.match(card, /mdi:wifi-strength-4/);
   assert.match(card, /HomeNet/);
   assert.match(card, /Online for/);
   assert.doesNotMatch(card, /haui-details-stale/);

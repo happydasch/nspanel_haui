@@ -483,55 +483,55 @@ class ThemeSidebar extends HauiDialog {
     const c = (k) => this._getDisplayHex(k);
     return html`
       <div class="haui-theme-preview">
-        <div class="haui-theme-preview-card" style="background:${c("background")}">
+        <div class="haui-theme-preview-card" style="--vp-theme-background:${c("background")}">
           <div
             class="haui-theme-preview-header"
-            style="background:${c("header_background")};color:${c("header_text")}"
+            style="--vp-theme-header-background:${c("header_background")};--vp-theme-header-text:${c("header_text")}"
           >
             <span class="haui-theme-preview-title">${t("Living Room")}</span>
             <span class="haui-theme-preview-hicons">
-              <ha-icon icon="mdi:home" style="color:${c("header_text")}"></ha-icon>
-              <ha-icon icon="mdi:bell" style="color:${c("header_accent")}"></ha-icon>
+              <ha-icon icon="mdi:home" style="--vp-theme-icon-color:${c("header_text")}"></ha-icon>
+              <ha-icon icon="mdi:bell" style="--vp-theme-icon-color:${c("header_accent")}"></ha-icon>
             </span>
           </div>
           <div class="haui-theme-preview-body">
             <div class="haui-theme-preview-texts">
-              <span style="color:${c("text")}">${t("Text")}</span>
-              <span style="color:${c("text_inactive")}">${t("Inactive")}</span>
-              <span style="color:${c("text_disabled")}">${t("Disabled")}</span>
+              <span style="--vp-theme-text-color:${c("text")}">${t("Text")}</span>
+              <span style="--vp-theme-text-color:${c("text_inactive")}">${t("Inactive")}</span>
+              <span style="--vp-theme-text-color:${c("text_disabled")}">${t("Disabled")}</span>
             </div>
             <div class="haui-theme-preview-comps">
               <span
                 class="haui-theme-preview-btn"
-                style="background:${c("component_background")};color:${c("component_text")}"
+                style="--vp-theme-component-background:${c("component_background")};--vp-theme-component-text:${c("component_text")}"
               >${t("Component")}</span>
               <span
                 class="haui-theme-preview-btn"
-                style="background:${c("component_pressed")};color:${c("component_text")}"
+                style="--vp-theme-component-background:${c("component_pressed")};--vp-theme-component-text:${c("component_text")}"
               >${t("Pressed")}</span>
               <span
                 class="haui-theme-preview-btn"
-                style="background:${c("component_active")};color:${c("component_text")}"
+                style="--vp-theme-component-background:${c("component_active")};--vp-theme-component-text:${c("component_text")}"
               >${t("Active")}</span>
               <div
                 class="haui-theme-preview-slider"
-                style="background:${c("component_active")}"
+                style="--vp-theme-slider-background:${c("component_active")}"
               >
                 <span
                   class="haui-theme-preview-slider-hdl"
-                  style="background:${c("component_active_dark")};border-color:${c("component_active_dark")}"
+                  style="--vp-theme-slider-handle:${c("component_active_dark")}"
                 ></span>
               </div>
               <ha-icon
                 class="haui-theme-preview-accent"
                 icon="mdi:star"
-                style="color:${c("component_accent")}"
+                style="--vp-theme-accent:${c("component_accent")}"
               ></ha-icon>
             </div>
-            <div class="haui-theme-preview-entities" style="color:${c("text")}">
-              <span class="haui-theme-preview-ent"><i style="background:${c("entity_on")}"></i>${t("On")}</span>
-              <span class="haui-theme-preview-ent"><i style="background:${c("entity_off")}"></i>${t("Off")}</span>
-              <span class="haui-theme-preview-ent"><i style="background:${c("entity_unavailable")}"></i>${t("Unavailable")}</span>
+            <div class="haui-theme-preview-entities" style="--vp-theme-entity-text:${c("text")}">
+              <span class="haui-theme-preview-ent"><i style="--vp-theme-entity-color:${c("entity_on")}"></i>${t("On")}</span>
+              <span class="haui-theme-preview-ent"><i style="--vp-theme-entity-color:${c("entity_off")}"></i>${t("Off")}</span>
+              <span class="haui-theme-preview-ent"><i style="--vp-theme-entity-color:${c("entity_unavailable")}"></i>${t("Unavailable")}</span>
             </div>
           </div>
         </div>
@@ -554,7 +554,7 @@ class ThemeSidebar extends HauiDialog {
               <div class="haui-color-item ${modified ? "is-mod" : ""}">
                 <label
                   class="haui-color-swatch"
-                  style="background:${color}"
+                  style="--vp-color-swatch:${color}"
                   title="${label} — ${color}"
                 >
                   <input

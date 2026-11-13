@@ -55,6 +55,8 @@ test('the summary strip reports health and one segment per device', () => {
   const allOnlineView = renderFleetView({
     ...base,
     devices: [deviceFor('kitchen', { connected: true }), deviceFor('office', { connected: true })],
+    installable: 1,
+    onInstallUpdates() {},
   });
   const allOnline = render(allOnlineView);
   assert.match(allOnline.textContent, /All devices connected/);
@@ -67,6 +69,19 @@ test('the summary strip reports health and one segment per device', () => {
   const bar = inventory.querySelector('.haui-inventory-bar');
   assert.ok(overview && table && overview.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary && overview.contains(summary));
+  const orb = summary?.querySelector('.haui-fleet-orb');
+  const heading = summary?.querySelector('#haui-inventory-heading');
+  const lead = summary?.querySelector('.haui-fleet-lead');
+  const headingRow = lead?.querySelector('.haui-fleet-lead-heading');
+  const count = headingRow?.querySelector('strong');
+  const health = lead?.lastElementChild;
+  assert.ok(orb && heading && lead && headingRow && count && health);
+  assert.ok(orb.compareDocumentPosition(lead) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.ok(lead.contains(heading));
+  assert.ok(heading.compareDocumentPosition(count) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.equal(heading.closest('.haui-fleet-inventory-heading')?.parentElement, count.parentElement);
+  assert.ok(lead.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.ok(summary?.querySelector('.haui-inventory-update'));
   assert.ok(bar && table.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_PRECEDING);
   assert.match(summary.textContent, /All devices connected/);
 

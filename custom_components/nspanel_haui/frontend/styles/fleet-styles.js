@@ -91,26 +91,12 @@ export const fleetStyles = css`
   .haui-device-card-name, .haui-device-row-name { border: 0; padding: 0; color: var(--primary-text-color); background: transparent; font: inherit; font-weight: var(--ha-font-weight-medium, 500); text-align: start; cursor: pointer; }
   .haui-carousel-arrow:disabled { opacity: 0; pointer-events: none; }
   .haui-fleet-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr); gap: 16px; margin-top: 8px; }
-  .haui-inventory-overview {
-    display: grid;
-    grid-template-columns: minmax(140px, .75fr) minmax(0, 1.5fr);
-    align-items: center;
-    gap: 24px;
-    padding: 20px 28px 16px;
-  }
-  /* The header column is narrow: Install updates wraps below the heading rather than squeezing it. */
-  .haui-inventory-overview > header {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 8px 16px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-  }
-  .haui-inventory-overview h2 { white-space: nowrap; }
+  .haui-inventory-overview { padding: 20px 28px 16px; }
+  .haui-fleet-inventory-heading { flex: 0 0 auto; }
+  .haui-fleet-inventory-heading h2 { white-space: nowrap; }
   .haui-fleet-summary { display: grid; gap: 0; padding: 0; }
   .haui-inventory-bar { padding: 0 28px 16px; }
-  .haui-fleet-band-top { display: flex; min-width: 0; align-items: center; gap: 12px; }
+  .haui-fleet-band-top { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 12px; }
   .haui-fleet-orb {
     display: grid;
     width: 32px;
@@ -126,8 +112,9 @@ export const fleetStyles = css`
   .haui-fleet-band-danger .haui-fleet-orb { color: var(--haui-bad); }
   .haui-fleet-band-neutral .haui-fleet-orb { color: var(--secondary-text-color); }
   .haui-fleet-lead { display: grid; min-width: 0; gap: 4px; }
+  .haui-fleet-lead-heading { display: flex; align-items: center; gap: 16px; }
   .haui-fleet-lead strong { font-size: var(--haui-text-title); font-variant-numeric: tabular-nums; font-weight: var(--ha-font-weight-medium, 500); line-height: 1.25; }
-  .haui-fleet-lead span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-fleet-lead > span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   /* The figures keep their labels above the values, so the strip reads as one row. */
   .haui-fleet-facts { display: flex; gap: 20px; margin: 0 0 0 auto; }
   .haui-fleet-facts > div { display: grid; gap: 4px; }
@@ -191,7 +178,7 @@ export const fleetStyles = css`
   @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } }
   @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } }
   @container haui-editor (max-width: 720px) {
-    .haui-inventory-overview { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 12px 12px; }
+    .haui-inventory-overview { padding: 16px 12px 12px; }
     .haui-inventory-bar { padding: 0 12px 12px; }
   }
   @container haui-editor (max-width: 720px) { .haui-dashboard-content { width: min(100% - 28px, 1440px); padding-top: 16px; } .haui-device-table { grid-template-columns: minmax(0, 1fr) repeat(2, max-content) auto; column-gap: 12px; } .haui-device-row { padding: 4px 12px; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } .haui-device-row-actions { grid-column: 4; } }

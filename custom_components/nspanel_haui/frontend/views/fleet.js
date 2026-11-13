@@ -101,22 +101,24 @@ export function renderFleetView(data) {
   const latest = latestEvents(data.events);
   const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
         <div class="haui-inventory-overview">
-          <header>
-            ${sectionHeading({
+          ${fleetSummary({
+            total: data.devices.length,
+            online,
+            updates,
+            version: data.version,
+            heading: sectionHeading({
               title: t('Device inventory'),
-              className: 'haui-section-heading',
+              className: 'haui-section-heading haui-fleet-inventory-heading',
               titleId: 'haui-inventory-heading',
-            })}
-            ${data.onInstallUpdates && data.installable ? button({
+            }),
+            action: data.onInstallUpdates && data.installable ? button({
               label: t('Install updates ({count})').replace('{count}', String(data.installable)),
               iconName: 'download',
               variant: 'primary',
               className: 'haui-inventory-update',
               onClick: data.onInstallUpdates,
-            }) : nothing}
-          </header>
-          ${fleetSummary({
-            total: data.devices.length, online, updates, version: data.version, pending: data.statusPending === true,
+            }) : nothing,
+            pending: data.statusPending === true,
           })}
         </div>
         ${fleetBar({ devices: data.devices, total: data.devices.length, online })}

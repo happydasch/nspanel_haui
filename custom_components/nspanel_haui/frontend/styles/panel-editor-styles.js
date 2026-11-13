@@ -59,6 +59,7 @@ export const panelEditorStyles = css`
   .haui-panel-editor-pin-text strong { font-size: var(--haui-text-body); font-weight: 600; }
   .haui-panel-editor-pin-text span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   @media (prefers-reduced-motion: reduce) { .haui-panel-editor-pin-bar { transition: none; } }
+  .haui-panel-editor-alert { margin-top: 12px; }
   .haui-config-section-count {
     min-width: 20px;
     padding: 4px 8px;

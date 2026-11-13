@@ -37,6 +37,7 @@ jobs:
         with:
           python: ${{ matrix.python-version }}
           node: "24"
+          npm: "true"
           requirements: dev
 
       - name: Check icon cheatsheet is up to date

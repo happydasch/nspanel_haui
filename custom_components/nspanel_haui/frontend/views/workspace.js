@@ -255,13 +255,13 @@ class PreviewWorkspace extends LitElement {
     // Keep it inside the frame: left of the cursor on the right side, above it
     // near the bottom.
     const horizontal = hover.x > hover.width * TOOLTIP_FLIP_SHARE
-      ? `right:${hover.width - hover.x + TOOLTIP_OFFSET}px;`
-      : `left:${hover.x + TOOLTIP_OFFSET}px;`;
+      ? `--vp-tooltip-right:${hover.width - hover.x + TOOLTIP_OFFSET}px`
+      : `--vp-tooltip-left:${hover.x + TOOLTIP_OFFSET}px`;
     const vertical = hover.y > hover.height * TOOLTIP_FLIP_SHARE
-      ? `bottom:${hover.height - hover.y + TOOLTIP_OFFSET}px;`
-      : `top:${hover.y + TOOLTIP_OFFSET}px;`;
+      ? `--vp-tooltip-bottom:${hover.height - hover.y + TOOLTIP_OFFSET}px`
+      : `--vp-tooltip-top:${hover.y + TOOLTIP_OFFSET}px`;
     return html`
-      <div class="vp-tooltip" style="${horizontal}${vertical}">
+      <div class="vp-tooltip" style="${horizontal};${vertical}">
         ${name ? html`<div>${name}</div>` : nothing}
         <div class="vp-tooltip-id">${hover.entityId}</div>
       </div>
@@ -372,7 +372,7 @@ class PreviewWorkspace extends LitElement {
     return html`
       <div
         class="vp-screen-wrap"
-        style="width:${width}px;height:${height}px;filter:brightness(${session.screenBrightness});"
+        style="--vp-screen-width:${width}px;--vp-screen-height:${height}px;--vp-screen-brightness:${session.screenBrightness};"
         @pointerdown=${this._onPointerDown}
         @pointermove=${this._onPointerMove}
         @pointerup=${this._onPointerUp}
@@ -380,7 +380,7 @@ class PreviewWorkspace extends LitElement {
         @pointerleave=${() => { this._hover = null; }}
         @contextmenu=${e => e.preventDefault()}
       >
-        <div style="transform:scale(${scale});transform-origin:0 0;">
+        <div class="vp-screen-scaler" style="--vp-screen-scale:${scale};">
           ${renderDisplay(session.display, {
             iconName: ch => session.iconName(ch),
             pictureUrl: id => session.pictureUrl(id),

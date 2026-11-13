@@ -160,7 +160,7 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
   const hideDropdown = (wrap) => {
     const dropdown = wrap?.querySelector(".haui-entity-dropdown");
     if (dropdown) {
-      dropdown.style.display = "none";
+      dropdown.hidden = true;
       dropdown.replaceChildren();
     }
     const input = wrap?.querySelector(".haui-entity-picker-input");
@@ -177,14 +177,14 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
     if (!dropdown) return;
     // Only show the dropdown when the input has focus
     if (!wrap?._entityFocused) {
-      dropdown.style.display = "none";
+      dropdown.hidden = true;
       return;
     }
     const query = ((rawValue ?? input.value) || "").toLowerCase();
     const found = matchEntities(entityList.entities(), query, wrap._entityDomain || "__all");
     fillEntityDropdown(dropdown, found);
     const any = found.total > 0;
-    dropdown.style.display = any ? "" : "none";
+    dropdown.hidden = !any;
     // The combobox state changes without a re-render, so sync the ARIA state
     // on the live elements rather than binding it in the template.
     if (input) {
@@ -277,7 +277,7 @@ export function renderEntityPicker({ id, value, label, hint, placeholder, hass, 
         id=${dropdownId}
         role="listbox"
         aria-labelledby=${label ? `${id}-label` : nothing}
-        style="display:none;"
+        hidden
         @mousedown=${(e) => {
           // One listener for every row: the rows are filled in by showMatches.
           e.preventDefault();

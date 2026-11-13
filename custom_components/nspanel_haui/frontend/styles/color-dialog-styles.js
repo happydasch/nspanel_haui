@@ -34,6 +34,7 @@ export const colorDialogStyles = css`
 
   /* ── live preview card ─────────────── */
   .haui-theme-preview-card {
+    background: var(--vp-theme-background);
     border-radius: var(--haui-radius-control);
     overflow: hidden;
     border: 1px solid var(--divider-color, #e0e0e0);
@@ -44,9 +45,12 @@ export const colorDialogStyles = css`
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
+    background: var(--vp-theme-header-background);
+    color: var(--vp-theme-header-text);
     font-weight: 600;
     font-size: var(--haui-text-label);
   }
+  .haui-theme-preview-hicons ha-icon { color: var(--vp-theme-icon-color); }
   .haui-theme-preview-title {
     flex: 1;
     min-width: 0;
@@ -72,6 +76,7 @@ export const colorDialogStyles = css`
     font-size: var(--haui-text-label);
     font-weight: 500;
   }
+  .haui-theme-preview-texts > span { color: var(--vp-theme-text-color); }
   .haui-theme-preview-comps {
     display: flex;
     align-items: center;
@@ -81,6 +86,8 @@ export const colorDialogStyles = css`
   .haui-theme-preview-btn {
     padding: 4px 12px;
     border-radius: var(--haui-radius-control);
+    background: var(--vp-theme-component-background);
+    color: var(--vp-theme-component-text);
     font-size: var(--haui-text-caption);
     font-weight: 600;
     white-space: nowrap;
@@ -92,6 +99,7 @@ export const colorDialogStyles = css`
     position: relative;
     margin: 0 4px;
     flex-shrink: 0;
+    background: var(--vp-theme-slider-background);
   }
   .haui-theme-preview-slider-hdl {
     position: absolute;
@@ -100,18 +108,21 @@ export const colorDialogStyles = css`
     width: 14px;
     height: 14px;
     border-radius: var(--haui-radius-round);
-    border: 2px solid;
+    border: 2px solid var(--vp-theme-slider-handle);
+    background: var(--vp-theme-slider-handle);
     box-sizing: border-box;
   }
   .haui-theme-preview-accent {
     --mdc-icon-size: 22px;
     margin-left: 4px;
+    color: var(--vp-theme-accent);
   }
   .haui-theme-preview-entities {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     font-size: var(--haui-text-caption);
+    color: var(--vp-theme-entity-text);
   }
   .haui-theme-preview-ent {
     display: inline-flex;
@@ -124,6 +135,7 @@ export const colorDialogStyles = css`
     border-radius: var(--haui-radius-round);
     display: inline-block;
     flex-shrink: 0;
+    background: var(--vp-theme-entity-color);
   }
 
   /* ── grouped swatch grid ───────────── */
@@ -143,6 +155,7 @@ export const colorDialogStyles = css`
   .haui-color-item:hover {
     background: var(--secondary-background-color, #f5f5f5);
   }
+  .haui-color-item .haui-color-swatch { background-color: var(--vp-color-swatch); }
   .haui-color-item.is-mod .haui-color-swatch {
     box-shadow: 0 0 0 2px var(--primary-color, #03a9f4);
   }

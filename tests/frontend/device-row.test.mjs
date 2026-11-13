@@ -31,10 +31,10 @@ test('a device row shows the connection icon of the device card in front of the 
   const online = row({ connected: true, device_info: { rssi: -50 } });
   assert.match(online, /haui-conn-status haui-conn-status-icon online/);
   assert.match(online, /Connected · -50 dBm/);
-  assert.match(online, /haui-wifi-strength-4/);
-  assert.ok(online.indexOf('haui-wifi-strength-4') < online.indexOf('Kitchen'));
-  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /haui-wifi-off/);
-  assert.match(row(null), /haui-wifi-strength-off-outline/);
+  assert.match(online, /mdi:wifi-strength-4/);
+  assert.ok(online.indexOf('mdi:wifi-strength-4') < online.indexOf('Kitchen'));
+  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /mdi:wifi-off/);
+  assert.match(row(null), /mdi:wifi-strength-off-outline/);
   assert.doesNotMatch(online, /haui-status-dot/);
   assert.match(online, /Actions for Kitchen/);
   assert.doesNotMatch(online, /Settings for Kitchen/);

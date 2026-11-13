@@ -48,6 +48,7 @@ export const colorPickerStyles = css`
   .haui-color-preview-swatch {
     width: 28px;
     height: 28px;
+    background-color: var(--vp-color-preview);
     border-radius: var(--haui-radius-control);
     flex-shrink: 0;
     box-shadow: var(--haui-shadow-card);
@@ -69,6 +70,7 @@ export const colorPickerStyles = css`
     background: var(--secondary-background-color, #f5f5f5);
   }
   .haui-color-preset-swatch {
+    background: var(--haui-color-preset);
     width: 22px;
     height: 22px;
     border-radius: var(--haui-radius-control);
@@ -83,6 +85,7 @@ export const colorPickerStyles = css`
     border-color: var(--primary-color, #03a9f4);
     z-index: 1;
   }
+  .haui-color-presets.is-recent > .haui-color-preset-label { margin-bottom: 4px; }
   .haui-color-preset-label {
     font-size: var(--haui-text-caption);
     color: var(--secondary-text-color, #666);
@@ -90,6 +93,8 @@ export const colorPickerStyles = css`
     width: 100%;
     padding-top: 4px;
   }
+
+  .haui-icon-preview-static { pointer-events: none; }
 
   /* ── color dialog swatches ───────── */
   .haui-color-swatch {
@@ -103,6 +108,12 @@ export const colorPickerStyles = css`
     border-radius: var(--haui-radius-control);
     box-shadow: 0 0 0 1px var(--divider-color, #e0e0e0), var(--haui-shadow-card);
     transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .haui-color-editor-swatch {
+    pointer-events: auto;
+    background-color: var(--haui-color-swatch);
+    border-radius: var(--haui-radius-control);
+    border: 1px solid var(--divider-color, #e0e0e0);
   }
   .haui-color-swatch:hover {
     transform: translateY(-1px);

@@ -17,9 +17,10 @@ function fact(label, value) {
 /**
  * Render health and update figures from device status; until the first status
  * arrives (`pending`) the values are placeholders.
- * @param {{ total: number, online: number, updates: number, version: string, pending?: boolean }} stats
+ * @param {{ total: number, online: number, updates: number, version: string, heading: unknown,
+ *   action?: unknown, pending?: boolean }} stats
  */
-export function fleetSummary({ total, online, updates, version, pending = false }) {
+export function fleetSummary({ total, online, updates, version, heading, action, pending = false }) {
   const value = (text) => (pending ? html`<span class="haui-stat-placeholder"></span>` : text);
   const tone = pending ? 'neutral' : online === total ? 'success' : online ? 'warning' : 'danger';
   const health = pending ? ''
@@ -32,13 +33,17 @@ export function fleetSummary({ total, online, updates, version, pending = false 
     <div class="haui-fleet-band-top">
       <span class="haui-fleet-orb">${icon('lan-connect')}</span>
       <div class="haui-fleet-lead">
-        <strong>${pending ? html`<span class="haui-stat-placeholder"></span>` : `${online} / ${total}`}</strong>
+        <div class="haui-fleet-lead-heading">
+          ${heading}
+          <strong>${pending ? html`<span class="haui-stat-placeholder"></span>` : `${online} / ${total}`}</strong>
+        </div>
         <span>${health}</span>
       </div>
       <dl class="haui-fleet-facts">
         ${fact(t('Updates'), value(String(updates)))}
         ${fact(t('Hub version'), value(version))}
       </dl>
+      ${action}
     </div>
   </section>`;
 }

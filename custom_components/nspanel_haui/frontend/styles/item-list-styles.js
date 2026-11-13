@@ -53,6 +53,12 @@ export const itemListStyles = css`
   }
   .haui-item-row-main:hover .haui-item-row-edit { opacity: 1; }
 
+  .haui-item-service-data {
+    min-height: 80px;
+    font-family: var(--haui-mono);
+    font-size: var(--haui-text-label);
+  }
+
   .haui-item-row-icon {
     flex-shrink: 0;
     display: inline-flex;
@@ -61,8 +67,8 @@ export const itemListStyles = css`
     width: 34px;
     height: 34px;
     border-radius: var(--haui-radius-control);
-    background: var(--secondary-background-color, #f5f5f5);
-    color: var(--primary-color, #03a9f4);
+    background: var(--haui-item-row-icon-background, var(--secondary-background-color, #f5f5f5));
+    color: var(--haui-item-row-icon-color, var(--primary-color, #03a9f4));
     --mdc-icon-size: 20px;
     position: relative;
   }

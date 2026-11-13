@@ -138,8 +138,8 @@ test('hovering a linked widget shows its entity; leaving or pressing hides it', 
   dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX: 100, clientY: 100 });
   assert.equal(dlg._hover.entityId, 'light.lamp');
   const placement = tooltipStyle(dlg);
-  assert.ok(placement.some((entry) => entry.startsWith('left:')));
-  assert.ok(placement.some((entry) => entry.startsWith('top:')));
+  assert.ok(placement.some((entry) => entry.startsWith('--vp-tooltip-left:')));
+  assert.ok(placement.some((entry) => entry.startsWith('--vp-tooltip-top:')));
   const tip = collect(dlg._renderTooltip()).join(' ');
   assert.match(tip, /Lamp/);
   assert.match(tip, /light\.lamp/);
@@ -163,8 +163,8 @@ test('near the right or bottom edge the tooltip chooses the available side', asy
   const { dlg } = makeWorkspace({ active: true });
   dlg._hover = { entityId: 'light.lamp', x: 800, y: 600, width: 900, height: 640 };
   const corner = tooltipStyle(dlg);
-  assert.ok(corner.some((entry) => entry.startsWith('right:')));
-  assert.ok(corner.some((entry) => entry.startsWith('bottom:')));
+  assert.ok(corner.some((entry) => entry.startsWith('--vp-tooltip-right:')));
+  assert.ok(corner.some((entry) => entry.startsWith('--vp-tooltip-bottom:')));
   dlg._hover = { entityId: 'light.lamp', x: 800, y: 100, width: 900, height: 640 };
-  assert.ok(tooltipStyle(dlg).some((entry) => entry.startsWith('right:')));
+  assert.ok(tooltipStyle(dlg).some((entry) => entry.startsWith('--vp-tooltip-right:')));
 });

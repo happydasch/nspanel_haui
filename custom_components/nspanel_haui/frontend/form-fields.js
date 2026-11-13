@@ -170,7 +170,7 @@ function renderColorOption(host, opt, id, val) {
       ${!hasTpl && val != null && val !== ""
         ? html`
             <div class="haui-color-preview-row">
-              <div class="haui-color-preview-swatch" style=${`background-color:${colorHex || "#888888"}`}></div>
+              <div class="haui-color-preview-swatch" style=${`--vp-color-preview:${colorHex || "#888888"}`}></div>
               <span class="haui-color-preview-label">${colorHex || t("no color")}</span>
             </div>`
         : ""}

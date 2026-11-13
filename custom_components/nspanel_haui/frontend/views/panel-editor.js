@@ -264,7 +264,7 @@ class PanelEditor extends HauiDialog {
           `}
 
           ${this.error
-            ? html`<ha-alert alert-type="error" style="margin-top:12px">${this.error}</ha-alert>`
+            ? html`<ha-alert class="haui-panel-editor-alert" alert-type="error">${this.error}</ha-alert>`
             : ""}
 
           </div>

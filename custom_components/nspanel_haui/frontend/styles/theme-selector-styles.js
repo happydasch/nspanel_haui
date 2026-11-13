@@ -36,7 +36,7 @@ export const themeSelectorStyles = css`
     border-radius: var(--haui-radius-control);
     pointer-events: none;
   }
-  .haui-theme-selector-chip i { display: block; }
+  .haui-theme-selector-chip i { display: block; background: var(--haui-theme-swatch-color); }
 
   /* Only the picker is that filled field; the selects inside the sidebar's
      collapsible sections keep the shared form look the other sidebars use. */

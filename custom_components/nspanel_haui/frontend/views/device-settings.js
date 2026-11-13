@@ -160,6 +160,7 @@ class DeviceSettings extends HauiDialog {
       padding: 16px;
       overscroll-behavior: contain;
     }
+    .haui-device-settings-snapshot-custom { margin-top: 8px; }
   `];
 
   constructor() {
@@ -415,7 +416,7 @@ class DeviceSettings extends HauiDialog {
                 })}
                 <div class="haui-field-hint">${t("Controls whether the panel you were on before the idle page is restored when waking. With Auto display-off, the display can still turn off and wake without any panel switch.")}</div>
                 ${snapMode === "custom" ? html`
-                  <div style="margin-top: 8px;">
+                  <div class="haui-device-settings-snapshot-custom">
                     ${renderNumberInput("dc-snapshot_max_age_custom", snapCustomVal, (raw) => {
                       const v = parseInt(raw, 10);
                       this._deviceConfigForm = {

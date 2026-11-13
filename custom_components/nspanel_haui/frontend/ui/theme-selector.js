@@ -68,7 +68,7 @@ export function themeSelector({
         <div class="haui-theme-selector-field">
           ${selected
             ? html`<span class="haui-theme-selector-chip" aria-hidden="true">
-                ${SWATCHES.map((key) => html`<i style="background:${rgb565ToHex(selected.colors[key])}"></i>`)}
+                ${SWATCHES.map((key) => html`<i style="--haui-theme-swatch-color:${rgb565ToHex(selected.colors[key])}"></i>`)}
               </span>`
             : nothing}
           <select

@@ -26,10 +26,9 @@ export function renderSimulatorScreen(display, opts = {}) {
   // The card behind the scaled screen takes the page's own solid colour (the
   // device theme the hub painted), so no black edge shows around a themed page.
   const page = display.component(0)?.attrs;
-  const theme = page?.sta === 1 && page.bco !== undefined ? `background:${color(page.bco)};` : '';
   return html`
-    <div class="haui-preview-sim" style="width:${width * scale}px;aspect-ratio:${width}/${height};${theme}">
-      <div class="haui-preview-sim-scaler" style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0;">
+    <div class="haui-preview-sim" style="--vp-preview-width:${width * scale}px;--vp-preview-aspect-ratio:${width}/${height};${page?.sta === 1 && page.bco !== undefined ? `--vp-preview-background:${color(page.bco)};` : ''}">
+      <div class="haui-preview-sim-scaler" style="--vp-preview-source-width:${width}px;--vp-preview-source-height:${height}px;--vp-preview-scale:${scale};">
         ${renderDisplay(display, opts)}
       </div>
     </div>`;

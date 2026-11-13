@@ -103,12 +103,10 @@ export function renderItemListRow(host, item, actions, drag = null) {
       : '';
   const itemColor = parseItemColor(item?.color);
   const itemBackColor = parseItemColor(item?.back_color);
-  const iconBgStyle = itemBackColor
-    ? `background-color:${itemBackColor};`
-    : '';
-  const iconColorStyle = itemColor
-    ? `color:${itemColor};`
-    : '';
+  const iconStyle = [
+    itemBackColor && `--haui-item-row-icon-background:${itemBackColor}`,
+    itemColor && `--haui-item-row-icon-color:${itemColor}`,
+  ].filter(Boolean).join(';');
   const clearDrop = (row) => row.classList.remove('is-drop-before', 'is-drop-after');
   // A row takes a drop only from another row of its own list.
   const takesDrop = () => draggedItem && draggedItem.list === drag.list && draggedItem.index !== drag.index;
@@ -156,8 +154,8 @@ export function renderItemListRow(host, item, actions, drag = null) {
           </span>`
         : ''}
       <button type="button" class="haui-item-row-main" title=${t("Edit")} @click=${actions.onEdit}>
-        <span class="haui-item-row-icon" style=${iconBgStyle || ''}>
-          <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
+        <span class="haui-item-row-icon" style=${iconStyle || nothing}>
+          <ha-icon icon=${icon}></ha-icon>
         </span>
         <span class="haui-item-row-text">
           <span class="haui-item-row-primary">
@@ -400,7 +398,8 @@ function renderItemColorEditor(host, { id, label, hint, value, getValue, setValu
       <label for=${id} title=${hint}>${label}</label>
       <div class="haui-field-row">
         <div class="input-preview-wrap">
-          <div class="haui-color-swatch input-preview" style=${`pointer-events:auto;background-color:${colorHex || "#888"};border-radius: var(--haui-radius-control);border:1px solid rgba(0,0,0,0.18);`}
+          <div class="haui-color-swatch haui-color-editor-swatch input-preview"
+            style=${`--haui-color-swatch:${colorHex || "#888"}`}
             title=${colorHex || t("no color")}
             @click=${(event) => event.currentTarget.querySelector("input[type=color]")?.click()}
           >
@@ -768,8 +767,7 @@ export function renderItemEditFields(host, descriptor) {
               <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
               <textarea
                 id="item-service_data"
-                class="haui-w-full"
-                style="min-height:80px;font-family:var(--haui-mono);font-size: var(--haui-text-label);"
+                class="haui-w-full haui-item-service-data"
                 .value=${(() => {
                   const sd = host._editingItem?.config?.service_data;
                   if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);

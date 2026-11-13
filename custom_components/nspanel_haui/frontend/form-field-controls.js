@@ -166,12 +166,12 @@ export function renderColorPresets(currentHex, onPick) {
   const showSaved = saved.length > 0;
   return html`
     ${showSaved ? html`
-      <div class="haui-color-presets">
-        <span class="haui-color-preset-label" style="margin-bottom:4px">${t("Recent")}</span>
+      <div class="haui-color-presets is-recent">
+        <span class="haui-color-preset-label">${t("Recent")}</span>
         ${saved.map(h => html`
           <div
             class="haui-color-preset-swatch"
-            style="background:${h}"
+            style="--haui-color-preset:${h}"
             title=${h}
             @click=${() => onPick(h)}
           ></div>
@@ -183,7 +183,7 @@ export function renderColorPresets(currentHex, onPick) {
       ${COLOR_PRESETS.map(h => html`
         <div
           class="haui-color-preset-swatch"
-          style="background:${h}"
+          style="--haui-color-preset:${h}"
           title=${h}
           @click=${() => onPick(h)}
         ></div>
@@ -449,7 +449,7 @@ export function renderIconPicker(id, value, api = null, onInput = null) {
     <div class="haui-icon-picker-wrap">
       <div class="haui-field-row">
       <div class="haui-input-preview-wrap">
-        <ha-icon class="haui-icon-preview haui-input-preview" style="pointer-events:none;"
+        <ha-icon class="haui-icon-preview haui-input-preview haui-icon-preview-static"
           icon=${currentVal && !currentVal.startsWith("{") && !currentVal.startsWith("[") ? currentVal : "mdi:puzzle"}
           title=${currentVal || t("no icon selected")}
         ></ha-icon>

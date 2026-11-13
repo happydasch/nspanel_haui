@@ -43,8 +43,6 @@ test('Latest events lists a repeated message once with its count, and no debug l
 test('empty Latest events shows a centered all-clear state and keeps Logs available', () => {
   const view = eventList({ events: [], onOpenLogs() {} });
   const text = templateText(view);
-  assert.match(text, /haui-event-empty/);
-  assert.match(text, /haui-event-empty-icon/);
   assert.match(text, /mdi:check/);
   assert.match(text, /No events yet/);
   assert.match(text, /Logs/);

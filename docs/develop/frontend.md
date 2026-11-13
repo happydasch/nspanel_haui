@@ -237,13 +237,24 @@ CSS variables and legacy aliases, rather than copying the prototype's full color
 | Token group | Target |
 |---|---|
 | Color | HA primary/text/secondary/disabled/surface/divider/error/warning/success tokens. Add a small `--haui-*` alias layer only for missing meanings (good/warn/bad soft fills, soft surface, strong border, screen/bezel gradient, live-preview tint), each with a fallback. Respect HA's active theme. |
-| Typography | HA body font; 10/12/13/14/16/20/22/24px scale; 400/500/600 weights; monospace for node, key, IP and versions. |
+| Typography | HA body font; 10/12/13/14/16/20/24px scale; 400/500/600 weights; monospace for node, key, IP and versions. `styles/tokens.js` defines `--haui-text-eyebrow`, `--haui-text-caption`, `--haui-text-label` (13px), `--haui-text-body`, `--haui-text-title`, `--haui-text-display` and `--haui-line-height`. |
 | Spacing | 4/8/12/16/20/24/28/32/40px; use measured prototype paddings for card, table, field and sidebar layouts. |
-| Radius | 8px controls/thumbs, 12px cards, pill for button/chip/toggle. |
-| Elevation | quiet card shadow; stronger popover/sidebar shadow; distinct screen shadow inside bezel. |
+| Radius | `--haui-radius-control` for 8px controls/thumbs, `--haui-card-radius` for 12px cards, `--haui-radius-pill` for pills and `--haui-radius-round` for dots. |
+| Elevation | `--haui-shadow-card` for cards; `--haui-shadow-overlay` for popovers/sidebars; device preview shadows remain distinct inside the bezel. |
 | Icon | Home Assistant `<ha-icon>` with MDI icon names, 18px default and 14–16px compact; existing HAUI brand icon for mark. Do not use prototype SVG `<use>` sprites across shadow roots. |
-| Motion | 150ms hover/color transitions; 240ms sidebar slide; disable/reduce motion for `prefers-reduced-motion`. |
-| Focus | Visible 2px primary-color outline with 2px offset. Never suppress keyboard focus. |
+| Motion | 120–150ms hover/color transitions; the scrim/sidebar entrance keeps its 140/180ms timing; pair motion with `prefers-reduced-motion`. |
+| Focus | `--haui-focus-ring` and `--haui-focus-offset`: visible 2px primary-color outline with 2px offset. Never suppress keyboard focus. |
+
+Typography utility classes in `styles.js` (`.haui-text-caption`, `.haui-text-label`, `.haui-text-body`,
+`.haui-text-title`, `.haui-text-display`, `.haui-eyebrow`, `.haui-text-mono`) keep repeated type
+choices consistent. `.haui-focusable` and the shared interactive-component rules use the same focus
+ring. Spacing aliases (`--haui-space-1` through `--haui-space-8` and `--haui-space-10`) map the
+measured spacing ladder onto HA's spacing variables where available.
+
+The `scripts/check_frontend_styles.py` guard checks the scale, raw colors, alias ownership, duplicate
+selectors, repeated style adoption, and reduced-motion overrides; `tests/test_frontend_styles.py` covers both valid styles and
+intentional violations. Run it directly with `python scripts/check_frontend_styles.py` when changing
+frontend CSS.
 
 Keep the existing `:host` container query (`styles.js`) as the responsive root because descendant
 container queries cannot reach outside the component's shadow tree. At approximately 1120px simplify
@@ -261,6 +272,9 @@ Components are Lit template renderers in `frontend/ui/` unless noted. They recei
 callbacks; they do not read the store or call APIs. `views/` composes them. This keeps component
 markup/styles reusable and makes all data effects testable through the store/API layer. Retain custom
 elements only for the editor shell, existing dialogs and simulator frame.
+Shared form renderers in `form-fields.js` (`renderField` and `renderToggleField`) keep labels, controls,
+hints, and toggle rows on the same markup contract across editor surfaces. `renderField` accepts a
+`className` for surface-specific layout and `extra` content for validation messages or supplemental copy.
 
 For each component below, the contract names its anatomy, variants, states, inputs, emitted actions,
 and accessibility behavior. Components are listed once; each surface above is assembled from these
@@ -360,10 +374,13 @@ The dashboard phases are implemented; the remaining dialog surfaces are listed b
 - `frontend/ui/` holds the render primitives and the data-driven Fleet/Device components. Views receive
   prepared data and callbacks; they never read the store or the API. `panel-utils.js` owns the panel
   grouping, move state and role markers.
-- `frontend/styles/tokens.js` defines the HA-backed `--haui-*` aliases, `styles/content.js` the shared
-  form/dialog content rules, and `styles/fleet-styles.js`, `styles/device-styles.js` and
-  `styles/panel-list-styles.js` the screen layout. Dialogs compose `dialogStyles` (tokens + component
-  rules + content); the shell composes `editorStyles` (the same plus the panel list and both screens).
+- `frontend/styles/tokens.js` is the single home for HA-backed `--haui-*` aliases and the measured
+  scale; `styles.js` composes shared tokens, primitives, panel pills, entries, form/dialog content
+  and per-screen fragments. `styles/content.js` is one fragment, not an aggregator. Device styles are
+  split between `styles/device-layout-styles.js` and `styles/device-panel-styles.js`; shared firmware
+  and preview rules live in `styles/firmware-styles.js` and `styles/preview-styles.js`. The shell uses
+  `editorStyles`, dialogs use `dialogStyles`, and the preview simulator composes the shared tokens and
+  virtual-panel styles. Element-local styles are reserved for layout specific to that element.
 - `frontend/app/router.js` parses/serializes the Fleet and Device hashes and binds history to the store.
 - Fleet: scroll-snap carousel of real home-panel covers with arrows that disable at the scroll extents, a
   summary that waits for the first status payload, the inventory (`Firmware`/`TFT` columns), latest events,

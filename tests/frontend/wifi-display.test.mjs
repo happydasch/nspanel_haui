@@ -42,11 +42,11 @@ test('device diagnostics preserve available readings and report malformed RSSI a
 
 test('RSSI display helpers map invalid values to unknown instead of offline or NaN', () => {
   for (const value of [null, undefined, '', 'bad-rssi', 'NaN', Number.NaN, Infinity]) {
-    assert.equal(rssiStrengthClass(value), 'wifi-unknown');
+    assert.equal(rssiStrengthClass(value), 'haui-wifi-unknown');
     assert.equal(rssiBarCount(value), 0);
     assert.equal(fmtRssi(value), 'Unknown');
   }
 
-  assert.equal(rssiStrengthClass(-54), 'wifi-good');
+  assert.equal(rssiStrengthClass(-54), 'haui-wifi-good');
   assert.equal(fmtRssi(-54), '-54 dBm');
 });

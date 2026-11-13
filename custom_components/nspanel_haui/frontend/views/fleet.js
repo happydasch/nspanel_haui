@@ -6,7 +6,8 @@ import { deviceRow } from '../ui/device-row.js';
 import { fleetBar, fleetSummary } from '../ui/fleet-summary.js';
 import { eventList, latestEvents } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
-import { button } from '../ui/button.js';
+import { button, iconButton } from '../ui/button.js';
+import { sectionHeading } from '../ui/surface.js';
 import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
 import { hasUpdateAvailable } from '../device-status.js';
 
@@ -101,9 +102,11 @@ export function renderFleetView(data) {
   const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
         <div class="haui-inventory-overview">
           <header>
-            <div class="haui-section-heading">
-              <h2 id="haui-inventory-heading">${t('Device inventory')}</h2>
-            </div>
+            ${sectionHeading({
+              title: t('Device inventory'),
+              className: 'haui-section-heading',
+              titleId: 'haui-inventory-heading',
+            })}
             ${data.onInstallUpdates && data.installable ? button({
               label: t('Install updates ({count})').replace('{count}', String(data.installable)),
               iconName: 'download',
@@ -136,10 +139,16 @@ export function renderFleetView(data) {
     <section class="haui-fleet-carousel-region" aria-label=${t('Your devices')}>
       ${cards.length ? html`<div class="haui-fleet-carousel-wrap">
         ${cards.length > 1 ? html`
-          <button type="button" class="haui-carousel-arrow is-left" aria-label=${t('Scroll devices left')}
-            ?disabled=${atStart} @click=${(event) => scrollCarousel(event, -1)}>‹</button>
-          <button type="button" class="haui-carousel-arrow is-right" aria-label=${t('Scroll devices right')}
-            ?disabled=${atEnd} @click=${(event) => scrollCarousel(event, 1)}>›</button>
+          ${iconButton({
+            label: t('Scroll devices left'), iconName: 'chevronLeft',
+            className: 'haui-carousel-arrow is-left', disabled: atStart,
+            onClick: (event) => scrollCarousel(event, -1),
+          })}
+          ${iconButton({
+            label: t('Scroll devices right'), iconName: 'chevronRight',
+            className: 'haui-carousel-arrow is-right', disabled: atEnd,
+            onClick: (event) => scrollCarousel(event, 1),
+          })}
         ` : ''}
         <div class="haui-fleet-carousel" @scroll=${onCarouselScroll}>${cards}</div>
       </div>`

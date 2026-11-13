@@ -28,7 +28,7 @@ export function deviceRow({ name, device, status, onOpen, onMenu, menuOpen = fal
       <div><button type="button" class="haui-device-row-name" @click=${onOpen}>${displayName}</button></div>
     </div>
     <span class="haui-device-row-ip" role="cell">${info.ip || t('Unknown')}</span>
-    <span class=${`haui-device-row-version ${versionMismatch ? 'has-mismatch' : ''}`} role="cell"
+    <span class=${`haui-device-row-version ${versionMismatch ? 'is-mismatch' : ''}`} role="cell"
       title=${versionMismatch ? t('Firmware version does not match the integration') : nothing}>
       <span>${versionLabel(info.yaml_version)}</span>
       ${versionMismatch ? badge(t('Mismatch'), 'danger', 'haui-device-row-mismatch') : nothing}

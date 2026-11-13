@@ -4,7 +4,7 @@ import { t } from '../localize.js';
 import { uptimeLabel, relativeTime } from './format.js';
 import { button, expandToggle } from './button.js';
 import { icon } from './icon.js';
-import { surface } from './surface.js';
+import { surface, sectionHeading } from './surface.js';
 import {
   connectionTiles, deviceDiagnostics, diagnosticsIcon, diagnosticsModel, diagnosticsSubtitle,
 } from './device-diagnostics.js';
@@ -69,7 +69,7 @@ export function deviceDetails({
     leading: connectionStatus({ info, status, tone, stateLabel, recency, stale }),
     actions: expandToggle(detailsExpanded, onToggleDetails),
     onToggle: onToggleDetails,
-    body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' stale' : ''}`}>${tiles}</div>${
+    body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' is-stale' : ''}`} data-stale=${stale ? 'true' : 'false'}>${tiles}</div>${
       button({ label: t('Updates'), iconName: 'update', onClick: onFirmware, className: 'haui-details-updates' })}` : undefined,
   })}${model ? surface({
     title: t('Diagnostics'),
@@ -105,9 +105,9 @@ export function deviceDetails({
  */
 function connectionIconName(status) {
   const bars = rssiBarCount(status?.device_info?.rssi);
-  return !status ? 'wifi-strength-off-outline'
-    : status.connected !== true ? 'wifi-off'
-      : bars ? `wifi-strength-${bars}` : 'wifi-strength-outline';
+  return !status ? 'haui-wifi-strength-off-outline'
+    : status.connected !== true ? 'haui-wifi-off'
+      : bars ? `haui-wifi-strength-${bars}` : 'haui-wifi-strength-outline';
 }
 
 /**
@@ -145,10 +145,12 @@ function connectionStatus({ info, status, tone, stateLabel, recency, stale }) {
       ${connectionIcon(status)}<span class="haui-conn-status-dot"></span>
     </button>
     <div class="haui-conn-card" id="haui-conn-card" role="tooltip">
-      <div class="haui-conn-card-head">
-        <span class="haui-conn-status-dot"></span>
-        <div><strong>${stateLabel}</strong>${recency ? html`<span>${recency}</span>` : nothing}</div>
-      </div>
+      ${sectionHeading({
+        title: stateLabel,
+        subtitle: recency,
+        leading: html`<span class="haui-conn-status-dot"></span>`,
+        className: 'haui-conn-card-head',
+      })}
       ${status ? html`<dl>${facts.map(([name, value]) => html`<div><dt>${name}</dt><dd>${value}</dd></div>`)}</dl>` : nothing}
       ${stale ? html`<p class="haui-details-stale">${t('These values were reported before the device disconnected.')}</p>` : nothing}
     </div>

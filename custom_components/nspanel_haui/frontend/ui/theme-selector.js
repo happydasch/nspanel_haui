@@ -63,7 +63,7 @@ export function themeSelector({
   };
   return html`
     <div class="haui-theme-selector">
-      <div class="form-group">
+      <div class="haui-field">
         <label for="haui-theme-select">${label}</label>
         <div class="haui-theme-selector-field">
           ${selected
@@ -73,7 +73,7 @@ export function themeSelector({
             : nothing}
           <select
             id="haui-theme-select"
-            class="native-select"
+            class="haui-select"
             .value=${selectedId}
             @change=${(event) => onSelect(event.target.value)}
           >
@@ -111,14 +111,14 @@ export function themeSelector({
           : nothing}
         <input type="file" accept="application/json,.json" hidden @change=${onImport} />
       </div>
-      ${notice ? html`<p class="config-section-intro" role="status">${notice}</p>` : nothing}
+      ${notice ? html`<p class="haui-config-section-intro" role="status">${notice}</p>` : nothing}
       ${nameAction
         ? html`
-            <div class="cp-theme-name">
+            <div class="haui-theme-name">
               <input
                 type="text"
                 maxlength="64"
-                class="native-input"
+                class="haui-input"
                 .value=${themeName}
                 @input=${(event) => onNameInput?.(event.target.value)}
                 aria-label=${t("Color theme name")}
@@ -128,7 +128,7 @@ export function themeSelector({
             </div>
           `
         : nothing}
-      ${error ? html`<p class="cp-theme-error" role="alert">${error}</p>` : nothing}
+      ${error ? html`<p class="haui-theme-error" role="alert">${error}</p>` : nothing}
     </div>
   `;
 }

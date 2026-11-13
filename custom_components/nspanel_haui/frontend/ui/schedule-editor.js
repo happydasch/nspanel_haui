@@ -70,7 +70,7 @@ export function scheduleEditor({
   };
   const boundary = (id, label, value, offset, fallbackTime, onChangeBoundary) => {
     const isSun = value === 'sunrise' || value === 'sunset';
-    return html`<div class="form-group">
+    return html`<div class="haui-field">
       <label for=${id}>${label}</label>
       <div class="haui-schedule-boundary">
         ${renderSelect(id, isSun ? value : 'time', [
@@ -82,10 +82,10 @@ export function scheduleEditor({
           const v = parseInt(raw, 10);
           onChangeBoundary(value, Number.isNaN(v) ? 0 : Math.max(-720, Math.min(v, 720)));
         }, { min: -720, max: 720, placeholder: t('Offset (min)') }) : html`<input
-          id=${`${id}_time`} type="time" class="native-input" .value=${String(value ?? '')}
+          id=${`${id}_time`} type="time" class="haui-input" .value=${String(value ?? '')}
           @input=${(event) => onChangeBoundary(event.target.value, 0)}>`}
       </div>
-      ${isSun ? html`<div class="field-hint">${t('Offset in minutes: negative is earlier, positive is later.')}</div>` : nothing}
+      ${isSun ? html`<div class="haui-field-hint">${t('Offset in minutes: negative is earlier, positive is later.')}</div>` : nothing}
     </div>`;
   };
   const body = (item, index) => {
@@ -95,7 +95,7 @@ export function scheduleEditor({
     /** @param {{ min: number, max: number, step?: string }} opts */
     const numberField = (name, label, value, opts) => {
       const { min, max, step } = opts;
-      return html`<div class="form-group">
+      return html`<div class="haui-field">
         <label for=${id(name)}>${label}</label>
         ${renderNumberInput(id(name), value, (raw) => setField(name, number(raw, min, max, step === 'any')), {
           min, max, step, placeholder: inherit(name),
@@ -116,21 +116,21 @@ export function scheduleEditor({
         ${numberField('duration_dimming', t('Dimming duration (s)'), item.duration_dimming,
           { min: 0, max: 5, step: 'any' })}
       </div>
-      <div class="checkbox-wrap">
-        <div class="checkbox-row">
+      <div class="haui-checkbox-wrap">
+        <div class="haui-checkbox-row">
           ${renderToggle(id('display_off'), Boolean(item.display_off), (checked) => setField('display_off', checked))}
           <label for=${id('display_off')}>${t('Screen off')}</label>
         </div>
-        <div class="field-hint">${t('Turn the display off after the display-off timeout. When off, the display stays on.')}</div>
+        <div class="haui-field-hint">${t('Turn the display off after the display-off timeout. When off, the display stays on.')}</div>
       </div>
       ${item.display_off ? numberField('timeout_display_off', t('Display-off timeout (s)'),
         item.timeout_display_off, { min: 0, max: 3600 }) : nothing}
-      <div class="checkbox-wrap">
-        <div class="checkbox-row">
+      <div class="haui-checkbox-wrap">
+        <div class="haui-checkbox-row">
           ${renderToggle(id('sound'), Boolean(item.sound), (checked) => setField('sound', checked))}
           <label for=${id('sound')}>${t('Notification sound')}</label>
         </div>
-        <div class="field-hint">${t('When off, no sounds are played and a notification does not wake the display.')}</div>
+        <div class="haui-field-hint">${t('When off, no sounds are played and a notification does not wake the display.')}</div>
       </div>`;
   };
   return entryList({

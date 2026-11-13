@@ -33,7 +33,7 @@ test('panel search reports the entered query to its caller', () => {
 test('the catalog toolbar labels its search by placeholder and introduces the sections', () => {
   const root = catalog({ panelTypes: [] });
   assert.equal(root.querySelector('.haui-panel-catalog-search-label'), null);
-  const intro = root.querySelector('.haui-panel-catalog > .config-section-intro');
+  const intro = root.querySelector('.haui-panel-catalog > .haui-config-section-intro');
   assert.ok(intro, 'the catalog shows its intro text');
   assert.match(intro.textContent, /panel type/);
 });

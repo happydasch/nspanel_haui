@@ -2,167 +2,167 @@
  * NSPanel HAUI - Theme color editor CSS.
  *
  * Reusable styles for the theme sidebar: live preview card
- * (.cp-pv-*), grouped swatch grid (.cp-group / .cp-item), the name editor and
+ * (.haui-theme-preview-*), grouped swatch grid (.haui-theme-color-group / .haui-color-item), the name editor and
  * the footer change counter.  Shared by dialogs/theme.js and available to any
  * other component that renders inline color swatches inside a section-based
  * dialog.
  *
- * This module does NOT include the swatch itself (.cp-sw / .cp-sw.round) —
- * those live in color-picker-styles.js so they can be shared with form-fields.js.
+ * This module does NOT include the swatch itself (.haui-color-swatch / .haui-color-swatch.round) —
+ * those live in haui-color-picker-styles.js so they can be shared with form-fields.js.
  */
 import { css } from '../lit-import.js';
 
 export const colorDialogStyles = css`
 
-  .cp-theme {
+  .haui-theme-field {
     margin: 12px 0 16px;
   }
-  .cp-theme label {
+  .haui-theme-field label {
     display: block;
     margin-bottom: 4px;
     font-weight: 500;
-    font-size: 0.92em;
+    font-size: var(--haui-text-label);
   }
-  .cp-theme select {
+  .haui-theme-field select {
     max-width: 320px;
   }
   /* ── footer change counter ─────────── */
-  .footer-changed {
-    font-size: 0.85em;
+  .haui-footer-changed {
+    font-size: var(--haui-text-caption);
     color: var(--secondary-text-color, #666);
   }
 
   /* ── live preview card ─────────────── */
-  .cp-pv-card {
-    border-radius: 10px;
+  .haui-theme-preview-card {
+    border-radius: var(--haui-radius-control);
     overflow: hidden;
     border: 1px solid var(--divider-color, #e0e0e0);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--haui-shadow-card);
   }
-  .cp-pv-header {
+  .haui-theme-preview-header {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
     font-weight: 600;
-    font-size: 0.95em;
+    font-size: var(--haui-text-label);
   }
-  .cp-pv-title {
+  .haui-theme-preview-title {
     flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cp-pv-hicons {
+  .haui-theme-preview-hicons {
     display: inline-flex;
-    gap: 6px;
+    gap: 4px;
     --mdc-icon-size: 18px;
   }
-  .cp-pv-body {
+  .haui-theme-preview-body {
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
-  .cp-pv-texts {
+  .haui-theme-preview-texts {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
-    font-size: 0.95em;
+    gap: 12px;
+    font-size: var(--haui-text-label);
     font-weight: 500;
   }
-  .cp-pv-comps {
+  .haui-theme-preview-comps {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
   }
-  .cp-pv-btn {
-    padding: 5px 14px;
-    border-radius: 7px;
-    font-size: 0.85em;
+  .haui-theme-preview-btn {
+    padding: 4px 12px;
+    border-radius: var(--haui-radius-control);
+    font-size: var(--haui-text-caption);
     font-weight: 600;
     white-space: nowrap;
   }
-  .cp-pv-slider {
+  .haui-theme-preview-slider {
     width: 48px;
     height: 6px;
-    border-radius: 3px;
+    border-radius: var(--haui-radius-control);
     position: relative;
-    margin: 0 2px;
+    margin: 0 4px;
     flex-shrink: 0;
   }
-  .cp-pv-slider-hdl {
+  .haui-theme-preview-slider-hdl {
     position: absolute;
     top: -5px;
     right: -2px;
     width: 14px;
     height: 14px;
-    border-radius: 50%;
+    border-radius: var(--haui-radius-round);
     border: 2px solid;
     box-sizing: border-box;
   }
-  .cp-pv-accent {
+  .haui-theme-preview-accent {
     --mdc-icon-size: 22px;
-    margin-left: 2px;
+    margin-left: 4px;
   }
-  .cp-pv-entities {
+  .haui-theme-preview-entities {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
-    font-size: 0.85em;
+    gap: 12px;
+    font-size: var(--haui-text-caption);
   }
-  .cp-pv-ent {
+  .haui-theme-preview-ent {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
-  .cp-pv-ent i {
+  .haui-theme-preview-ent i {
     width: 11px;
     height: 11px;
-    border-radius: 50%;
+    border-radius: var(--haui-radius-round);
     display: inline-block;
     flex-shrink: 0;
   }
 
   /* ── grouped swatch grid ───────────── */
-  .cp-items {
+  .haui-color-items {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 6px;
+    gap: 4px;
   }
-  .cp-item {
+  .haui-color-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 5px 8px 5px 6px;
-    border-radius: 8px;
-    transition: background 0.12s;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+    border-radius: var(--haui-radius-control);
+    transition: background 120ms;
   }
-  .cp-item:hover {
+  .haui-color-item:hover {
     background: var(--secondary-background-color, #f5f5f5);
   }
-  .cp-item.is-mod .cp-sw {
+  .haui-color-item.is-mod .haui-color-swatch {
     box-shadow: 0 0 0 2px var(--primary-color, #03a9f4);
   }
-  .cp-name {
+  .haui-color-name {
     flex: 1;
     min-width: 0;
-    font-size: 0.86em;
+    font-size: var(--haui-text-caption);
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cp-reset {
+  .haui-color-reset {
     flex-shrink: 0;
     --mdc-icon-button-size: 26px;
     --mdc-icon-size: 15px;
-    color: var(--secondary-text-color, #888);
+    color: var(--secondary-text-color, #666);
   }
 
-  .cp-theme-name {
+  .haui-theme-name {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -170,20 +170,21 @@ export const colorDialogStyles = css`
     margin: 8px 0;
   }
 
-  .cp-theme-name input {
+  .haui-theme-name input {
     min-width: 180px;
     flex: 1;
     padding: 8px;
   }
 
-  .cp-theme-error {
-    color: var(--error-color, #b00020);
+  .haui-theme-error {
+    color: var(--error-color, #db4437);
   }
 
-  .cp-reset-overrides {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin: 8px 0 14px;
+  @media (prefers-reduced-motion: reduce) {
+    :host *, :host *::before, :host *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
   }
 `;

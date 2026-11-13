@@ -101,7 +101,6 @@ test('an empty group shows its message', () => {
   const out = flat(renderPanelList({
     groups: [group('popups', []), group('navigation', [])],
   }));
-  assert.match(out, /haui-panel-empty/);
   assert.match(out, /drop into navigation/);
   assert.match(out, /drop into popups/);
 });

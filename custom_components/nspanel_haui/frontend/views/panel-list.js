@@ -4,6 +4,8 @@ import { t } from '../localize.js';
 import { panelRow } from '../ui/panel-row.js';
 import { panelThumb } from '../ui/panel-thumb.js';
 import { iconButton } from '../ui/button.js';
+import { sectionHeading } from '../ui/surface.js';
+import { emptyState } from '../ui/empty-state.js';
 import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
 
 /**
@@ -91,7 +93,7 @@ export function renderPanelList({
   onSelect = () => {}, onDrop = () => {},
 }) {
   return html`<section class="haui-panel-groups" aria-label=${t('Panels')}>
-    ${groups.length || !emptyMessage ? nothing : html`<p class="haui-panel-empty">${emptyMessage}</p>`}
+    ${groups.length || !emptyMessage ? nothing : emptyState({ message: emptyMessage, iconName: null, className: 'haui-empty-state-compact' })}
     ${groups.map((group) => html`<section class="haui-panel-group" data-panel-group=${group.id}
       aria-labelledby=${`haui-panel-group-${group.id}`}
       @dragover=${group.dropEnabled ? overGroup : nothing}
@@ -103,19 +105,21 @@ export function renderPanelList({
         const sourceKey = event.dataTransfer?.getData('text/plain');
         if (sourceKey) onDrop({ sourceKey, group: group.id, beforeKey: null });
       } : nothing}>
-      <header class="haui-panel-group-heading">
-        <div class="haui-panel-group-title">
-          ${iconButton({
+      <header>
+        ${sectionHeading({
+          title: group.title,
+          titleId: `haui-panel-group-${group.id}`,
+          className: 'haui-panel-group-heading',
+          leading: iconButton({
             label: group.collapsed ? t('Show more') : t('Show less'),
             iconName: group.collapsed ? 'mdi:chevron-right' : 'mdi:chevron-down',
             className: 'haui-panel-group-toggle',
             expanded: group.collapsed !== true,
             controls: `haui-panel-list-${group.id}`,
             onClick: () => onToggleGroup(group.id),
-          })}
-          <strong id=${`haui-panel-group-${group.id}`}>${group.title}</strong>
-        </div>
-        <span>${group.hint}</span>
+          }),
+          badge: html`<span>${group.hint}</span>`,
+        })}
       </header>
       <div class="haui-panel-list" id=${`haui-panel-list-${group.id}`} ?hidden=${group.collapsed === true}>
         ${group.entries.map((entry, position) => {
@@ -155,7 +159,7 @@ export function renderPanelList({
               : null,
           });
         })}
-        ${group.entries.length ? nothing : html`<p class="haui-panel-empty">${group.emptyMessage}</p>`}
+        ${group.entries.length ? nothing : emptyState({ message: group.emptyMessage, iconName: null, className: 'haui-empty-state-compact' })}
       </div>
     </section>`)}
   </section>`;

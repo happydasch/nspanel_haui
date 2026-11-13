@@ -1,6 +1,6 @@
 /**
- * NSPanel HAUI - toast helpers.
- * Show and render the editor toast message.
+ * NSPanel HAUI - haui-toast helpers.
+ * Show and render the editor haui-toast message.
  */
 
 import { html } from './lit-import.js';
@@ -22,8 +22,8 @@ export function renderToast(host) {
   if (!host._toast) return "";
   const { message, type } = host._toast;
   host.updateComplete.then(() => {
-    const toast = host.renderRoot.querySelector(".toast[popover]");
-    if (toast && !toast.matches(":popover-open")) toast.showPopover();
+    const toastElement = host.renderRoot.querySelector(".haui-toast[popover]");
+    if (toastElement && !toastElement.matches(":popover-open")) toastElement.showPopover();
   });
-  return html`<div class="toast ${type}" popover="manual">${message}</div>`;
+  return html`<div class="haui-toast ${type}" popover="manual">${message}</div>`;
 }

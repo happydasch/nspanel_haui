@@ -41,7 +41,7 @@ export function iconButton({
  */
 export function addButton({ label, onClick, disabled = false, id = null, className = '' }) {
   return html`<button type="button" id=${id ?? nothing}
-    class=${`add-item-btn ${className}`.trim()} ?disabled=${disabled}
+    class=${`haui-item-add-button ${className}`.trim()} ?disabled=${disabled}
     @click=${onClick || nothing}>+ ${label}</button>`;
 }
 

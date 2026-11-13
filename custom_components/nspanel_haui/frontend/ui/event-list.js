@@ -3,6 +3,9 @@ import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { relativeTime } from './format.js';
 import { icon } from './icon.js';
+import { button } from './button.js';
+import { emptyState } from './empty-state.js';
+import { sectionHeading } from './surface.js';
 
 /** Parse a hub log record without assuming it has a timestamp or level. */
 export function parseEvent(line) {
@@ -59,14 +62,19 @@ const LEVEL_ICONS = Object.freeze({
 /** @param {{ events: Array<{ line: string, deviceName?: string, count?: number }>, deviceName?: string, onOpenLogs?: () => void }} data */
 export function eventList({ events, deviceName, onOpenLogs }) {
   return html`<section class="haui-event-list">
-    <header><div class="haui-section-heading"><h2>${t('Latest events')}</h2>
-      ${events.length ? html`<span class="haui-section-count">${events.length}</span>` : nothing}</div>
-      ${onOpenLogs ? html`<button type="button" @click=${onOpenLogs}>${t('Logs')}</button>` : nothing}
+    <header>${sectionHeading({
+      title: t('Latest events'),
+      className: 'haui-section-heading',
+      badge: events.length ? html`<span class="haui-section-count">${events.length}</span>` : nothing,
+    })}
+      ${onOpenLogs ? button({
+        label: t('Logs'), variant: 'quiet', className: 'haui-event-logs', onClick: onOpenLogs,
+      }) : nothing}
     </header>
     ${events.length ? html`<ol>
       ${events.map((event) => {
         const parsed = parseEvent(event.line);
-        const level = parsed.level === 'warn' ? 'warning' : parsed.level;
+        const level = parsed.level === 'warning' ? 'warn' : parsed.level;
         const device = event.deviceName || deviceName || '';
         const count = event.count || 1;
         // An exception's traceback belongs in Logs; the timeline keeps its first line.
@@ -79,9 +87,6 @@ export function eventList({ events, deviceName, onOpenLogs }) {
               : nothing}</div></div>
         </li>`;
       })}
-    </ol>` : html`<div class="haui-event-empty">
-      <span class="haui-event-empty-icon">${icon('check')}</span>
-      <span>${t('No events yet')}</span>
-    </div>`}
+    </ol>` : emptyState({ title: t('No events yet'), iconName: 'check', className: 'haui-empty-state-horizontal' })}
   </section>`;
 }

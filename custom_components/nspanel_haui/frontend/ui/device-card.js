@@ -11,10 +11,10 @@ import { deviceConnectionState } from '../device-status.js';
  * @param {{ name: string, device: any, status: any, preview?: any, updates?: boolean, disabled?: boolean, dragging?: boolean, dropTarget?: boolean, onSelect: () => void, onDragStart?: (event: DragEvent) => void, onDragEnd?: () => void, onDragOver?: (event: DragEvent) => void, onDragLeave?: (event: DragEvent) => void, onDrop?: (event: DragEvent) => void }} data
  */
 export function deviceCard({ name, device, status, preview, updates = false, disabled = false, dragging = false, dropTarget = false, onSelect, onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop }) {
-  const orientation = isPortraitModel(device.config?.display_model) ? 'portrait' : 'landscape';
+  const portrait = isPortraitModel(device.config?.display_model);
   const { tone, label: stateLabel } = deviceConnectionState(status);
   const displayName = device.friendlyName || name;
-  return html`<article class=${`haui-device-card ${orientation} ${dragging ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''}`}
+  return html`<article class=${`haui-device-card ${portrait ? 'is-portrait' : ''} ${dragging ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''}`}
     @dragover=${onDragOver ?? nothing} @dragleave=${onDragLeave ?? nothing} @drop=${onDrop ?? nothing}>
     <div class="haui-device-card-cover">
       <button type="button" class="haui-device-card-select" aria-label=${t('Open device {name}').replace('{name}', displayName)} @click=${onSelect}>

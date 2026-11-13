@@ -6,7 +6,7 @@ import { deviceConnectionState } from '../device-status.js';
 
 /** The connection tone of one device, as the summary strip paints it. */
 function deviceTone(status) {
-  return deviceConnectionState(status).tone;
+  return `is-${deviceConnectionState(status).tone}`;
 }
 
 /** A labelled figure on the strip's right: updates pending, hub version. */

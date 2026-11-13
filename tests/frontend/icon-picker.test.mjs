@@ -43,12 +43,12 @@ class FakeElement {
 globalThis.document.createElement = (tag) => new FakeElement(tag);
 
 function pickerWrap() {
-  const wrap = new FakeElement('div', 'icon-picker-wrap');
-  const input = new FakeElement('input', 'native-input icon-picker-input');
+  const wrap = new FakeElement('div', 'haui-icon-picker-wrap');
+  const input = new FakeElement('input', 'haui-input haui-icon-picker-input');
   input.id = 'fld-icon';
   input.value = '';
-  wrap.append(input, new FakeElement('ha-icon', 'icon-preview'), new FakeElement('div', 'icon-dropdown'));
-  return { wrap, input, dropdown: wrap.querySelector('.icon-dropdown') };
+  wrap.append(input, new FakeElement('ha-icon', 'haui-icon-preview'), new FakeElement('div', 'haui-icon-dropdown'));
+  return { wrap, input, dropdown: wrap.querySelector('.haui-icon-dropdown') };
 }
 
 // "weather-sunny" sorts far past the first 200 names, which is where the old list ended.

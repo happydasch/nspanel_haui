@@ -20,7 +20,7 @@ function renderMenuButton(host) {
   if (!host.narrow) return "";
   return html`
     <ha-icon-button
-      class="menu-toggle-btn"
+      class="haui-toolbar-menu-toggle"
       label=${t('Toggle sidebar')}
       @click=${() => host.dispatchEvent(
         new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true })
@@ -36,23 +36,23 @@ function renderMenuButton(host) {
  */
 export function renderTitleHeader(host) {
   return html`
-    <div class="toolbar-header">
+    <div class="haui-toolbar-header">
       ${renderMenuButton(host)}
-      <div class="toolbar-brand">
-        <span class="toolbar-title">${t('NSPanel HAUI')}</span>
-        <span class="toolbar-context">${host._route?.view === 'device'
+      <div class="haui-toolbar-brand">
+        <span class="haui-toolbar-title">${t('NSPanel HAUI')}</span>
+        <span class="haui-toolbar-context">${host._route?.view === 'device'
           ? host._panels?.devices?.[host._route.device]?.friendly_name || host._route.device
           : t('Dashboard')}</span>
       </div>
       ${host.entryId ? html`<ha-icon-button
-        class="notifications-button"
+        class="haui-toolbar-notifications-button"
         label=${t('Notifications')}
         title=${t('Notifications')}
         data-overlay-anchor=${overlayAnchor('notification-centre')}
         @click=${() => host._openNotifications()}
       >
         <ha-icon icon="mdi:bell-outline"></ha-icon>
-        ${host._notifications?.length ? html`<span class="notification-count">${host._notifications.length}</span>` : ''}
+        ${host._notifications?.length ? html`<span class="haui-toolbar-notification-count">${host._notifications.length}</span>` : ''}
       </ha-icon-button>` : ''}
     </div>
   `;

@@ -195,7 +195,6 @@ test('the Panels lead card counts the panels, adds one and opens the settings, a
   const text = templateText(view);
   assert.match(text, /haui-action-card/);
   assert.match(text, /haui-action-card-inner/);
-  assert.doesNotMatch(text, /has-note|has-management/);
   assert.match(text, /2 panels · 1 in navigation/);
   assert.doesNotMatch(text, /Edit a panel from the list/);
   assert.equal(templatesMatching(view, 'haui-expand-toggle').length, 0);

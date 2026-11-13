@@ -55,7 +55,7 @@ export async function saveTheme(host, detail) {
   }
   host._themeId = config.theme_id;
 
-  // savePanels shows the success or error toast; keep the sidebar open on failure.
+  // savePanels shows the success or error haui-toast; keep the sidebar open on failure.
   const message = detail.resetPanelColors
     ? t("Theme applied and panel color overrides reset")
     : t("Theme applied");

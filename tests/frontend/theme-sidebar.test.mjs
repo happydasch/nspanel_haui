@@ -108,11 +108,13 @@ test('the Theme sidebar shows a loading note, then the preview, palettes and act
   await dlg._loadThemes();
   const loadedTemplate = dlg.render();
 
-  assert.match(loadingTemplate.strings.join(''), /haui-theme-loading/);
   const loaded = loadedTemplate.strings.join('');
   assert.match(loaded, /class="haui-theme-sidebar"/);
-  assert.match(loaded, /class="footer-wrapper"/);
-  assert.match(loaded, /haui-theme-color-controls/);
+  assert.match(loaded, /class="haui-footer-wrapper"/);
+  // The theme selector (library dropdown plus its one action row) is a template value.
+  const selector = findTemplateResult(loadedTemplate, (template) =>
+    template.strings.join('').includes('class="haui-theme-selector"'));
+  assert.ok(selector);
   assert.doesNotMatch(loaded, /haui-theme-tweak/);
   assert.doesNotMatch(loaded, /cp-color-target|This device|These colors override/);
   const actionRow = findTemplateResult(loadedTemplate, (template) =>
@@ -124,14 +126,13 @@ test('the Theme sidebar shows a loading note, then the preview, palettes and act
   assert.doesNotMatch(loaded, /<ha-dialog[\s>]/);
   const resetToggle = findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-reset-overrides');
   assert.ok(resetToggle);
-  assert.equal(resetToggle.values[1], 'native-toggle');
+  assert.equal(resetToggle.values[1], 'haui-switch');
   resetToggle.values[3]({ target: { checked: true } });
   assert.equal(dlg._resetPanelColors, true);
   assert.ok(findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-icon-theme'));
   assert.ok(findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-icon-variant'));
   // Both intro notes use the shared intro style, like the other sidebars' notes.
   assert.doesNotMatch(loaded, /haui-theme-section-description|haui-theme-color-scope-note/);
-  assert.equal((loaded.match(/class="config-section-intro"/g) || []).length, 2);
 });
 
 

@@ -97,19 +97,19 @@ function scheduleOption({
     if (!saving) onScheduleChange?.({ ...scheduleConfig, ...fields, schedule });
   };
   const baseNumber = (id, key, label, hint, min, max, float = false) => html`
-    <div class="form-group">
+    <div class="haui-field">
       <label for=${id}>${label}</label>
       ${renderNumberInput(id, scheduleConfig[key], (raw) => {
         const value = float ? parseFloat(raw) : parseInt(raw, 10);
         const next = Number.isNaN(value) ? min : Math.max(min, Math.min(value, max));
         changeSchedule(scheduleConfig.schedule, { [key]: next });
       }, { min, max, ...(float ? { step: 'any' } : {}) })}
-      <div class="field-hint">${hint}</div>
+      <div class="haui-field-hint">${hint}</div>
     </div>`;
   const baseBrightness = (id, key, label, hint) => {
     // What the panel itself uses, for the brightness no hub setting fixes.
     const panel = deviceBrightness[key === 'brightness' ? 'full' : 'dimmed'];
-    return html`<div class="form-group">
+    return html`<div class="haui-field">
       <label for=${id}>${label}</label>
       ${renderNumberInput(id, scheduleConfig[key], (raw) => {
         const value = parseInt(raw, 10);
@@ -121,11 +121,11 @@ function scheduleOption({
           ? undefined
           : t('Panel: {value}').replace('{value}', String(panel)),
       })}
-      <div class="field-hint">${hint}</div>
+      <div class="haui-field-hint">${hint}</div>
     </div>`;
   };
   const body = html`
-    <p class="config-section-intro">${t('Set display behavior by time of day. Choose fixed times or sunrise and sunset, and leave entry values empty to inherit the settings above.')}</p>
+    <p class="haui-config-section-intro">${t('Set display behavior by time of day. Choose fixed times or sunrise and sunset, and leave entry values empty to inherit the settings above.')}</p>
     <div class="haui-field-pair">
       ${baseBrightness('panel-schedule-base-brightness', 'brightness', t('Brightness full (%)'),
         t("Brightness outside the schedule's entries."))}
@@ -138,23 +138,23 @@ function scheduleOption({
       ${baseNumber('panel-schedule-base-duration_dimming', 'duration_dimming', t('Dimming duration (s)'),
         t("Dimming duration outside the schedule's entries."), 0, 5, true)}
     </div>
-    <div class="checkbox-wrap">
-      <div class="checkbox-row">
+    <div class="haui-checkbox-wrap">
+      <div class="haui-checkbox-row">
         ${renderToggle('panel-schedule-base-use_auto_display_off', Boolean(scheduleConfig.use_auto_display_off), (checked) =>
           changeSchedule(scheduleConfig.schedule, { use_auto_display_off: checked }))}
         <label for="panel-schedule-base-use_auto_display_off">${t('Screen off')}</label>
       </div>
-      <div class="field-hint">${t("Turn the display off after the display-off timeout outside the schedule's entries. When off, the display stays on.")}</div>
+      <div class="haui-field-hint">${t("Turn the display off after the display-off timeout outside the schedule's entries. When off, the display stays on.")}</div>
     </div>
     ${baseNumber('panel-schedule-base-timeout_display_off', 'timeout_display_off', t('Display-off timeout (s)'),
       t("Display-off timeout outside the schedule's entries."), 0, 3600)}
-    <div class="checkbox-wrap">
-      <div class="checkbox-row">
+    <div class="haui-checkbox-wrap">
+      <div class="haui-checkbox-row">
         ${renderToggle('panel-schedule-base-sound_on_notification', Boolean(scheduleConfig.sound_on_notification), (checked) =>
           changeSchedule(scheduleConfig.schedule, { sound_on_notification: checked }))}
         <label for="panel-schedule-base-sound_on_notification">${t('Notification sound')}</label>
       </div>
-      <div class="field-hint">${t("Play sounds for notifications outside the schedule's entries.")}</div>
+      <div class="haui-field-hint">${t("Play sounds for notifications outside the schedule's entries.")}</div>
     </div>
     ${scheduleEditor({
       schedule: scheduleConfig.schedule,
@@ -202,7 +202,7 @@ function gestureOption({
     if (!saving) onGestureChange?.({ ...gestureConfig, ...fields, gestures });
   };
   const body = html`
-    <p class="config-section-intro">${t('Define swipe gestures to move between panels or open a specific panel. Multi-swipe gestures must be completed within their time limit.')}</p>
+    <p class="haui-config-section-intro">${t('Define swipe gestures to move between panels or open a specific panel. Multi-swipe gestures must be completed within their time limit.')}</p>
     ${gestureEditor({
       gestures: gestureConfig.gestures,
       panels,

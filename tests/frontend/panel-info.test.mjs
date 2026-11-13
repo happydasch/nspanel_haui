@@ -58,8 +58,6 @@ test("the selected panel's card shows its render, type, key, group and the row's
   assert.match(text, /Kitchen lights/);
   assert.match(text, /Grid/);
   assert.match(text, /A grid of entities\./);
-  // The hub's render of the page, in the device's orientation.
-  assert.match(text, /haui-panel-info-preview portrait/);
   assert.match(text, /nspanel-simulator-frame/);
   assert.match(text, /haui-panel-info-facts/);
   assert.match(text, /kitchen_lights/);

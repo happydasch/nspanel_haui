@@ -49,7 +49,7 @@ import { icon } from './icon.js';
  *   expanded?: boolean, onToggle?: (() => void)|null }} options
  */
 function previewBlock({ preview = nothing, portrait = false, description = '', expanded = true, onToggle = null }) {
-  const size = `${portrait ? ' portrait' : ''}${expanded ? '' : ' is-small'}`;
+  const size = `${portrait ? ' is-portrait' : ''}${expanded ? '' : ' is-small'}`;
   const label = expanded ? t('Show the panel preview small') : t('Show the panel preview large');
   const render = preview === nothing
     ? nothing
@@ -160,7 +160,7 @@ function panelsOverview({
             ?disabled=${!role.panelKey || !onSelectPanel}
             @click=${role.panelKey && onSelectPanel ? () => onSelectPanel(role.panelKey) : null}>
             <span class="haui-panels-overview-role-heading">
-              <span class="haui-panel-role haui-panels-overview-role-icon ${role.key}">${icon(role.iconName)}</span>
+              <span class=${`haui-panel-role haui-panels-overview-role-icon haui-panel-role-${role.key}`}>${icon(role.iconName)}</span>
               <span class="haui-panels-overview-role-label">${role.label}</span>
             </span>
             <span class="haui-panels-overview-role-value">${role.value}</span>

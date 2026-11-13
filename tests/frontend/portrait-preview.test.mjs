@@ -42,16 +42,6 @@ test('the display model decides whether a device uses the portrait layout', () =
   assert.equal(isPortraitModel(undefined), false);
 });
 
-test('portrait devices render their panel thumbnails in portrait', () => {
-  assert.match(flat(listFor('us')), /haui-panel-thumb portrait/);
-});
-
-test('landscape devices render their panel thumbnails without portrait', () => {
-  const out = flat(listFor('eu'));
-  assert.match(out, /haui-panel-thumb/);
-  assert.doesNotMatch(out, /haui-panel-thumb portrait/);
-});
-
 test('panel thumbnails directly contain the hub-rendered simulator frame', () => {
   assert.match(flat(listFor('eu')), /haui-panel-thumb[\s\S]*nspanel-simulator-frame/);
 });

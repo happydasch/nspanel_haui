@@ -145,7 +145,7 @@ test('the panel editor names the field that cannot be saved and blocks the save'
   assert.match(editorWith({ type: 'grid', key: 'grid_0', unlock_code: '12a4' })._fieldErrors().get('fld-unlock-code'), /digits/);
 
   const markup = collect(taken.render()).join(' ');
-  assert.match(markup, /haui-field-error/);
+  assert.match(markup, /role="alert"/);
   const events = [];
   taken._emit = (name) => events.push(name);
   taken._dispatchSave();

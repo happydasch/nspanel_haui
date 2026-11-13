@@ -10,6 +10,7 @@
  */
 import { isPortraitModel } from '../constants.js';
 import { LitElement, html, css } from '../lit-import.js';
+import { dashboardTokens } from '../styles/tokens.js';
 import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 import { buildPreviewDisplay, lastPanelRender, loadPanelRender, previewRenderKey } from './previewer.js';
 import {
@@ -67,41 +68,39 @@ export class SimulatorFrameElement extends LitElement {
   }
 
   static get styles() {
-    return [virtualPanelStyles, css`
+    return [dashboardTokens, virtualPanelStyles, css`
       :host {
+        --vp-touch-action: auto;
         display: block;
         width: 100%;
         min-width: 0;
       }
       /* A card preview takes no touch input: a swipe that starts on it must
          scroll the list or carousel around it, as on the rest of the card. */
-      .vp-screen {
-        touch-action: auto;
-      }
-      .pg-sim {
+      .haui-preview-sim {
         position: relative;
         max-width: 100%;
         margin: 0 auto;
         overflow: hidden;
         /* A picture page or a card still loading; a solid page sets its theme colour inline. */
-        background: #000;
+        background: var(--haui-bezel);
       }
-      .pg-sim-scaler {
+      .haui-preview-sim-scaler {
         position: absolute;
         left: 0;
         top: 0;
       }
       /* Holds the card's shape until the render arrives: the layouts'
          visible sizes (layout_landscape.json, layout_portrait.json). */
-      .pg-sim-loading {
+      .haui-preview-sim-loading {
         display: flex;
         align-items: center;
         justify-content: center;
         aspect-ratio: 450 / 320;
-        color: var(--secondary-text-color, #999);
+        color: var(--secondary-text-color, #666);
         opacity: 0.6;
       }
-      .pg-sim-loading.portrait {
+      .haui-preview-sim-loading.is-portrait {
         aspect-ratio: 320 / 480;
         max-width: 320px;
         max-height: 480px;
@@ -230,12 +229,12 @@ export class SimulatorFrameElement extends LitElement {
   render() {
     const orientation = this.portrait ? 'portrait' : 'landscape';
     if (this._error) {
-      return html`<div class="pg-sim-loading ${orientation}" title=${this._error}>
+      return html`<div class="haui-preview-sim-loading ${this.portrait ? 'is-portrait' : ''}" title=${this._error}>
         <ha-icon icon="mdi:alert-outline"></ha-icon>
       </div>`;
     }
     if (!this._display) {
-      return html`<div class="pg-sim-loading ${orientation}">
+      return html`<div class="haui-preview-sim-loading ${this.portrait ? 'is-portrait' : ''}">
         <ha-icon icon="mdi:progress-clock"></ha-icon>
       </div>`;
     }

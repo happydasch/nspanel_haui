@@ -1,104 +1,53 @@
-/**
- * NSPanel HAUI - styles.
- *
- * Split into modular exports:
- *   haStyle         — typography, layout utilities, link styles
- *   haStyleDialog   — responsive dialog sizing rules (adopted from HA's haStyleDialog)
- *   dialogStyles    — shared form/editor content styles without Fleet/Device layouts
- *   editorStyles    — dialogStyles plus the Fleet and Device dashboard screen styles
- *
- * Follows HA's resources/styles.ts pattern to avoid duplicate overlay/button/dialog
- * styles that ha-dialog and ha-button already provide.
- */
-
+/** Shared composition for the editor and independent dialog shadow roots. */
 import { css } from './lit-import.js';
 
-import { panelListStyles } from './styles/panel-list-styles.js';
+import { colorDialogStyles } from './styles/color-dialog-styles.js';
+import { colorPickerStyles } from './styles/color-picker-styles.js';
 import { contentStyles } from './styles/content.js';
-import { dashboardTokens } from './styles/tokens.js';
 import { dashboardComponentStyles } from './styles/dashboard-component-styles.js';
-import { fleetStyles } from './styles/fleet-styles.js';
-import { deviceStyles } from './styles/device-styles.js';
+import { dashboardTokens } from './styles/tokens.js';
+import { firmwareStyles } from './styles/firmware-styles.js';
+import { deviceLayoutStyles } from './styles/device-layout-styles.js';
+import { devicePanelStyles } from './styles/device-panel-styles.js';
+import { dropdownStyles } from './styles/dropdown-styles.js';
 import { entryStyles } from './styles/entry-styles.js';
-import { panelPillStyles } from './ui/panel-pills.js';
+import { fleetStyles } from './styles/fleet-styles.js';
+import { formCommonStyles } from './styles/form-common-styles.js';
+import { itemListStyles } from './styles/item-list-styles.js';
+import { panelListStyles } from './styles/panel-list-styles.js';
+import { panelPillStyles } from './styles/panel-pill-styles.js';
+import { previewStyles } from './styles/preview-styles.js';
 
-
-/**
- * Base HA-style typography and layout utilities.
- * Subset of HA's `haStyle` — only what this editor needs.
- *
- * NOTE: container-type is intentionally NOT on :host here.
- * It's on editorContainerStyles, which is only applied to NSPanelEditor
- * (not dialog components), so dialogs don't get layout containment and
- * position: fixed works relative to the viewport inside them.
- */
 export const haStyle = css`
-  :host {
-    display: block;
-  }
-  .container {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    padding-bottom: var(--ha-space-6);
-  }
-  ha-icon-button {
-    color: var(--secondary-text-color, #666);
-  }
-
-  /* ── layout utility classes ───────── */
-  .w-full {
-    width: 100%;
-  }
+  :host { display: block; }
+  .haui-container { display: flex; flex: 1; flex-direction: column; padding-bottom: var(--haui-space-6); }
+  ha-icon-button { color: var(--secondary-text-color, #666); }
+  .haui-w-full { width: 100%; }
+  .haui-text-caption { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-text-label { font-size: var(--haui-text-label); }
+  .haui-text-body { font-size: var(--haui-text-body); }
+  .haui-text-title { font-size: var(--haui-text-title); }
+  .haui-text-display { font-size: var(--haui-text-display); }
+  .haui-eyebrow { color: var(--secondary-text-color); font-size: var(--haui-text-eyebrow);
+    font-weight: 600; letter-spacing: .05em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .haui-text-mono { font-family: var(--haui-mono); }
 `;
 
-/**
- * Container-type styles for the NSPanelEditor host only.
- * Kept separate from haStyle so that dialog components (colors,
- * edit-panel, etc.) do NOT get layout containment, allowing position: fixed
- * dropdowns inside them to be viewport-relative.
- */
 export const editorContainerStyles = css`
-  :host {
-    container-type: inline-size;
-    container-name: haui-editor;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-  }
+  :host { container-type: inline-size; container-name: haui-editor; min-height: 100dvh; display: flex; flex-direction: column; }
 `;
 
-/**
- * Responsive dialog sizing rules, adopted from HA's haStyleDialog.
- * ha-dialog handles animations, overlay/scrim, focus management, and close
- * buttons; we only set min/max widths and a fullscreen breakpoint.
- */
 export const haStyleDialog = css`
-  ha-dialog {
-    --ha-dialog-max-width: min(600px, 95vw);
-    max-height: calc(100vh - 96px);
-  }
+  ha-dialog { --ha-dialog-max-width: min(600px, 95vw); max-height: calc(100vh - 96px); }
   @media all and (max-width: 450px), all and (max-height: 500px) {
-    ha-dialog {
-      --ha-dialog-max-width: 100vw;
-      max-height: 100vh;
-      width: 100vw;
-    }
+    ha-dialog { --ha-dialog-max-width: 100vw; max-height: 100vh; width: 100vw; }
   }
 `;
 
-/**
- * Shared form, panel, and legacy editor-content styles used by both shell and
- * dialog surfaces. Fleet and Device layout styles are composed separately below.
- */
-
-
-/** Styles shared by dialog content without Fleet/Device screen layout rules. */
-export const dialogStyles = css`
-  ${dashboardTokens}${dashboardComponentStyles}${panelPillStyles}${entryStyles}${contentStyles}
+export const sharedStyles = css`
+  ${dashboardTokens}${dashboardComponentStyles}${panelPillStyles}${entryStyles}
+  ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${contentStyles}
 `;
 
-/** Styles for the editor shell, including Fleet and Device dashboard layouts. */
-export const editorStyles = css`
-  ${dashboardTokens}${dashboardComponentStyles}${panelListStyles}${fleetStyles}${deviceStyles}${panelPillStyles}${entryStyles}${contentStyles}
-`;
+export const dialogStyles = css`${sharedStyles}${firmwareStyles}`;
+export const editorStyles = css`${dialogStyles}${panelListStyles}${fleetStyles}${deviceLayoutStyles}${devicePanelStyles}${previewStyles}`;

@@ -131,12 +131,12 @@ export function gestureEditor({
         >${icon('close')}</button>
       </li>`;
     };
-    return html`<div class="form-group">
+    return html`<div class="haui-field">
       <span id=${id('swipes_label')} class="haui-gesture-swipes-label">${t('Swipes, in order')}</span>
       <ul class="haui-pill-list haui-gesture-swipes" aria-labelledby=${id('swipes_label')}>
         ${swipes.map(pill)}
         <li>
-          <select id=${id('add_swipe')} class="native-select" aria-label=${t('Add swipe')}
+          <select id=${id('add_swipe')} class="haui-select" aria-label=${t('Add swipe')}
             @change=${(event) => {
               const select = event.currentTarget;
               if (select.value) update(index, { swipes: [...swipes, select.value] });
@@ -147,7 +147,7 @@ export function gestureEditor({
           </select>
         </li>
       </ul>
-      ${swipes.length > 1 ? html`<div class="field-hint">${t('Drag swipes into order.')}</div>` : nothing}
+      ${swipes.length > 1 ? html`<div class="haui-field-hint">${t('Drag swipes into order.')}</div>` : nothing}
     </div>`;
   };
 
@@ -163,11 +163,11 @@ export function gestureEditor({
     return html`
       ${swipeField(gesture, index, id)}
       <div class="haui-field-pair">
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id('action')}>${t('Action')}</label>
           ${renderSelect(id('action'), gesture.action, actionOptions, (action) => update(index, { action }))}
         </div>
-        ${gesture.swipes.length > 1 ? html`<div class="form-group">
+        ${gesture.swipes.length > 1 ? html`<div class="haui-field">
           <label for=${id('timeframe')}>${t('Within (s)')}</label>
           ${renderNumberInput(id('timeframe'), gesture.timeframe, (raw) => {
             const value = parseInt(raw, 10);

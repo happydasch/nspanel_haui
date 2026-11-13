@@ -103,7 +103,7 @@ test('the install picker opens below the update settings in the popover', () => 
 
   const markup = collectTemplateStrings(dlg.render()).join(' ');
   const settingsIndex = markup.indexOf('haui-firmware-settings');
-  const pickerIndex = markup.indexOf('device-update-picker');
+  const pickerIndex = markup.indexOf('haui-update-picker');
   assert.ok(settingsIndex >= 0);
   assert.ok(pickerIndex > settingsIndex);
 });

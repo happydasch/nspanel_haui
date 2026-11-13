@@ -91,13 +91,13 @@ export function diagnosticsModel(status, now = Date.now()) {
 export function diagnosticsIcon(/** @type {ReturnType<typeof diagnosticsModel>} */ model) {
   const count = model.issues.length;
   if (count === 0) {
-    return html`<span class="haui-diag-status good" role="img" title=${t('All good')} aria-label=${t('All good')}>
+    return html`<span class="haui-diag-status is-good" role="img" title=${t('All good')} aria-label=${t('All good')}>
       ${icon('check-circle-outline')}</span>`;
   }
   const summary = count === 1 ? t('1 issue') : t('{count} issues').replace('{count}', String(count));
   // The issues are the icon's accessible name too: a tooltip alone reaches
   // neither the keyboard, touch nor a screen reader.
-  return html`<span class="haui-diag-status warn" role="img"
+  return html`<span class="haui-diag-status is-warning" role="img"
     title=${`${summary}\n${model.issues.map((issue) => issue.label).join('\n')}`}
     aria-label=${`${summary}: ${model.issues.map((issue) => issue.label).join(', ')}`}>
     ${icon('alert-circle-outline')}<span class="haui-diag-status-count" aria-hidden="true">${count}</span></span>`;
@@ -117,17 +117,17 @@ export function diagnosticsSubtitle(model) {
 function signalBars(rssi) {
   const bars = rssiBarCount(rssi);
   const cls = rssiStrengthClass(rssi);
-  return html`<span class="rssi-bars" aria-hidden="true">
-    ${[1, 2, 3, 4].map((index) => html`<span class=${`rssi-bar ${bars >= index ? cls : ''}`}></span>`)}
+  return html`<span class="haui-rssi-bars" aria-hidden="true">
+    ${[1, 2, 3, 4].map((index) => html`<span class=${`haui-rssi-bar ${bars >= index ? cls : ''}`}></span>`)}
   </span>`;
 }
 
 function displayState(model) {
   const { info, update } = model;
   const version = info.tft_version || t('Unknown');
-  if (model.updateFailed) return html`${version} · <span class="bad">${t('update failed')}</span>`;
-  if (update.state === 'installing') return html`${version} · <span class="warn">${t('installing')}</span>`;
-  if (model.tftPending) return html`${version} · <span class="warn">${t('update pending')}</span>`;
+  if (model.updateFailed) return html`${version} · <span class="is-danger">${t('update failed')}</span>`;
+  if (update.state === 'installing') return html`${version} · <span class="is-warning">${t('installing')}</span>`;
+  if (model.tftPending) return html`${version} · <span class="is-warning">${t('update pending')}</span>`;
   return version;
 }
 
@@ -146,7 +146,7 @@ export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} 
       ? [t('Last connected'), info.last_connection ? relativeTime(info.last_connection) : unknown]
       : [t('Disconnected'), info.disconnected_since ? relativeTime(info.disconnected_since) : unknown],
     ...(model.health ? [[t('Disconnects (24 h)'),
-      model.drops ? `${model.drops} · ${relativeTime(latest?.time)}` : t('None'), model.unstable ? 'warn' : '']] : []),
+      model.drops ? `${model.drops} · ${relativeTime(latest?.time)}` : t('None'), model.unstable ? 'is-warning' : '']] : []),
     ...(dropReason ? [[t('Last drop'), dropReason]] : []),
   ];
   return [
@@ -154,13 +154,13 @@ export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} 
       key: 'uptime',
       label: model.connected ? t('Online for') : t('Status'),
       value: model.connected ? (model.uptime != null ? uptimeLabel(model.uptime) : t('Online')) : t('Offline'),
-      tone: !model.connected ? 'bad' : model.unstable ? 'warn' : '',
+      tone: !model.connected ? 'is-danger' : model.unstable ? 'is-warning' : '',
       facts: uptimeFacts,
     }),
     infoTile({
       key: 'wifi', label: t('Wi-Fi'),
       value: html`${fmtRssi(info.rssi)}${signalBars(info.rssi)}`, heading: fmtRssi(info.rssi),
-      tone: model.weakSignal ? 'warn' : '',
+      tone: model.weakSignal ? 'is-warning' : '',
       facts: [[t('SSID'), info.ssid || unknown], [t('IP address'), info.ip || unknown]],
     }),
   ];
@@ -176,15 +176,15 @@ function tiles(model, status, onLogs) {
     ${infoTile({
       key: 'diag-firmware', label: t('Versions'),
       value: model.mismatch ? t('Mismatch') : info.yaml_version ? t('Matches') : unknown,
-      tone: model.mismatch ? 'bad' : '',
+      tone: model.mismatch ? 'is-danger' : '',
       facts: [
         [t('Integration'), status?.integration_version || unknown],
-        [t('Firmware (YAML)'), info.yaml_version || unknown, model.mismatch ? 'bad' : ''],
+        [t('Firmware (YAML)'), info.yaml_version || unknown, model.mismatch ? 'is-danger' : ''],
         [t('Display (TFT)'), displayState(model)],
       ],
     })}
     ${infoTile({
-      key: 'diag-log', label: t('Hub log'), value: logValue, tone: model.logProblems ? 'warn' : '',
+      key: 'diag-log', label: t('Hub log'), value: logValue, tone: model.logProblems ? 'is-warning' : '',
       note: t('in the last 24 h'), onClick: onLogs,
     })}
   </div>`;
@@ -263,7 +263,7 @@ function dropsRow(model) {
     label: t('Disconnects (24 h)'),
     value: latest ? `${model.drops} · ${latest.reason} · ${relativeTime(latest.time)}` : t('None'),
     title: drops.map((drop) => `${relativeTime(drop.time)}: ${drop.reason}`).join('\n'),
-    tone: model.unstable ? 'warn' : '',
+    tone: model.unstable ? 'is-warning' : '',
   };
 }
 
@@ -304,7 +304,7 @@ function hubDetails(model, status, hass, onCopyReport) {
   return html`<details class="haui-details-more haui-diag-internals">
     <summary>${t('Hub details')} · ${entities.length === 1 ? t('1 watched entity')
       : t('{count} watched entities').replace('{count}', String(entities.length))}${problems
-      ? html` · <span class="warn">${problems === 1 ? t('1 unavailable')
+      ? html` · <span class="is-warning">${problems === 1 ? t('1 unavailable')
         : t('{count} unavailable').replace('{count}', String(problems))}</span>` : nothing}</summary>
     ${rows.length ? html`<dl>${rows.map((row) => html`<div>
       <dt>${row.label}</dt><dd class=${row.tone} title=${row.title || nothing}>${row.value}</dd>

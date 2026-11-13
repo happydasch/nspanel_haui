@@ -8,14 +8,17 @@
  */
 import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
+import { firmwareStyles } from '../styles/firmware-styles.js';
 import { t } from '../localize.js';
 import { hasUpdateAvailable } from '../device-status.js';
 import { DEFAULT_FIRMWARE_MANIFEST_URL, FIRMWARE_UPDATE_CHANNELS } from '../constants.js';
-import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
+import { renderField, renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { badge } from '../ui/badge.js';
+import { button } from '../ui/button.js';
 import { segmented } from '../ui/segmented.js';
 import { updateOfferLabel, versionLabel } from '../ui/format.js';
 import { icon } from '../ui/icon.js';
+import { sectionHeading } from '../ui/surface.js';
 const UPDATE_INTERVAL_PRESETS = [900, 1800, 3600, 7200, 21600, 43200, 86400, 604800];
 function updateIntervalLabel(value) {
   switch (value) {
@@ -150,6 +153,7 @@ function updateRow(host, { id, key, settings, label, hint = '', fallback = true,
 }
 
 class FirmwarePopover extends HauiDialog {
+  static styles = [...HauiDialog.styles, firmwareStyles];
   static get properties() {
     return {
       deviceStatus: { type: Object },
@@ -337,7 +341,7 @@ class FirmwarePopover extends HauiDialog {
 
   _renderPicker(name, required, updateStatus) {
     if (updateStatus?.enabled === false) {
-      return html`<div class="device-update-picker">${t('Updates are disabled for this device.')}</div>`;
+      return html`<div class="haui-update-picker">${t('Updates are disabled for this device.')}</div>`;
     }
     const { kind, releases, releasesError, choice, url, file, error, uploading } = this._picker;
     const tft = kind === 'tft';
@@ -359,8 +363,8 @@ class FirmwarePopover extends HauiDialog {
       ['file', t('From local file')],
     ];
     return html`
-      <div class="device-update-picker" @click=${(e) => e.stopPropagation()}>
-        <div class="form-group">
+      <div class="haui-update-picker" @click=${(e) => e.stopPropagation()}>
+        <div class="haui-field">
           <label for="di-install-source">${tft ? t('TFT to install') : t('Firmware to install')}</label>
           ${renderSelect(
             'di-install-source',
@@ -369,17 +373,17 @@ class FirmwarePopover extends HauiDialog {
             (value) => this._updatePicker({ choice: value, file: null, error: '' }),
             { disabled: uploading },
           )}
-          ${releases === null ? html`<div class="field-hint">${t('Loading releases…')}</div>` : ''}
+          ${releases === null ? html`<div class="haui-field-hint">${t('Loading releases…')}</div>` : ''}
           ${releasesError
-            ? html`<div class="field-hint">${t('Releases unavailable: {error}').replace('{error}', releasesError)}</div>`
+            ? html`<div class="haui-field-hint">${t('Releases unavailable: {error}').replace('{error}', releasesError)}</div>`
             : ''}
         </div>
         ${choice === 'url' ? html`
-          <div class="form-group">
+          <div class="haui-field">
             <label for="di-install-url">${tft ? t('TFT file URL') : t('Firmware OTA image URL')}</label>
             <input
               id="di-install-url"
-              class="native-input"
+              class="haui-input"
               type="url"
               .value=${url}
               @input=${(e) => this._updatePicker({ url: e.target.value, error: '' })}
@@ -387,27 +391,27 @@ class FirmwarePopover extends HauiDialog {
           </div>
         ` : ''}
         ${choice === 'file' ? html`
-          <div class="form-group">
+          <div class="haui-field">
             <label for="di-install-file">${tft ? t('Local TFT file') : t('Local firmware OTA image')}</label>
             <input
               id="di-install-file"
-              class="native-input"
+              class="haui-input"
               type="file"
               accept=${tft ? '.tft' : '.bin'}
               ?disabled=${uploading}
               @change=${(e) => this._updatePicker({ file: e.target.files?.[0] || null, error: '' })}
             />
-            <div class="field-hint">
+            <div class="haui-field-hint">
               ${t('The file is uploaded to Home Assistant and must be reachable by the device.')}
             </div>
           </div>
         ` : ''}
-        ${uploading ? html`<div class="field-hint">${t('Uploading local update file…')}</div>` : ''}
-        <div class="field-hint">${tft
+        ${uploading ? html`<div class="haui-field-hint">${t('Uploading local update file…')}</div>` : ''}
+        <div class="haui-field-hint">${tft
           ? t('Another release, URL or local file stays on the display until the firmware version changes or Home Assistant restarts.')
           : t('Another release, URL or local file pauses automatic firmware updates until Home Assistant restarts. Use the OTA image (nspanel_haui_ota.bin), not the factory image.')}</div>
-        ${error ? html`<p class="device-update-error">${error}</p>` : ''}
-        <div class="device-update-actions">
+        ${error ? html`<p class="haui-update-error">${error}</p>` : ''}
+        <div class="haui-update-actions">
           <ha-button
             variant="neutral"
             appearance="plain"
@@ -439,10 +443,11 @@ class FirmwarePopover extends HauiDialog {
           ${summary.detail ? html`<p>${summary.detail}</p>` : nothing}
         </div>
       </div>
-      ${updatesEnabled ? html`<button type="button" class="haui-firmware-hero-action"
-        ?disabled=${this._actionBusy} @click=${this._checkForUpdates}>
-        ${icon('refresh')}<span>${this._actionBusy ? t('Checking…') : t('Check for updates')}</span>
-      </button>` : nothing}
+      ${updatesEnabled ? button({
+        label: this._actionBusy ? t('Checking…') : t('Check for updates'),
+        iconName: 'refresh', variant: 'quiet', className: 'haui-firmware-hero-action',
+        busy: this._actionBusy, onClick: this._checkForUpdates,
+      }) : nothing}
     </section>`;
   }
 
@@ -487,7 +492,37 @@ class FirmwarePopover extends HauiDialog {
   /** When the hub checks for releases, and how often. */
   _renderReleaseChecks(settings, interval) {
     return html`<section class="haui-update-group">
-      <h3 class="haui-update-group-title">${icon('refresh')}${t('Release checks')}</h3>
+      ${sectionHeading({ title: t('Release checks'), leading: icon('refresh'), className: 'haui-update-group-title' })}
+      ${interval > 0 ? renderField({
+        id: 'update-interval',
+        label: t('Check every'),
+        className: 'haui-update-field',
+        control: html`${renderSelect('update-interval', this._customIntervalSelected
+          || !UPDATE_INTERVAL_PRESETS.includes(interval)
+          ? 'custom' : String(interval), [
+          ...UPDATE_INTERVAL_PRESETS.map((value) => ({ value, label: updateIntervalLabel(value) })),
+          { value: 'custom', label: t('Custom interval…') },
+        ], (value) => {
+          if (value === 'custom') {
+            this._customIntervalSelected = true;
+            this.requestUpdate();
+            return;
+          }
+          this._customIntervalSelected = false;
+          setSetting(this, 'update_interval', Number(value));
+        })}
+        ${this._customIntervalSelected || !UPDATE_INTERVAL_PRESETS.includes(interval)
+          ? renderField({
+            id: 'update-custom-interval',
+            label: t('Custom interval (seconds)'),
+            className: 'haui-update-field-control',
+            control: renderNumberInput('update-custom-interval', interval, (raw) => {
+              const value = parseInt(raw, 10);
+              setSetting(this, 'update_interval', Number.isNaN(value) || value < 1 ? 1 : value, true);
+            }, { min: 1, max: 604800 }),
+          }) : nothing}`,
+        extra: html`<p class="haui-update-row-hint">${t('Choose how often to check for a newer release.')}</p>`,
+      }) : nothing}
       ${updateRow(this, {
         id: 'update-check-on-connect', key: 'check_on_connect', settings,
         label: t('Check for updates on connect'),
@@ -502,33 +537,6 @@ class FirmwarePopover extends HauiDialog {
           return checked ? (interval > 0 ? interval : 3600) : 0;
         },
       })}
-      ${interval > 0 ? html`<div class="haui-update-field">
-        <label for="update-interval">${t('Check every')}</label>
-        ${renderSelect('update-interval', this._customIntervalSelected
-          || !UPDATE_INTERVAL_PRESETS.includes(interval)
-          ? 'custom' : String(interval), [
-          ...UPDATE_INTERVAL_PRESETS.map((value) => ({ value, label: updateIntervalLabel(value) })),
-          { value: 'custom', label: t('Custom interval…') },
-        ], (value) => {
-          if (value === 'custom') {
-            this._customIntervalSelected = true;
-            this.requestUpdate();
-            return;
-          }
-          this._customIntervalSelected = false;
-          setSetting(this, 'update_interval', Number(value));
-        })}
-        ${this._customIntervalSelected
-          || !UPDATE_INTERVAL_PRESETS.includes(interval)
-          ? html`<div class="haui-update-field-control">
-            <label for="update-custom-interval">${t('Custom interval (seconds)')}</label>
-            ${renderNumberInput('update-custom-interval', interval, (raw) => {
-              const value = parseInt(raw, 10);
-              setSetting(this, 'update_interval', Number.isNaN(value) || value < 1 ? 1 : value, true);
-            }, { min: 1, max: 604800 })}
-          </div>` : nothing}
-        <p class="haui-update-row-hint">${t('Choose how often to check for a newer release.')}</p>
-      </div>` : nothing}
     </section>`;
   }
 
@@ -536,7 +544,7 @@ class FirmwarePopover extends HauiDialog {
   _renderUpdateChannel(settings, channel) {
     const manualUrl = Boolean(settings.firmware_manifest_url);
     return html`<div class="haui-update-channel">
-      <h3 class="haui-update-group-title">${icon('download')}${t('Update channel')}</h3>
+      ${sectionHeading({ title: t('Update channel'), leading: icon('download'), className: 'haui-update-group-title' })}
       <div class="haui-update-field">
         ${segmented({
           label: t('Update channel'),
@@ -549,19 +557,17 @@ class FirmwarePopover extends HauiDialog {
         <p class="haui-update-row-hint">${t('Choose stable releases or published development builds. This channel applies to both firmware and display updates.')}</p>
       </div>
       <details class="haui-update-advanced" ?open=${manualUrl}>
-        <summary>${t('Custom manifest URL')}${manualUrl ? html`<span class="haui-update-set">${t('Set')}</span>` : nothing}</summary>
-        <div class="haui-update-field">
-          <label for="update-firmware-manifest-url">${t('Firmware manifest URL')}</label>
-          <input
-            id="update-firmware-manifest-url"
-            class="native-input"
-            type="url"
+        <summary>${t('Custom manifest URL')}${manualUrl ? badge(t('Set'), 'warning', 'haui-update-set') : nothing}</summary>
+        ${renderField({
+          id: 'update-firmware-manifest-url',
+          label: t('Firmware manifest URL'),
+          className: 'haui-update-field',
+          control: html`<input id="update-firmware-manifest-url" class="haui-input" type="url"
             placeholder=${channel === 'dev' ? '' : DEFAULT_FIRMWARE_MANIFEST_URL}
             .value=${String(settingValue(settings, 'firmware_manifest_url', ''))}
-            @input=${(event) => setSetting(this, 'firmware_manifest_url', event.target.value.trim() || undefined, true)}
-          />
-          <p class="haui-update-row-hint">${t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).')}</p>
-        </div>
+            @input=${(event) => setSetting(this, 'firmware_manifest_url', event.target.value.trim() || undefined, true)} />`,
+          extra: html`<p class="haui-update-row-hint">${t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).')}</p>`,
+        })}
       </details>
     </div>`;
   }
@@ -578,7 +584,7 @@ class FirmwarePopover extends HauiDialog {
   /** Which firmware the hub follows, and whether it installs it by itself. */
   _renderFirmwareSettings(settings) {
     return html`<section class="haui-update-group">
-      <h3 class="haui-update-group-title">${icon('chip')}${t('Firmware')}</h3>
+      ${sectionHeading({ title: t('Firmware'), leading: icon('chip'), className: 'haui-update-group-title' })}
       ${updateRow(this, {
         id: 'update-firmware-auto', key: 'firmware_auto_update', settings, fallback: false,
         label: t('Auto-install firmware updates'),
@@ -590,7 +596,7 @@ class FirmwarePopover extends HauiDialog {
   /** The display's TFT follows the firmware; this decides whether it asks. */
   _renderDisplaySettings(settings) {
     return html`<section class="haui-update-group">
-      <h3 class="haui-update-group-title">${icon('monitor')}${t('Display')}</h3>
+      ${sectionHeading({ title: t('Display'), leading: icon('monitor'), className: 'haui-update-group-title' })}
       ${updateRow(this, {
         id: 'update-auto-install-tft', key: 'auto_install', settings,
         label: t('Auto-install TFT updates'),
@@ -606,13 +612,12 @@ class FirmwarePopover extends HauiDialog {
     const interval = Number(settingValue(settings, 'update_interval', 3600));
     const channel = String(settingValue(settings, 'firmware_update_channel', 'stable'));
     return html`<section class="haui-surface haui-firmware-settings" aria-label=${t('Update settings')}>
-      <header class="haui-update-header">
-        <span class="haui-firmware-settings-icon">${icon('tune-variant')}</span>
-        <div class="haui-update-header-copy">
-          <h2>${t('Update settings')}</h2>
-          <p>${t('Controls release checks and firmware/display updates for this device.')}</p>
-        </div>
-      </header>
+      ${sectionHeading({
+        title: t('Update settings'),
+        subtitle: t('Controls release checks and firmware/display updates for this device.'),
+        leading: html`<span class="haui-firmware-settings-icon">${icon('tune-variant')}</span>`,
+        className: 'haui-update-header',
+      })}
       ${this._renderUpdateSettings(settings, channel, enabled)}
       ${enabled ? html`${this._renderReleaseChecks(settings, interval)}${
         this._renderFirmwareSettings(settings)}${this._renderDisplaySettings(settings)}`
@@ -637,7 +642,7 @@ class FirmwarePopover extends HauiDialog {
         status, info, update, requiredTft, updatesEnabled,
         installDisabled: installing || this._actionBusy,
       })}
-      ${this._popoverError ? html`<p class="device-update-error">${this._popoverError}</p>` : nothing}
+      ${this._popoverError ? html`<p class="haui-update-error">${this._popoverError}</p>` : nothing}
       ${this._renderSettings()}
       ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : nothing}
     </div>`;

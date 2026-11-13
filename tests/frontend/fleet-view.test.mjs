@@ -161,8 +161,8 @@ test('the carousel arrows follow the scroll extents and the summary waits for st
   const atEnd = templateText(renderFleetView({
     ...base, carousel: { atStart: false, atEnd: true },
   }));
-  assert.match(atEnd, /haui-carousel-arrow is-left/);
-  assert.match(atEnd, /haui-carousel-arrow is-right/);
+  assert.match(atEnd, /aria-label="Scroll devices left"/);
+  assert.match(atEnd, /aria-label="Scroll devices right"/);
 });
 
 test('the carousel edges follow scroll position', () => {

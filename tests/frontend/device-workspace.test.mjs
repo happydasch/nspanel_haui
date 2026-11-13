@@ -163,7 +163,8 @@ test('clicking a Device details section heading folds it, except on its controls
     onYamlImport() {}, onYamlExport() {},
     onToggleDiagnostics: () => toggled.push('diagnostics'),
   });
-  const headings = templatesMatching(device, 'haui-surface-heading-copy');
+  const headings = templatesMatching(device, 'haui-surface-heading-copy').filter((entry) =>
+    entry.values.some((value) => typeof value === 'string' && value.includes('haui-surface-heading-toggle')));
   const handlers = headings.map((entry) => entry.values.find((value) => typeof value === 'function'));
   assert.equal(handlers.length, 3);
   // A click on the chevron or another heading control is that control's own.
@@ -197,11 +198,11 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
     },
     onSettings() {}, onFirmware() {}, onLogs() {},
   });
-  // The tiles are dimmed while their values are stale.
-  const [facts] = templatesMatching(view, '<div class=').filter((entry) => entry.values[0] === 'haui-diag-tiles stale');
+  const [facts] = templatesMatching(view, 'data-stale=');
   assert.ok(facts);
-  assert.equal(facts.values[1].length, 4);
-  const shown = facts.values[1].map(templateText).join(' ');
+  assert.equal(facts.values[1], 'true');
+  assert.equal(facts.values[2].length, 4);
+  const shown = facts.values[2].map(templateText).join(' ');
   // The connection readings lead: offline, the uptime tile reads Status: Offline.
   assert.match(shown, /Status[\s\S]*Offline[\s\S]*Wi-Fi[\s\S]*-61 dBm[\s\S]*Current page/);
   for (const label of ['Current page', 'IP address']) assert.match(shown, new RegExp(label));
@@ -209,7 +210,7 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
   assert.doesNotMatch(shown, /haui-diag-tile-detail/);
   for (const label of ['Last panel update', 'SSID', 'Wi-Fi signal']) assert.match(shown, new RegExp(label));
   // A status poll re-renders the tiles; the open state is not a binding it could reset.
-  const [page] = templatesMatching(facts.values[1][2], 'aria-expanded="false"');
+  const [page] = templatesMatching(facts.values[2][2], 'aria-expanded="false"');
   assert.ok(page);
   const attributes = { 'aria-expanded': 'false' };
   const trigger = {
@@ -233,7 +234,7 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
   for (const label of ['Disconnected', 'Wi-Fi signal', 'SSID', 'Last connected']) assert.match(card, new RegExp(label));
   assert.match(card, /-61 dBm/);
   assert.match(card, /haui-details-stale/);
-  assert.match(card, /mdi:wifi-off|wifi-off/);
+  assert.match(card, /mdi:haui-wifi-off|haui-wifi-off/);
 });
 
 test('the connection icon shows the Wi-Fi strength while connected', () => {
@@ -245,7 +246,7 @@ test('the connection icon shows the Wi-Fi strength while connected', () => {
   const [status] = templatesMatching(view, 'haui-conn-status-button');
   assert.equal(status.values[0], 'haui-conn-status online');
   const card = templateText(status);
-  assert.match(card, /wifi-strength-4/);
+  assert.match(card, /haui-wifi-strength-4/);
   assert.match(card, /HomeNet/);
   assert.match(card, /Online for/);
   assert.doesNotMatch(card, /haui-details-stale/);

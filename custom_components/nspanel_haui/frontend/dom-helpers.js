@@ -165,8 +165,8 @@ export function positionPickerDropdown(dropdown, input) {
  *
  * @param {object} opts
  * @param {function} opts.getWrap   - (e) => the wrapping element containing the dropdown
- * @param {string}  [opts.dropdownSelector=".entity-dropdown"] - CSS selector for the dropdown
- * @param {string}  [opts.itemSelector=".entity-dropdown-item"] - CSS selector for items
+ * @param {string}  [opts.dropdownSelector=".haui-entity-dropdown"] - CSS selector for the dropdown
+ * @param {string}  [opts.itemSelector=".haui-entity-dropdown-item"] - CSS selector for items
  * @param {string}  [opts.indexField="_activeIndex"] - property name for the active index on wrap
  * @param {function} opts.onSelect  - (visibleItems, idx, e) => called on Enter with the event
  * @param {function} opts.onDismiss - (e) => called on Escape with the event
@@ -175,8 +175,8 @@ export function positionPickerDropdown(dropdown, input) {
 export function createDropdownKeyboardController(opts) {
   const {
     getWrap,
-    dropdownSelector = '.entity-dropdown',
-    itemSelector = '.entity-dropdown-item',
+    dropdownSelector = '.haui-entity-dropdown',
+    itemSelector = '.haui-entity-dropdown-item',
     indexField = '_activeIndex',
     onSelect,
     onDismiss,
@@ -217,10 +217,10 @@ export function createDropdownKeyboardController(opts) {
     // idx indexes the filtered list, so clear the highlight on every item and
     // set it on the visible one. Toggling by all-items index marks the wrong
     // element whenever some items are hidden by the search filter.
-    dropdown.querySelectorAll(itemSelector).forEach((item) => item.classList.remove('active'));
+    dropdown.querySelectorAll(itemSelector).forEach((item) => item.classList.remove('is-active'));
     const activeItem = visibleItems[idx];
     if (!activeItem) return;
-    activeItem.classList.add('active');
+    activeItem.classList.add('is-active');
     // Screen readers follow aria-activedescendant, not the CSS class.
     if (activeItem.id && e.target?.setAttribute) {
       e.target.setAttribute('aria-activedescendant', activeItem.id);

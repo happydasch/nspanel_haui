@@ -80,6 +80,9 @@ jobs:
           python -m scripts.hmi_layout.gen_layout --check
           python -m scripts.hmi_layout.gen_layout --spec portrait --check
 
+      - name: Check frontend styles
+        run: python scripts/check_frontend_styles.py
+
       - name: Run tests
         run: pytest tests/
 

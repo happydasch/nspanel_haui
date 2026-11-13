@@ -10,7 +10,10 @@
 import { css, html, nothing } from '../lit-import.js';
 import { clone, isPortraitModel } from '../constants.js';
 import { formVal } from '../dom-helpers.js';
-import { getPanelOptionGroups, renderNumberInput, renderOptionField, renderSelect, renderToggle } from '../form-fields.js';
+import {
+  getPanelOptionGroups, renderField, renderNumberInput, renderOptionField, renderSelect,
+  renderToggleField,
+} from '../form-fields.js';
 import { dialogHeader } from '../dialogs/dialog-header.js';
 import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
@@ -57,7 +60,7 @@ class PanelEditor extends HauiDialog {
         overscroll-behavior: contain;
       }
       /* The padding is the body's, not the scroll container's: a sticky bar pins to the very top. */
-      .haui-panel-editor-sidebar .dialog-body { padding: 16px; }
+      .haui-panel-editor-sidebar .haui-dialog-body { padding: 16px; }
       .haui-panel-editor-preview { margin-bottom: 16px; }
       .haui-panel-editor-preview nspanel-simulator-frame {
         display: block;
@@ -65,7 +68,7 @@ class PanelEditor extends HauiDialog {
         margin: 0 auto;
         overflow: hidden;
         border: 1px solid var(--divider-color);
-        border-radius: 8px;
+        border-radius: var(--haui-radius-control);
         box-sizing: border-box;
       }
       .haui-panel-editor-preview nspanel-simulator-frame[portrait] { max-width: 180px; }
@@ -80,7 +83,7 @@ class PanelEditor extends HauiDialog {
         padding: 8px 16px;
         border-bottom: 1px solid var(--divider-color);
         background: var(--card-background-color);
-        box-shadow: 0 6px 12px -8px rgb(0 0 0 / 35%);
+        box-shadow: var(--haui-shadow-card);
         opacity: 0;
         transform: translateY(-6px);
         visibility: hidden;
@@ -88,32 +91,31 @@ class PanelEditor extends HauiDialog {
       }
       .haui-panel-editor-pin-bar.is-shown { opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
       .haui-panel-editor-pin-thumb { flex: 0 0 auto; width: 84px; }
-      .haui-panel-editor-pin-thumb.portrait { width: 40px; }
+      .haui-panel-editor-pin-thumb.is-portrait { width: 40px; }
       .haui-panel-editor-pin-thumb nspanel-simulator-frame {
         display: block;
         overflow: hidden;
         border: 1px solid var(--divider-color);
-        border-radius: 5px;
+        border-radius: var(--haui-radius-control);
       }
-      .haui-panel-editor-pin-text { display: grid; min-width: 0; gap: 2px; }
+      .haui-panel-editor-pin-text { display: grid; min-width: 0; gap: 4px; }
       .haui-panel-editor-pin-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .haui-panel-editor-pin-text strong { font-size: 14px; font-weight: 600; }
-      .haui-panel-editor-pin-text span { color: var(--secondary-text-color); font-size: 12px; }
+      .haui-panel-editor-pin-text strong { font-size: var(--haui-text-body); font-weight: 600; }
+      .haui-panel-editor-pin-text span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
       @media (prefers-reduced-motion: reduce) { .haui-panel-editor-pin-bar { transition: none; } }
-      .config-section-count {
+      .haui-config-section-count {
         min-width: 20px;
-        padding: 1px 7px;
-        border-radius: 10px;
+        padding: 4px 8px;
+        border-radius: var(--haui-radius-control);
         background: var(--secondary-background-color);
         color: var(--secondary-text-color);
-        font-size: 12px;
+        font-size: var(--haui-text-caption);
         font-weight: 500;
         text-align: center;
         box-sizing: border-box;
       }
-      .config-section[open] > summary .config-section-count { background: var(--card-background-color); }
-      .haui-field-error { display: block; margin-top: 4px; }
-      .native-input[aria-invalid="true"] { border-color: var(--error-color, #db4437); }
+      .haui-config-section[open] > summary .haui-config-section-count { background: var(--card-background-color); }
+      .haui-input[aria-invalid="true"] { border-color: var(--error-color, #db4437); }
     `,
   ];
   static get properties() {
@@ -228,46 +230,44 @@ class PanelEditor extends HauiDialog {
             ? this._renderPinnedPreview(sysPanel, ep.data.title || typeLabel,
                 [typeLabel, ep.data.key].filter(Boolean).join(' · '))
             : nothing}
-          <div class="dialog-body">
+          <div class="haui-dialog-body">
 
           ${this._renderPreview(sysPanel)}
 
-          ${isAdd ? html`
-            <div class="form-group">
-              <label for="fld-type">${t('Panel type')}</label>
-              <div class="field-row">
-                ${descriptor?.icon ? html`<ha-icon .icon=${descriptor.icon}></ha-icon>` : ""}
-                ${renderSelect("fld-type", panelType, this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label })), (v) => this._onTypeChange(v))}
-              </div>
-              ${descriptor ? html`<span class="field-hint">${descriptor.description}</span>` : ""}
-            </div>
-          ` : ""}
+          ${isAdd ? renderField({
+            id: 'fld-type',
+            label: t('Panel type'),
+            control: html`<div class="haui-field-row">
+              ${descriptor?.icon ? html`<ha-icon .icon=${descriptor.icon}></ha-icon>` : nothing}
+              ${renderSelect('fld-type', panelType,
+                this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label })),
+                (value) => this._onTypeChange(value))}
+            </div>`,
+            hint: descriptor?.description || '',
+          }) : nothing}
 
-          <div class="form-group">
-            <label for="fld-title">${t('Panel title')}</label>
-            <input
-              id="fld-title"
-              name="title"
-              class="native-input"
-              .value=${ep.data.title || ""}
-              @input=${(e) => this._setPanelValue("title", e.target.value)}
-            />
-            <span class="field-hint">${t('Title shown on the panel header. Falls back to the panel type name if left empty.')}</span>
-          </div>
+          ${renderField({
+            id: 'fld-title',
+            label: t('Panel title'),
+            control: html`<input id="fld-title" name="title" class="haui-input"
+              .value=${ep.data.title || ''}
+              @input=${(event) => this._setPanelValue('title', event.target.value)} />`,
+            hint: t('Title shown on the panel header. Falls back to the panel type name if left empty.'),
+          })}
 
           ${getPanelOptionGroups(descriptor).map(group => {
             const sectionLabel = group.section ? group.section : t('Configuration');
             // A section holding lists counts their entries; the one with the panel's items opens with the form.
             const lists = group.options.filter((opt) => ITEM_LIST_KINDS.includes(opt.kind));
             return html`
-              <details class="config-section" ?open=${lists.some((opt) => opt.kind === 'item_list')}>
+              <details class="haui-config-section" ?open=${lists.some((opt) => opt.kind === 'item_list')}>
                 <summary>
                   ${sectionLabel}
-                  ${lists.length ? html`<span class="config-section-count"
+                  ${lists.length ? html`<span class="haui-config-section-count"
                     title=${t('{count} items').replace('{count}', String(itemCount(lists)))}
                   >${itemCount(lists)}</span>` : nothing}
                 </summary>
-                <div class="config-section-body">
+                <div class="haui-config-section-body">
                   ${group.options.map(opt => renderOptionField(this, opt, ep.data[opt.key]))}
                 </div>
               </details>
@@ -275,78 +275,64 @@ class PanelEditor extends HauiDialog {
           })}
 
           ${sysPanel?.hub_driven ? "" : html`
-          <details class="config-section">
+          <details class="haui-config-section">
             <summary>${t('Advanced')}</summary>
-            <div class="config-section-body">
+            <div class="haui-config-section-body">
 
-              ${sysPanel ? "" : html`
-              <div class="form-group">
-                <label for="fld-key">${t('Panel key')}</label>
-                <input
-                  id="fld-key"
-                  name="key"
-                  class="native-input"
+              ${sysPanel ? nothing : renderField({
+                id: 'fld-key',
+                label: t('Panel key'),
+                control: html`<input id="fld-key" name="key" class="haui-input"
                   aria-invalid=${errors.has('fld-key') ? 'true' : nothing}
                   aria-describedby=${errors.has('fld-key') ? 'fld-key-error' : nothing}
-                  .value=${ep.data.key || ""}
-                  @input=${(e) => this._setPanelValue("key", e.target.value)}
-                />
-                ${errors.has('fld-key')
+                  .value=${ep.data.key || ''}
+                  @input=${(event) => this._setPanelValue('key', event.target.value)} />`,
+                hint: t('Used to reference this panel in actions and gestures'),
+                extra: errors.has('fld-key')
                   ? html`<span class="haui-field-error" id="fld-key-error" role="alert">${errors.get('fld-key')}</span>`
-                  : nothing}
-                <span class="field-hint">${t('Used to reference this panel in actions and gestures')}</span>
-              </div>
-              `}
+                  : nothing,
+              })}
 
-              <div class="form-group">
-                <label for="fld-unlock-code">${t('Panel pin')}</label>
-                <input
-                  id="fld-unlock-code"
-                  name="unlock_code"
-                  type="password"
-                  inputmode="numeric"
-                  class="native-input"
+              ${renderField({
+                id: 'fld-unlock-code',
+                label: t('Panel pin'),
+                control: html`<input id="fld-unlock-code" name="unlock_code" type="password"
+                  inputmode="numeric" class="haui-input"
                   aria-invalid=${errors.has('fld-unlock-code') ? 'true' : nothing}
                   aria-describedby=${errors.has('fld-unlock-code') ? 'fld-unlock-code-error' : nothing}
-                  .value=${ep.data.unlock_code || ""}
-                  @input=${(e) => this._setPanelValue("unlock_code", e.target.value)}
-                />
-                ${errors.has('fld-unlock-code')
+                  .value=${ep.data.unlock_code || ''}
+                  @input=${(event) => this._setPanelValue('unlock_code', event.target.value)} />`,
+                hint: t('Set a PIN code to lock this panel. Users must enter this code before accessing the panel.'),
+                extra: errors.has('fld-unlock-code')
                   ? html`<span class="haui-field-error" id="fld-unlock-code-error" role="alert">${errors.get('fld-unlock-code')}</span>`
-                  : nothing}
-                <span class="field-hint">${t('Set a PIN code to lock this panel. Users must enter this code before accessing the panel.')}</span>
-              </div>
+                  : nothing,
+              })}
 
-              ${sysPanel ? "" : html`
-              <div class="form-group">
-                <div class="checkbox-row">
-                  ${renderToggle("fld-show-in-nav", ep.data.show_in_navigation !== false, (checked) =>
-                    this._setPanelValue("show_in_navigation", checked))}
-                  <label for="fld-show-in-nav">${t('Show in navigation')}</label>
-                </div>
-                <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as the home/idle panel)")}</span>
-              </div>
-              `}
+              ${sysPanel ? nothing : renderToggleField({
+                id: 'fld-show-in-nav',
+                checked: ep.data.show_in_navigation !== false,
+                label: t('Show in navigation'),
+                hint: t("When unchecked, panel is only reachable via stack (item actions, gestures, or as the home/idle panel)"),
+                onChange: (checked) => this._setPanelValue('show_in_navigation', checked),
+              })}
 
-              ${descriptor?.has_header === false ? html`
-              <div class="form-group">
-                <div class="checkbox-row">
-                  ${renderToggle("fld-long-press-back", ep.data.long_press_back === true, (checked) =>
-                    this._setPanelValue("long_press_back", checked))}
-                  <label for="fld-long-press-back">${t('Long press to go back')}</label>
-                </div>
-                <span class="field-hint">${t('This page has no navigation buttons. Hold anywhere for about a second to go back to the panel it was opened from, or to the home panel.')}</span>
-              </div>
-              ` : ""}
+              ${descriptor?.has_header === false ? renderToggleField({
+                id: 'fld-long-press-back',
+                checked: ep.data.long_press_back === true,
+                label: t('Long press to go back'),
+                hint: t('This page has no navigation buttons. Hold anywhere for about a second to go back to the panel it was opened from, or to the home panel.'),
+                onChange: (checked) => this._setPanelValue('long_press_back', checked),
+              }) : nothing}
 
-              <div class="form-group">
-                <label for="fld-close-timeout">${t('Close automatically after (seconds)')}</label>
-                ${renderNumberInput("fld-close-timeout", ep.data.close_timeout ?? 0, (raw) => {
-                  const v = parseInt(raw, 10);
-                  this._setPanelValue("close_timeout", isNaN(v) || v < 0 ? 0 : v);
-                }, { min: 0 })}
-                <span class="field-hint">${t('Close the panel and go back after this many seconds. 0 = stay open.')}</span>
-              </div>
+              ${renderField({
+                id: 'fld-close-timeout',
+                label: t('Close automatically after (seconds)'),
+                control: renderNumberInput('fld-close-timeout', ep.data.close_timeout ?? 0, (raw) => {
+                  const value = parseInt(raw, 10);
+                  this._setPanelValue('close_timeout', isNaN(value) || value < 0 ? 0 : value);
+                }, { min: 0 }),
+                hint: t('Close the panel and go back after this many seconds. 0 = stay open.'),
+              })}
             </div>
           </details>
           `}
@@ -358,7 +344,7 @@ class PanelEditor extends HauiDialog {
           </div>
         </form>
 
-        <div slot="footer" class="footer-wrapper">
+        <div slot="footer" class="haui-footer-wrapper">
           <ha-dialog-footer>
             <ha-button
               slot="secondaryAction"
@@ -409,7 +395,7 @@ class PanelEditor extends HauiDialog {
     const portrait = isPortraitModel(this.previewContext?.deviceConfig?.display_model);
     return html`<div class="haui-panel-editor-pin" aria-hidden="true">
       <div class=${`haui-panel-editor-pin-bar${this._previewPinned ? ' is-shown' : ''}`}>
-        <span class=${`haui-panel-editor-pin-thumb${portrait ? ' portrait' : ''}`}>${frame}</span>
+        <span class=${`haui-panel-editor-pin-thumb${portrait ? ' is-portrait' : ''}`}>${frame}</span>
         <span class="haui-panel-editor-pin-text"><strong>${name}</strong><span>${detail}</span></span>
       </div>
     </div>`;

@@ -22,6 +22,32 @@ export {
   renderColorPresets, colorFieldText, matchIcons, fillIconDropdown, scheduleTemplateRender,
   renderIconPicker, renderNumberInput,
 };
+/**
+ * Label, control, optional hint and trailing content in the shared field layout.
+ */
+export function renderField({ id, label, control, hint = "", title, extra = nothing, className = '' }) {
+  return html`
+    <div class=${`haui-field ${className}`.trim()}>
+      <label for=${id} title=${title ?? nothing}>${label}</label>
+      ${control}
+      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
+      ${extra}
+    </div>
+  `;
+}
+
+/** A shared checkbox-style toggle row with an optional description. */
+export function renderToggleField({ id, checked, label, hint = "", title, onChange }) {
+  return html`
+    <div class="haui-checkbox-wrap">
+      <div class="haui-checkbox-row">
+        ${renderToggle(id, checked, onChange)}
+        <label for=${id} title=${title ?? nothing}>${label}</label>
+      </div>
+      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
+    </div>
+  `;
+}
 
 
 
@@ -35,16 +61,16 @@ function setPanelOption(host, key, value) {
 }
 
 /** Label, control and hint in the standard form group. */
-function optionGroup(id, opt, control, extra = "") {
+function optionGroup(id, opt, control, extra = nothing) {
   const desc = opt.description || "";
-  return html`
-    <div class="form-group">
-      <label for=${id} title=${desc}>${opt.label || ""}</label>
-      ${control}
-      ${desc ? html`<div class="field-hint">${desc}</div>` : ""}
-      ${extra}
-    </div>
-  `;
+  return renderField({
+    id,
+    label: opt.label || "",
+    title: desc,
+    control,
+    hint: desc,
+    extra,
+  });
 }
 
 /** Re-render a template preview when a field holding a template gets focus. */
@@ -60,7 +86,7 @@ function templatePreview(host, id, val) {
   if (!host.hass) return "";
   const hasTpl = String(val).includes("{{");
   return html`
-    <div class="template-preview" ?hidden=${!hasTpl}>
+    <div class="haui-template-preview" ?hidden=${!hasTpl}>
       <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
     </div>
   `;
@@ -71,7 +97,7 @@ function renderTextOption(host, opt, id, val, displayStr, parse) {
   const input = html`
     <input
       id=${id}
-      class="native-input"
+      class="haui-input"
       .value=${displayStr}
       @input=${(e) => {
         const raw = e.target.value;
@@ -86,15 +112,14 @@ function renderTextOption(host, opt, id, val, displayStr, parse) {
 
 function renderBoolOption(host, opt, id, val) {
   const desc = opt.description || "";
-  return html`
-    <div class="checkbox-wrap">
-      <div class="checkbox-row">
-        ${renderToggle(id, val, (checked) => setPanelOption(host, opt.key, checked))}
-        <label for=${id} title=${desc}>${opt.label || ""}</label>
-      </div>
-      ${desc ? html`<div class="field-hint">${desc}</div>` : ""}
-    </div>
-  `;
+  return renderToggleField({
+    id,
+    checked: val,
+    label: opt.label || "",
+    title: desc,
+    hint: desc,
+    onChange: (checked) => setPanelOption(host, opt.key, checked),
+  });
 }
 
 function renderColorOption(host, opt, id, val) {
@@ -108,10 +133,10 @@ function renderColorOption(host, opt, id, val) {
     return newVal;
   };
   return html`
-    <div class="form-group color-form-group">
+    <div class="haui-field haui-color-form-group">
       <label for=${id} title=${desc}>${opt.label || ""}</label>
-      <div class="color-picker-wrap">
-        <input id=${id} class="native-input" .value=${colorFieldText(val)}
+      <div class="haui-color-picker-wrap">
+        <input id=${id} class="haui-input" .value=${colorFieldText(val)}
           @input=${(e) => {
             const raw = e.target.value;
             if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
@@ -120,9 +145,9 @@ function renderColorOption(host, opt, id, val) {
           @focus=${templateFocusHandler(host, id)}
         />
         <ha-icon-button
-          class="color-picker-btn"
+          class="haui-color-picker-btn"
           @click=${(e) => {
-            const wrap = e.target.closest(".color-picker-wrap");
+            const wrap = e.target.closest(".haui-color-picker-wrap");
             const input = wrap?.querySelector("input[type=color]");
             if (input) input.click();
           }}
@@ -132,11 +157,11 @@ function renderColorOption(host, opt, id, val) {
         </ha-icon-button>
         <input
           type="color"
-          class="color-input-hidden"
+          class="haui-color-input-hidden"
           .value=${colorHex || "#000000"}
           @input=${(e) => {
-            const group = e.target.closest(".color-form-group");
-            const tf = group?.querySelector(".color-picker-wrap .native-input");
+            const group = e.target.closest(".haui-color-form-group");
+            const tf = group?.querySelector(".haui-color-picker-wrap .haui-input");
             const newVal = pickHex(e.target.value);
             if (tf) tf.value = colorFieldText(newVal);
           }}
@@ -144,14 +169,14 @@ function renderColorOption(host, opt, id, val) {
       </div>
       ${!hasTpl && val != null && val !== ""
         ? html`
-            <div class="color-preview-row">
-              <div class="color-preview-swatch" style=${`background-color:${colorHex || "#888888"}`}></div>
-              <span class="color-preview-label">${colorHex || t("no color")}</span>
+            <div class="haui-color-preview-row">
+              <div class="haui-color-preview-swatch" style=${`background-color:${colorHex || "#888888"}`}></div>
+              <span class="haui-color-preview-label">${colorHex || t("no color")}</span>
             </div>`
         : ""}
       ${!hasTpl ? renderColorPresets(colorHex, pickHex) : ""}
-      ${desc ? html`<div class="field-hint">${desc}</div>` : ""}
-      <div class="template-preview" ?hidden=${!hasTpl}>
+      ${desc ? html`<div class="haui-field-hint">${desc}</div>` : ""}
+      <div class="haui-template-preview" ?hidden=${!hasTpl}>
         <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
       </div>
     </div>
@@ -184,9 +209,9 @@ function renderItemOption(host, opt, val) {
     host._editingItem.index === 0;
 
   return html`
-    <div class="form-group" id="fld-${opt.key}">
+    <div class="haui-field" id="fld-${opt.key}">
       <label title=${desc}>${opt.label || ""}</label>
-      ${desc ? html`<div class="field-hint">${desc}</div>` : ""}
+      ${desc ? html`<div class="haui-field-hint">${desc}</div>` : ""}
 
       ${isEditing
         ? renderItemEditFields(host)
@@ -229,7 +254,7 @@ function renderSelectWithTemplate(host, opt, id, val, set) {
       ? html`
           <input
             id=${tplId}
-            class="native-input template-input"
+            class="haui-input template-input"
             .value=${String(val ?? "")}
             placeholder="{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}"
             @input=${(e) => {
@@ -287,7 +312,7 @@ export function renderOptionField(host, opt, currentValue) {
       return optionGroup(id, opt, html`
         <textarea
           id=${id}
-          class="w-full"
+          class="haui-w-full"
           .value=${Array.isArray(val)
             ? val.map((v) => (typeof v === "string" ? v : v?.item || "")).join("\n")
             : String(val != null ? val : "")}

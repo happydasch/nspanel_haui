@@ -32,10 +32,10 @@ class ConfirmDialog extends HauiDialog {
         type="alert"
         >
         ${dialogHeader(title || t('Confirm'), this._dispatchClose)}
-        <div class="dialog-body">
+        <div class="haui-dialog-body">
           <p>${message || ""}</p>
         </div>
-        <div slot="footer" class="footer-wrapper">
+        <div slot="footer" class="haui-footer-wrapper">
           <ha-dialog-footer>
             <ha-button
               slot="secondaryAction"

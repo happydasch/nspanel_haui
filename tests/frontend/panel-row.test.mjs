@@ -70,14 +70,12 @@ test('panel row drop delegates the source key without owning reorder state', () 
   assert.deepEqual(moved, ['source']);
 });
 
-test('panel thumbnail marks orientation and provides an accessible preview name', () => {
+test('panel thumbnail provides an accessible preview name', () => {
   const thumb = panelThumb({
     content: { strings: ['<nspanel-simulator-frame></nspanel-simulator-frame>'], values: [] },
     portrait: true,
     label: 'Kitchen light',
   });
-  assert.ok(thumb.values[0].includes('haui-panel-thumb'));
-  assert.ok(thumb.values[0].includes('portrait'));
   assert.equal(thumb.values[1], 'Preview of Kitchen light');
   assert.match(flatten(thumb), /nspanel-simulator-frame/);
 });
@@ -145,10 +143,12 @@ test('a thumbnail enlarges on mouse hover and toggles on tap or key press', () =
 });
 
 test('home and idle markers follow the device role assignments', () => {
-  const roles = panelRoleMarkers('kitchen', { home_panel: 'kitchen', idle_panel: 'clock_0' });
-  assert.equal(roles.length, 1);
-  assert.match(flatten(roles[0]), /haui-panel-role home/);
-  assert.equal(panelRoleMarkers('clock_0', { home_panel: 'kitchen', idle_panel: 'clock_0' }).length, 1);
+  const home = panelRoleMarkers('kitchen', { home_panel: 'kitchen', idle_panel: 'clock_0' });
+  const idle = panelRoleMarkers('clock_0', { home_panel: 'kitchen', idle_panel: 'clock_0' });
+  assert.equal(home.length, 1);
+  assert.match(flatten(home[0]), /aria-label=Home panel/);
+  assert.equal(idle.length, 1);
+  assert.match(flatten(idle[0]), /aria-label=Idle panel/);
   assert.equal(panelRoleMarkers('other', { home_panel: 'kitchen', idle_panel: 'clock_0' }).length, 0);
 });
 

@@ -18,8 +18,8 @@ export function actionCard({
 }) {
   const innerClasses = [
     'haui-action-card-inner',
-    ...(note ? ['has-note'] : []),
-    ...(management ? ['has-management'] : []),
+    ...(note ? ['is-with-note'] : []),
+    ...(management ? ['is-with-management'] : []),
   ].join(' ');
   return html`<section class="haui-action-card">
     <div class=${innerClasses}>

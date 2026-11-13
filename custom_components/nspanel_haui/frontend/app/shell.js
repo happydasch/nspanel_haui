@@ -25,6 +25,8 @@ import { eventsByTime } from '../ui/event-list.js';
 import { panelActions, panelManager, deviceOptionPanel } from '../ui/panel-manager.js';
 import { panelSideCard } from '../ui/panel-info.js';
 import { deviceActions } from '../ui/device-actions.js';
+import { button } from '../ui/button.js';
+import { emptyState } from '../ui/empty-state.js';
 import { idlePanelKeys } from '../ui/panel-pills.js';
 import { renderSimulatorPreview } from '../previews/simulator-frame.js';
 import { previewRenderKey } from '../previews/previewer.js';
@@ -1018,7 +1020,7 @@ class NSPanelEditor extends LitElement {
   }
 
 
-  /* ── toast ────────────────────────────────────────────────────────────── */
+  /* ── haui-toast ────────────────────────────────────────────────────────────── */
 
   _showToast(m, kind)      { this._store.actions.showToast(m, kind); }
 
@@ -1067,7 +1069,7 @@ class NSPanelEditor extends LitElement {
     const hubVersion = versions.length === 1 ? versions[0] : versions.length > 1 ? t('Mixed versions') : t('Unknown');
     // Logs is Fleet's one sidebar: every device's lines, or one device's from its menu.
     const logs = state.ui.overlays.find((overlay) => overlay.kind === 'logs');
-    return html`<div class="container">
+    return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderFleetView({
         devices,
@@ -1296,7 +1298,7 @@ class NSPanelEditor extends LitElement {
             },
           });
 
-    return html`<div class="container">
+    return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderDeviceView({
         devices: railDevices,
@@ -1772,24 +1774,14 @@ class NSPanelEditor extends LitElement {
   }
 
   _renderLoading(message) {
-    return html`<div class="container">
+    return html`<div class="haui-container">
       ${renderTitleHeader(this)}
-      <div class="main-content">
-      <div class="loading">
-        <div>${message}</div>
-        ${this._haElementsSlow ? html`
-          <div style="margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
-            <button
-              style="padding:8px 16px; border-radius:8px; border:1px solid var(--divider-color,#ddd); background:transparent; color:inherit; font:inherit; cursor:pointer;"
-              @click=${() => this._forceRenderWithoutHaElements()}
-            >${t('Continue anyway')}</button>
-            <button
-              style="padding:8px 16px; border-radius:8px; border:none; background:var(--primary-color,#03a9f4); color:var(--text-primary-color,#fff); font:inherit; cursor:pointer;"
-              @click=${() => this._reloadPage()}
-            >${t('Reload page')}</button>
-          </div>
-        ` : ''}
-      </div>
+      <div class="haui-main-content">
+        ${emptyState({ message, iconName: null, className: 'haui-empty-state-loading' })}
+        ${this._haElementsSlow ? html`<div class="haui-loading-actions">
+          ${button({ label: t('Continue anyway'), variant: 'outline', onClick: () => this._forceRenderWithoutHaElements() })}
+          ${button({ label: t('Reload page'), variant: 'primary', onClick: () => this._reloadPage() })}
+        </div>` : nothing}
       </div>
       ${renderFooter(this)}
     </div>`;
@@ -1804,11 +1796,11 @@ class NSPanelEditor extends LitElement {
     }
 
     if (this._entriesError) {
-      return html`<div class="container">
+      return html`<div class="haui-container">
         ${renderTitleHeader(this)}
-        <div class="main-content">
-        <ha-card outlined class="content-card">
-          <div class="card-content"><p>${this._entriesError}</p></div>
+        <div class="haui-main-content">
+        <ha-card outlined class="haui-content-card">
+          <div class="haui-card-content"><p>${this._entriesError}</p></div>
         </ha-card>
         </div>
         ${renderFooter(this)}
@@ -1816,11 +1808,11 @@ class NSPanelEditor extends LitElement {
     }
 
     if (!this.entryId) {
-      return html`<div class="container">
+      return html`<div class="haui-container">
         ${renderTitleHeader(this)}
-        <div class="main-content">
-        <ha-card outlined class="content-card">
-          <div class="card-content"><p>${t("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.")}</p></div>
+        <div class="haui-main-content">
+        <ha-card outlined class="haui-content-card">
+          <div class="haui-card-content"><p>${t("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.")}</p></div>
         </ha-card>
         </div>
         ${renderFooter(this)}
@@ -1883,7 +1875,7 @@ class NSPanelEditor extends LitElement {
     if (!cfg || !this._selectedDevice) return;
     const previousModel = this._deviceConfig?.display_model;
 
-    // savePanels shows the success or error toast; keep the dialog open on failure.
+    // savePanels shows the success or error haui-toast; keep the dialog open on failure.
     if (await this._savePanels(this._devicePanels(), t("Device configuration saved"), clone(cfg))) {
       this._closeDeviceConfig();
       // The display cannot report which layout it runs, so a model change

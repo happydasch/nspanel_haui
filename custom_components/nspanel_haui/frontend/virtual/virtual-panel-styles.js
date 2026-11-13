@@ -8,7 +8,7 @@ export const virtualPanelStyles = css`
     position: relative;
     overflow: hidden;
     user-select: none;
-    touch-action: none;
+    touch-action: var(--vp-touch-action, none);
   }
   .vp-widget {
     position: absolute;
@@ -33,7 +33,7 @@ export const virtualPanelStyles = css`
     position: absolute;
   }
   .vp-circle {
-    border-radius: 50%;
+    border-radius: var(--haui-radius-round);
   }
   .vp-qr {
     display: flex;

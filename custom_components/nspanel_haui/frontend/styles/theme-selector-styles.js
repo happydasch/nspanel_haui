@@ -3,27 +3,23 @@
  *
  * The unified predefined/custom theme dropdown used by the Theme sidebar. The
  * fields follow Home Assistant's form look: a filled surface, no border, and a
- * primary outline while focused. The library controls (.cp-theme-name,
- * .cp-theme-error) come from color-dialog-styles.js.
+ * primary outline while focused. The library controls (.haui-theme-name,
+ * .haui-theme-error) come from haui-color-dialog-styles.js.
  */
 import { css } from '../lit-import.js';
 
 export const themeSelectorStyles = css`
-  .haui-theme-selector { display: grid; gap: 10px; margin-block: 12px 4px; }
-  .haui-theme-selector .form-group { margin: 0; }
-  .haui-theme-selector .form-group label { margin-bottom: 6px; }
+  .haui-theme-selector { display: grid; gap: 8px; margin-block: 12px 4px; }
+  .haui-theme-selector .haui-field { margin: 0; }
+  .haui-theme-selector .haui-field label { margin-bottom: 4px; }
 
   /* The picker is one field: a chip of the palette, the name, the chevron. Focus
      rings the whole field, so the select itself draws no ring. */
   .haui-theme-selector-field {
     position: relative;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: var(--haui-radius-control);
     background: var(--ha-color-form-background, var(--haui-surface-soft));
-  }
-  .haui-theme-selector-field:focus-within {
-    outline: 2px solid var(--primary-color, #03a9f4);
-    outline-offset: 2px;
   }
   .haui-theme-selector-chip {
     position: absolute;
@@ -37,37 +33,24 @@ export const themeSelectorStyles = css`
     overflow: hidden;
     box-sizing: border-box;
     border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: 7px;
+    border-radius: var(--haui-radius-control);
     pointer-events: none;
   }
   .haui-theme-selector-chip i { display: block; }
 
-  /* Every select in the Theme sidebar is that same filled field. */
-  .haui-theme-sidebar .native-select {
+  /* Only the picker is that filled field; the selects inside the sidebar's
+     collapsible sections keep the shared form look the other sidebars use. */
+  .haui-theme-selector-field .haui-select {
     width: 100%;
     max-width: none;
-    min-height: 44px;
-    padding: 0 40px 0 12px;
-    border: 0;
-    border-radius: 8px;
-    background-color: var(--ha-color-form-background, var(--haui-surface-soft));
-    background-position: right 12px center;
-    color: var(--primary-text-color, #212121);
-    font-size: 15px;
-    font-weight: 500;
-  }
-  .haui-theme-sidebar .native-select:hover { border-color: transparent; }
-  .haui-theme-sidebar .native-select:focus-visible {
-    outline: 2px solid var(--primary-color, #03a9f4);
-    outline-offset: 2px;
-  }
-  /* Inside the picker the field paints the surface and rings the focus, and the
-     palette chip takes the leading space the select text starts after. */
-  .haui-theme-selector .haui-theme-selector-field .native-select {
     min-height: 48px;
-    padding-inline: 50px 40px;
+    padding: 0 40px 0 40px;
+    border: 0;
     border-radius: 0;
     background-color: transparent;
+    color: var(--primary-text-color, #212121);
+    font-size: var(--haui-text-title);
+    font-weight: 500;
     outline: none;
   }
 
@@ -78,17 +61,17 @@ export const themeSelectorStyles = css`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
   }
   .haui-theme-selector-actions .haui-theme-selector-action {
     min-height: 30px;
-    padding: 0 10px;
-    font-size: 13px;
+    padding: 0 8px;
+    font-size: var(--haui-text-label);
   }
   .haui-theme-selector-divider {
     width: 1px;
     height: 18px;
-    margin-inline: 6px;
+    margin-inline: 4px;
     background: var(--divider-color, #e0e0e0);
   }
   .haui-theme-selector-actions .haui-row-action.is-danger { color: var(--error-color, #db4437); }

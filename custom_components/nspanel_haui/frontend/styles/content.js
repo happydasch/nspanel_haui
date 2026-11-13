@@ -7,28 +7,14 @@
  */
 import { css } from '../lit-import.js';
 
-import { colorDialogStyles } from './color-dialog-styles.js';
-import { colorPickerStyles } from './color-picker-styles.js';
-import { dropdownStyles } from './dropdown-styles.js';
-import { itemListStyles } from './item-list-styles.js';
-import { formCommonStyles } from './form-common-styles.js';
-
 export const contentStyles = css`
-  ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}
-  .container {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    padding-bottom: var(--ha-space-6);
-  }
-
   /* ── main content area (flex-grows to push footer down) ── */
-  .main-content {
+  .haui-main-content {
     flex: 1 0 auto;
   }
 
   /* ── title header ──────────────── */
-  .toolbar-header {
+  .haui-toolbar-header {
     display: flex;
     align-items: center;
     height: var(--header-height, 56px);
@@ -39,7 +25,7 @@ export const contentStyles = css`
     border-bottom: 1px solid var(--divider-color, #e0e0e0);
   }
 
-  .toolbar-title {
+  .haui-toolbar-title {
     line-height: var(--ha-line-height-normal);
     flex-grow: 1;
     text-overflow: ellipsis;
@@ -51,68 +37,68 @@ export const contentStyles = css`
     margin-inline-start: var(--ha-space-6);
   }
 
-  .notifications-button {
+  .haui-toolbar-notifications-button {
     position: relative;
     flex-shrink: 0;
     color: var(--app-header-text-color, var(--sidebar-text-color, #333));
   }
 
-  .notification-count {
+  .haui-toolbar-notification-count {
     position: absolute;
     inset-block-start: 0;
     inset-inline-end: 0;
     min-width: 16px;
-    padding: 1px 4px;
-    border-radius: 10px;
+    padding: 4px 4px;
+    border-radius: var(--haui-radius-control);
     background: var(--error-color);
     color: var(--text-primary-color);
-    font-size: 10px;
-    line-height: 14px;
+    font-size: var(--haui-text-eyebrow);
+    line-height: 1.4;
     text-align: center;
   }
 
-  .menu-toggle-btn {
+  .haui-toolbar-menu-toggle {
     --mdc-icon-button-size: 40px;
     flex-shrink: 0;
     color: var(--app-header-text-color, var(--sidebar-text-color, #333));
   }
   /* ── content card ────────────────── */
 
-  .content-card {
+  .haui-content-card {
     margin: var(--ha-space-6);
   }
 
-  .content-card .card-content {
+  .haui-content-card .haui-card-content {
     padding: 0;
   }
 
   /* ── dialog body (inside ha-dialog) ── */
-  .dialog-body {
+  .haui-dialog-body {
     position: relative;
   }
 
-/* ── toast / loading ─────────────── */
-  .toast {
+/* ── toast / loading actions ─────────────── */
+  .haui-toast {
     position: fixed;
     inset: auto auto 24px 50%;
     margin: 0;
     border: 0;
     transform: translateX(-50%);
     padding: 12px 24px;
-    border-radius: 8px;
-    color: #fff;
+    border-radius: var(--haui-radius-control);
+    color: var(--text-primary-color, #fff);
     font-weight: 500;
     z-index: 10000;
-    animation: toast-in 0.3s ease;
+    animation: toast-in 150ms ease;
   }
-  .toast.success {
-    background: var(--success-color, #4caf50);
+  .haui-toast.success {
+    background: var(--success-color, #43a047);
   }
-  .toast.info {
+  .haui-toast.info {
     background: var(--primary-color);
   }
-  .toast.error {
-    background: var(--error-color, #f44336);
+  .haui-toast.error {
+    background: var(--error-color, #db4437);
   }
   @keyframes toast-in {
     from {
@@ -124,58 +110,51 @@ export const contentStyles = css`
       transform: translateX(-50%) translateY(0);
     }
   }
-  .loading {
-    text-align: center;
-    padding: 32px;
-    color: var(--secondary-text-color, #666);
-  }
+  .haui-empty-state-loading { font-size: var(--haui-text-body); }
+  .haui-loading-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
 
   /* ── update install picker ──────── */
 
-  .device-update-picker {
+  .haui-update-picker {
     background: var(--secondary-background-color, #f5f5f5);
-    border-radius: 8px;
+    border-radius: var(--haui-radius-control);
     padding: 12px;
-    margin-bottom: 16px;
-  }
-
-  .device-update-picker .native-input {
-    display: block;
-    width: 100%;
-  }
-
-  .device-update-picker {
-    margin: 8px 0 0;
+    margin: 8px 0 16px;
     cursor: default;
   }
 
-  .device-update-picker .native-select {
+  .haui-update-picker .haui-input {
     display: block;
     width: 100%;
   }
 
-  .device-update-actions {
+  .haui-update-picker .haui-select {
+    display: block;
+    width: 100%;
+  }
+
+  .haui-update-actions {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
     margin-top: 8px;
   }
 
-  .device-update-error {
-    color: var(--error-color, #e53935);
-    font-size: 0.85em;
+  .haui-update-error {
+    color: var(--error-color, #db4437);
+    font-size: var(--haui-text-caption);
     margin: 4px 0 0;
   }
 
   /* ── dialog header (title left, close button on the right) ─────── */
-  .dialog-header {
+  .haui-dialog-header {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
     background: var(--card-background-color, #fff);
   }
-  .dialog-header.dialog-header--extended {
+  .haui-dialog-header.is-extended {
     flex-direction: column;
     gap: 0;
     position: sticky;
@@ -183,26 +162,26 @@ export const contentStyles = css`
     z-index: 2;
     padding-bottom: 12px;
   }
-  .dialog-header.dialog-header--extended .dialog-header-bar {
+  .haui-dialog-header.is-extended .haui-dialog-header-bar {
     margin-bottom: 8px;
   }
-  .dialog-header-bar {
+  .haui-dialog-header-bar {
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
   }
-  .dialog-header-title {
+  .haui-dialog-header-title {
     flex: 1;
     min-width: 0;
-    font-size: 1.25em;
+    font-size: var(--haui-text-display);
     font-weight: 400;
     color: var(--primary-text-color, #212121);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .dialog-header-close {
+  .haui-dialog-header-close {
     flex-shrink: 0;
     --mdc-icon-button-size: 40px;
     color: var(--secondary-text-color, #666);
@@ -210,13 +189,13 @@ export const contentStyles = css`
   }
 
   /* ── dialog footer (primary actions grouped on the right) ──────── */
-  .footer-wrapper {
+  .haui-footer-wrapper {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     width: 100%;
   }
-  .footer-toggle-wrapper {
+  .haui-footer-toggle-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -224,45 +203,45 @@ export const contentStyles = css`
   }
 
   /* ── RSSI signal bars ──────────────── */
-  .rssi-bars {
+  .haui-rssi-bars {
     display: inline-flex;
     align-items: end;
-    gap: 2px;
+    gap: 4px;
     height: 14px;
   }
-  .rssi-bar {
+  .haui-rssi-bar {
     width: 4px;
-    border-radius: 1px;
+    border-radius: var(--haui-radius-control);
     background: var(--disabled-text-color, #d0d0d0);
-    transition: background 0.3s ease;
+    transition: background 150ms ease;
   }
-  .rssi-bar:nth-child(1) { height: 4px; }
-  .rssi-bar:nth-child(2) { height: 7px; }
-  .rssi-bar:nth-child(3) { height: 10px; }
-  .rssi-bar:nth-child(4) { height: 14px; }
-  .rssi-bar.wifi-excellent { background: var(--success-color, #43a047); }
-  .rssi-bar.wifi-good      { background: #7cb342; }
-  .rssi-bar.wifi-fair      { background: var(--warning-color, #fb8c00); }
-  .rssi-bar.wifi-weak      { background: var(--error-color, #e53935); }
-  .section-divider {
+  .haui-rssi-bar:nth-child(1) { height: 4px; }
+  .haui-rssi-bar:nth-child(2) { height: 7px; }
+  .haui-rssi-bar:nth-child(3) { height: 10px; }
+  .haui-rssi-bar:nth-child(4) { height: 14px; }
+  .haui-rssi-bar.haui-wifi-excellent { background: var(--success-color, #43a047); }
+  .haui-rssi-bar.haui-wifi-good      { background: var(--haui-wifi-good); }
+  .haui-rssi-bar.haui-wifi-fair      { background: var(--warning-color, #ffa600); }
+  .haui-rssi-bar.haui-wifi-weak      { background: var(--error-color, #db4437); }
+  .haui-section-divider {
     height: 1px;
-    background: var(--divider-color, rgba(0,0,0,0.12));
+    background: var(--divider-color, #e0e0e0);
     margin: 12px 0;
   }
 
   /* ── responsive: tablet (container) ─── */
   @container haui-editor (max-width: 870px) {
-    .toolbar-title {
+    .haui-toolbar-title {
       margin-inline-start: var(--ha-space-2);
     }
   }
 
   /* ── responsive: narrow container ─── */
   @container haui-editor (max-width: 600px) {
-    .toolbar-header {
+    .haui-toolbar-header {
       padding: 0 4px;
     }
-    .content-card {
+    .haui-content-card {
       margin: var(--ha-space-4);
     }
   }
@@ -279,26 +258,34 @@ export const contentStyles = css`
     margin-top: var(--ha-space-6);
   }
   .footer-version-group { display: inline-flex; align-items: center; gap: 8px; }
-  .footer-version { color: var(--secondary-text-color, #666); font-size: 0.88em; }
+  .footer-version { color: var(--secondary-text-color, #666); font-size: var(--haui-text-caption); }
   .footer-dev-badge {
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: var(--warning-color, #ffc107);
+    padding: 4px 8px;
+    border-radius: var(--haui-radius-pill);
+    background: var(--warning-color, #ffa600);
     color: var(--primary-text-color, #212121);
-    font-size: 0.72em;
-    font-weight: 700;
+    font-size: var(--haui-text-caption);
+    font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
   .footer-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     color: var(--secondary-text-color, #666);
     text-decoration: none;
-    font-size: 0.88em;
-    transition: color 0.15s;
+    font-size: var(--haui-text-caption);
+    transition: color 150ms;
   }
   .footer-link:hover { color: var(--primary-color, #03a9f4); }
   .footer-link ha-icon { --mdc-icon-size: 16px; }
-  `;
+
+  @media (prefers-reduced-motion: reduce) {
+    :host *, :host *::before, :host *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+`;

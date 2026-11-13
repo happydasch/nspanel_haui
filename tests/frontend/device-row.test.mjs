@@ -31,10 +31,10 @@ test('a device row shows the connection icon of the device card in front of the 
   const online = row({ connected: true, device_info: { rssi: -50 } });
   assert.match(online, /haui-conn-status haui-conn-status-icon online/);
   assert.match(online, /Connected · -50 dBm/);
-  assert.match(online, /wifi-strength-4/);
-  assert.ok(online.indexOf('wifi-strength-4') < online.indexOf('Kitchen'));
-  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /wifi-off/);
-  assert.match(row(null), /wifi-strength-off-outline/);
+  assert.match(online, /haui-wifi-strength-4/);
+  assert.ok(online.indexOf('haui-wifi-strength-4') < online.indexOf('Kitchen'));
+  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /haui-wifi-off/);
+  assert.match(row(null), /haui-wifi-strength-off-outline/);
   assert.doesNotMatch(online, /haui-status-dot/);
   assert.match(online, /Actions for Kitchen/);
   assert.doesNotMatch(online, /Settings for Kitchen/);
@@ -45,10 +45,10 @@ test('the connection icon of a device row is coloured by the Wi-Fi strength', as
   const row = (status) => templateText(deviceRow({
     name: 'nspanel-kitchen', device: { friendlyName: 'Kitchen', config: {} }, status, onOpen() {},
   }));
-  assert.match(row({ connected: true, device_info: { rssi: -50 } }), /wifi-excellent/);
-  assert.match(row({ connected: true, device_info: { rssi: -65 } }), /wifi-fair/);
-  assert.match(row({ connected: true, device_info: { rssi: -80 } }), /wifi-weak/);
-  assert.doesNotMatch(row({ connected: false, device_info: { rssi: -80 } }), /wifi-weak/);
+  assert.match(row({ connected: true, device_info: { rssi: -50 } }), /haui-wifi-excellent/);
+  assert.match(row({ connected: true, device_info: { rssi: -65 } }), /haui-wifi-fair/);
+  assert.match(row({ connected: true, device_info: { rssi: -80 } }), /haui-wifi-weak/);
+  assert.doesNotMatch(row({ connected: false, device_info: { rssi: -80 } }), /haui-wifi-weak/);
 });
 
 test('the inventory marks a YAML and HAUI version mismatch', async () => {
@@ -64,12 +64,11 @@ test('the inventory marks a YAML and HAUI version mismatch', async () => {
   }));
 
   const mismatch = row(true);
-  assert.match(mismatch, /haui-device-row-version has-mismatch/);
-  assert.ok(mismatch.indexOf('0.5.0-dev62') < mismatch.indexOf('haui-device-row-mismatch'));
+  assert.ok(mismatch.indexOf('0.5.0-dev62') < mismatch.indexOf('Mismatch'));
   assert.match(mismatch, /0\.5\.0-dev62/);
-  assert.match(mismatch, /haui-badge-danger haui-device-row-mismatch/);
+  assert.match(mismatch, /title="Firmware version does not match the integration"/);
   assert.match(mismatch, /Mismatch/);
-  assert.doesNotMatch(row(false), /haui-device-row-mismatch/);
+  assert.doesNotMatch(row(false), /Mismatch/);
 });
 
 test('the inventory firmware column shows the device firmware version, not the integration version', async () => {

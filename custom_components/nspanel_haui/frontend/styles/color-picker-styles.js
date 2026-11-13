@@ -8,15 +8,15 @@ import { css } from '../lit-import.js';
 
 export const colorPickerStyles = css`
   /* ── color picker wrap ───────────── */
-  .color-picker-wrap {
+  .haui-color-picker-wrap {
     display: flex;
     gap: 8px;
     align-items: center;
   }
-  .color-picker-wrap > .native-input {
+  .haui-color-picker-wrap > .haui-input {
     flex: 1;
   }
-  .color-input-hidden {
+  .haui-color-input-hidden {
     position: absolute;
     opacity: 0;
     width: 0;
@@ -24,76 +24,75 @@ export const colorPickerStyles = css`
   }
 
   /* ── palette button ──────────────── */
-  .color-picker-btn {
+  .haui-color-picker-btn {
     --mdc-icon-button-size: 36px;
     --mdc-icon-size: 20px;
     flex-shrink: 0;
     color: var(--secondary-text-color, #666);
-    transition: color 0.15s;
+    transition: color 150ms;
   }
-  .color-picker-btn:hover {
+  .haui-color-picker-btn:hover {
     color: var(--primary-color, #03a9f4);
   }
 
   /* ── preview row ─────────────────── */
-  .color-preview-row {
+  .haui-color-preview-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 6px;
-    padding: 6px 10px;
-    border-radius: 8px;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 4px 8px;
+    border-radius: var(--haui-radius-control);
     background: var(--secondary-background-color, #f5f5f5);
   }
-  .color-preview-swatch {
+  .haui-color-preview-swatch {
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: var(--haui-radius-control);
     flex-shrink: 0;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12),
-                0 1px 3px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--haui-shadow-card);
   }
-  .color-preview-label {
-    font-size: 0.85em;
-    font-family: var(--code-font-family, monospace);
-    color: var(--secondary-text-color, #888);
+  .haui-color-preview-label {
+    font-size: var(--haui-text-caption);
+    font-family: var(--haui-mono);
+    color: var(--secondary-text-color, #666);
   }
 
   /* ── preset swatch row ───────────── */
-  .color-presets {
+  .haui-color-presets {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 6px;
-    padding: 6px 8px;
-    border-radius: 8px;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 4px 8px;
+    border-radius: var(--haui-radius-control);
     background: var(--secondary-background-color, #f5f5f5);
   }
-  .color-preset-swatch {
+  .haui-color-preset-swatch {
     width: 22px;
     height: 22px;
-    border-radius: 4px;
+    border-radius: var(--haui-radius-control);
     cursor: pointer;
     flex-shrink: 0;
     border: 2px solid transparent;
-    transition: transform 0.1s, border-color 0.1s;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: transform 120ms, border-color 120ms;
+    box-shadow: var(--haui-shadow-card);
   }
-  .color-preset-swatch:hover {
+  .haui-color-preset-swatch:hover {
     transform: scale(1.25);
     border-color: var(--primary-color, #03a9f4);
     z-index: 1;
   }
-  .color-preset-label {
-    font-size: 0.75em;
-    color: var(--secondary-text-color, #999);
+  .haui-color-preset-label {
+    font-size: var(--haui-text-caption);
+    color: var(--secondary-text-color, #666);
     margin: 0;
     width: 100%;
     padding-top: 4px;
   }
 
   /* ── color dialog swatches ───────── */
-  .cp-sw {
+  .haui-color-swatch {
     position: relative;
     width: 28px;
     height: 28px;
@@ -101,18 +100,17 @@ export const colorPickerStyles = css`
     cursor: pointer;
     overflow: hidden;
     border: 2px solid var(--card-background-color, #fff);
-    border-radius: 8px;
-    box-shadow: 0 0 0 1px var(--divider-color, #d5d5d5),
-                0 1px 3px rgba(0, 0, 0, 0.16);
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    border-radius: var(--haui-radius-control);
+    box-shadow: 0 0 0 1px var(--divider-color, #e0e0e0), var(--haui-shadow-card);
+    transition: transform 120ms ease, box-shadow 120ms ease;
   }
-  .cp-sw:hover {
+  .haui-color-swatch:hover {
     transform: translateY(-1px);
   }
-  .cp-sw:focus-within {
+  .haui-color-swatch:focus-within {
     box-shadow: 0 0 0 2px var(--primary-color, #03a9f4);
   }
-  .cp-sw input[type="color"] {
+  .haui-color-swatch input[type="color"] {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -121,5 +119,13 @@ export const colorPickerStyles = css`
     cursor: pointer;
     border: none;
     padding: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :host *, :host *::before, :host *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
   }
 `;

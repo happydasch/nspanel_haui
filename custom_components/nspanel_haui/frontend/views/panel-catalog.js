@@ -2,6 +2,7 @@
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { segmented } from '../ui/segmented.js';
+import { emptyState } from '../ui/empty-state.js';
 
 // One object per type: a preview frame replays its render again whenever it is
 // handed a different panel object.
@@ -89,7 +90,7 @@ export function panelCatalog({
   ));
   const defaults = popups.filter((entry) => found(`${entry.label || ''} ${entry.key}`));
   const thumb = (panel, byKey = false) => (preview
-    ? html`<span class=${`haui-panel-catalog-preview ${portrait ? 'portrait' : ''}`.trim()}
+    ? html`<span class=${`haui-panel-catalog-preview ${portrait ? 'is-portrait' : ''}`.trim()}
       aria-hidden="true">${preview(panel, byKey)}</span>`
     : nothing);
   /** @param {string} key @param {string} icon @param {string} label @param {string} detail
@@ -120,7 +121,7 @@ export function panelCatalog({
   const list = (entries, render) => html`<div class="haui-panel-catalog-list" role="list">
     ${entries.map(render)}
   </div>`;
-  return html`<section class=${`haui-panel-catalog ${compactPreviews ? 'compact-previews' : ''}`.trim()}
+  return html`<section class=${`haui-panel-catalog ${compactPreviews ? 'is-compact-previews' : ''}`.trim()}
     aria-label=${t('Add panel')}>
     <div class="haui-panel-catalog-controls">
       <div class="haui-panel-catalog-controls-row">
@@ -144,7 +145,7 @@ export function panelCatalog({
         </div>` : nothing}
       </div>
     </div>
-    <p class="config-section-intro">${t('Start from a panel type below, extend a built-in popup, or copy a panel this hub already has.')}</p>
+    <p class="haui-config-section-intro">${t('Start from a panel type below, extend a built-in popup, or copy a panel this hub already has.')}</p>
     ${matches.length ? byCategory(matches).map((group) => section(
       group.key, group.icon, group.label, group.entries.length,
       list(group.entries, (panelType) => option(
@@ -153,7 +154,7 @@ export function panelCatalog({
         thumb(newPanel(panelType.type_key)),
       )),
     )) : copies.length || defaults.length ? nothing
-      : html`<p class="haui-panel-catalog-empty">${t('No panels match this search.')}</p>`}
+      : emptyState({ message: t('No panels match this search.'), iconName: null, className: 'haui-empty-state-compact' })}
     ${defaults.length ? section('popups', 'mdi:card-outline', t('Extend a popup'), defaults.length, html`
       <p class="haui-panel-catalog-hint">${t('Start from a built-in popup; your changes are saved on top of it for this device.')}</p>
       ${list(defaults, (entry) => option(

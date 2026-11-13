@@ -5,7 +5,43 @@
 import { positionPickerDropdown, createDropdownKeyboardController, readStorage, writeStorage } from './dom-helpers.js';
 import { html, noChange, nothing } from './lit-import.js';
 import { t } from './localize.js';
-import { COLOR_PRESETS, parseRgbListToHex } from './color-utils.js';
+import { COLOR_PRESETS, hexToColorMatching, parseRgbListToHex } from './color-utils.js';
+import { iconButton } from './ui/button.js';
+
+/**
+ * Label, control, optional hint and trailing content in the shared field layout.
+ */
+/**
+ * The message under a field that breaks a rule: an error (announced, blocks
+ * the save) or a warning (shown, does not block).
+ * @param {string} id - the field id; the message gets `<id>-error` / `<id>-warning`
+ * @param {{ error?: string, warning?: string }} [feedback]
+ */
+export function fieldMessage(id, feedback = {}) {
+  if (feedback.error) {
+    return html`<span class="haui-field-error" id=${`${id}-error`} role="alert">${feedback.error}</span>`;
+  }
+  if (feedback.warning) {
+    return html`<span class="haui-field-warning" id=${`${id}-warning`}>${feedback.warning}</span>`;
+  }
+  return nothing;
+}
+
+/**
+ * Label, control and hint in the standard form group.
+ * @param {{ id: string, label: unknown, control: unknown, hint?: unknown, title?: string,
+ *   extra?: unknown, className?: string }} options
+ */
+export function renderField({ id, label, control, hint = "", title, extra = nothing, className = '' }) {
+  return html`
+    <div class=${`haui-field ${className}`.trim()}>
+      <label for=${id} title=${title ?? nothing}>${label}</label>
+      ${control}
+      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
+      ${extra}
+    </div>
+  `;
+}
 
 export function renderSelect(id, value, options, onChange, opts = {}) {
   const cls = ["haui-select", opts.className].filter(Boolean).join(" ");
@@ -160,35 +196,84 @@ export function saveColor(hex) {
   writeStorage("haui_savedColors", JSON.stringify(trimmed));
 }
 
-/** Render a row of preset color swatches that call onPick(hex) on click. */
-export function renderColorPresets(currentHex, onPick) {
-  const saved = getSavedColors();
-  const showSaved = saved.length > 0;
+/** One labelled row of colour swatch buttons that call onPick(hex). */
+function colorSwatchRow(label, colors, onPick, className = '') {
   return html`
-    ${showSaved ? html`
-      <div class="haui-color-presets is-recent">
-        <span class="haui-color-preset-label">${t("Recent")}</span>
-        ${saved.map(h => html`
-          <div
-            class="haui-color-preset-swatch"
-            style="--haui-color-preset:${h}"
-            title=${h}
-            @click=${() => onPick(h)}
-          ></div>
-        `)}
-      </div>
-    ` : ""}
-    <div class="haui-color-presets">
-      <span class="haui-color-preset-label">${t("Presets")}</span>
-      ${COLOR_PRESETS.map(h => html`
-        <div
-          class="haui-color-preset-swatch"
-          style="--haui-color-preset:${h}"
-          title=${h}
-          @click=${() => onPick(h)}
-        ></div>
+    <div class=${`haui-color-presets ${className}`.trim()}>
+      <span class="haui-color-preset-label">${label}</span>
+      ${colors.map((hex) => html`
+        <button type="button" class="haui-color-preset-swatch" style="--haui-color-preset:${hex}"
+          aria-label=${hex} title=${hex} @click=${() => onPick(hex)}></button>
       `)}
     </div>
+  `;
+}
+
+/** The recently picked colours (if any) and the preset colours. */
+export function renderColorPresets(onPick) {
+  const saved = getSavedColors();
+  return html`
+    ${saved.length ? colorSwatchRow(t("Recent"), saved, onPick, 'is-recent') : nothing}
+    ${colorSwatchRow(t("Presets"), COLOR_PRESETS, onPick)}
+  `;
+}
+
+/**
+ * A colour field: a text input that takes a hex colour, an RGB list, an RGB565
+ * number or a template, a swatch inside it that opens the browser's colour
+ * picker, and a toggle that shows the recent and preset colours below.
+ *
+ * A picked colour is stored in the format the value already has
+ * (`hexToColorMatching`); typed text is stored parsed (`parseFieldValue`).
+ * The caller owns whether the presets are shown, so they close with its editing session.
+ *
+ * @param {{ id: string, value: any, api?: object|null, onChange: (value: any) => void, presetsOpen?: boolean, onTogglePresets: () => void }} options
+ */
+export function renderColorField({ id, value, api = null, onChange, presetsOpen = false, onTogglePresets }) {
+  const colorHex = parseRgbListToHex(value);
+  const hasTemplate = formatFieldValue(value).includes("{{");
+  const presetsId = `${id}-presets`;
+  const pick = (hex) => {
+    saveColor(hex);
+    onChange(hexToColorMatching(hex, value));
+  };
+  return html`
+    <div class="haui-field-row">
+      <div class="haui-input-preview-wrap">
+        <span class=${`haui-color-swatch haui-color-editor-swatch haui-input-preview${colorHex ? '' : ' is-empty'}`}
+          style=${colorHex ? `--haui-color-swatch:${colorHex}` : nothing} title=${colorHex || t("no color")}>
+          <input type="color" aria-label=${t("Pick color")} .value=${colorHex || "#000000"}
+            @input=${(event) => pick(event.target.value)} />
+        </span>
+        <input id=${id} class="haui-input" .value=${colorFieldText(value)}
+          @input=${(event) => {
+            const raw = event.target.value;
+            if (api) scheduleTemplateRender(api, raw, `tp-${id}`, event.target);
+            // A value the field shows differently (an RGB565 number or an RGB list, both
+            // shown as hex) would rewrite the text being typed: it is stored on change.
+            const parsed = parseFieldValue(raw);
+            if (colorFieldText(parsed) === raw) onChange(parsed);
+          }}
+          @change=${(event) => onChange(parseFieldValue(event.target.value))}
+          @focus=${(event) => {
+            if (api && String(event.target.value || "").includes("{{")) {
+              scheduleTemplateRender(api, event.target.value, `tp-${id}`, event.target);
+            }
+          }}
+        />
+      </div>
+      ${iconButton({
+        label: t("Presets"),
+        iconName: 'color',
+        expanded: presetsOpen,
+        controls: presetsId,
+        onClick: onTogglePresets,
+      })}
+    </div>
+    <div class="haui-template-preview" ?hidden=${!hasTemplate}>
+      <span id="tp-${id}">${hasTemplate ? "..." : ""}</span>
+    </div>
+    <div id=${presetsId} ?hidden=${!presetsOpen}>${renderColorPresets(pick)}</div>
   `;
 }
 

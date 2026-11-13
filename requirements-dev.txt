@@ -12,12 +12,13 @@ homeassistant==2026.11.0
 
 pytest>=8.0
 pytest-asyncio>=0.25
-ruff>=0.8
-mypy>=1.9
+# Pinned like Home Assistant: a new ruff can reformat or flag unchanged code and
+# a new mypy can report new errors, failing CI on an unrelated change.
+ruff==0.17.5
+mypy==2.4.1
 pydantic>=2.7
 types-requests
 types-python-dateutil
 voluptuous>=0.14.2
 # Freezes the clock for the screen overview (scripts/preview_gallery).
 time-machine>=2.16
-aiohttp>=3.11

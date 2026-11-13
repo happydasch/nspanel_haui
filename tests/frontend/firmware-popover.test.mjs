@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { updateStateLabel, updateSummary } from'../../custom_components/nspanel_haui/frontend/dialogs/firmware.js';
+import { render } from './support/render.mjs';
 
 function element(props = {}) {
   const FirmwarePopover = customElements.get('nspanel-firmware-popover');
@@ -106,4 +107,113 @@ test('the Updates sidebar shows update check errors', async () => {
   });
   await view._checkForUpdates();
     assert.equal(view._popoverError, 'offline');
+});
+
+const HUB_POLICY = {
+  firmware_auto_update: true, auto_install: true, install_delay: 600, max_attempts: 3, retry_interval: 3600,
+};
+
+test('a device that follows the hub shows the hub policy and an override switch', () => {
+  const view = flatten(element({ config: { update: { enabled: true } }, hubPolicy: HUB_POLICY }).render());
+
+  assert.match(view, /Follows the hub policy/);
+  assert.match(view, /Firmware: automatic, after 10 minutes/);
+  assert.match(view, /Override the hub policy/);
+  assert.doesNotMatch(view, /update-firmware-auto/);
+});
+
+test('a device that overrides the hub edits its own policy', () => {
+  const config = { update: { enabled: true, policy_override: true, max_attempts: 2 } };
+  const view = flatten(element({ config, hubPolicy: HUB_POLICY }).render());
+
+  assert.doesNotMatch(view, /Follows the hub policy/);
+  assert.match(view, /update-firmware-auto/);
+  assert.match(view, /update-tft-auto/);
+  assert.match(view, /update-max-attempts/);
+  assert.match(view, /update-install-delay/);
+  assert.match(view, /update-retry-interval/);
+});
+
+test('the status card says when the next automatic attempt follows', () => {
+  const status = {
+    integration_version: '0.5.0',
+    device_info: { tft_version: '1.2.3' },
+    update: {
+      enabled: true, state: 'idle',
+      firmware_auto: { attempts: 1, max_attempts: 3, next_attempt_at: '2026-11-13T14:05:00+00:00', stopped_reason: null },
+      tft_auto: { attempts: 0, max_attempts: 3, next_attempt_at: null, stopped_reason: null },
+    },
+  };
+
+  assert.match(flatten(element({ deviceStatus: status }).render()), /Attempt 1 of 3 failed/);
+});
+
+test('the status card says when the automatic install stopped', () => {
+  const status = {
+    integration_version: '0.5.0',
+    device_info: { tft_version: '1.2.3' },
+    update: {
+      enabled: true, state: 'idle',
+      firmware_auto: { attempts: 0, max_attempts: 3, next_attempt_at: null, stopped_reason: null },
+      tft_auto: { attempts: 3, max_attempts: 3, next_attempt_at: null, stopped_reason: 'Automatic install of 0.5.1 stopped after 3 failed attempts.' },
+    },
+  };
+
+  assert.match(flatten(element({ deviceStatus: status }).render()), /stopped after 3 failed attempts/);
+});
+
+
+function scheduledStatus(update = {}) {
+  return {
+    integration_version: '0.5.0',
+    device_info: { tft_version: '1.2.3', yaml_version: '0.5.0' },
+    update: {
+      enabled: true, state: 'idle',
+      firmware_update_available: true, firmware_update_version: '0.5.1',
+      firmware_scheduled: { version: '0.5.1', starts_at: new Date(Date.now() + 600000).toISOString() },
+      ...update,
+    },
+  };
+}
+
+test('a scheduled firmware install can start now, wait or be skipped', () => {
+  const sidebar = element({ deviceStatus: scheduledStatus() });
+  const events = [];
+  sidebar._emit = (name, detail) => events.push([name, detail]);
+  const root = render(sidebar.render());
+  const card = root.querySelector('.haui-update-scheduled');
+  const click = (text) => [...card.querySelectorAll('button')].find((button) => button.textContent.includes(text)).click();
+
+  assert.match(card.textContent, /0\.5\.1/);
+  click('Install now');
+  click('In 1 hour');
+  click('In 1 day');
+  click('Skip this version');
+  assert.deepEqual(events, [
+    ['update-control', { action: 'install_now' }],
+    ['update-control', { action: 'defer', seconds: 3600 }],
+    ['update-control', { action: 'defer', seconds: 86400 }],
+    ['update-control', { action: 'skip' }],
+  ]);
+});
+
+test('an install in progress shows its steps', () => {
+  const status = scheduledStatus({
+    firmware_scheduled: null,
+    tft_progress: {
+      phase: 'transferring', started_at: new Date().toISOString(),
+      phase_started_at: new Date().toISOString(), expected_seconds: 900,
+    },
+  });
+
+  const root = render(element({ deviceStatus: status }).render());
+
+  assert.ok(root.querySelector('[role="progressbar"]'));
+  assert.match(root.textContent, /Transferring/);
+});
+
+test('a skipped firmware version is marked', () => {
+  const status = scheduledStatus({ firmware_scheduled: null, firmware_skipped_version: '0.5.1' });
+
+  assert.match(flatten(element({ deviceStatus: status }).render()), /Skipped/);
 });

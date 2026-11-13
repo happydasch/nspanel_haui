@@ -291,6 +291,8 @@ class HAUINotificationController(HAUIBase):
         notifications = self._notifications.copy()
         self._notifications = []
         self._refresh_list_items()
+        # an open notification list has nothing left to show and closes
+        self._refresh_open_list()
         for notification in notifications:
             self._fire_notification_event("removed", notification)
         event = HAUIEvent(NotifEvent.NOTIF_CLEAR, value=None)

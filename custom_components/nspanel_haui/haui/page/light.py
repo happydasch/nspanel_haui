@@ -27,6 +27,7 @@ class LightPage(HAUIPage):
                 key="item",
                 kind="item",
                 domain="light",
+                required=True,
                 description=_("Light entity to control brightness, color and temperature."),
                 section=_("Light"),
             ),
@@ -115,7 +116,7 @@ class LightPage(HAUIPage):
             }
         )
         # if kelvin should be used instead of mired
-        self._show_kelvin = panel.get("show_kelvin", self._show_kelvin)
+        self._show_kelvin = self.option(panel, "show_kelvin")
         item = self._resolve_panel_item(panel)
         self.set_light_item(item)
         # set title

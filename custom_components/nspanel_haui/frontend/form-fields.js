@@ -7,36 +7,23 @@ import { renderListItemsField, renderItemListField, renderItemListRow, renderIte
 import { html, nothing } from './lit-import.js';
 import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
-import {
-  parseRgbListToHex,
-  hexToColorMatching,
-} from './color-utils.js';
 import { detectItemType } from './haui-item.js';
 import {
-  renderSelect, renderToggle, formatFieldValue, parseFieldValue, saveColor,
-  renderColorPresets, colorFieldText, matchIcons, fillIconDropdown, scheduleTemplateRender,
-  renderIconPicker, renderNumberInput,
+  renderSelect, renderToggle, formatFieldValue, parseFieldValue,
+  colorFieldText, matchIcons, fillIconDropdown, scheduleTemplateRender,
+  renderIconPicker, renderNumberInput, renderColorField, renderField, fieldMessage,
 } from './form-field-controls.js';
 export {
-  renderSelect, renderToggle, formatFieldValue, parseFieldValue, saveColor,
-  renderColorPresets, colorFieldText, matchIcons, fillIconDropdown, scheduleTemplateRender,
-  renderIconPicker, renderNumberInput,
+  renderSelect, renderToggle, formatFieldValue, parseFieldValue,
+  colorFieldText, matchIcons, fillIconDropdown, scheduleTemplateRender,
+  renderIconPicker, renderNumberInput, renderColorField, renderField,
 };
-/**
- * Label, control, optional hint and trailing content in the shared field layout.
- */
-export function renderField({ id, label, control, hint = "", title, extra = nothing, className = '' }) {
-  return html`
-    <div class=${`haui-field ${className}`.trim()}>
-      <label for=${id} title=${title ?? nothing}>${label}</label>
-      ${control}
-      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
-      ${extra}
-    </div>
-  `;
-}
 
-/** A shared checkbox-style toggle row with an optional description. */
+/**
+ * A shared checkbox-style toggle row with an optional description.
+ * @param {{ id: string, checked: boolean, label: unknown, hint?: unknown, title?: string,
+ *   onChange: (checked: boolean) => void }} options
+ */
 export function renderToggleField({ id, checked, label, hint = "", title, onChange }) {
   return html`
     <div class="haui-checkbox-wrap">
@@ -123,68 +110,22 @@ function renderBoolOption(host, opt, id, val) {
 }
 
 function renderColorOption(host, opt, id, val) {
-  const desc = opt.description || "";
-  const colorHex = parseRgbListToHex(val);
-  const hasTpl = formatFieldValue(val).includes("{{");
-  const pickHex = (hex) => {
-    const newVal = hexToColorMatching(hex, host._editingPanel?.data?.[opt.key]);
-    saveColor(hex);
-    setPanelOption(host, opt.key, newVal);
-    return newVal;
-  };
-  return html`
-    <div class="haui-field haui-color-form-group">
-      <label for=${id} title=${desc}>${opt.label || ""}</label>
-      <div class="haui-color-picker-wrap">
-        <input id=${id} class="haui-input" .value=${colorFieldText(val)}
-          @input=${(e) => {
-            const raw = e.target.value;
-            if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
-            setPanelOption(host, opt.key, parseFieldValue(raw));
-          }}
-          @focus=${templateFocusHandler(host, id)}
-        />
-        <ha-icon-button
-          class="haui-color-picker-btn"
-          @click=${(e) => {
-            const wrap = e.target.closest(".haui-color-picker-wrap");
-            const input = wrap?.querySelector("input[type=color]");
-            if (input) input.click();
-          }}
-          title=${t("Pick color")}
-        >
-          <ha-icon icon="mdi:palette"></ha-icon>
-        </ha-icon-button>
-        <input
-          type="color"
-          class="haui-color-input-hidden"
-          .value=${colorHex || "#000000"}
-          @input=${(e) => {
-            const group = e.target.closest(".haui-color-form-group");
-            const tf = group?.querySelector(".haui-color-picker-wrap .haui-input");
-            const newVal = pickHex(e.target.value);
-            if (tf) tf.value = colorFieldText(newVal);
-          }}
-        />
-      </div>
-      ${!hasTpl && val != null && val !== ""
-        ? html`
-            <div class="haui-color-preview-row">
-              <div class="haui-color-preview-swatch" style=${`--vp-color-preview:${colorHex || "#888888"}`}></div>
-              <span class="haui-color-preview-label">${colorHex || t("no color")}</span>
-            </div>`
-        : ""}
-      ${!hasTpl ? renderColorPresets(colorHex, pickHex) : ""}
-      ${desc ? html`<div class="haui-field-hint">${desc}</div>` : ""}
-      <div class="haui-template-preview" ?hidden=${!hasTpl}>
-        <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
-      </div>
-    </div>
-  `;
+  return optionGroup(id, opt, renderColorField({
+    id,
+    value: val,
+    api: host.api,
+    onChange: (value) => setPanelOption(host, opt.key, value),
+    // The panel editor starts every panel with the presets closed.
+    presetsOpen: host._openColorPresets.has(opt.key),
+    onTogglePresets: () => {
+      if (!host._openColorPresets.delete(opt.key)) host._openColorPresets.add(opt.key);
+      host.requestUpdate();
+    },
+  }));
 }
 
 /** Single-item field; uses the same inline editor as item_list. */
-function renderItemOption(host, opt, val) {
+function renderItemOption(host, opt, val, feedback = {}) {
   const desc = opt.description || "";
   // Stored as a one-element array in _itemListData for consistent handling.
   if (!host._itemListData) host._itemListData = {};
@@ -212,6 +153,7 @@ function renderItemOption(host, opt, val) {
     <div class="haui-field" id="fld-${opt.key}">
       <label title=${desc}>${opt.label || ""}</label>
       ${desc ? html`<div class="haui-field-hint">${desc}</div>` : ""}
+      ${fieldMessage(`fld-${opt.key}`, feedback)}
 
       ${isEditing
         ? renderItemEditFields(host)
@@ -268,8 +210,23 @@ function renderSelectWithTemplate(host, opt, id, val, set) {
   return optionGroup(id, opt, control, isTemplate ? templatePreview(host, tplId, val) : "");
 }
 
-/** Render a form control for a single PageOption. */
-export function renderOptionField(host, opt, currentValue) {
+/**
+ * Render a form control for a single PageOption, with the message of a rule it
+ * breaks under it.
+ * @param {any} host - the panel editor
+ * @param {any} opt - the option as the panel types endpoint serves it
+ * @param {unknown} currentValue
+ * @param {{ error?: string, warning?: string,
+ *   entries?: Map<number, { error?: string, warning?: string }> }} [feedback]
+ */
+export function renderOptionField(host, opt, currentValue, feedback = {}) {
+  if (opt.kind === "item") return renderItemOption(host, opt, currentValue ?? opt.default, feedback);
+  if (opt.kind === "item_list") return renderItemListField(host, opt, currentValue, feedback);
+  return html`${renderOptionControl(host, opt, currentValue)}${fieldMessage(`fld-${opt.key}`, feedback)}`;
+}
+
+/** The form control of one option, by its kind. */
+function renderOptionControl(host, opt, currentValue) {
   const id = `fld-${opt.key}`;
   const val =
     currentValue !== undefined && currentValue !== null

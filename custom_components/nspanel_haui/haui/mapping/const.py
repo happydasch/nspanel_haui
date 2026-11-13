@@ -229,6 +229,7 @@ ALL_CMD: frozenset[str] = frozenset(
 PANEL_CONFIG: dict[str, Any] = {
     "type": None,  # panel type
     "title": "",  # user-facing display name
+    "theme_id": "",  # empty follows the device theme
     "show_in_navigation": True,  # whether this panel appears in navigation
     # long press anywhere goes back (pages without header buttons, see
     # HAUIPage._check_long_press_back)
@@ -240,6 +241,19 @@ PANEL_CONFIG: dict[str, Any] = {
 }
 
 # default config
+
+# The automatic update policy: the hub sets it for every device (store key
+# ``update_policy``); a device with ``update.policy_override`` keeps its own.
+# Mirrored in frontend/constants.js (UPDATE_POLICY_DEFAULTS).
+UPDATE_POLICY_DEFAULTS: dict[str, Any] = {
+    "firmware_auto_update": False,
+    "auto_install": True,
+    "install_delay": 600,
+    "max_attempts": 3,
+    "retry_interval": 3600,
+}
+UPDATE_POLICY_FIELDS: tuple[str, ...] = tuple(UPDATE_POLICY_DEFAULTS)
+
 DEFAULT_CONFIG: dict[str, Any] = {
     # common settings
     "time_format": "%H:%M",
@@ -282,6 +296,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # newest dev prerelease); an explicit URL always wins.
         "firmware_update_channel": FirmwareUpdateChannel.STABLE,
         "firmware_manifest_url": FIRMWARE_MANIFEST_URL,
+        # Seconds an automatic firmware install waits, scheduled, before it
+        # starts; the editor can install it now, defer it or skip its version.
+        "install_delay": UPDATE_POLICY_DEFAULTS["install_delay"],
+        # Failed automatic attempts per version before the automatic install
+        # stops, and the seconds between two attempts.
+        "max_attempts": UPDATE_POLICY_DEFAULTS["max_attempts"],
+        "retry_interval": UPDATE_POLICY_DEFAULTS["retry_interval"],
+        # False: the hub's update policy (store key ``update_policy``) replaces
+        # the policy fields above; True: this device keeps its own.
+        "policy_override": False,
+        # Firmware version the user skipped: never installed automatically.
+        "skipped_firmware_version": "",
     },
     # gesture related settings
     "gesture": {},

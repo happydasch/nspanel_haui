@@ -133,16 +133,10 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="report what would change without writing any file",
     )
-    tft_group = parser.add_mutually_exclusive_group()
-    tft_group.add_argument(
+    parser.add_argument(
         "--tft-update",
         action="store_true",
         help="also bump the TFT version and both HMI binaries",
-    )
-    tft_group.add_argument(
-        "--text-only",
-        action="store_true",
-        help="legacy alias for a firmware-only release (TFT versions stay unchanged)",
     )
     args = parser.parse_args(argv)
 

@@ -1131,3 +1131,16 @@ def test_event_list_and_popup_share_the_notification_id(loop_ctrl):
     assert nav.opens[-1][1]["notif_id"] == second.notif_id
     added = [d for t, d in app.fire_event_calls if d["state"] == "added"]
     assert added[-1]["id"] == second.notif_id
+
+
+def test_clearing_notifications_closes_an_open_list(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1")
+    ctrl.add_notification("Second", "2")
+    ctrl.open_notifications()
+    assert nav.current is not None
+
+    ctrl.clear_notifications()
+
+    assert nav.current is None

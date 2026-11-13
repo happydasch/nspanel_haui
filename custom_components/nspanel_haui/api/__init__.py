@@ -9,10 +9,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from .config import DeviceConfigView, DeviceYamlView, PanelConfigView
+from .config import (
+    DeviceConfigView,
+    DeviceOrderView,
+    DevicePanelsView,
+    DeviceSettingsView,
+    DeviceYamlView,
+    PanelConfigView,
+)
 from .editor import (
     ColorDefaultsView,
     IconSearchView,
+    PanelTemplatesView,
     PanelTypesView,
     TranslationsView,
 )
@@ -30,15 +38,23 @@ from .updates import (
     DeviceUpdateFirmwareView,
     DeviceUpdateTftView,
     DeviceUpdateUploadView,
+    RolloutDeviceView,
+    RolloutView,
+    UpdateControlView,
+    UpdatePolicyView,
 )
 
 VIEWS = (
     TranslationsView,
     PanelConfigView,
+    DeviceOrderView,
     PanelTypesView,
+    PanelTemplatesView,
     ColorDefaultsView,
     ThemesView,
     DeviceConfigView,
+    DeviceSettingsView,
+    DevicePanelsView,
     DeviceStatusView,
     NotificationsView,
     DeviceRefreshDisplayView,
@@ -49,6 +65,10 @@ VIEWS = (
     DeviceUpdateFirmwareView,
     DeviceFirmwareReleasesView,
     DeviceUpdateCheckView,
+    UpdatePolicyView,
+    UpdateControlView,
+    RolloutView,
+    RolloutDeviceView,
     DeviceYamlView,
     IconSearchView,
 )

@@ -600,6 +600,36 @@ _PREVIEW_KWARGS: dict[str, dict[str, Any]] = {
 }
 
 
+def _all_template_slots(entries: Any) -> bool:
+    """Whether a list holds only the empty slots of a starter template (``templates.py``)."""
+    return isinstance(entries, list) and all(
+        isinstance(entry, dict) and entry.get("item") == "" for entry in entries
+    )
+
+
+def _filled_template_slots(
+    entries: list[dict[str, Any]], default_domains: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    """A template's empty slots with example entities of each slot's ``domain`` hint.
+
+    Slots of one domain take that domain's examples in turn; a slot without a
+    hint (or with no example of its domain) takes the list's default examples.
+    The hint itself is dropped, every other field of the slot is kept.
+    """
+    taken: dict[tuple[str, ...], int] = {}
+    filled = []
+    for entry in entries:
+        hint = entry.get("domain")
+        domains = (hint,) if hint and _example_entity_ids((hint,), 1) else default_domains
+        examples = _example_entity_ids(domains, len(PREVIEW_ENTITIES))
+        index = taken.get(domains, 0)
+        taken[domains] = index + 1
+        slot = {key: value for key, value in entry.items() if key != "domain"}
+        slot["item"] = examples[index % len(examples)]
+        filled.append(slot)
+    return filled
+
+
 # Example values used only by the Add panel catalog's temporary, keyless previews.
 _PREVIEW_CONFIG: dict[str, dict[str, Any]] = {
     "qr": {"essid": "NSPanel", "password": "12345678"},
@@ -651,7 +681,8 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
                 if entity_ids:
                     kwargs[option.key] = {"item": entity_ids[0]}
             elif option.kind in ("item_list", "list_entities"):
-                if panel_config.get(option.key):
+                entries = panel_config.get(option.key)
+                if entries and not _all_template_slots(entries):
                     continue
                 if option.kind == "list_entities" and option.domain:
                     domains = (option.domain,)
@@ -668,6 +699,9 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
                         )
                         or _sample_item_domains()
                     )
+                if entries:
+                    kwargs[option.key] = _filled_template_slots(entries, domains)
+                    continue
                 limit = option.max_items or 6
                 entity_ids = _example_entity_ids(domains, limit)
                 if entity_ids:

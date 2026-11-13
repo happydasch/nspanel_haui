@@ -1,6 +1,7 @@
 // @ts-check
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
+import { countBadge } from './badge.js';
 import { relativeTime } from './format.js';
 import { icon } from './icon.js';
 import { button } from './button.js';
@@ -65,7 +66,7 @@ export function eventList({ events, deviceName, onOpenLogs }) {
     <header>${sectionHeading({
       title: t('Latest events'),
       className: 'haui-section-heading',
-      badge: events.length ? html`<span class="haui-section-count">${events.length}</span>` : nothing,
+      badge: events.length ? countBadge(events.length) : nothing,
     })}
       ${onOpenLogs ? button({
         label: t('Logs'), variant: 'quiet', className: 'haui-event-logs', onClick: onOpenLogs,

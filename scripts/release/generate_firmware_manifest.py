@@ -9,6 +9,7 @@ not include a TFT update.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -56,11 +57,10 @@ def build_manifest(
     ota_image: Path,
     eu_tft: Path,
     us_tft: Path,
-    tft_version: str | None = None,
+    tft_version: str,
 ) -> dict[str, Any]:
     """Build a release manifest with the TFT version required by its firmware."""
     version = tag.removeprefix("v")
-    display_version = (tft_version or "").strip() or version
     release_url = f"https://github.com/{repo}/releases/download/{tag}"
     return build_manifest_from_assets(
         version,
@@ -68,7 +68,7 @@ def build_manifest(
         f"{release_url}/nspanel_haui_ota.bin",
         _md5(ota_image),
         {
-            "version": display_version,
+            "version": tft_version,
             "assets": {
                 "eu": {
                     "path": f"{release_url}/nspanel_haui.tft",
@@ -92,16 +92,34 @@ def _read_tft_version(path: Path) -> str:
     return match.group(1)
 
 
-def main() -> None:
+def validate_manifest(manifest: dict[str, Any]) -> None:
+    """Raise when the manifest lacks a field the hub needs to offer the update."""
+    ota = manifest.get("builds", [{}])[0].get("ota", {})
+    if not manifest.get("version") or manifest.get("variant") != "universal":
+        raise ValueError("firmware manifest is missing its version or universal variant")
+    if not ota.get("path") or not ota.get("md5"):
+        raise ValueError("firmware manifest is missing the OTA path or checksum")
+    if not manifest.get("tft", {}).get("assets"):
+        raise ValueError("firmware manifest is missing TFT assets")
+
+
+def main(argv: list[str] | None = None) -> None:
     """Write the release manifest for the artifacts in the workflow workspace."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--tag", help="release tag (default: GITHUB_REF_NAME)")
+    parser.add_argument("--name", help="manifest name (default: NSPanel HAUI)")
+    args = parser.parse_args(argv)
     manifest = build_manifest(
         repo=os.environ["GITHUB_REPOSITORY"],
-        tag=os.environ["GITHUB_REF_NAME"],
+        tag=args.tag or os.environ["GITHUB_REF_NAME"],
         ota_image=Path("nspanel_haui_ota.bin"),
         eu_tft=Path("nextion/nspanel_haui.tft"),
         us_tft=Path("nextion/nspanel_haui_portrait.tft"),
         tft_version=_read_tft_version(VERSION_YAML),
     )
+    if args.name:
+        manifest["name"] = args.name
+    validate_manifest(manifest)
     manifest_path = Path("firmware-manifest.json")
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))

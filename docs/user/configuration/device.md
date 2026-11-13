@@ -38,7 +38,7 @@ Every device has these basic fields:
 
 All device settings and panels are kept in Home Assistant's storage.
 
-- **Saving applies immediately.** No restart is needed. A setting you clear goes back to its default. Enabling or disabling a device reloads the hub.
+- **Saving applies immediately.** No restart is needed. A setting you clear goes back to its default. Enabling or disabling a device reloads the hub. Saving a device's settings changes only that device; panels are saved from the panel editor.
 - **New devices start enabled.** A device you disable stays disabled. A device you remove stays removed until you add it again.
 - **Deleting in Home Assistant is the same as Remove.** **Delete** in the device's menu on *Settings → Devices & services → NSPanel HAUI* removes the device with its settings and panels.
 - **Upgrading from 0.3.2 or earlier.** The settings of those versions are not carried over. After the update, check every device's settings in the editor.
@@ -260,7 +260,7 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. The **Enable updates** switch, **Update channel** (stable or development releases for firmware and display) and optional custom firmware manifest URL are grouped together. **Release checks**, **Firmware** (auto-install) and **Display** (auto-install TFT) are separate groups. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. The **Enable updates** switch, **Update channel** (stable or development releases for firmware and display) and optional custom firmware manifest URL are grouped together, then **Release checks** and **Automatic updates**. How a device installs updates by itself is the hub's **update policy** (the dashboard's **Update policy** button) unless **Override the hub policy for this device** is on; the policy keys below then come from the device itself. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -269,15 +269,22 @@ The **Update settings** card in a device's **Updates** sidebar controls update c
 | `update_interval` | `3600` | Seconds between regular checks. The editor offers common intervals from 15 minutes to one week, plus a custom seconds value. `0`, or turning off **Enable periodic update checks**, turns them off. |
 | `firmware_update_channel` | `stable` | Selects the stable or development release channel for both firmware and display updates. |
 | `firmware_manifest_url` | empty | Optional firmware manifest URL that overrides the channel's firmware release, e.g. a [local test release](../../develop/release.md#test-firmware-updates-with-a-local-release); the display continues to follow the matching TFT. |
-| `firmware_auto_update` | off | Install new firmware without asking. The display file follows after the restart. |
-| `auto_install` | on | Install the display file (TFT) without asking. When off, the panel asks first. |
+| `policy_override` | off | Use this device's own policy keys instead of the hub's update policy. |
+| `firmware_auto_update` | off | Policy. Install new firmware without asking. The display file follows after the restart. |
+| `install_delay` | `600` | Policy. Seconds an automatic firmware install waits before it starts (0 to 86400); `0` starts it right away. |
+| `auto_install` | on | Policy. Install the display file (TFT) without asking. When off, the panel asks first. |
+| `max_attempts` | `3` | Policy. Failed automatic attempts at one version before the automatic install stops (1 to 10). |
+| `retry_interval` | `3600` | Policy. Seconds a failed automatic install waits before it tries again (300 to 604800). |
+| `skipped_firmware_version` | empty | A firmware version that is never installed automatically; set by **Skip this version**. A manual install, or a newer version, is not affected. |
 
 Good to know:
 
 - Each **Firmware** and **Display** row in the **Updates** sidebar has an **Install** button while updates are enabled. Choose a release, **From URL** or **From local file**. **Check for updates** looks for a new release right away.
 - **After a manual install the hub waits.** If you install another release or a file from a URL, automatic firmware updates pause until Home Assistant restarts or you install the offered update. A TFT installed from a URL is kept until the firmware version changes or Home Assistant restarts. See [`nspanel_haui.update_firmware`](../services.md#nspanel_hauiupdate_firmware) and [`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft).
 - **Custom firmware is never replaced by the release firmware.** A panel with firmware built from your own YAML (see [Installation](../install.md)) is not offered the universal release firmware, so its credentials stay yours. Install your own builds with **Install** beside **Firmware**, then **From URL**. Firmware older than 0.4.4 is treated the same way: install a newer firmware once by hand.
-- **A failed display install is not repeated automatically.** If the display never reports its new version, the editor shows an error. Start it again with **Install** beside **Display (TFT)**.
+- **A waiting firmware install can be changed.** While an automatic firmware install waits out `install_delay`, the **Updates** sidebar shows when it starts, with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**.
+- **A failed automatic install is tried again, then stops.** The sidebar shows when the next attempt follows, or that the install stopped after `max_attempts` failed attempts. Start it yourself with **Install** at any time; that also resets the count.
+- **Install updates on the dashboard goes one device at a time.** The hub installs one device's updates, waits until they are done, then moves on; the first failure stops the devices after it. Cancel a device that has not started yet on the dashboard's **Update rollout** card. The device that is installing cannot be stopped: the panel is offline until its transfer ends.
 - **In Home Assistant** the firmware is the **HAUI Firmware** update entity and the display is the **HAUI Display** update entity on the device page. See [Services](../services.md#haui-firmware-update-entity).
 
 ## Settings without an editor field

@@ -16,7 +16,6 @@ import { formCommonStyles } from './styles/form-common-styles.js';
 import { itemListStyles } from './styles/item-list-styles.js';
 import { panelListStyles } from './styles/panel-list-styles.js';
 import { panelPillStyles } from './styles/panel-pill-styles.js';
-import { previewStyles } from './styles/preview-styles.js';
 
 export const haStyle = css`
   :host { display: block; }
@@ -50,4 +49,4 @@ export const sharedStyles = css`
 `;
 
 export const dialogStyles = css`${sharedStyles}${firmwareStyles}`;
-export const editorStyles = css`${dialogStyles}${panelListStyles}${fleetStyles}${deviceLayoutStyles}${devicePanelStyles}${previewStyles}`;
+export const editorStyles = css`${dialogStyles}${panelListStyles}${fleetStyles}${deviceLayoutStyles}${devicePanelStyles}`;

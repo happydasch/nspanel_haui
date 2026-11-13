@@ -95,8 +95,11 @@ Some tools have extra requirements:
 |--------|---------|
 | `translations/extract_translations.py` | Extract `t()`/`translate()`/`_()` strings and sync `haui/locale/*.json` |
 | `translations/merge_translations.py` | Merge a completed `translate.json` batch back into the locale files |
-| `release/dev_version.py` | CI helper: derive and write the dev firmware version |
+| `release/dev_version.py` | CI helper: derive and write the dev firmware and display TFT versions |
+| `release/compile_firmware.sh` | CI helper: compile the universal firmware and copy both images to the repository root |
 | `release/generate_firmware_manifest.py` | CI helper: build `firmware-manifest.json` from the release artifacts |
+| `release/dev_release_notes.py` | CI helper: write the notes of a development prerelease |
+| `docs/dev_site.sh` | CI helper: point `mkdocs.yml` at the dev docs site (`/dev/`) |
 | `git_hooks/install.sh` | Install the repository's git hooks (`core.hooksPath`) |
 | `git_hooks/pre-commit` | Regenerate virtual-layout assets and run the layout check before a commit |
 | `nextion_vnc/nextion_vnc.sh` | Serve the Nextion Editor VM through noVNC in a browser |
@@ -277,7 +280,7 @@ python -m scripts.bump_version 0.5.0.dev3                   # dev firmware bump
 A stable version updates `manifest.json`, `pyproject.toml`, the firmware
 `yaml_version`, and — with `--tft-update` — `tft_version` plus both HMI
 `system.tftVersion` values. A dev version is firmware-only. `CHANGELOG.md` is
-not edited. `--text-only` is a legacy alias for a firmware-only release. A TFT
+not edited. A TFT
 version change must keep the same string length; use the Nextion Editor for a
 length-changing bump. A dev bump is also how a minor development cycle starts:
 commit `X.Y.0.dev0` (a placeholder suffix) on `dev` after a release; the first
@@ -310,12 +313,28 @@ hub keeps re-offering it.
 
 - `dev_version.py RUN_NUMBER` derives the PEP 440 dev version from
   `manifest.json` and writes it to `manifest.json`, the firmware `yaml_version`
-  and the GitHub environment (`DEV_VERSION`, `DEV_SHA`). It requires
-  `GITHUB_ENV` and `GITHUB_SHA` and is run by the dev-firmware workflow.
-- `release/generate_firmware_manifest.py` builds the stable release manifest
-  from `nspanel_haui_ota.bin` and both TFT assets. It requires
-  `GITHUB_REPOSITORY` and `GITHUB_REF_NAME` and is run by the release workflow
-  for `v*` tags.
+  and the GitHub environment (`DEV_VERSION`). It also writes the
+  HMIs' `system.tftVersion` to `tft_version` (`TFT_VERSION`) after checking
+  both TFTs carry it, and the job outputs `version` and `sha`. It requires
+  `GITHUB_ENV`, `GITHUB_OUTPUT` and `GITHUB_SHA` and is run by the dev-firmware
+  workflow.
+- `compile_firmware.sh` compiles `esphome/nspanel_haui_universal.yaml` and
+  copies the factory image to `nspanel_haui.bin` and the OTA image to
+  `nspanel_haui_ota.bin`; both release workflows run it.
+- `generate_firmware_manifest.py` builds the release manifest from
+  `nspanel_haui_ota.bin` and both TFT assets, with the TFT version from
+  `version.yaml`, and refuses one without version, OTA image or TFT assets. It
+  requires `GITHUB_REPOSITORY` and takes the tag from `--tag` or
+  `GITHUB_REF_NAME`; the release workflow runs it for `v*` tags, the
+  dev-firmware workflow with `--tag <dev version> --name "NSPanel HAUI
+  Development"`.
+- `dev_release_notes.py` writes `dev-release-notes.md`: the commits since the
+  newest reachable tag and a changed-file summary. It requires
+  `GITHUB_REPOSITORY`, `GITHUB_SHA`, `DEV_VERSION` and `TFT_VERSION`.
+
+`docs/dev_site.sh` rewrites `site_url`, `repo_url` and `edit_uri` in
+`mkdocs.yml` for the dev docs site; `ci.yml` runs it in a dev checkout before
+`zensical build`.
 
 See [docs/develop/release.md](../docs/develop/release.md) for the full branch and release
 process.

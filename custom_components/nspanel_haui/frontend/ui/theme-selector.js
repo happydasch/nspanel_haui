@@ -9,9 +9,10 @@ const SWATCHES = ['background', 'header_background', 'component_active', 'entity
 
 /**
  * One selector for the whole theme library: predefined and custom themes in a
- * single dropdown over the selected palette, and the library controls (new
- * theme, export selected, import, plus the selected theme's own actions) in one
- * row underneath. Used by the Theme sidebar.
+ * single dropdown with the selected palette's chip inside it, named by `label`
+ * for assistive technology only (the sidebar shows no visible label), and the
+ * library controls (new theme, export selected, import, plus the selected
+ * theme's own actions) in one row underneath. Used by the Theme sidebar.
  *
  * @param {{
  *   builtins?: Record<string, any>,
@@ -63,32 +64,29 @@ export function themeSelector({
   };
   return html`
     <div class="haui-theme-selector">
-      <div class="haui-field">
-        <label for="haui-theme-select">${label}</label>
-        <div class="haui-theme-selector-field">
-          ${selected
-            ? html`<span class="haui-theme-selector-chip" aria-hidden="true">
-                ${SWATCHES.map((key) => html`<i style="--haui-theme-swatch-color:${rgb565ToHex(selected.colors[key])}"></i>`)}
-              </span>`
+      <div class="haui-theme-selector-field">
+        ${selected
+          ? html`<span class="haui-theme-selector-chip" aria-hidden="true">
+              ${SWATCHES.map((key) => html`<i style="--haui-theme-swatch-color:${rgb565ToHex(selected.colors[key])}"></i>`)}
+            </span>`
+          : nothing}
+        <select
+          class="haui-select"
+          aria-label=${label}
+          .value=${selectedId}
+          @change=${(event) => onSelect(event.target.value)}
+        >
+          <optgroup label=${t("Predefined themes")}>
+            ${Object.keys(builtins).map((id) => html`
+              <option value=${id} ?selected=${id === selectedId}>${builtinLabel(id)}</option>`)}
+          </optgroup>
+          ${customIds.length
+            ? html`<optgroup label=${t("Custom themes")}>
+                ${customIds.map((id) => html`
+                  <option value=${id} ?selected=${id === selectedId}>${custom[id].name}</option>`)}
+              </optgroup>`
             : nothing}
-          <select
-            id="haui-theme-select"
-            class="haui-select"
-            .value=${selectedId}
-            @change=${(event) => onSelect(event.target.value)}
-          >
-            <optgroup label=${t("Predefined themes")}>
-              ${Object.keys(builtins).map((id) => html`
-                <option value=${id} ?selected=${id === selectedId}>${builtinLabel(id)}</option>`)}
-            </optgroup>
-            ${customIds.length
-              ? html`<optgroup label=${t("Custom themes")}>
-                  ${customIds.map((id) => html`
-                    <option value=${id} ?selected=${id === selectedId}>${custom[id].name}</option>`)}
-                </optgroup>`
-              : nothing}
-          </select>
-        </div>
+        </select>
       </div>
       <div class="haui-theme-selector-actions">
         ${button({ label: t("New"), variant: "quiet", onClick: onNew, className: "haui-theme-selector-action" })}

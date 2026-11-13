@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import time
+from copy import deepcopy
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from .abstract.haui_base import HAUIBase
 from .abstract.haui_event import HAUIEvent
 from .controller.notification import Notification
-from .device_config import is_portrait_model
+from .device_config import DEVICE_CONFIG, is_portrait_model
 from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent
 from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 from .schedule import ScheduleEntry, active_entry, next_boundary
@@ -57,9 +58,10 @@ class HAUIDevice(HAUIBase):
 
         Args:
             app (NSPanelHAUI): App
-            config (dict, optional): Config of device. Defaults to None.
+            config (dict, optional): Config of device; a setting it leaves out
+                takes its ``DEVICE_CONFIG`` default. Defaults to None.
         """
-        super().__init__(app, config)
+        super().__init__(app, {**deepcopy(DEVICE_CONFIG), **(config or {})})
         self.device_info: dict = {}
         # First-touch guard of the idle page: while the display is **off** the
         # first touch only wakes it (see check_wakeup).  Set when the idle page
@@ -175,7 +177,7 @@ class HAUIDevice(HAUIBase):
         return point
 
     def _schedule_entries(self) -> list[ScheduleEntry]:
-        return [ScheduleEntry.from_config(entry) for entry in self.get("schedule", [])]
+        return [ScheduleEntry.from_config(entry) for entry in self.get("schedule")]
 
     def _active_schedule_entry(self) -> ScheduleEntry | None:
         """The schedule entry whose window contains now, if any."""
@@ -250,7 +252,7 @@ class HAUIDevice(HAUIBase):
         self._sync_number(value("brightness"), "Brightness Full")
         self._sync_number(value("brightness_dim"), "Brightness Dimmed")
         self._sync_number(value("duration_dimming"), "Duration Dimming")
-        if self.get("schedule", []):
+        if self.get("schedule"):
             self._sync_config_switch(
                 "use_auto_display_off",
                 self._resolve_esp_entity("switch", AUTO_SWITCHES["auto_display_off"]),
@@ -282,7 +284,7 @@ class HAUIDevice(HAUIBase):
     @property
     def display_model(self) -> str:
         """The configured display model (``eu`` or ``us``), lower-cased."""
-        return str(self.get("display_model", "eu")).lower()
+        return str(self.get("display_model")).lower()
 
     @property
     def is_portrait(self) -> bool:
@@ -531,10 +533,10 @@ class HAUIDevice(HAUIBase):
         Returns:
             str: strftime format, e.g. "%H:%M" or "%I:%M %p"
         """
-        value = self.get("time_format", "")
+        value = self.get("time_format")
         if value:
             return value
-        return self.app.device_config.get("time_format", "%H:%M")
+        return self.app.device_config.get("time_format")
 
     def get_date_format(self) -> str:
         """Return the device's strftime date format, falling back to the hub default.
@@ -542,10 +544,10 @@ class HAUIDevice(HAUIBase):
         Returns:
             str: strftime format, e.g. "%m/%d/%Y"
         """
-        value = self.get("date_format", "")
+        value = self.get("date_format")
         if value:
             return value
-        return self.app.device_config.get("date_format", "%A, %d. %B %Y")
+        return self.app.device_config.get("date_format")
 
     def get_date_format_locale(self) -> str:
         """Return the device's locale date pattern name, falling back to the hub default.
@@ -557,10 +559,10 @@ class HAUIDevice(HAUIBase):
         Returns:
             str: Babel-style pattern name, e.g. "full"
         """
-        value = self.get("date_format_locale", "")
+        value = self.get("date_format_locale")
         if value:
             return value
-        return self.app.device_config.get("date_format_locale", "full")
+        return self.app.device_config.get("date_format_locale")
 
     def get_slug(self) -> str:
         """Returns the device name slugified the way Home Assistant builds entity ids.
@@ -654,7 +656,7 @@ class HAUIDevice(HAUIBase):
                 # ESPHome records the press as interaction; the hub handles
                 # the idle-page exit. The entity toggle stays on release so a
                 # held button does not spam toggles.
-                if self.get("reset_interaction_on_button", True):
+                if self.get("reset_interaction_on_button"):
                     self.check_wakeup()
             elif event.value == "0":  # released
                 self._on_button_release(side)
@@ -762,7 +764,7 @@ class HAUIDevice(HAUIBase):
         The toggle runs before ``check_wakeup`` so it isn't delayed by the
         blocking goto_page navigation inside it.
         """
-        reset = self.get("reset_interaction_on_button", True)
+        reset = self.get("reset_interaction_on_button")
         getattr(self, f"toggle_{side}_button_state")()
         if reset:
             self.check_wakeup()

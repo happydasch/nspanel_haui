@@ -5,9 +5,6 @@ display commands and service calls, so assertions are on what reaches the
 display and Home Assistant.
 """
 
-import pytest
-
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, Theme
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
@@ -77,21 +74,6 @@ class _App:
 
     def listen_state(self, cb, entity_id, attribute=None):
         return f"{entity_id}:{attribute}"
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
 
 
 ENTITY_ID = "alarm_control_panel.home"
@@ -247,3 +229,23 @@ def test_unlock_popup_keypad_enters_the_code_without_an_alarm_item():
 
     assert locked.get_state("locked") is False
     assert navigation.closed == 1
+
+
+def test_the_unlock_popup_opens_without_the_code_of_the_last_unlock():
+    app = _App({})
+    app.controller["navigation"] = _Navigation()
+    locked = HAUIPanel(app, {"type": "grid", "key": "locked", "unlock_code": "12"})
+    panel = HAUIPanel(app, {"type": "popup_unlock", "key": "popup_unlock"})
+    panel.apply_kwargs({"unlock_panel": locked})
+    page = UnlockPage(app, {"page_id": 17})
+    page.set_panel(panel)
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_1)
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_2)
+    page.callback_unlock(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    locked.set_state("locked", True)
+    page.set_panel(panel)
+    page.callback_unlock(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    assert locked.get_state("locked") is True
+    assert app.controller["navigation"].closed == 1

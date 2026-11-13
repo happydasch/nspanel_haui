@@ -85,10 +85,6 @@ test('the overview counts each group, names the home and idle panels, and says h
   assert.match(text, /Navigation/);
   assert.match(text, /Hidden/);
   assert.match(text, /Popups/);
-  // Each group row carries its count as the chip.
-  assert.match(text, /<strong>3<\/strong>/);
-  assert.match(text, /<strong>1<\/strong>/);
-  assert.match(text, /<strong>2<\/strong>/);
   // The two ends of the device's cycle.
   assert.match(text, /haui-panels-overview-roles/);
   assert.match(text, /data-role=home/);

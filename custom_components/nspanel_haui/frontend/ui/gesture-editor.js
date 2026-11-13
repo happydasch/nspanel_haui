@@ -39,14 +39,6 @@ export function gestureActionLabel(action, panels = [], systemPanels = []) {
   return systemPanels.find((candidate) => candidate.key === action)?.label || action;
 }
 
-/** A folded Gestures card's gestures, or that no swipe does anything. */
-export function gestureSummary(gestures = [], panels = [], systemPanels = []) {
-  return gestures.length
-    ? gestures.map((gesture) => `${gestureSwipesLabel(gesture)}: ${
-      gestureActionLabel(gesture.action, panels, systemPanels)}`).join(' · ')
-    : t('No gestures: swipes do nothing.');
-}
-
 /**
  * Render the gestures of the Panels side stack as an `entryList`, like the
  * schedule: each gesture folds to its swipes and its action; only

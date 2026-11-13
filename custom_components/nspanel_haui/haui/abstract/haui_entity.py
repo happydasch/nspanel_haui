@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -119,10 +118,9 @@ class HAUIEntity:
     def call_entity_service(self, service: str, **kwargs: Any) -> None:
         """Call a service on this entity.
 
-        The service call is dispatched on a daemon thread so the ESPHome
-        dispatch thread isn't blocked while Home Assistant processes the
-        request - some integrations (e.g. Sonos ``select_source``) can take
-        many seconds.
+        The proxy hands the call to Home Assistant's loop without waiting for
+        it, so a slow integration (e.g. Sonos ``select_source``) never blocks
+        the worker, and calls reach Home Assistant in the order they were made.
 
         Args:
             service: The service name, e.g. ``"turn_on"``.
@@ -132,9 +130,4 @@ class HAUIEntity:
         if entity is None:
             self._app.warn_missing_entity(self._entity_id, f"service '{service}'")
             return
-        threading.Thread(
-            target=entity.call_service,
-            args=(service,),
-            kwargs=kwargs,
-            daemon=True,
-        ).start()
+        entity.call_service(service, **kwargs)

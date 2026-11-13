@@ -7,56 +7,15 @@
 import { css } from '../lit-import.js';
 
 export const colorPickerStyles = css`
-  /* ── color picker wrap ───────────── */
-  .haui-color-picker-wrap {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  /* ── colour field: swatch inside the text input ── */
+  .haui-input-preview-wrap > .haui-color-editor-swatch {
+    width: 20px;
+    height: 20px;
+    box-sizing: border-box;
   }
-  .haui-color-picker-wrap > .haui-input {
-    flex: 1;
-  }
-  .haui-color-input-hidden {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  /* ── palette button ──────────────── */
-  .haui-color-picker-btn {
-    --mdc-icon-button-size: 36px;
-    --mdc-icon-size: 20px;
-    flex-shrink: 0;
-    color: var(--secondary-text-color, #666);
-    transition: color 150ms;
-  }
-  .haui-color-picker-btn:hover {
-    color: var(--primary-color, #03a9f4);
-  }
-
-  /* ── preview row ─────────────────── */
-  .haui-color-preview-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
-    padding: 4px 8px;
-    border-radius: var(--haui-radius-control);
-    background: var(--secondary-background-color, #f5f5f5);
-  }
-  .haui-color-preview-swatch {
-    width: 28px;
-    height: 28px;
-    background-color: var(--vp-color-preview);
-    border-radius: var(--haui-radius-control);
-    flex-shrink: 0;
-    box-shadow: var(--haui-shadow-card);
-  }
-  .haui-color-preview-label {
-    font-size: var(--haui-text-caption);
-    font-family: var(--haui-mono);
-    color: var(--secondary-text-color, #666);
+  .haui-color-editor-swatch.is-empty {
+    background: transparent;
+    border-style: dashed;
   }
 
   /* ── preset swatch row ───────────── */
@@ -73,6 +32,7 @@ export const colorPickerStyles = css`
     background: var(--haui-color-preset);
     width: 22px;
     height: 22px;
+    padding: 0;
     border-radius: var(--haui-radius-control);
     cursor: pointer;
     flex-shrink: 0;
@@ -83,6 +43,11 @@ export const colorPickerStyles = css`
   .haui-color-preset-swatch:hover {
     transform: scale(1.25);
     border-color: var(--primary-color, #03a9f4);
+    z-index: 1;
+  }
+  .haui-color-preset-swatch:focus-visible {
+    outline: var(--haui-focus-ring);
+    outline-offset: var(--haui-focus-offset);
     z-index: 1;
   }
   .haui-color-presets.is-recent > .haui-color-preset-label { margin-bottom: 4px; }
@@ -130,13 +95,5 @@ export const colorPickerStyles = css`
     cursor: pointer;
     border: none;
     padding: 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    :host *, :host *::before, :host *::after {
-      animation: none !important;
-      transition: none !important;
-      scroll-behavior: auto !important;
-    }
   }
 `;

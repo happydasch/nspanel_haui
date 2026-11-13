@@ -101,12 +101,12 @@ test('popup and copied-panel options report the selected source', () => {
   const root = catalog({
     panelTypes: [],
     popups: [popup],
-    templates: [{
+    copies: [{
       id: 'kitchen:grid_0', device: 'kitchen', deviceLabel: 'Kitchen',
       label: 'Lights', detail: 'Grid', panel: source,
     }],
     onSelectPopup: (item) => selectedPopups.push(item),
-    onSelectTemplate: (panel) => selectedCopies.push(panel),
+    onSelectCopy: (panel) => selectedCopies.push(panel),
   });
   assert.ok(root.querySelector('[data-section="popups"]'));
   assert.ok(root.querySelector('[data-section="copies"]'));
@@ -122,7 +122,7 @@ test('copy list is grouped by device and filtered to matches', () => {
     panel: { type: 'grid', key, title },
   });
   const root = catalog({
-    query: 'doors', panelTypes: [], templates: [
+    query: 'doors', panelTypes: [], copies: [
       panel('kitchen', 'grid_0', 'Lights'), panel('hall', 'grid_0', 'Doors'),
     ],
   });
@@ -132,4 +132,49 @@ test('copy list is grouped by device and filtered to matches', () => {
   assert.equal(groups.length, 1);
   assert.equal(groups[0].dataset.device, 'hall');
   assert.equal(groups[0].open, true);
+});
+
+const STARTERS = [
+  { key: 'lights_grid', label: 'Lights grid', description: 'Six lights', icon: 'mdi:lightbulb',
+    panel: { type: 'grid', title: 'Lights', items: [{ item: '', domain: 'light' }] } },
+  { key: 'guest_wifi', label: 'Guest Wi-Fi', description: 'A QR code', icon: 'mdi:qrcode',
+    panel: { type: 'qr', title: 'Guest Wi-Fi', essid: '' } },
+];
+
+test('starter templates are a section of their own after the panel types', () => {
+  const root = catalog({ panelTypes: [], starters: STARTERS });
+  const section = root.querySelector('[data-section="starters"]');
+
+  assert.ok(section, 'the catalog shows the starter section');
+  assert.match(section.textContent, /Start from a template/);
+  assert.match(section.textContent, /2/);
+  assert.ok(section.querySelector('[data-option="lights_grid"]'));
+  assert.match(section.textContent, /Six lights/);
+});
+
+test('choosing a starter template hands its panel to the caller', () => {
+  const chosen = [];
+  const root = catalog({ panelTypes: [], starters: STARTERS, onSelectStarter: (panel) => chosen.push(panel) });
+
+  choose(root, 'guest_wifi');
+
+  assert.deepEqual(chosen, [STARTERS[1].panel]);
+});
+
+test('a search filters the starter templates and opens their section', () => {
+  const root = catalog({ panelTypes: [], query: 'wi-fi', starters: STARTERS });
+  const section = root.querySelector('[data-section="starters"]');
+
+  assert.equal(section.open, true);
+  assert.ok(section.querySelector('[data-option="guest_wifi"]'));
+  assert.equal(section.querySelector('[data-option="lights_grid"]'), null);
+});
+
+test('starter templates come before the popups', () => {
+  const popup = { key: 'popup_cover', type: 'popup_cover', label: 'Cover', editable: true };
+  const root = catalog({ panelTypes: [], starters: STARTERS, popups: [popup] });
+  const sections = [...root.querySelectorAll('[data-section]')].map((section) => section.dataset.section);
+
+  assert.ok(sections.includes('starters'));
+  assert.ok(sections.indexOf('starters') < sections.indexOf('popups'));
 });

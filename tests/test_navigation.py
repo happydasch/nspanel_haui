@@ -1161,3 +1161,44 @@ def test_page_ack_clears_page_change_timestamp() -> None:
     nav.process_event(HAUIEvent(ESPEvent.PAGE, "1"))
 
     assert nav._page_change_ts == 0.0
+
+
+def test_touch_recovery_cancels_the_pending_page_timeout() -> None:
+    """The recovery replaces the page-ack timeout, which must not fire on top of it."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=5)
+    nav.page = FakePage(page_id=5, started=False)
+    nav.panel = panel
+    nav._page_timeout = "page-ack-timer"
+    nav._page_change_ts = time.monotonic() - 2.0
+
+    nav.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+
+    assert nav.calls["goto_page"] == [{"page_id": 5, "force": True}]
+    assert "page-ack-timer" in nav.app.cancel_calls
+
+
+def test_a_reload_keeps_the_shown_carousel_panel_as_the_idle_panel() -> None:
+    """A save rebuilds every panel; the idle session must still know the idle page shown."""
+    device = FakeDevice(use_auto_page=True, idle_panel=["sleep_a", "sleep_b"], idle_panel_extra="")
+    app = FakeApp(device)
+    app.device_config = FakeDeviceConfig(
+        {"sleep_a": DummyPanel("a", "sleep_a"), "sleep_b": DummyPanel("b", "sleep_b")}
+    )
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._resolve_idle_panels()
+    nav.create_snapshot = lambda: None
+    nav.open_panel = lambda pid, **kw: None
+    nav.open_idle_panel()
+    nav.open_idle_panel()  # the carousel moved on to sleep_b
+
+    rebuilt_b = DummyPanel("b2", "sleep_b")
+    app.device_config = FakeDeviceConfig(
+        {"sleep_a": DummyPanel("a2", "sleep_a"), "sleep_b": rebuilt_b}
+    )
+    nav._resolve_idle_panels()
+    nav._track_idle_session(rebuilt_b)
+
+    assert nav._idle_panel is rebuilt_b
+    assert nav.idle_panel_active is True

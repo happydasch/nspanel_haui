@@ -69,7 +69,7 @@ The [Icons Cheatsheet](../../cheatsheet.html) shows all icons.
 
 ### Item color
 
-Pick a color with the color picker or one of the swatches below the field, or type it:
+Click the swatch at the start of the field to open the color picker, choose a recent or preset color with the palette button next to it, or type the color:
 
 | Format | Example |
 |--------|---------|
@@ -78,6 +78,8 @@ Pick a color with the color picker or one of the swatches below the field, or ty
 | RGB565 number | `63488` |
 | One color per state | `{"on": "#00ff00", "off": "#ff0000"}` |
 | Template | `{{ ... }}` |
+
+A typed RGB list or RGB565 number is stored when you leave the field, and the field then shows it as its hex color.
 
 ### Item state
 

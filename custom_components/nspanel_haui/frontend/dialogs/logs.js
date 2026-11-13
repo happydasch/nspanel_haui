@@ -10,6 +10,7 @@ import { HauiDialog } from './haui-dialog.js';
 import { logsStyles } from '../styles/logs-styles.js';
 import { currentLanguage, t } from '../localize.js';
 import { icon } from '../ui/icon.js';
+import { countBadge } from '../ui/badge.js';
 import { iconButton } from '../ui/button.js';
 import { parseEvent } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
@@ -111,15 +112,15 @@ class LogsSidebar extends HauiDialog {
   _renderFilter(entries) {
     const count = (level) => entries.filter((entry) => entry.level === level).length;
     const options = [
-      { value: 'all', label: t('All'), count: entries.length, tone: '' },
-      { value: 'warning', label: t('Warnings'), count: count('warning'), tone: 'is-warning' },
-      { value: 'error', label: t('Errors'), count: count('error'), tone: 'is-error' },
+      { value: 'all', label: t('All'), count: entries.length, tone: 'neutral' },
+      { value: 'warning', label: t('Warnings'), count: count('warning'), tone: 'warning' },
+      { value: 'error', label: t('Errors'), count: count('error'), tone: 'danger' },
     ];
     return html`<div class="haui-logs-filter" role="group" aria-label=${t('Log level')}>
       ${options.map((option) => html`<button type="button" aria-pressed=${String(this._level === option.value)}
         @click=${() => { this._level = option.value; }}>
         <span>${option.label}</span>
-        <span class=${`haui-logs-count ${option.count ? option.tone : ''}`}>${option.count}</span>
+        ${countBadge(option.count, { tone: option.count ? option.tone : 'neutral' })}
       </button>`)}
     </div>`;
   }

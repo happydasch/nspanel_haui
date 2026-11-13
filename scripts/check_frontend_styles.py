@@ -40,6 +40,11 @@ SPACING_PROPERTIES = {
     "column-gap",
 }
 ALLOWED_BARE_COLORS = {"#fff", "#ffffff", "#000", "#000000", "#0003"}
+REDUCED_MOTION = re.compile(r"@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)\s*\{")
+ACTIVE_MOTION = re.compile(
+    r"\b(?:transition|animation)(?:-(?:property|duration|name))?\s*:\s*(?!none\b)[^;{}]+;"
+)
+RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
 
 
 def css_sources(frontend: Path = FRONTEND) -> list[tuple[Path, str]]:
@@ -117,6 +122,99 @@ def _duplicate_style_adoptions(frontend: Path = FRONTEND, root: Path = ROOT) -> 
     return failures
 
 
+def _split_reduced_motion(css: str) -> tuple[str, str]:
+    """Split CSS into the text outside and inside prefers-reduced-motion blocks."""
+    outside, inside, cursor = [], [], 0
+    for match in REDUCED_MOTION.finditer(css):
+        if match.start() < cursor:
+            continue
+        depth, end = 1, match.end()
+        while depth:
+            depth += {"{": 1, "}": -1}.get(css[end], 0)
+            end += 1
+        outside.append(css[cursor : match.start()])
+        inside.append(css[match.end() : end - 1])
+        cursor = end
+    outside.append(css[cursor:])
+    return "".join(outside), "".join(inside)
+
+
+def _rule_selectors(css: str) -> list[tuple[list[str], str]]:
+    """Return each innermost rule's selectors and body."""
+    return [
+        ([" ".join(selector.split()) for selector in prelude.split(",")], body)
+        for prelude, body in RULE.findall(css)
+    ]
+
+
+def _catch_all_fragments(
+    covered_by_file: dict[Path, set[str]], frontend: Path = FRONTEND
+) -> set[Path]:
+    """Fragments that styles.js composes into one sheet with a universal reduced-motion rule.
+
+    A `*` rule in a reduced-motion block (styles/content.js) turns motion off for the
+    whole shadow root, so the fragments sharing its sheet need no overrides of their own.
+    """
+    composition = frontend / "styles.js"
+    if not composition.exists():
+        return set()
+    text = composition.read_text(encoding="utf-8")
+    imports = {
+        name.strip(): (composition.parent / module).resolve()
+        for names, module in re.findall(r"import\s*\{([^}]*)\}\s*from\s*'([^']+)'", text)
+        for name in names.split(",")
+    }
+    templates = {
+        name: re.findall(r"\$\{(\w+)\}", body)
+        for name, body in re.findall(r"export\s+const\s+(\w+)\s*=\s*css`([^`]*)`", text)
+    }
+
+    def expand(name: str) -> set[str]:
+        return {name}.union(*(expand(part) for part in templates.get(name, [])))
+
+    universal = {
+        path.resolve()
+        for path, selectors in covered_by_file.items()
+        if any("*" in selector for selector in selectors)
+    }
+    covered: set[Path] = set()
+    for name in templates:
+        paths = {imports[part] for part in expand(name) if part in imports}
+        if paths & universal:
+            covered |= paths
+    return covered
+
+
+def _motion_errors(css_by_path: dict[Path, str], frontend: Path, root: Path) -> list[str]:
+    """Every selector with motion needs a reduced-motion override in its own file."""
+    motion_by_file: dict[Path, list[str]] = {}
+    covered_by_file: dict[Path, set[str]] = {}
+    for path, css in css_by_path.items():
+        outside, inside = _split_reduced_motion(css)
+        covered_by_file[path] = {
+            selector for selectors, _ in _rule_selectors(inside) for selector in selectors
+        }
+        motion_by_file[path] = [
+            selector
+            for selectors, body in _rule_selectors(outside)
+            if ACTIVE_MOTION.search(body)
+            for selector in selectors
+        ]
+    catch_all = _catch_all_fragments(covered_by_file, frontend)
+    errors = []
+    for path, selectors in motion_by_file.items():
+        covered = covered_by_file[path]
+        if path.resolve() in catch_all or any("*" in selector for selector in covered):
+            continue
+        for selector in selectors:
+            if selector not in covered:
+                errors.append(
+                    f"{path.relative_to(root)}: motion on {selector!r} must respect "
+                    "prefers-reduced-motion"
+                )
+    return errors
+
+
 def _normalise_number(number: str) -> str:
     value = abs(float(number))
     return str(int(value)) if value.is_integer() else format(value, "g")
@@ -177,13 +275,7 @@ def check_css_sources(
     css_by_path: dict[Path, str] = defaultdict(str)
     for path, css in sources:
         css_by_path[path] += css
-    for path, css in css_by_path.items():
-        active_motion = re.search(
-            r"\b(?:transition|animation)(?:-[\w-]+)?\s*:\s*(?!none\b)[^;{}]+;",
-            css,
-        )
-        if active_motion and "prefers-reduced-motion" not in css:
-            errors.append(f"{path.relative_to(root)}: motion must respect prefers-reduced-motion")
+    errors.extend(_motion_errors(css_by_path, frontend, root))
 
     for path, css in sources:
         if path.name != "tokens.js":

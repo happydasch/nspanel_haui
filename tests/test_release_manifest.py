@@ -7,6 +7,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -63,21 +65,24 @@ def test_main_reads_the_tft_version_from_esphome_yaml(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(generator, "VERSION_YAML", version_file)
 
-    generator.main()
+    generator.main([])
 
     manifest = json.loads(Path("firmware-manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == "0.4.4"
     assert manifest["tft"]["version"] == "0.4.3"
 
+    generator.main(["--tag", "0.4.5.dev7", "--name", "NSPanel HAUI Development"])
 
-def test_manifest_defaults_tft_version_to_the_release_tag(tmp_path):
-    ota = tmp_path / "firmware.ota.bin"
-    eu_tft = tmp_path / "nspanel_haui.tft"
-    us_tft = tmp_path / "nspanel_haui_portrait.tft"
-    for path in (ota, eu_tft, us_tft):
-        path.write_bytes(b"asset")
+    manifest = json.loads(Path("firmware-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["name"] == "NSPanel HAUI Development"
+    assert manifest["version"] == "0.4.5.dev7"
+    assert manifest["builds"][0]["ota"]["path"].endswith(
+        "/download/0.4.5.dev7/nspanel_haui_ota.bin"
+    )
 
-    manifest = generator.build_manifest("example/nspanel-haui", "v0.4.4", ota, eu_tft, us_tft)
 
-    assert manifest["version"] == "0.4.4"
-    assert manifest["tft"]["version"] == "0.4.4"
+def test_validate_manifest_refuses_a_manifest_without_tft_assets():
+    manifest = generator.build_manifest_from_assets("0.4.4", "universal", "https://x/ota.bin", "0f")
+
+    with pytest.raises(ValueError, match="TFT assets"):
+        generator.validate_manifest(manifest)

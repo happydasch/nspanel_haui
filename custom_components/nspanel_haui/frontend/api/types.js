@@ -45,6 +45,19 @@
  */
 
 /**
+ * A starter template returned by `/api/nspanel_haui/panel_templates`: a keyless
+ * panel config whose empty entity slots (`item: ''`) the user fills; an item-list
+ * slot may carry a `domain` hint for the catalog's preview.
+ *
+ * @typedef {Object} PanelTemplate
+ * @property {string} key
+ * @property {string} label
+ * @property {string} description
+ * @property {string} icon
+ * @property {PanelConfig} panel
+ */
+
+/**
  * A panel type descriptor returned by `/api/nspanel_haui/panel_types`.
  *
  * @typedef {Object} PanelTypeDescriptor
@@ -89,6 +102,7 @@
  * @property {string} key
  * @property {string} type
  * @property {string} [title]
+ * @property {string} [theme_id]
  * @property {boolean} [show_in_navigation]
  */
 
@@ -131,6 +145,10 @@
  * @property {Object<string, Theme>} [themes]
  * @property {SystemPanel[]} [system_panels]
  */
+/** @typedef {{ config: DeviceConfig }} DeviceSettingsPayload */
+/** @typedef {{ panels: PanelConfig[] }} DevicePanelsPayload */
+/** @typedef {{ device_order: string[] }} DeviceOrderPayload */
+
 
 /**
  * @typedef {Object} DeviceInfo

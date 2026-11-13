@@ -64,6 +64,8 @@ class _App:
 class _Panel:
     id = "panel-1"
 
+    theme = _theme()
+
     def get(self, key: str, default: Any = None) -> Any:
         return {"key": "p1"}.get(key, default)
 
@@ -117,6 +119,35 @@ def test_system_palette_page_uses_selected_theme() -> None:
     assert page.rendered_with == OVERRIDE
 
 
+class _OptionPanel(_Panel):
+    def __init__(self, **options: Any) -> None:
+        self._options = {"key": "p1", **options}
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._options.get(key, default)
+
+
+class _RememberingPage(HAUIPage):
+    """Falls back to its own attribute for a missing option, as select and light do."""
+
+    def prepare(self) -> None:
+        self.mode = "default"
+
+    def start_panel(self, panel: Any) -> None:
+        self.mode_at_start = self.mode
+        self.mode = panel.get("mode", self.mode)
+
+
+def test_each_panel_starts_from_the_page_defaults() -> None:
+    page = _RememberingPage(_App(), {"page_id": 1})
+
+    page.set_panel(_OptionPanel(mode="set by the first panel"))
+    page.set_panel(_OptionPanel())
+
+    assert page.mode_at_start == "default"
+    assert page.mode == "default"
+
+
 def test_panel_render_does_not_repaint_the_page() -> None:
     """The page loads in the theme (its Preinitialize code), so a render never clears it."""
     app = _App()
@@ -148,13 +179,17 @@ def test_loaded_page_fits_only_a_panel_with_the_same_load_commands() -> None:
     """Navigation shows a panel on the loaded page only if the page loaded with its theme."""
     app = _App()
     page = _OwnPalettePage(app, {"page_id": 1})
-    assert not page.is_loaded_for(_Panel())
+    first_panel = _Panel()
+    first_panel.theme = app.theme
+    assert not page.is_loaded_for(first_panel)
 
-    page.prepare_page_load(_Panel())
-    assert page.is_loaded_for(_Panel())
+    page.prepare_page_load(first_panel)
+    assert page.is_loaded_for(first_panel)
 
     app.theme = _theme(OVERRIDE + 1)
-    assert not page.is_loaded_for(_Panel())
+    other_panel = _Panel()
+    other_panel.theme = app.theme
+    assert not page.is_loaded_for(other_panel)
 
 
 # --- execute_item popups -----------------------------------------------------

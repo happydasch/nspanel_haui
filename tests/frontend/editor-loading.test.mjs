@@ -32,6 +32,7 @@ function backend({ entries, panelTypes, translations = {} } = {}) {
           const path = url.split('?')[0];
           requests.push(path);
           if (path === '/api/nspanel_haui/panel_types') return panelTypes ? panelTypes(url) : never;
+          if (path === '/api/nspanel_haui/panel_templates') return jsonResponse([]);
           const lang = path.match(/translations\/(\w+)/)?.[1];
           if (lang) return jsonResponse(translations[lang] ?? {});
           throw new Error(`unexpected ${url}`);

@@ -8,7 +8,6 @@ import { HauiDialog } from '../../custom_components/nspanel_haui/frontend/dialog
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 
-import { getTheme } from '../../custom_components/nspanel_haui/frontend/dialogs/theme.js';
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
 import { openThemeSidebar, saveTheme } from '../../custom_components/nspanel_haui/frontend/theme-editor.js';
 import { filterLogEntries, logEntries, logText } from '../../custom_components/nspanel_haui/frontend/dialogs/logs.js';

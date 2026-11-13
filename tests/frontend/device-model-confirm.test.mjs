@@ -30,7 +30,7 @@ function editor(previousModel, { saveOk = true } = {}) {
     calls: [],
     toasts: [],
     _devicePanels() { return []; },
-    async _savePanels(_panels, _message, config) {
+    async _saveDeviceConfig(config) {
       if (saveOk) host._deviceConfig = config;
       return saveOk;
     },

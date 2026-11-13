@@ -27,12 +27,6 @@ export const logsStyles = css`
     border-color: var(--primary-color); color: var(--primary-text-color);
     background: color-mix(in srgb, var(--primary-color) 12%, var(--card-background-color));
   }
-  .haui-logs-count {
-    min-width: 18px; padding: 4px 4px; border-radius: var(--haui-radius-pill); background: var(--haui-surface-soft);
-    font-size: var(--haui-text-caption); font-variant-numeric: tabular-nums; text-align: center;
-  }
-  .haui-logs-count.is-warning { background: var(--haui-warn-soft); color: var(--haui-warn); }
-  .haui-logs-count.is-error { background: var(--haui-bad-soft); color: var(--haui-bad); }
   .haui-logs-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
   .haui-logs-list h3 {
     position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 16px 4px;

@@ -1,3 +1,8 @@
+---
+title: Release Process & Strategy
+description: Release assets, versioning, development builds, branches, CI gates and the release runbook
+---
+
 # Release process & strategy
 
 Audience: maintainers. This page documents how a release is cut today, what CI
@@ -19,16 +24,15 @@ preparing a release; the design rationale behind individual decisions stays in
 
 The five attached asset names — `nspanel_haui.bin`, `nspanel_haui_ota.bin`,
 `firmware-manifest.json`, `nspanel_haui.tft` and `nspanel_haui_portrait.tft` — are
-a **frozen contract**. `haui/device_config.py` maps `display_model` to the TFT
-filenames; `haui/controller/update.py` installs the TFT version the firmware
-reports as `tft_required_version`, using the per-model asset in the manifest.
+a **frozen contract**. `haui/controller/update.py` installs the TFT version the
+firmware reports as `tft_required_version`, using the manifest's `tft.assets`
+entry for the device's `display_model` (an unknown model falls back to `eu`).
 The hub reads `firmware-manifest.json` (by default through
 `releases/latest/download/`) for the OTA image and its checksum.
 Renaming an asset breaks automatic updates for
 already-flashed panels, so a rename needs a migration story first. Adding a
-variant (for example the high-speed TFT planned for v0.5) is safe as long as the
-existing names stay unchanged; the update controller must map each device to the
-right variant.
+variant is safe as long as the existing names stay unchanged; the update
+controller must map each device to the right variant.
 
 The release manifest carries `"variant": "universal"`: the image was compiled
 from `esphome/nspanel_haui_universal.yaml` with the public credentials.  The hub
@@ -103,10 +107,6 @@ reads `releases/latest/download/firmware-manifest.json` — so all panels with
 `firmware_auto_update` on install it. Use a
 [local test release](#test-firmware-updates-with-a-local-release) instead.
 
-Development firmware is published on demand from `dev` (see below). The CI
-prerelease channel described below is separate from the local workflow used for
-private/custom builds.
-
 ### Published development firmware
 
 A development build runs on demand: dispatch the **Development Firmware**
@@ -131,16 +131,13 @@ changed files.
 Only the newest 10 dev prereleases are kept; the workflow deletes older ones
 together with their tags, because the Home Assistant Marketplace (like HACS
 before it) reads only the newest 30 releases and would otherwise lose the latest
-stable release (a fresh install then falls back to the default branch, `dev`).
+stable release (a fresh install then falls back to the default branch, `master`).
 
 The version deliberately carries no `+g<sha>` build segment. Home Assistant and
 its Marketplace compare versions with AwesomeVersion, which sorts
 `0.4.5.dev16+g778f2ce` *above* the final `0.4.5` and above a later
 `0.4.5.dev17`, so a build with that segment is never offered the release that
-supersedes it. Builds published before 2026-11-04 carry the segment: a panel or
-integration install on one of them needs one manual install of a newer build
-(Marketplace: **Install another version**; panel: **Install firmware** with that
-version), after which updates are offered normally.
+supersedes it.
 
 The tag points at a small release commit that carries the version: the workflow
 writes the dev version into `custom_components/nspanel_haui/manifest.json` (and
@@ -151,17 +148,15 @@ tags that commit. The Marketplace downloads the *source archive of the tag*, and
 Home Assistant and the hub (`get_integration_version()`) read the version from its
 manifest, so tagging the plain branch commit would ship a dev build that calls
 itself the stable version. That same versioned commit is pushed back onto the
-`dev` branch (its `[skip ci]` trailer keeps the bot push from starting CI), so
-the branch's tracked `version.yaml` carries the released dev version instead of
-lagging on the last stable release, and `dev` never sees a version commit
-without its screens.
+`dev` branch, so the branch's tracked `version.yaml` carries the released dev
+version instead of lagging on the last stable release, and `dev` never sees a
+version commit without its screens. The push uses the workflow's
+`GITHUB_TOKEN`, which starts no workflow, so the build then dispatches `ci.yml`
+on `dev`: that run tests the version commit and, as a dispatched run, deploys
+the docs with the new screens.
 A `screens_only` dispatch skips the build, the version bump, the tag and the
-prerelease and commits only the changed screens (`docs(screens): regenerate
-screen overview [skip ci]`). The screens are committed, not deployed: Pages
-publishes them on the next docs-touching push to `dev`.
-A dispatched build therefore leaves the tip of `dev` as a bot `[skip ci]`
-commit, so release prep stays on a `release/X.Y.Z` branch (see
-[Branches and cadence](#branches-and-cadence)).
+prerelease, commits only the changed screens (`docs(screens): regenerate
+screen overview`) and dispatches `ci.yml` the same way to deploy them.
 The next dispatched build derives the next dev version from that
 `X.Y.Z.devN`: it keeps the same `X.Y.Z` base (no stable `X.Y.Z` has shipped yet)
 and only advances the run number, and jumps to `X.Y.(Z+1).devN` again once the
@@ -175,9 +170,8 @@ run number.
 The Marketplace reads release tags as *available* versions and records the tag
 it installed as the *installed* one, so it can order dev releases and only offers a build
 that is actually newer than the one installed. Both must be a valid PEP 440
-version with no `-` separator: for an unparseable pair such as the old
-`dev-<run>-<sha>` tags, it falls back to plain string inequality and keeps
-offering the installed build as an update forever.
+version with no `-` separator: for an unparseable pair it falls back to plain
+string inequality and keeps offering the installed build as an update forever.
 
 There is no fixed dev manifest URL. The hub's **dev** update channel reads the
 GitHub release list (the same cached list its release check uses, refreshed at
@@ -185,7 +179,7 @@ most hourly or on a manual check) and follows the `firmware-manifest.json` of th
 newest release in it, dev prereleases included. A stable release supersedes the
 dev builds of its version.
 
-Set a **universal test panel's** **Firmware update channel** to **Development** to
+Set a **universal test panel's** **Update channel** to **Development** to
 follow `dev`; leave it on **Stable** on production panels. These CI images use
 the documented public universal credentials and have `firmware_variant: universal`.
 They are not compatible with devices running a private/custom build (`custom`):
@@ -223,13 +217,8 @@ not compared: a release ships only the universal firmware image, but its TFT is 
 custom build. If no compatible asset is available, it reports the mismatch instead of uploading an
 unrelated TFT.
 
-The **Development Firmware** workflow derives the firmware version from
-`manifest.json` (the next `X.Y.(Z+1).dev<run>`), takes the TFT version from the
-HMIs' `system.tftVersion`, and packages both committed TFTs in that release's
-firmware manifest. It writes that TFT version into `tft_version` before
-compiling, so a dev firmware requires exactly the TFT it ships. Verify each
-published dev release contains `firmware-manifest.json`, both TFT assets, and a
-manifest `tft.version` equal to the HMIs' `system.tftVersion`.
+Verify each published dev release contains `firmware-manifest.json`, both TFT
+assets, and a manifest `tft.version` equal to the HMIs' `system.tftVersion`.
 
 The prerelease notes show the build commit, the commits since the previous
 release tag and a changed-file summary. Use the commit link to inspect the full
@@ -269,15 +258,15 @@ custom image publicly.
    source. Do not commit a machine-specific branch override.
 
 2. Give every installed test build a higher prerelease number, and include both
-   the source branch and short commit hash. For example, if `0.4.3` is the
-   current stable release and `0.4.5` is next, use `dev1`, `dev2`, `dev3`, …
+   the source branch and short commit hash. For example, if `0.4.7` is the
+   current stable release and `0.5.0` is next, use `dev1`, `dev2`, `dev3`, …
    across both branches (increment for every new build):
 
    ```bash
    SOURCE=dev                         # use master when building master
    BUILD=1                            # next unused number; keep increasing it
    SHA=$(git rev-parse --short HEAD)
-   VERSION="0.4.5.dev${BUILD}+${SOURCE}.g${SHA}"
+   VERSION="0.5.0.dev${BUILD}+${SOURCE}.g${SHA}"
    esphome -s yaml_version "$VERSION" compile esphome/nspanel_haui_dev.yaml
    ```
 
@@ -285,13 +274,17 @@ custom image publicly.
    exact committed source (`git show <hash>`). The increasing `.devN` is
    important: the hub offers only a version newer than the one already
    installed. Do not reuse a number, even when switching branches. Replace
-   `0.4.5` with the next planned stable version when the release line changes.
+   `0.5.0` with the next planned stable version when the release line changes.
+   The `+` segment is fine while the panel follows only your local manifest;
+   before it follows a published manifest again, install a build without it
+   (AwesomeVersion sorts such a build above the final release, see
+   [Published development firmware](#published-development-firmware)).
    The **HAUI Firmware** entity shows this as the installed version, making the
    branch, build order, and source commit visible in Home Assistant.
 
 3. Follow the local-release steps below, passing this same `VERSION` to
    `scripts/dev_release.py` and `--variant custom`. Set the test panel's
-   **Firmware manifest URL** to the local manifest. Keep display auto-install
+   **Custom manifest URL** to the local manifest. Keep display auto-install
    off unless you have also built and installed the matching TFT.
 
 A custom build from an older `master` commit can have a lower version than the
@@ -346,8 +339,8 @@ image URL and md5).
     current TFT; install a matching TFT from a URL when the display layout
     changed.
 
-3. In the device editor's **Updates** section, set the test panel's
-   **Firmware manifest URL** to the written manifest
+3. In the device's **Updates** sidebar, set the test panel's
+   **Custom manifest URL** to the written manifest
    (`http://homeassistant.local:8123/local/nspanel/firmware-manifest.json`).
    The hub reads it as soon as the settings are saved, and the panel's
    **HAUI Firmware** entity offers each newer test release; the hub installs it
@@ -364,7 +357,7 @@ is independent of `yaml_version` and remains pinned for firmware-only releases.
 A test firmware can therefore use the current TFT without advertising it as a
 GitHub TFT update. Local test manifests ship no TFT, so keep `auto_install` off or
 install a TFT once with `nspanel_haui.update_tft` and `url` (it then stays until
-the firmware changes). To leave the test, clear the **Firmware manifest URL**:
+the firmware changes). To leave the test, clear the **Custom manifest URL**:
 the hub then offers the latest GitHub release when it is newer than the test
 build, or install a release with `nspanel_haui.update_firmware` and `version`.
 
@@ -375,14 +368,15 @@ through a `release/X.Y.Z` branch cut from `dev`. A release hotfix may branch
 from `master` when a patch cannot wait for the next `dev` cycle. Every tag is
 cut from a commit whose CI was green on its source branch.
 
-- `master` — release branch. Receives release branches cut from `dev`; release
+- `master` — release branch and the repository's **default branch**, so GitHub
+  shows the stable source first. Receives release branches cut from `dev`; release
   hotfixes branch from `master` only when a patch cannot wait. Every tag `vX.Y.Z` is cut from a
   green commit here. GitHub Pages serves this branch's docs at the site root
   (`dev`'s under `dev/`) and Marketplace users install from its releases. Protected by the "Protect master (release-only)"
   ruleset: no direct pushes, no force-pushes, no deletion, and a merge needs a
   PR with the always-running CI checks green.
-- `dev` — integration branch, the target for all day-to-day work, and the
-  repository's **default branch**, so new PRs base on it automatically. CI runs
+- `dev` — integration branch and the target for all day-to-day work. New PRs
+  default to `master`, so pick `dev` as the base (`gh pr create --base dev`). CI runs
   here on every push and PR; a dispatched development build publishes a
   versioned universal dev firmware prerelease with commit-linked notes (see
   [Published development firmware](#published-development-firmware)).
@@ -401,18 +395,12 @@ The cycle in one line: feature → PR into `dev` → cut `release/X.Y.Z` from `d
 **Why release prep stays on a `release/X.Y.Z` branch:** a dispatched development
 build commits the next dev version back onto `dev`
 ([Published development firmware](#published-development-firmware)), at a moment
-you do not control once the release PR is open:
+you do not control once the release PR is open. A build dispatched during
+release prep moves `dev` past the commit the release branch was cut from, so a
+release PR taken straight from `dev` would no longer match the history it was
+reviewed on.
 
-- A build dispatched during release prep moves `dev` past the commit the release
-  branch was cut from, so a release PR taken straight from `dev` would no longer
-  match the history it was reviewed on.
-- A build leaves the tip of `dev` as the bot's `[skip ci]` commit, pushed with
-  the workflow token. GitHub runs no `push` or `pull_request` workflows for a PR
-  whose head commit says `[skip ci]`, so the PR's required checks never report
-  and the `master` ruleset (no bypass actors) blocks the merge.
-
-A `release/X.Y.Z` branch avoids both: no workflow commits to it, and its head is
-your own commit, so the PR's checks run. It starts with the dev version on it;
+A `release/X.Y.Z` branch avoids that: no workflow commits to it. It starts with the dev version on it;
 `scripts/bump_version.py X.Y.Z` sets the stable version there.
 
 Commits use [Conventional Commits](https://www.conventionalcommits.org/)
@@ -437,10 +425,8 @@ hatch, add a bypass actor to the ruleset rather than weakening the rules.
 ruleset there if the branch starts collecting unreviewed changes.
 
 No fixed calendar. Ship when user-visible changes accumulate or a fix cannot
-wait. The **0.4.x install gate is closed** (v0.4.7, 2026-11-11): the binary and
-TFT install and the base and core functions are proven on real EU and
-US/portrait hardware. Patch releases close regressions and gate failures; minor
-releases (`0.5.0`) ship features and breaking changes. **Any breaking change
+wait. Patch releases close regressions and gate failures; minor releases
+(`0.5.0`) ship features and breaking changes. **Any breaking change
 must ship with a `docs/user/update.md` entry and a CHANGELOG "Breaking changes"
 section** — no alias is kept as a fallback, so the upgrade guide is the only
 migration path.
@@ -449,29 +435,28 @@ migration path.
 
 | Workflow | Triggers | What it enforces |
 |----------|----------|------------------|
-| `ci.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; HMI bump; Nextion asset gate (`verify_nextion.py --require-portrait`, landscape `gen_layout.py --check`, portrait `gen_layout.py --spec portrait --check`); `pytest tests/`; `ruff format --check custom_components/ scripts/ tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation, also nightly |
-| `ci.yml` → `deploy-docs` | a push to `master` or `dev` that changes `docs/**`, `mkdocs.yml` or `requirements-docs.txt`; manual dispatch | reuses the `docs` artifact for the pushed branch and builds only the sibling, then deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
-| `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); the same run regenerates the screen overview and commits it with the version as one `[skip ci]` bot commit. `screens_only` regenerates the screens without a build; never triggered by pushes |
-| `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait`, `gen_layout.py --check` for landscape and `--spec portrait --check`); ESPHome config + compile; firmware manifest; prepared release notes; asset upload |
+| `ci.yml` | pushes/PRs to `master`, `dev`; manual dispatch. A newer run on the same branch or PR cancels the previous one | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; HMI bump; Nextion asset gate (`verify_nextion.py --require-portrait`); `pytest tests/` (which also runs both `gen_layout.py` spec checks); `ruff format --check custom_components/ scripts/ tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation |
+| `ci.yml` → `deploy-docs` | every push to `master` or `dev`; a manual dispatch on either (each Development Firmware run dispatches one on `dev`) | reuses the `docs` artifact for the pushed branch and builds only the sibling, then deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
+| `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); the same run regenerates the screen overview, commits it with the version as one bot commit and dispatches `ci.yml` on `dev` to test it and deploy the docs. `screens_only` regenerates the screens without a build; never triggered by pushes |
+| `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; ESPHome compile; firmware manifest; prepared release notes; asset upload |
 
-**Release-only checks:** the tag-vs-`manifest.json` version check, the ESPHome
-*compile* (push/PR CI only runs `esphome config`), firmware-manifest
-generation, and the GitHub release with its asset upload run only in
-`release.yml` on a `v*` tag push or a manual dispatch on a `v*` ref. Both layout
-spec checks run in push/PR CI and the release workflow. Push/PR CI validates
+**Release-only checks:** the tag-vs-`manifest.json` version check and the
+stable GitHub release with its asset upload run only in `release.yml` on a
+`v*` tag push or a manual dispatch on a `v*` ref. The ESPHome *compile*
+(push/PR CI only runs `esphome config`) and firmware-manifest generation run in
+both release workflows: `release.yml` and `dev-firmware.yml`. The Nextion
+gate runs in push/PR CI only; the tagged commit passed it on its release PR,
+whose `tests (3.14)` check `master` requires. Push/PR CI validates
 the Nextion assets, version consistency and the firmware config, but never
 compiles or publishes.
-
-**Gap to keep in mind:** a tag push does **not** re-run `ci.yml` — only
-`release.yml` runs, and it adds the release-only checks above on the tag
-itself. The tag build trusts that the tagged commit was already green
-on a branch. Cut tags only from a passing `master` commit, and re-check
-`git status` for uncommitted work first.
 
 ### Run the same gates locally
 
 Every command below is what CI runs. Run them before opening a PR or cutting a
 tag; release prep is not finished until they pass on the final commit.
+`make check` runs most of them in one go (tests, formatting, lint, both type
+checks, the docs build and `make hmi-check`); it leaves out the generated-asset
+diffs, the version checks and the ESPHome config.
 
 ```bash
 # Documentation and generated assets
@@ -486,6 +471,8 @@ python -m scripts.verify_nextion.check_hmi_bump --base origin/dev  # the branch 
 python -m scripts.verify_nextion.verify_nextion --require-portrait
 python -m scripts.hmi_layout.gen_layout --check
 python -m scripts.hmi_layout.gen_layout --spec portrait --check
+python -m scripts.hmi_layout.gen_virtual_layout --check
+python -m scripts.check_preview_coverage
 
 # Backend, formatting, lint and type checks
 pytest tests/
@@ -493,8 +480,9 @@ ruff format --check custom_components/ scripts/ tests/
 ruff check custom_components/ scripts/
 mypy
 
-# Frontend tests
+# Frontend tests and type check (npm ci once per clone)
 node --test 'tests/frontend/*.test.mjs'
+npm run typecheck:frontend
 
 # Firmware config (install requirements-esphome.txt first)
 esphome config esphome/nspanel_haui_universal.yaml
@@ -508,10 +496,9 @@ pinned toolchain from `requirements-esphome.txt`.
 
 ### 1. Pre-flight (a few days before)
 
-- Confirm `dev` and `master` are green (tests, frontend, docs, hassfest/HACS).
+- Confirm `dev` and `master` are green (tests, frontend, esphome, docs, hassfest/HACS).
 - Confirm the hardware passlist is still green on real EU and US/portrait
-  hardware for any release that changes firmware or display behaviour; the
-  0.4.x install gate itself is closed (v0.4.7, 2026-11-11).
+  hardware for any release that changes firmware or display behaviour.
 - Freeze features; only fixes land from here.
 - Decide the version number and check for pending breaking changes.
 
@@ -588,7 +575,8 @@ script above calls it for `--tft-update`. Both are importable and covered by
   `esphome config esphome/nspanel_haui_universal.yaml`.
 - The universal binary serves **any number of panels**: the MAC suffix gives
   each device a unique name and access point, so no per-device build is needed.
-  The baked API/OTA/web credentials remain shared — keep that caveat documented.
+  The baked API key (which also encrypts native OTA) remains shared — keep that
+  caveat documented.
 
 ### 5. Release notes and tagging
 
@@ -605,8 +593,8 @@ that single commit; the release branch keeps the individual release-prep
 commits.
 
 Pass a clean squash body (`--body "Release prep for X.Y.Z"` or `--body ""`).
-GitHub assembles the default body from the PR's commits, and a release branch
-cut from `dev` includes the dev-firmware bot's `[skip ci]` commits. GitHub
+GitHub assembles the default body from the PR's commits, and the dev-firmware
+bot commits up to `0.5.0.dev62` carry a `[skip ci]` trailer. GitHub
 scans the tagged commit's whole message for skip markers, so a `[skip ci]`
 anywhere in the squash body makes it skip the `v*` tag push and `release.yml`
 never starts. The scan covers prose too: never quote the literal marker in a
@@ -640,8 +628,7 @@ git push origin vX.Y.Z
 ```
 
 The tag push starts `release.yml`, which checks that the tag matches
-`manifest.json`, runs the Nextion gate, validates and compiles the universal
-firmware, and attaches the two firmware images, both TFTs and
+`manifest.json`, compiles the universal firmware, and attaches the two firmware images, both TFTs and
 `firmware-manifest.json` to the GitHub release. Watch the run; do not announce
 before it is green.
 
@@ -688,11 +675,8 @@ before it is green.
   number and keeps the base; committing the next run number instead could make
   that build's version commit empty.
 - **Never edit version files by hand.** Use `scripts/bump_version.py`; the
-  workflow owns only the `.dev<run>` suffix. The first build of a cycle does
-  not start at `.dev1`: the suffix is the repository-wide GitHub Actions run
-  number, which keeps increasing across cycles so every build stays unique and
-  monotonic even when a run is canceled or its tag push is retried. The
-  published base keeps the order correct (`0.5.0.dev55` > `0.4.7.dev54`).
+  workflow owns only the `.dev<run>` suffix (see
+  [Published development firmware](#published-development-firmware)).
 
 ### 7. Rollback
 
@@ -708,19 +692,16 @@ prep.
 
 **CI and release checks**
 
-- **An Actions incident can fail a run before its jobs start** — during the
-  2026-11-09 Actions outage a workflow run failed with "Internal server error"
-  and no job ever started; such a run cannot be retried (`cannot be retried`).
+- **A run that fails before its jobs start cannot be retried** — during an
+  Actions incident a run can fail with "Internal server error" before any job
+  starts, and GitHub refuses to re-run it.
   On a release PR, close and reopen it (or push a new head commit) once GitHub
   is healthy to start fresh runs, then re-run the failed workflow so the missing
   jobs start. The `master` ruleset requires `tests (3.14)`, `frontend`,
-  `hassfest`, `hacs` and `docs`. Check
+  `esphome`, `docs`, `hassfest` and `hacs`. Check
   [githubstatus.com](https://www.githubstatus.com) before a release.
-- **Development builds are manual** — a build publishes a prerelease and pushes
-  one bot commit carrying the dev version and the regenerated screen overview,
-  so it does not run on every push. Dispatch it when the firmware or display
-  inputs changed; do not dispatch during release prep (see
-  [Branches and cadence](#branches-and-cadence)).
+- **Do not dispatch a development build during release prep** — it pushes a bot
+  commit onto `dev` (see [Branches and cadence](#branches-and-cadence)).
 
 **Version and release notes**
 
@@ -754,9 +735,9 @@ prep.
 - **~120 MB of Nextion binaries live in git** — Marketplace downloads include them; repo
   and zip size grow with every TFT rebuild. Git LFS or release-only storage is
   planned.
-- **The universal binary bakes shared credentials** — MAC suffixes give each
-  device a unique name and access point, but the API/OTA/web credentials are
-  shared. Credential isolation is not solved.
+- **The universal binary bakes a shared API key** — MAC suffixes give each
+  device a unique name and access point, but the API key (which also encrypts
+  native OTA) is shared. Credential isolation is not solved.
 - **ESPHome is pinned to a minimum version** — `base.yaml` defines the floor and
   `requirements-esphome.txt` pins the build toolchain. Bump both together.
 

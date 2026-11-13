@@ -4,26 +4,8 @@
  * Each exported function takes the component instance (`host`) as its first
  * parameter.
  */
-import { clone, DEVICE_CONFIG_DEFAULTS } from './constants.js';
+import { DEVICE_CONFIG_DEFAULTS } from './constants.js';
 import { t } from './localize.js';
-
-const THEME_PANEL_COLOR_FIELDS = new Set([
-  "text_color", "back_color", "color_pressed", "back_color_pressed", "power_color",
-  "keypad_bg_color", "keypad_text_color", "arm_button_color", "arm_button_back_color",
-  "disarm_button_color", "disarm_button_back_color", "off_color", "letter_color", "special_color",
-]);
-
-function clearPanelColorOverrides(value) {
-  if (Array.isArray(value)) {
-    value.forEach(clearPanelColorOverrides);
-    return;
-  }
-  if (!value || typeof value !== "object") return;
-  for (const key of Object.keys(value)) {
-    if (THEME_PANEL_COLOR_FIELDS.has(key)) delete value[key];
-    else clearPanelColorOverrides(value[key]);
-  }
-}
 
 export function openThemeSidebar(host) {
   if (!host._selectedDevice) return;
@@ -49,19 +31,15 @@ export async function saveTheme(host, detail) {
     theme_id: detail.themeId,
     theme_variant: detail.themeVariant === "light" ? "light" : "dark",
   };
-  const panels = clone(host._devicePanels());
-  if (detail.resetPanelColors) {
-    clearPanelColorOverrides(panels);
-  }
   host._themeId = config.theme_id;
 
-  // savePanels shows the success or error haui-toast; keep the sidebar open on failure.
-  const message = detail.resetPanelColors
-    ? t("Theme applied and panel color overrides reset")
-    : t("Theme applied");
-  if (await host._savePanels(panels, message, config)) {
-    closeThemeSidebar(host);
-  } else {
+  // Save settings first: the theme selection must not be coupled to panel state.
+  if (!(await host._saveDeviceConfig(config, t("Theme applied")))) {
     host.requestUpdate();
+    return;
   }
+  if (detail.resetPanelColors) {
+    await host._savePanels(host._devicePanels(), '');
+  }
+  closeThemeSidebar(host);
 }

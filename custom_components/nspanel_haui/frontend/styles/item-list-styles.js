@@ -130,8 +130,9 @@ export const itemListStyles = css`
   }
   .haui-item-row-remove:hover { color: var(--error-color, #db4437); }
 
-  /* ── collapsible toggle ──────────── */
+  /* ── advanced fold (details/summary) ── */
   .haui-collapsible-title {
+    list-style: none;
     cursor: pointer;
     font-size: var(--haui-text-caption);
     color: var(--primary-color, #03a9f4);
@@ -141,40 +142,26 @@ export const itemListStyles = css`
     user-select: none;
     text-transform: uppercase;
     padding: 4px 0;
+    border-radius: var(--haui-radius-control);
+  }
+  .haui-collapsible-title::-webkit-details-marker { display: none; }
+  .haui-collapsible-title:focus-visible {
+    outline: var(--haui-focus-ring);
+    outline-offset: var(--haui-focus-offset);
   }
   .haui-collapsible-title .haui-collapsible-icon {
     transition: transform 150ms;
     --mdc-icon-size: 18px;
     flex-shrink: 0;
   }
-  .haui-collapsible-title .haui-collapsible-icon.is-open {
+  .haui-item-advanced[open] > .haui-collapsible-title .haui-collapsible-icon {
     transform: rotate(90deg);
   }
   .haui-item-advanced-section {
-    display: none;
     padding-left: 12px;
     border-left: 2px solid var(--divider-color, #e0e0e0);
     margin-top: 8px;
     margin-bottom: 8px;
-  }
-  .haui-item-advanced-section.is-open {
-    display: block;
-  }
-
-  /* ── color popover ────────────────── */
-  .haui-color-popover {
-    display: none;
-    position: absolute;
-    z-index: 100;
-    margin-top: 4px;
-    padding: 8px;
-    background: var(--card-background-color, #fff);
-    border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: var(--haui-radius-control);
-    box-shadow: var(--haui-shadow-overlay);
-  }
-  .haui-color-popover.open {
-    display: block;
   }
   .haui-item-edit-inline .haui-field {
     position: relative;

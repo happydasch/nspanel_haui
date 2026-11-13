@@ -14,6 +14,7 @@ from custom_components.nspanel_haui.haui.utils.icon import parse_icon
 def test_light_background_uses_light_text_colors_even_with_dark_active_theme():
     page = ClockPage.__new__(ClockPage)
     page.app = SimpleNamespace(theme=Theme("dark"))
+    page.panel = None
     page._use_theme_background = False
     page._background_variant = "light"
 
@@ -24,6 +25,7 @@ def test_light_background_uses_light_text_colors_even_with_dark_active_theme():
 def test_theme_background_uses_selected_theme_text_colors():
     page = ClockPage.__new__(ClockPage)
     page.app = SimpleNamespace(theme=Theme("dark"))
+    page.panel = None
     page._use_theme_background = True
     page._background_variant = "dark"
 
@@ -56,6 +58,7 @@ class _Notification:
 class _App:
     def __init__(self):
         self.device = _Device()
+        self.theme = Theme()
         self.controller = {"notification": _Notification()}
         self.listened = []
 
@@ -102,19 +105,21 @@ class _Item:
 class _Panel:
     def __init__(self, config):
         self.config = config
+        self.theme = Theme()
 
     def get(self, key, default=None):
         return self.config.get(key, default)
 
 
 def _show(monkeypatch, **panel_config):
-    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config: _Item(config))
+    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config, **kwargs: _Item(config))
     page = ClockPage(_App(), {"page_id": 7})
     page.cmds = []
     page.send_cmd = page.cmds.append
     page.get_color = lambda key: 0
     page._render_cycle_card = lambda: None
     panel = _Panel(panel_config)
+    page.panel = panel
     page.start_panel(panel)
     page.render_panel(panel)
     return page
@@ -300,7 +305,7 @@ def test_outside_temp_missing_keeps_home_temp():
 def test_first_card_shows_the_configured_weather_temperature(monkeypatch):
     """The first card renders after the weather item is set: never "--°C" on
     the first open, never the previous panel's weather on a later one."""
-    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config: _Item(config))
+    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config, **kwargs: _Item(config))
     page = ClockPage(_App(), {"page_id": 7})
     page.cmds = []
     page.send_cmd = page.cmds.append

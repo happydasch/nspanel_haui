@@ -32,6 +32,9 @@ class ComponentMixin:
         def log(self, msg: str, **kwargs: Any) -> None: ...
         def render_template(self, template: str, parse_icons: bool = True) -> str: ...
 
+        # Provided by FunctionButtonMixin.
+        def _note_component_visibility(self, component: Component, visible: bool) -> None: ...
+
     def parse_color(self, color: int | str | list | tuple) -> int:
         """Parses the given color.
 
@@ -107,6 +110,7 @@ class ComponentMixin:
             component (tuple): Component
         """
         self.send_cmd(f"vis {component.name},1")
+        self._note_component_visibility(component, True)
 
     def hide_component(self, component: Component) -> None:
         """Hides the component.
@@ -115,3 +119,4 @@ class ComponentMixin:
             component (tuple): Component
         """
         self.send_cmd(f"vis {component.name},0")
+        self._note_component_visibility(component, False)

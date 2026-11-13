@@ -4,7 +4,7 @@ import { t } from '../localize.js';
 import { deviceRail } from '../ui/device-rail.js';
 import { segmented } from '../ui/segmented.js';
 import { icon } from '../ui/icon.js';
-import { iconButton } from '../ui/button.js';
+import { backButton } from '../ui/button.js';
 import { modalSidebar } from '../ui/sidebar.js';
 
 /**
@@ -40,7 +40,9 @@ export function previewControls({ preview, onMode, onIdle }) {
  * The view's lead card (`leadContent`, its next actions) heads the side column,
  * followed by the view's own cards (`sideContent`): on Preview the device facts,
  * on Panels the selected panel (or the list's overview). The side column sticks to
- * the viewport and moves above the workspace once the layout is one column.
+ * the viewport. Once the layout is one column, the lead card moves above the
+ * workspace and the side stack below it; keyboard focus still follows the markup:
+ * lead card, side stack, then workspace.
  * A modal sidebar (settings, panel editor, catalog) opens over the page; the side
  * column stays in place underneath it.
  *
@@ -62,9 +64,7 @@ export function renderDeviceView({
   const live = isPreview && preview?.mode === 'live';
   return html`<main class="haui-dashboard-content haui-device-screen">
     <header class="haui-device-head">
-      ${onBack ? iconButton({
-        label: t('Show all devices'), iconName: 'back', className: 'haui-back-button', onClick: onBack,
-      }) : nothing}
+      ${onBack ? backButton({ label: t('Show all devices'), onClick: onBack }) : nothing}
       <h1>${title}</h1>
       ${devices.length > 1 ? deviceRail({
         devices, selected: selectedName, collapsed: railCollapsed, onSelect: onSelectDevice,

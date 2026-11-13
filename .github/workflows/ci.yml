@@ -5,27 +5,22 @@ on:
     branches: [master, dev]
   pull_request:
     branches: [master, dev]
-  schedule:
-    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Concurrency is per job: a newer push supersedes the previous run's gates, but
-# a push must never cancel the Pages deploy of an older docs-changing push.
+# A newer run on the same ref supersedes the previous one, its docs deploy
+# included: every push to master or dev deploys the docs.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
-    # The matrix suffix keeps the required check name `tests (3.14)`.
-    if: github.event_name != 'schedule'
+    # The name is the required check on master.
+    name: tests (3.14)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.14"]
-    concurrency:
-      group: ci-${{ github.ref }}-tests
-      cancel-in-progress: true
-
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,7 +30,7 @@ jobs:
       # it belongs to the pytest job.
       - uses: ./.github/actions/setup
         with:
-          python: ${{ matrix.python-version }}
+          python: "3.14"
           node: "24"
           npm: "true"
           requirements: dev
@@ -75,15 +70,10 @@ jobs:
         # Runs the release gate on every push/PR so stale HMI versions, touch
         # settings or portrait assets fail early. version.yaml is the source of
         # truth for the TFT version; it may differ from the firmware version.
-        # Check both specs: landscape is the default, portrait is explicit.
-        run: |
-          python -m scripts.verify_nextion.verify_nextion --require-portrait
-          python -m scripts.hmi_layout.gen_layout --check
-          python -m scripts.hmi_layout.gen_layout --spec portrait --check
+        run: python -m scripts.verify_nextion.verify_nextion --require-portrait
 
-      - name: Check frontend styles
-        run: python scripts/check_frontend_styles.py
-
+      # Also runs the frontend style guard (tests/test_frontend_styles.py) and
+      # both layout spec checks (test_layout_cli.py, test_portrait_layout.py).
       - name: Run tests
         run: pytest tests/
 
@@ -97,11 +87,7 @@ jobs:
         run: mypy
 
   frontend:
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}-frontend
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
 
@@ -119,11 +105,7 @@ jobs:
   esphome:
     # A separate job keeps ESPHome's cryptography pin out of the pytest
     # environment (see requirements-esphome.txt).
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}-esphome
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
 
@@ -136,63 +118,29 @@ jobs:
         run: esphome config esphome/nspanel_haui_universal.yaml
 
   docs:
-    # Builds once per run. Push runs upload the site for deploy-docs; a PR run
-    # only proves the strict build.
-    if: github.event_name != 'schedule'
+    # Builds once per run. Runs on master and dev upload the site for
+    # deploy-docs; a PR run only proves the strict build.
     runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.changed.outputs.changed }}
-    concurrency:
-      # Do not cancel push runs: a cancelled docs job would lose the only
-      # deploy for a docs-changing push whose successor changes no docs.
-      group: ci-${{ github.ref }}-docs
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - uses: ./.github/actions/setup
         with:
           python: "3.14"
           requirements: docs
 
-      - name: Check whether this run changes the docs
-        id: changed
-        env:
-          EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
-        run: |
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            changed=true
-          elif [ "$EVENT" = "pull_request" ]; then
-            changed=false
-          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            changed=true
-          elif git diff --quiet "$BEFORE" "$GITHUB_SHA" -- docs mkdocs.yml requirements-docs.txt; then
-            changed=false
-          else
-            changed=true
-          fi
-          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
-
-      # The editor footer links prerelease versions to /dev/, so the dev site
-      # carries its own site_url, repo link and edit links. Applied before the build, so
-      # the uploaded artifact is deployable as it is.
+      # Applied before the build, so the uploaded artifact is deployable as it is.
       - name: Apply the dev site URLs
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
-        run: |
-          sed -i \
-            -e 's#^site_url: .*#site_url: https://happydasch.github.io/nspanel_haui/dev/#' \
-            -e 's#^repo_url: .*#repo_url: https://github.com/happydasch/nspanel_haui/tree/dev#' \
-            -e 's#^edit_uri: edit/master/#edit_uri: edit/dev/#' \
-            mkdocs.yml
+        run: bash scripts/docs/dev_site.sh
 
       - name: Build site
         run: zensical build --strict
 
       - name: Upload the built site
-        if: github.event_name != 'pull_request' && steps.changed.outputs.changed == 'true'
+        if: >-
+          github.event_name != 'pull_request' &&
+          (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
         uses: actions/upload-artifact@v7
         with:
           name: docs-site
@@ -202,18 +150,12 @@ jobs:
 
   hassfest:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}-hassfest
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}-hacs
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
       - uses: hacs/action@main
@@ -223,16 +165,13 @@ jobs:
   # Pages hosts a single site, so every deploy publishes both branches: master
   # at the root and dev under dev/ (the editor footer links prereleases there).
   # The current branch comes from the docs artifact; only its sibling is built
-  # here, inside the deploy concurrency group so the last deploy always carries
-  # both branch tips.
+  # here, inside the deploy concurrency group (shared by both branches) so the
+  # last deploy always carries both branch tips.
   deploy-docs:
     needs: docs
     if: >-
       github.event_name != 'pull_request' &&
-      github.event_name != 'schedule' &&
-      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') &&
-      needs.docs.result == 'success' &&
-      needs.docs.outputs.changed == 'true'
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -253,7 +192,6 @@ jobs:
         with:
           ref: dev
           path: dev
-          fetch-depth: 0
 
       - name: Check out the stable site
         if: github.ref == 'refs/heads/dev'
@@ -261,8 +199,6 @@ jobs:
         with:
           ref: master
           path: stable
-          # MkDocs' git-revision-date plugin (master up to 0.4.4) needs the history.
-          fetch-depth: 0
 
       - name: Download the built site
         uses: actions/download-artifact@v8
@@ -273,35 +209,24 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
+      # The sibling builds with its own branch's docs requirements and, for
+      # dev, its own copy of the dev site URLs.
       - name: Build the dev site
         if: github.ref == 'refs/heads/master'
         working-directory: dev
         run: |
-          sed -i \
-            -e 's#^site_url: .*#site_url: https://happydasch.github.io/nspanel_haui/dev/#' \
-            -e 's#^repo_url: .*#repo_url: https://github.com/happydasch/nspanel_haui/tree/dev#' \
-            -e 's#^edit_uri: edit/master/#edit_uri: edit/dev/#' \
-            mkdocs.yml
-          python -m venv ../venv-dev
-          ../venv-dev/bin/pip install -r requirements-docs.txt
-          ../venv-dev/bin/zensical build --strict
+          bash scripts/docs/dev_site.sh
+          python -m pip install -r requirements-docs.txt
+          zensical build --strict
 
-      # The sibling builds with its own docs requirements, in its own venv.
-      # master still builds with MkDocs until the zensical migration is
-      # released; drop the mkdocs branch then.
       - name: Build the stable site
         if: github.ref == 'refs/heads/dev'
         working-directory: stable
         run: |
-          python -m venv ../venv-stable
-          ../venv-stable/bin/pip install -r requirements-docs.txt
-          if [ -x ../venv-stable/bin/zensical ]; then
-            ../venv-stable/bin/zensical build --strict
-          else
-            ../venv-stable/bin/mkdocs build --strict
-          fi
+          python -m pip install -r requirements-docs.txt
+          zensical build --strict
 
       - name: Combine the sites
         env:

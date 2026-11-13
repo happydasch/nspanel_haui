@@ -1,6 +1,7 @@
 // @ts-check
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
+import { countBadge } from './badge.js';
 import { surface } from './surface.js';
 import { button, iconButton } from './button.js';
 import { icon } from './icon.js';
@@ -113,8 +114,8 @@ function panelsOverview({
 }) {
   const groups = [
     { key: 'navigation', iconName: 'panels', label: t('Navigation'), count: navigationCount },
-    { key: 'hidden', iconName: 'mdi:eye-off-outline', label: t('Hidden'), count: hiddenCount },
-    { key: 'popups', iconName: 'mdi:window-restore', label: t('Popups'), count: popupCount },
+    { key: 'hidden', iconName: 'eye-off-outline', label: t('Hidden'), count: hiddenCount },
+    { key: 'popups', iconName: 'window-restore', label: t('Popups'), count: popupCount },
   ];
   // The two ends of the device's cycle: where it returns, and what it shows while idle.
   const roles = [
@@ -147,7 +148,7 @@ function panelsOverview({
     body: html`
       <ul class="haui-panels-overview-groups">
         ${groups.map((group) => html`<li data-group=${group.key}>
-          ${icon(group.iconName)}<span>${group.label}</span><strong>${String(group.count)}</strong>
+          ${icon(group.iconName)}<span>${group.label}</span>${countBadge(group.count)}
         </li>`)}
       </ul>
       <div class="haui-panels-overview-roles">

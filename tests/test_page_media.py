@@ -11,6 +11,7 @@ from custom_components.nspanel_haui.haui.abstract import haui_page as haui_page_
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
 from custom_components.nspanel_haui.haui.features import MediaPlayerFeatures as F
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
 from custom_components.nspanel_haui.haui.page import media as media_module
 from custom_components.nspanel_haui.haui.page.media import MediaPage
@@ -36,6 +37,7 @@ class _App:
     def __init__(self):
         self.device = _Device()
         self.device_config = _DeviceConfig()
+        self.theme = Theme("dark")
         self.controller = {}
 
     def log(self, msg, **kwargs):
@@ -119,9 +121,11 @@ def _media_page():
 
 
 def _show(monkeypatch, item, **panel_config):
-    monkeypatch.setattr(haui_page_module, "HAUIItem", lambda app, config: item)
+    monkeypatch.setattr(haui_page_module, "HAUIItem", lambda app, config, **kwargs: item)
     page = _media_page()
-    page.set_panel(_Panel({"item_id": _ENTITY_ID, **panel_config}))
+    panel = _Panel({"item_id": _ENTITY_ID, **panel_config})
+    panel.theme = page.app.theme
+    page.set_panel(panel)
     return page
 
 
@@ -233,3 +237,20 @@ def test_long_media_entity_label_is_shortened_to_fit_button():
 
     assert rendered[-1][0] == MediaPage.COMPONENTS.m1_name
     assert rendered[-1][1].endswith("..")
+
+
+def _last_vis(cmds, name):
+    return [cmd for cmd in cmds if cmd.startswith(f"vis {name},")][-1]
+
+
+def test_media_controls_come_back_when_the_player_is_available_again(monkeypatch):
+    features = F.PLAY | F.PAUSE | F.PREVIOUS_TRACK | F.NEXT_TRACK | F.VOLUME_SET
+    item = _MediaItem("playing", {"supported_features": features, "volume_level": 0.5})
+    page = _show(monkeypatch, item)
+
+    for state in ("unavailable", "playing"):
+        item.state = state
+        page.callback_media_entity(_ENTITY_ID, "state", None, state, {})
+
+    for name in ("bPlay", "bPrev", "bNext", "hVolume"):
+        assert _last_vis(page.cmds, name) == f"vis {name},1"

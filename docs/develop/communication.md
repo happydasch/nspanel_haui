@@ -37,7 +37,7 @@ sequenceDiagram
     participant Hub as Hub (NSPanelHAUI)
 
     Device->>Hub: 1. req_connection<br/>(DISCONNECTED → HANDSHAKING on hub)
-    Hub->>Device: 2. hub_connection_response<br/>(SENDING → waiting on device)
+    Hub->>Device: 2. hub_connection_response<br/>(hub version)
     Device->>Hub: 3. res_connection<br/>(hub reads heartbeat_interval)
     Hub->>Device: 4. req_device_state
     Device->>Hub: 5. res_device_state<br/>(HANDSHAKING → CONNECTED on hub)
@@ -47,7 +47,8 @@ sequenceDiagram
 
 ### From the Hub side (`HAUIConnectionController.process_event()`):
 
-1. **`req_connection`** (while DISCONNECTED)
+1. **`req_connection`** (ignored while HANDSHAKING; while CONNECTED it is
+   recorded as a drop, e.g. after a device reboot, and the handshake starts over)
    - Hub parses device info from event value
    - Sets state → HANDSHAKING
    - Replies with `hub_connection_response` (includes hub version)
@@ -72,7 +73,8 @@ sequenceDiagram
 
 1. Device starts in DISCONNECTED state
 2. `check_connection` script runs every 100ms:
-   - If DISCONNECTED + hub available: sends `req_connection` with 10s cooldown
+   - If DISCONNECTED, the display is initialized and the hub is available: sends
+     `req_connection` with 10s cooldown
 3. Device receives `hub_connection_response` → sends `res_connection`
 4. Device receives `req_device_state` → responds `res_device_state`
 5. Device receives `hub_connection_initialized` → sets `hub_connection = true`
@@ -104,24 +106,20 @@ Once connected, **both sides independently** send and monitor heartbeats:
 
 - Device publishes `esphome.heartbeat` event when `hub_connection = true`
 - Hub's `process_event()` detects heartbeat event → calls `_update_last_time()`
-- Timeout checker (`_check_timeout()`) runs every `heartbeat_interval` seconds
-- If `time.monotonic() > last_time + interval × factor` → declares timeout
+- The timeout check (`_check_timeout()`) runs every `heartbeat_interval` seconds,
+  first one interval after connecting, and acts only while CONNECTED
+- If `time.monotonic() > _last_time + max(interval × factor, 10.0)` → logs a
+  warning and transitions to DISCONNECTED
 
 ## Timeout & Reconnection
-
-### Hub-side timeout detection
-
-The `_check_timeout()` method runs on a periodic timer:
-- Only active when state is CONNECTED
-- Compares current monotonic time against `_last_time + max(interval × factor, 10.0)`
-- On timeout: logs warning, transitions to DISCONNECTED
 
 ### Device-side timeout detection
 
 The `check_hub_connection` script runs every 100ms:
 - Only active when `hub_connection = true`
 - Compares `millis()/1000` against `hub_heartbeat + interval × 2`
-- On timeout: calls `set_hub_connected(false)`
+- On timeout, or when `hub_availability` turned false: calls
+  `set_hub_connected(false)`
 
 ### Reconnection flow (Livesign detection)
 
@@ -149,25 +147,31 @@ Both sides publish state changes:
 - Hub: `callback_connection(bool)` → `HAUIDevice.on_connection_changed(bool)`
 
 When hub detects CONNECTED → DISCONNECTED:
-1. Sends `hub_connection_closed` action to device
+1. Sends `hub_connection_closed` action to device and calls the connection
+   callback with `False`
 2. Stops heartbeat timer
 3. Starts tracking `_disconnected_since` for extended-disconnect warnings
+   (logged at most once a minute)
 
-When hub detects connection established (HANDSHAKING → CONNECTED):
-1. Sends `hub_connection_initialized` action
-2. Leaves the inactivity timer unchanged
-3. Starts heartbeat timer
-4. Starts timeout timer
-5. Clears `_disconnected_since`
+When the device asks for a new connection while the hub is CONNECTED (it rebooted,
+or gave up on the hub's heartbeats before the hub timed out), the hub goes to
+HANDSHAKING and calls the connection callback with `False` first, so every reported
+reconnect follows a reported disconnect, and a handshake that then times out reports
+nothing more.
+
+The transition to CONNECTED is step 3 of the hub-side handshake above.
 
 The hub's `hub_connection_closed` action is authoritative even when another ESPHome Native API client is still connected; only the API client's last-disconnect callback is suppressed while other clients remain. This matters when multiple Home Assistant instances connect to one panel: the instance running HAUI can still tell the firmware its app is disconnected. The firmware wakes the display and pins it to System page 0, holds full brightness for `timeout_dim` plus the ramp, then dims if auto-dimming is enabled. It remains awake and never automatically turns the display off while disconnected. Reconnect restores the user's current panel at full brightness for the same grace; the inactivity timer itself is not reset.
 
 ## Error Scenarios
 
 ### ESPHome Native API disconnect
-- `on_client_disconnected` handler sets `hub_availability = false`
-- `on_client_connected` handler sets `hub_availability = true`, triggers `publish_connection_request`
-- Hub detects `hub_availability=true` through livesign events
+- `on_client_disconnected` sets `hub_availability` to whether another API client
+  is still connected, and calls `set_hub_connected(false)` without force, which
+  is skipped while other clients remain
+- `on_client_connected` sets `hub_availability = true` and sends
+  `req_connection` (`publish_connection_request`) after 500 ms
+- The hub answers that request with the normal handshake
 
 ### HA restart
 - Hub app restarts fresh with DISCONNECTED state
@@ -176,8 +180,9 @@ The hub's `hub_connection_closed` action is authoritative even when another ESPH
 
 ### ESP32 reboot
 - Device starts fresh with DISCONNECTED
-- Hub detects timeout → transitions to DISCONNECTED
-- Device boots, sends `req_connection` → clean handshake
+- Device boots, sends `req_connection`; if the hub still holds CONNECTED, the
+  request is recorded as a drop and the handshake starts over, otherwise the
+  hub has already timed out to DISCONNECTED
 
 ### Network partition
 - Both sides independently timeout

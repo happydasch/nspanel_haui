@@ -8,15 +8,18 @@
  */
 import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
-import { firmwareStyles } from '../styles/firmware-styles.js';
 import { t } from '../localize.js';
 import { hasUpdateAvailable } from '../device-status.js';
-import { DEFAULT_FIRMWARE_MANIFEST_URL, FIRMWARE_UPDATE_CHANNELS } from '../constants.js';
+import {
+  DEFAULT_FIRMWARE_MANIFEST_URL, FIRMWARE_UPDATE_CHANNELS, UPDATE_POLICY_DEFAULTS,
+} from '../constants.js';
 import { renderField, renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { badge } from '../ui/badge.js';
 import { button } from '../ui/button.js';
 import { segmented } from '../ui/segmented.js';
-import { updateOfferLabel, versionLabel } from '../ui/format.js';
+import { relativeTime, updateOfferLabel, updatePolicySummary, versionLabel } from '../ui/format.js';
+import { updatePolicyFields } from '../views/update-policy.js';
+import { updateProgress } from '../ui/update-progress.js';
 import { icon } from '../ui/icon.js';
 import { sectionHeading } from '../ui/surface.js';
 const UPDATE_INTERVAL_PRESETS = [900, 1800, 3600, 7200, 21600, 43200, 86400, 604800];
@@ -99,12 +102,14 @@ export function updateSummary(update) {
 }
 
 /** One row of the version list: what is installed, and what the release has for it. */
-function versionRow({ iconName, label, version, note, offered, disabled, onInstall }) {
+function versionRow({ iconName, label, version, note, offered, skipped = false, disabled, onInstall }) {
   return html`<div class="haui-firmware-row">
     <dt>
       <span class="haui-firmware-row-icon">${icon(iconName)}</span>
       <span class="haui-firmware-row-name">${label}${offered
-        ? badge(t('Update available'), 'warning') : nothing}${note ? html`<small>${note}</small>` : nothing}</span>
+        ? badge(t('Update available'), 'warning') : nothing}${skipped
+        ? html`<span title=${t('Skipped: it installs only by hand.')}>${badge(t('Skipped'), 'neutral')}</span>`
+        : nothing}${note ? html`<small>${note}</small>` : nothing}</span>
     </dt>
     <dd>
       <span class="haui-firmware-row-version">${versionLabel(version)}</span>
@@ -153,7 +158,6 @@ function updateRow(host, { id, key, settings, label, hint = '', fallback = true,
 }
 
 class FirmwarePopover extends HauiDialog {
-  static styles = [...HauiDialog.styles, firmwareStyles];
   static get properties() {
     return {
       deviceStatus: { type: Object },
@@ -161,6 +165,8 @@ class FirmwarePopover extends HauiDialog {
       entryId: { type: String },
       api: { type: Object },
       config: { type: Object },
+      // The hub's automatic update policy, which the device follows unless it overrides it.
+      hubPolicy: { type: Object },
       _settingsDraft: { type: Object, state: true },
       _customIntervalSelected: { type: Boolean, state: true },
       _picker: { type: Object, state: true },
@@ -462,6 +468,8 @@ class FirmwarePopover extends HauiDialog {
         note: update.firmware_update_version
           ? t('Latest release: {version}').replace('{version}', update.firmware_update_version) : '',
         offered: update.firmware_update_available,
+        skipped: Boolean(update.firmware_update_version)
+          && update.firmware_skipped_version === update.firmware_update_version,
         disabled: installDisabled,
         onInstall: updatesEnabled
           ? () => this._openPicker('firmware', this.deviceName, update.firmware_update_available ? '' : null)
@@ -581,28 +589,94 @@ class FirmwarePopover extends HauiDialog {
     </section>`;
   }
 
-  /** Which firmware the hub follows, and whether it installs it by itself. */
-  _renderFirmwareSettings(settings) {
+  /**
+   * How the device installs updates by itself: by the hub's policy, or by its
+   * own when it overrides the hub.
+   */
+  _renderAutomaticUpdates(settings) {
+    const hub = { ...UPDATE_POLICY_DEFAULTS, ...(this.hubPolicy || {}) };
+    const own = /** @type {typeof hub} */ (Object.fromEntries(Object.keys(UPDATE_POLICY_DEFAULTS)
+      .map((key) => [key, settingValue(settings, key, hub[key])])));
+    const override = Boolean(settingValue(settings, 'policy_override', false));
     return html`<section class="haui-update-group">
-      ${sectionHeading({ title: t('Firmware'), leading: icon('chip'), className: 'haui-update-group-title' })}
-      ${updateRow(this, {
-        id: 'update-firmware-auto', key: 'firmware_auto_update', settings, fallback: false,
-        label: t('Auto-install firmware updates'),
-        hint: t('Install a newer firmware when the release ships one. The matching TFT follows after the device reboots.'),
-      })}
+      ${sectionHeading({ title: t('Automatic updates'), leading: icon('autorenew'), className: 'haui-update-group-title' })}
+      <div class="haui-update-row">
+        <div class="haui-update-row-copy">
+          <label class="haui-update-row-label" for="update-policy-override">${t('Override the hub policy for this device')}</label>
+          <p class="haui-update-row-hint">${t('Off: this device installs updates the way the update policy on Fleet says.')}</p>
+        </div>
+        ${renderToggle('update-policy-override', override, (next) => this._setPolicyOverride(next, own))}
+      </div>
+      ${override
+        ? html`<div class="haui-update-policy-fields">${updatePolicyFields({
+          policy: own, idPrefix: 'update', onChange: (policy) => this._setOwnPolicy(policy),
+        })}</div>`
+        : html`<p class="haui-update-off-note">${t('Follows the hub policy: {summary}')
+          .replace('{summary}', updatePolicySummary(hub))}</p>`}
     </section>`;
   }
 
-  /** The display's TFT follows the firmware; this decides whether it asks. */
-  _renderDisplaySettings(settings) {
-    return html`<section class="haui-update-group">
-      ${sectionHeading({ title: t('Display'), leading: icon('monitor'), className: 'haui-update-group-title' })}
-      ${updateRow(this, {
-        id: 'update-auto-install-tft', key: 'auto_install', settings,
-        label: t('Auto-install TFT updates'),
-        hint: t('Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.'),
-      })}
+  /**
+   * Switch the hub override; turning it on keeps the values shown, so the
+   * device goes on as it did until one is changed.
+   */
+  _setPolicyOverride(override, shown) {
+    this._settingsDraft = {
+      ...(this._settingsDraft || this.config?.update || {}),
+      policy_override: override,
+      ...(override ? shown : {}),
+    };
+    this._saveSettings();
+  }
+
+  /** @param {Record<string, any>} policy - the device's own policy */
+  _setOwnPolicy(policy) {
+    this._settingsDraft = { ...(this._settingsDraft || this.config?.update || {}), ...policy };
+    this._scheduleSettingsSave();
+  }
+
+  /**
+   * The automatic firmware install waiting to start: when it starts, and the
+   * choice to start it now, put it off or skip its version.
+   */
+  _renderScheduled(update) {
+    const scheduled = update.firmware_scheduled;
+    if (!scheduled) return nothing;
+    const control = (action, seconds) => () => this._emit('update-control',
+      seconds === undefined ? { action } : { action, seconds });
+    return html`<section class="haui-surface haui-update-scheduled" role="status">
+      <p>${t('Firmware {version} installs automatically {when}.')
+        .replace('{version}', scheduled.version)
+        .replace('{when}', relativeTime(scheduled.starts_at))}</p>
+      <div class="haui-update-scheduled-actions">
+        ${button({ label: t('Install now'), iconName: 'download', variant: 'primary', onClick: control('install_now') })}
+        ${button({ label: t('In 1 hour'), iconName: 'clock-outline', onClick: control('defer', 3600) })}
+        ${button({ label: t('In 1 day'), iconName: 'calendar', onClick: control('defer', 86400) })}
+        ${button({ label: t('Skip this version'), iconName: 'skip-next', variant: 'quiet', onClick: control('skip') })}
+      </div>
     </section>`;
+  }
+
+  /** When the automatic install tries again, or that it stopped trying. */
+  _renderRetry(update) {
+    /** @type {Array<[string, string]>} */
+    const kinds = [['firmware_auto', t('Firmware')], ['tft_auto', t('Display')]];
+    return kinds.map(([key, label]) => {
+      const auto = update[key];
+      if (auto?.stopped_reason) {
+        return html`<p class="haui-update-retry is-stopped" role="status">${label}: ${
+          t('Automatic install stopped after {count} failed attempts. Install it by hand or wait for a newer version.')
+            .replace('{count}', String(auto.attempts))}</p>`;
+      }
+      if (auto?.next_attempt_at) {
+        return html`<p class="haui-update-retry" role="status">${label}: ${
+          t('Attempt {count} of {max} failed; the next try is {when}.')
+            .replace('{count}', String(auto.attempts))
+            .replace('{max}', String(auto.max_attempts))
+            .replace('{when}', relativeTime(auto.next_attempt_at))}</p>`;
+      }
+      return nothing;
+    });
   }
 
   _renderSettings() {
@@ -620,7 +694,7 @@ class FirmwarePopover extends HauiDialog {
       })}
       ${this._renderUpdateSettings(settings, channel, enabled)}
       ${enabled ? html`${this._renderReleaseChecks(settings, interval)}${
-        this._renderFirmwareSettings(settings)}${this._renderDisplaySettings(settings)}`
+        this._renderAutomaticUpdates(settings)}`
       : nothing}
     </section>`;
   }
@@ -638,6 +712,10 @@ class FirmwarePopover extends HauiDialog {
     const installing = update.firmware_installing || update.state === 'checking' || update.state === 'installing';
     return html`<div class="haui-firmware-sidebar">
       ${this._renderStatus(updateSummary(update), updatesEnabled)}
+      ${this._renderScheduled(update)}
+      ${updateProgress({ progress: update.firmware_progress, label: t('Firmware update') })}
+      ${updateProgress({ progress: update.tft_progress, label: t('Display update') })}
+      ${this._renderRetry(update)}
       ${this._renderVersions({
         status, info, update, requiredTft, updatesEnabled,
         installDisabled: installing || this._actionBusy,

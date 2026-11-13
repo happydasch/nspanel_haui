@@ -22,7 +22,7 @@ export function notificationsView({ open, notifications, onDismiss, onClose }) {
     staticPlacement: true,
     content: html`<header class="haui-notification-header">
       <h2>${t('Notifications')}</h2>
-      ${iconButton({ label: t('Close'), iconName: 'mdi:close', onClick: onClose })}
+      ${iconButton({ label: t('Close'), iconName: 'close', onClick: onClose })}
     </header>${body}`,
   });
 }

@@ -6,6 +6,7 @@ import { panelThumb } from '../ui/panel-thumb.js';
 import { iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
 import { emptyState } from '../ui/empty-state.js';
+import { icon } from '../ui/icon.js';
 import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
 
 /**
@@ -16,6 +17,7 @@ import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.j
  * @property {string} title
  * @property {string} [typeLabel]
  * @property {number} [itemCount]
+ * @property {boolean} [invalid] - the saved panel breaks a rule of its type
  * @property {unknown} [preview]
  * @property {unknown[]} [roles]
  * @property {string} [lockReason]
@@ -112,7 +114,7 @@ export function renderPanelList({
           className: 'haui-panel-group-heading',
           leading: iconButton({
             label: group.collapsed ? t('Show more') : t('Show less'),
-            iconName: group.collapsed ? 'mdi:chevron-right' : 'mdi:chevron-down',
+            iconName: group.collapsed ? 'chevronRight' : 'chevron-down',
             className: 'haui-panel-group-toggle',
             expanded: group.collapsed !== true,
             controls: `haui-panel-list-${group.id}`,
@@ -132,6 +134,7 @@ export function renderPanelList({
             title: entry.title,
             typeLabel: entry.typeLabel,
             itemCount: entry.itemCount,
+            invalid: entry.invalid === true,
             selected: selectedKey === entry.key,
             thumbnail: panelThumb({
               content: entry.preview,
@@ -185,7 +188,7 @@ function sortHandleFor(entry) {
   if (!entry.sortable) {
     const label = t('{name} cannot be reordered').replace('{name}', entry.title);
     return html`<span class="haui-panel-handle is-disabled" role="img" aria-label=${label} title=${label}>
-      <ha-icon icon="mdi:drag" aria-hidden="true"></ha-icon>
+      ${icon('grip')}
     </span>`;
   }
   const label = t('Drag to reorder {name}').replace('{name}', entry.title);
@@ -199,6 +202,6 @@ function sortHandleFor(entry) {
       row?.classList.add('is-dragging');
     }}
     @dragend=${(event) => event.currentTarget.closest('.haui-panel-row')?.classList.remove('is-dragging')}>
-    <ha-icon icon="mdi:drag" aria-hidden="true"></ha-icon>
+    ${icon('grip')}
   </span>`;
 }

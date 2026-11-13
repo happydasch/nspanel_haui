@@ -27,9 +27,7 @@ settings. The editor strings are complete in English, German, French, Dutch and
 Polish. The schedule replaces Day/Night profiles and quiet hours; upgrade details
 are in the [release notes](.github/release-notes/v0.5.0.md).
 The remaining 0.5 scope is multiple TFTs for normal- and high-speed updates,
-stronger update controls, notification grouping/priority and history (the queue
-API and editor queue center are already in place), scoped device-settings
-endpoints, and the panel/device/accessibility polish below. See
+stronger update controls, and the panel/device/accessibility polish below. See
 [CHANGELOG.md](CHANGELOG.md) for the shipped work.
 **v0.6** adds Display Repair Mode, an inspection and cleanup of the Nextion
 scripts and Home Assistant hub settings; multi-hub support remains subject to a
@@ -96,13 +94,13 @@ unchanged normal-speed assets; no UART buffer overflows under the update burst.
 
 ### Stable, controllable updates in the frontend
 
-The per-device Updates sidebar now has a single status, grouped update settings
-with draft/save, a release channel and optional manifest override, plus manual
-installs; the Fleet can install available updates across devices. Still open:
-
-- **Automatic updates** — set one global policy for firmware and TFT updates,
-  with a visible retry policy that stops after failure.
-- **Control** — defer or cancel an update and show clear progress while it runs.
+The per-device Updates sidebar has a single status, grouped update settings
+with draft/save, a release channel and optional manifest override, and manual
+installs. One hub-wide update policy (with a per-device override) sets automatic
+installs, a waiting period and a retry limit; a scheduled firmware install can be
+started now, put off or skipped; Fleet installs every device one at a time on the
+hub; and a running install shows its step and an estimate. Still open: verify the
+step timings and a two-device rollout on real panels.
 
 ### Device operations
 
@@ -113,39 +111,25 @@ device's version and action state correct across stale or failed updates.
 
 ### Remaining editor polish
 
-A curated starter-template library (the Add panel catalog already supports
-starting from a default type, extending a popup, and copying an existing panel),
-field-level validation beyond the existing key and PIN checks, and the rest of the
+The Add panel catalog has starter templates, and panel options are checked
+against their type in the editor and on the hub. Still open: the rest of the
 accessibility pass (contrast, screen-reader review of the dashboard, a keyboard
 way to reorder devices, which only drag today).
 
-### Frontend rework, notifications & device settings (current cycle)
+### Frontend polish & themes (current cycle)
 
-The data/API foundation landed in v0.4.7 and the dashboard in this cycle. What
-is left of each area:
+The data/API foundation landed in v0.4.7; the dashboard and scoped settings, panel
+and device-order endpoints are in place. What remains of the editor work:
 
-- **Notifications** — the read/dismiss queue API and the editor's queue center are
-  implemented. Still open: grouping and priority ordering in the controller, plus
-  notification history and its read-only API/editor view. The service, `notify.*`
-  and ESPHome entry points keep working, and the "never auto-dismiss" and
-  critical force-show rules stay unchanged.
-- **Device settings** — expose the existing per-device settings (speed,
-  orientation, brightness, idle behaviour, notification defaults, update policy)
-  through scoped read/update endpoints, stored per device and defaulted on load;
-  the settings sidebar saves the whole store today.
 - **Device themes and first render** — the device-level theme selector and
   pre-page theme painting shipped in 0.4.5, and the shared theme library in 0.5.
   The remaining optimisation is to predefine palettes in the TFT so the first
   render needs fewer color commands, without flashing the default palette or
   showing a partially themed page; editor cards must continue to match the
   device render.
-- **Panel editors** — a curated starter-template library and field-level validation
-  of type-specific options remain open. The Add panel catalog already supports
-  default-type creation, popup extension and copying an existing panel; unsaved
-  previews, inline rename, duplicate, reorder and key/PIN validation are in place.
-
-**Phasing:** finish notification grouping/priority and history, then the scoped
-settings endpoints. Each ships on its own at behaviour parity with the current editor.
+- **Panel editors** — starter templates and field-level checks of type-specific
+  options are in place, alongside default-type creation, popup extension, copying
+  an existing panel, unsaved previews, inline rename, duplicate and reorder.
 
 ---
 
@@ -251,6 +235,11 @@ behaving unchanged on hardware after the cleanup.
 - **Byte-level TFT update progress** — needs firmware-side events.
 - **Full update-pipeline integration test** — unit and endpoint tests exist; the
   end-to-end test is still open.
+- **Notification history** — keep past notifications, with a read-only API and a
+  view in the editor; nothing exists in code yet. Moved out of 0.5.
+- **Notification grouping and priority ordering** — mainly backend work in the
+  notification controller. Moved out of 0.5; the read/dismiss queue API and the
+  editor's queue center already shipped.
 
 ---
 

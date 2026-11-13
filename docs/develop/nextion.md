@@ -37,7 +37,7 @@ The display is 480 pixels wide, but the LCD bezel hides the rightmost 30 pixels.
 
 This is relevant for edge-based gesture detection — swipe-from-right gestures (swipe left) start in the non-visible zone. The ESPHome gesture logic in `scripts_interaction.yaml` uses `visible_width` (450 in landscape, 320 in portrait) for its right-border check (in landscape a swipe starting at x > 410 counts as a right-edge start, using a 40px margin), so touches in the non-visible zone also count as right-edge starts.
 
-This project uses the stock ESPHome `nextion` display component (with a temporary vendored patch for the numeric-response fix until a released ESPHome contains it, ESPHome 2026.11.0 — see `esphome/nextion_patch/`; ESPHome 2026.10 or later) with a hardware UART and the following key options:
+This project uses the stock ESPHome `nextion` display component (ESPHome 2026.10 or later, with the temporary vendored patch in `esphome/nextion_patch/`, see [ESPHome Component](esphome.md)) with a hardware UART and the following key options in `esphome/nspanel_haui/display.yaml`:
 
 - `uart_id`: references the UART bus used for the Nextion display.
 - `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. The automatic display state machine does not hardware-sleep; while disconnected the firmware keeps System page 0 visible and only dims the backlight. This setting matters only if hardware sleep is explicitly requested.
@@ -50,10 +50,15 @@ This project uses the stock ESPHome `nextion` display component (with a temporar
 - `on_setup`: triggered after ESPHome connects to the Nextion.
 - `on_page`: triggered when the display changes pages.
 - `on_touch`: triggered when a touch event happens.
+- `on_buffer_overflow`: logs the warning and publishes a `buffer_overflow` event,
+  which starts the hub's [buffer overflow recovery](#buffer-overflow-recovery).
+
+The actions the hub calls on the device are listed in
+[ESPHome Component → Actions](esphome.md#actions).
 
 ### Advanced queue tuning options
 
-These options are set in `esphome/nspanel_haui/display.yaml` and are not needed for normal use.
+Also set in `display.yaml`:
 
 - `max_queue_size` (default: 800): caps the command queue to prevent heap fragmentation when the Nextion serial buffer overflows and orphans pending entries. 800 entries is enough to absorb a full panel render burst plus concurrent state updates.
 
@@ -61,25 +66,9 @@ These options are set in `esphome/nspanel_haui/display.yaml` and are not needed 
 
 - `command_spacing` (`2ms`): enables ESPHome's Nextion command pacer globally. The ESP32 loop timestamp is constant within an iteration, so the pacer sends at most one queued command per loop. This spreads large renders over time and prevents bursts from overrunning the Nextion's 1 KB RX buffer. The configured minimum is 2ms; actual throughput is also bounded by the ESPHome loop cadence.
 
-HA-side batching reduces service-call overhead but does not itself prevent UART bursts. The firmware pacer is the general buffer-overflow protection and applies to every page and command source. Flash the updated ESPHome firmware for this protection to take effect.
-
-The repo also exposes these actions via API:
-
-- `upload_tft_url` (sent by the hub's TFT install)
-- `send_command`
-- `set_brightness`
-- `goto_page`
-- `send_commands`
-- `display_off`
-
-This project also handles Nextion runtime issues such as buffer overflow using the `on_buffer_overflow` automation.
-When a buffer overflow is detected, the display logs the warning and publishes a `buffer_overflow` event so the app can react or retry safely.
-
-These match the official ESPHome Nextion component behavior used by the project.
-
 ### Panel rendering and refresh
 
-Commands are batched at the HA layer to reduce native API service-call overhead, then queued and paced by ESPHome before being written to the UART. The firmware's `command_spacing` setting is the primary protection against overrunning the Nextion's 1 KB RX buffer; HA batching alone is not a buffer-safety guarantee.
+Commands are batched at the HA layer to reduce native API service-call overhead, then queued and paced by ESPHome before being written to the UART. The firmware's `command_spacing` pacer is the protection against overrunning the Nextion's 1 KB RX buffer for every page and command source; HA batching alone does not prevent UART bursts.
 
 The rendering cycle has two paths:
 
@@ -123,7 +112,7 @@ If the Nextion reports a buffer overflow (0x24), the hub debounces a full `displ
 
 ## How to edit the HMI file
 
-To edit the HMI file, no special care is needed. Following are some helpful infos. The HMI is used mostly to design the interface but does not need any special code. Only on a page based lifetime of events should be done on the display. If possible, the logic should be placed in the Hub App.
+The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs in the Hub App. The rules that keep both HMIs in step (landscape and portrait) are in [Nextion Editor](nextion-editor.md#hard-rules).
 
 All pages need to send a `sendme` in `Preinitialize`. This is needed to know of a page change event.
 
@@ -131,9 +120,7 @@ Prepare the page in the `Preinitialize` event because the Hub App cannot control
 
 If you want to process any click events, you need to enable `Send Component ID` on the event to be used.
 
-If you want to interact with any component on the display, the component id and objectname is required. They are being used and are defined in the Hub App.
-
-When changing order of components on a page, be aware, that the id of the components will change.
+The hub addresses a widget by its id and object name, declared in the page's `COMPONENTS` registry. Changing the order of components on a page changes their ids.
 
 > ✍️ **Maintainers:** a step-by-step, human-oriented guide for editing the HMI
 > in the Nextion Editor — adding widgets/pages, fonts & images, and creating
@@ -142,12 +129,13 @@ When changing order of components on a page, be aware, that the id of the compon
 
 ## Scripts for display
 
-see `scripts` in the root directory for different scripts. Which of them to
-run after an HMI change, and in what order, is in
+The display tools live in `scripts/` (overview in `scripts/README.md`). Which of
+them to run after an HMI change, and in what order, is in
 [Nextion Editor §8](nextion-editor.md#8-after-any-hmi-change-scripts-to-run).
 
-- Font generation
-- Image generation
+- Fonts: `scripts/font_tools` and `scripts/charset`
+- Images: `scripts/rgb565_image`, `scripts/backgrounds`, `scripts/spinner`,
+  `scripts/color_wheel`
 - Virtual panel assets: after every HMI change run
   `python -m scripts.hmi_layout.gen_virtual_layout`. It exports both
   HMI files' pages, widgets and event code to

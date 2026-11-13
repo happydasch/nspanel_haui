@@ -7,6 +7,7 @@ importlib I/O that must stay off the HA event loop.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Literal
 
 from .device_config import DEVICE_CONFIG, LOG_LEVEL_OPTIONS
@@ -16,7 +17,15 @@ from .schedule import SUN_EVENTS, parse_boundary
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-__all__ = ["validate_config_model", "validate_device_config", "validate_panels"]
+__all__ = [
+    "PanelValidationError",
+    "validate_config_model",
+    "validate_device_config",
+    "validate_panels",
+    "validate_update_policy",
+]
+
+_LOGGER = logging.getLogger(__name__)
 
 # Importing pydantic at module scope does blocking importlib I/O (import_module,
 # importlib.metadata reads), and its BaseModel metaclass triggers more blocking
@@ -47,6 +56,7 @@ def _ensure_models() -> None:
         model_config = ConfigDict(extra="allow")
         type: str | None = None
         title: str = ""
+        theme_id: str = ""
         key: str | None = None
         show_in_navigation: bool = True
 
@@ -229,18 +239,129 @@ def validate_device_config(config: dict) -> BaseModel:
     Returns the validated model instance.
     """
     model = _get_device_config_model()
-    return model(**config)
+    validated = model(**config)
+    # A device that overrides the hub's update policy keeps its own policy
+    # fields in its ``update`` block: they take the hub policy's ranges.
+    update = config.get("update")
+    if isinstance(update, dict):
+        from .mapping.const import UPDATE_POLICY_FIELDS
+
+        validate_update_policy({key: update[key] for key in UPDATE_POLICY_FIELDS if key in update})
+    return validated
 
 
-def validate_panels(panels_data: dict) -> BaseModel:
+_UPDATE_POLICY_MODEL: type | None = None
+
+
+def validate_update_policy(policy: dict) -> dict:
+    """Validate the hub's automatic update policy and fill in its defaults.
+
+    Args:
+        policy: The stored or submitted policy; fields left out take
+            ``UPDATE_POLICY_DEFAULTS``.
+
+    Returns:
+        The complete policy.
+
+    Raises:
+        ValueError: An unknown field, or a value out of its range.
+    """
+    global _UPDATE_POLICY_MODEL  # noqa: PLW0603
+
+    from .mapping.const import UPDATE_POLICY_DEFAULTS
+
+    if _UPDATE_POLICY_MODEL is None:
+        from pydantic import BaseModel, ConfigDict, Field
+
+        class _UpdatePolicy(BaseModel):
+            model_config = ConfigDict(extra="forbid")
+            firmware_auto_update: bool = UPDATE_POLICY_DEFAULTS["firmware_auto_update"]
+            auto_install: bool = UPDATE_POLICY_DEFAULTS["auto_install"]
+            install_delay: int = Field(UPDATE_POLICY_DEFAULTS["install_delay"], ge=0, le=86400)
+            max_attempts: int = Field(UPDATE_POLICY_DEFAULTS["max_attempts"], ge=1, le=10)
+            retry_interval: int = Field(UPDATE_POLICY_DEFAULTS["retry_interval"], ge=300, le=604800)
+
+        _UPDATE_POLICY_MODEL = _UpdatePolicy
+    return _UPDATE_POLICY_MODEL(**policy).model_dump()
+
+
+class PanelValidationError(ValueError):
+    """Saved panels break the option rules of their page type.
+
+    ``errors`` lists every broken rule as ``{"device", "panel", "field",
+    "kind", "message"}``; the message of the exception names the first one.
+    """
+
+    def __init__(self, errors: list[dict[str, str]]) -> None:
+        first = errors[0]
+        super().__init__(f"Panel {first['panel']}: {first['field']}: {first['message']}")
+        self.errors = errors
+
+
+def _stored_panels(previous: dict | None, device: str) -> dict[Any, Any]:
+    """The panels ``previous`` holds for ``device``, by key."""
+    if previous is None:
+        return {}
+    stored = previous.get("devices", {}).get(device, {}).get("panels", [])
+    return {panel.get("key"): panel for panel in stored if isinstance(panel, dict)}
+
+
+def _rule_errors(panels_data: dict, previous: dict | None) -> list[dict[str, str]]:
+    """The broken option rules of every new or changed panel.
+
+    A panel equal to the stored panel of the same key is skipped: a panel saved
+    before a rule existed must not block saving the device's other panels.
+    """
+    from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
+    from .option_rules import panel_option_errors
+
+    errors: list[dict[str, str]] = []
+    for device, dev_data in panels_data.get("devices", {}).items():
+        stored = _stored_panels(previous, device)
+        for panel in dev_data.get("panels", []):
+            if not isinstance(panel, dict) or panel.get("type") not in PANEL_MAPPING:
+                continue
+            key = panel.get("key")
+            descriptor = PANEL_MAPPING[panel["type"]][1].DESCRIPTOR  # type: ignore[attr-defined]
+            broken = panel_option_errors(panel, descriptor, popup=key in POPUP_PANEL_MAPPING)
+            if broken and previous is not None and stored.get(key) == panel:
+                _LOGGER.warning(
+                    "Panel %s of %s breaks a rule but is unchanged, kept: %s",
+                    key,
+                    device,
+                    broken[0].message,
+                )
+                continue
+            errors += [
+                {
+                    "device": device,
+                    "panel": str(key),
+                    "field": error.field,
+                    "kind": error.kind,
+                    "message": error.message,
+                }
+                for error in broken
+            ]
+    return errors
+
+
+def validate_panels(panels_data: dict, previous: dict | None = None) -> BaseModel:
     """Validate panel store data.
 
-    Ensures the panels dict has valid panel definitions and that
-    each device's ``config`` sub-object has correct field types.
+    Ensures the panels dict has valid panel definitions, that each device's
+    ``config`` sub-object has correct field types, and that new or changed
+    panels keep the option rules of their page type (``option_rules.py``).
+
+    Args:
+        panels_data: The store data to save (``{"devices": {name: {...}}}``).
+        previous: The stored data the save replaces. A panel equal to its
+            stored version is not checked against the option rules; ``None``
+            checks every panel (an import).
 
     Raises:
         ValueError: A panel uses the key of a system panel that is not a popup;
             only popups can be edited.
+        PanelValidationError: A new or changed panel breaks an option rule.
     """
     from .mapping.panel import SYS_PANEL_MAPPING
 
@@ -253,4 +374,8 @@ def validate_panels(panels_data: dict) -> BaseModel:
         all_panels.extend(dev_data.get("panels", []))
         if "config" in dev_data:
             validate_device_config(dev_data["config"])
-    return validate_config_model({"panels": all_panels})
+    model = validate_config_model({"panels": all_panels})
+    errors = _rule_errors(panels_data, previous)
+    if errors:
+        raise PanelValidationError(errors)
+    return model

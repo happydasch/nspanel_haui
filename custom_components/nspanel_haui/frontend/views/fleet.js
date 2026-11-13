@@ -10,6 +10,7 @@ import { button, iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
 import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
 import { hasUpdateAvailable } from '../device-status.js';
+import { rolloutCard } from '../ui/rollout-card.js';
 
 /** Where the carousel sits between its scroll extents. */
 export function carouselEdgesFrom(carousel) {
@@ -29,6 +30,8 @@ export function carouselEdgesFrom(carousel) {
  *   discovered?: any[], scanning?: boolean, scanError?: string, statusError?: string|null, onScan?: () => void,
  *   onAddDevices?: (devices: any[]) => void,
  *   installable?: number, onInstallUpdates?: () => void,
+ *   onUpdatePolicy?: () => void,
+ *   rollout?: any, onCancelRollout?: (device: string|null) => void,
  *   onOpenLogs?: () => void }} data
  */
 export function renderFleetView(data) {
@@ -111,13 +114,18 @@ export function renderFleetView(data) {
               className: 'haui-section-heading haui-fleet-inventory-heading',
               titleId: 'haui-inventory-heading',
             }),
-            action: data.onInstallUpdates && data.installable ? button({
+            action: html`${data.onUpdatePolicy ? button({
+              label: t('Update policy'),
+              iconName: 'tune-variant',
+              className: 'haui-inventory-policy',
+              onClick: data.onUpdatePolicy,
+            }) : nothing}${data.onInstallUpdates && data.installable ? button({
               label: t('Install updates ({count})').replace('{count}', String(data.installable)),
               iconName: 'download',
               variant: 'primary',
               className: 'haui-inventory-update',
               onClick: data.onInstallUpdates,
-            }) : nothing,
+            }) : nothing}`,
             pending: data.statusPending === true,
           })}
         </div>
@@ -176,6 +184,7 @@ export function renderFleetView(data) {
         </li>`)}</ul>
       </section>` : nothing}
     </section>
+    ${rolloutCard({ rollout: data.rollout, devices: data.devices, onCancel: data.onCancelRollout })}
     ${data.devices.length ? html`<div class="haui-fleet-grid">
       ${inventory}
       ${eventList({ events: latest, onOpenLogs: data.onOpenLogs })}

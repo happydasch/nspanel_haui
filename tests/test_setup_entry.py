@@ -255,6 +255,27 @@ def test_explicit_theme_variant_survives_config_build():
     assert cfg["devices"][0]["theme_id"] == "dark"
 
 
+def test_build_config_passes_theme_library_and_normalizes_unknown_panel_theme():
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "themes": {"custom": {"name": "Custom"}},
+            "devices": {
+                "kitchen": {
+                    "config": {"theme_id": "dark"},
+                    "panels": [{"type": "clock", "key": "clock", "theme_id": "missing"}],
+                }
+            },
+        },
+        device_name="kitchen",
+    )
+
+    assert cfg["themes"]["custom"]["name"] == "Custom"
+    assert cfg["panels"][0]["theme_id"] == "dark"
+    assert "resolved_theme" not in cfg["device"]
+    assert "resolved_theme" not in cfg["devices"][0]
+
+
 # --- panel storage ---------------------------------------------------------
 
 

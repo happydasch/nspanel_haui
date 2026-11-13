@@ -5,9 +5,6 @@ display commands and service calls, so assertions are on what reaches the
 display and Home Assistant.
 """
 
-import pytest
-
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import ClimateFeatures
 from custom_components.nspanel_haui.haui.mapping.color import Theme
@@ -81,21 +78,6 @@ class _App:
 
     def get_temperature_unit(self):
         return self.temperature_unit
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
 
 
 def _climate(state="heat", **attrs):
@@ -363,3 +345,19 @@ def test_hvac_modes_option_skips_modes_the_entity_lacks():
     page.callback_function_component("btMode1", "hvac_mode")
 
     assert entity.calls == [("set_hvac_mode", {"hvac_mode": "heat"})]
+
+
+def _last_vis(cmds, name):
+    return [cmd for cmd in cmds if cmd.startswith(f"vis {name},")][-1]
+
+
+def test_climate_controls_come_back_when_the_entity_is_available_again():
+    entity = _climate(state="heat")
+    app, page = _show(entity)
+
+    for state in ("unavailable", "heat"):
+        entity.state = state
+        page.callback_climate_item("climate.living", "state", None, state, {})
+
+    for name in ("bUp", "bDown", "btMode1", "btMode2", "bFan", "bPreset"):
+        assert _last_vis(app.cmds, name) == f"vis {name},1"

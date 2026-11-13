@@ -5,9 +5,6 @@ display commands, state listeners and service calls, so assertions are on what
 reaches the display and Home Assistant.
 """
 
-import pytest
-
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import VacuumFeatures
 from custom_components.nspanel_haui.haui.mapping.color import Theme
@@ -80,21 +77,6 @@ class _App:
     def listen_state(self, cb, entity_id, attribute=None):
         self.listeners.append((entity_id, attribute))
         return f"{entity_id}:{attribute}"
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
 
 
 BASE_FEATURES = VacuumFeatures.START | VacuumFeatures.RETURN_HOME | VacuumFeatures.STATE
@@ -277,3 +259,19 @@ def test_secondary_item_button_opens_the_items_popup_like_grid():
     page.callback_function_component("bEntity1", "item")
 
     assert [item.get_item_id() for item in executed] == ["switch.mop"]
+
+
+def _last_vis(cmds, name):
+    return [cmd for cmd in cmds if cmd.startswith(f"vis {name},")][-1]
+
+
+def test_vacuum_controls_come_back_when_the_vacuum_is_available_again():
+    vacuum = _vacuum(state="docked")
+    app, page = _show(vacuum)
+
+    for state in ("unavailable", "docked"):
+        vacuum.state = state
+        page.callback_vacuum_entity("vacuum.robo", "state", None, state, {})
+
+    for name in ("bAction", "bHome"):
+        assert _last_vis(app.cmds, name) == f"vis {name},1"

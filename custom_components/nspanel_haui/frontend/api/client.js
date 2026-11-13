@@ -10,8 +10,10 @@
 import { getLanguage, t } from '../localize.js';
 
 /** @typedef {import('./types.js').Hass} Hass */
-/** @typedef {import('./types.js').PanelStore} PanelStore */
+/** @typedef {import('./types.js').PanelStore} PanelStore *//** @typedef {import('./types.js').PanelConfig} PanelConfig */
+
 /** @typedef {import('./types.js').PanelTypeDescriptor} PanelTypeDescriptor */
+/** @typedef {import('./types.js').PanelTemplate} PanelTemplate */
 /** @typedef {import('./types.js').DeviceStatus} DeviceStatus */
 /** @typedef {import('./types.js').Notification} Notification */
 /** @typedef {import('./types.js').TftReleases} TftReleases */
@@ -75,7 +77,9 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
     }
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
-      throw new Error(error.message || failMessage);
+      // A refused panel save names the fields that break a rule; the editor marks them.
+      throw Object.assign(new Error(error.message || failMessage),
+        Array.isArray(error.errors) ? { errors: error.errors } : {});
     }
     return response;
   }
@@ -134,24 +138,73 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
       /**
        * @param {string} entryId
-       * @param {PanelStore} store
+       * @param {string} name
+       * @param {PanelConfig[]} panels
        * @returns {Promise<Object>}
        */
-      async save(entryId, store) {
+      async saveDevice(entryId, name, panels) {
         requireEntry(entryId);
         return request(
-          `/api/nspanel_haui/panels/${entryId}`,
+          `/api/nspanel_haui/panels/${entryId}/${encodeURIComponent(name)}`,
           {
-            method: 'POST',
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(store),
+            body: JSON.stringify({ panels }),
           },
-          t('Save failed'),
+          t('Failed to save panels'),
         );
       },
     },
 
     devices: {
+      /**
+       * @param {string} entryId
+       * @param {string} name
+       */
+      settings(entryId, name) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/devices/${entryId}/${encodeURIComponent(name)}`,
+          undefined,
+          t('Failed to load device settings'),
+        );
+      },
+
+      /**
+       * @param {string} entryId
+       * @param {string} name
+       * @param {Object} config
+       */
+      saveSettings(entryId, name, config) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/devices/${entryId}/${encodeURIComponent(name)}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ config }),
+          },
+          t('Failed to save device settings'),
+        );
+      },
+
+      /**
+       * @param {string} entryId
+       * @param {string[]} deviceOrder
+       */
+      reorder(entryId, deviceOrder) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/device_order/${entryId}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_order: deviceOrder }),
+          },
+          t('Failed to save the device order'),
+        );
+      },
+
       /** @param {string} entryId */
       scan(entryId) {
         requireEntry(entryId);
@@ -283,6 +336,103 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
     },
 
     updates: {
+      /**
+       * The hub's update rollout (idle when none ran since Home Assistant started).
+       * @param {string} entryId
+       * @returns {Promise<Record<string, any>>}
+       */
+      async rollout(entryId) {
+        requireEntry(entryId);
+        const result = await request(`/api/nspanel_haui/rollout/${entryId}`, undefined, t('Fetch failed'));
+        return result.rollout;
+      },
+
+      /**
+       * Install the offered updates one device at a time on the hub.
+       * @param {string} entryId
+       * @returns {Promise<Record<string, any>>} the rollout
+       */
+      async startRollout(entryId) {
+        requireEntry(entryId);
+        const result = await request(
+          `/api/nspanel_haui/rollout/${entryId}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
+          t('Failed to start the update rollout'),
+        );
+        return result.rollout;
+      },
+
+      /**
+       * Cancel one queued device of the rollout, or every queued device.
+       * @param {string} entryId
+       * @param {string} [device]
+       * @returns {Promise<Record<string, any>>} the rollout
+       */
+      async cancelRollout(entryId, device) {
+        requireEntry(entryId);
+        const path = device ? `${entryId}/${encodeURIComponent(device)}` : entryId;
+        const result = await request(
+          `/api/nspanel_haui/rollout/${path}`,
+          { method: 'DELETE' },
+          t('Failed to cancel the update rollout'),
+        );
+        return result.rollout;
+      },
+
+      /**
+       * Start, defer or skip a device's scheduled automatic firmware install.
+       * @param {string} entryId
+       * @param {string} device
+       * @param {'install_now'|'defer'|'skip'} action
+       * @param {number} [seconds] - for defer: 3600 or 86400
+       */
+      control(entryId, device, action, seconds) {
+        requireEntry(entryId);
+        /** @type {Record<string, unknown>} */
+        const body = { device, action };
+        if (seconds !== undefined) body.seconds = seconds;
+        return request(
+          `/api/nspanel_haui/update_control/${entryId}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+          t('Failed to change the scheduled update'),
+        );
+      },
+
+      /**
+       * The hub's automatic update policy.
+       * @param {string} entryId
+       * @returns {Promise<Record<string, any>>}
+       */
+      async policy(entryId) {
+        requireEntry(entryId);
+        const result = await request(
+          `/api/nspanel_haui/update_policy/${entryId}`,
+          undefined,
+          t('Failed to load the update policy'),
+        );
+        return result.policy;
+      },
+
+      /**
+       * Save the hub's automatic update policy; every device follows it unless it overrides it.
+       * @param {string} entryId
+       * @param {Record<string, any>} policy
+       * @returns {Promise<Record<string, any>>} the stored policy
+       */
+      async savePolicy(entryId, policy) {
+        requireEntry(entryId);
+        const result = await request(
+          `/api/nspanel_haui/update_policy/${entryId}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ policy }),
+          },
+          t('Failed to save the update policy'),
+        );
+        return result.policy;
+      },
+
       /**
        * @param {string} entryId
        * @param {string} device
@@ -422,6 +572,19 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
           `/api/nspanel_haui/panel_types?language=${encodeURIComponent(lang)}`,
           undefined,
           t('Failed to load panel types'),
+        );
+      },
+
+      /**
+       * The starter templates of the Add panel catalog.
+       * @param {string} lang
+       * @returns {Promise<PanelTemplate[]>}
+       */
+      panelTemplates(lang) {
+        return request(
+          `/api/nspanel_haui/panel_templates?language=${encodeURIComponent(lang)}`,
+          undefined,
+          t('Failed to load panel templates'),
         );
       },
 

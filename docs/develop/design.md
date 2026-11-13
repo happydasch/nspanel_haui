@@ -7,13 +7,8 @@ description: Visual design guidelines for Nextion display panels
 
 ## Style
 
-The display is splitted into two areas, a top area and a main area.
-
-The top area is used for navigation and a header.
-
-The main area is used for content.
-
-The 480×320 display is split into two zones:
+The display (480×320 landscape, 320×480 portrait) is split into two zones: a
+header at the top for navigation and the title, and the main area for content.
 
 ```mermaid
 flowchart TD
@@ -32,7 +27,7 @@ The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Web
 
 The display has eight fonts; the font ID (as used by `.font=` commands and the alarm keypad font option) grows with the size.
 
-Fonts for text
+Fonts for text (Roboto Regular)
 
 - **ID 0, Size 20** - Small Size - All icons / Text
 - **ID 1, Size 24** - Default Size - All icons / Text
@@ -41,10 +36,10 @@ Fonts for text
 
 Fonts for time / weather / large values
 
-- **ID 4, Size 72** - Only Limited Icons / Limited Text
-- **ID 5, Size 96** - Only Limited Icons / Limited Text
-- **ID 6, Size 112** - Only Limited Icons / Limited Text
-- **ID 7, Size 128** - Only Limited Icons / Limited Text
+- **ID 4, Size 72** (Regular) - Only Limited Icons / Limited Text
+- **ID 5, Size 96** (Light) - Only Limited Icons / Limited Text
+- **ID 6, Size 128** (Light) - Only Limited Icons / Limited Text
+- **ID 7, Size 164** (Light) - Only Limited Icons / Limited Text
 
 ## Icons
 
@@ -56,16 +51,16 @@ The icons available can be viewed here:
 
 ## Themes and colors
 
-The display uses semantic colors from a selected predefined or custom theme. The theme library is shared by all devices in one config entry. Each device selects a theme with `theme_id`; `theme_variant` independently chooses the default dark- or light-background icon palette. Theme colors are edited on the shared theme, not overridden per device. Existing panel and item colors remain explicit overrides until reset in the **Theme** sidebar.
+The display uses semantic colors from a selected predefined or custom theme. The theme library is shared by all devices in one config entry. Each device selects a theme with `theme_id`; `theme_variant` independently chooses the default dark- or light-background icon palette. Theme colors are edited on the shared theme, not overridden per device. Panel and item colors remain explicit overrides; applying a theme leaves them untouched. Panels can select a library theme of their own; panels without an override follow the device theme.
 
-**Backgrounds and contrast.** Each decorative background used by Clock, Weather, and Clock Two has an explicit light/dark contrast variant. That variant controls text, cycle cards, and state icons together, not icons alone. **Use color scheme** selects the TFT's solid dark/light fill based on the active theme's `background` role and uses the active theme's semantic foreground/state colors. The TFT includes only those two solid fill pictures; it does not display its layout-helper picture in this mode. `BACKGROUND_VARIANTS` in `haui/mapping/background.py` remains the central image-background mapping; add a contrast variant whenever a background is added.
+**Backgrounds and contrast.** Each decorative background used by Clock, Weather, and Clock Two has an explicit light/dark contrast variant. That variant controls text, cycle cards, and state icons together, not icons alone. **Use color scheme** selects the TFT's solid dark/light fill based on the active theme's `background` role and uses the active theme's semantic foreground/state colors. The TFT includes only those two solid fill pictures; it does not display its layout-helper picture in this mode. `BACKGROUND_VARIANTS` in `haui/mapping/background.py` is the central image-background mapping; add a contrast variant whenever a background is added.
 
+The default dark theme (`COLORS` in `haui/mapping/color.py`; each colour's role
+key in parentheses) steps up in brightness from the page to the header
+to the cards to a pressed card, on greys divisible by 8 so the display's
+5/6/5-bit colour renders them neutral.
 
-The dark theme steps up in brightness from the page to the header to the
-cards to a pressed card, on greys divisible by 8 so the display's 5/6/5-bit
-colour renders them neutral.
-
-- **Background Color**
+- **Background Color** (`background`)
 
   Both TFTs compile every solid widget on a content page with this colour
   (`scripts/hmi_layout/theme.py`); only the header bar keeps the header
@@ -81,22 +76,22 @@ colour renders them neutral.
   **RGB** `#101010` / [16, 16, 16]
   **RGB565** 4226
 
-- **Header Background**
+- **Header Background** (`header_background`)
 
   **RGB** `#181818` / [24, 24, 24]
   **RGB565** 6339
 
-- **Text**
+- **Text** (`text`)
 
   **RGB** `#e0e0e0` / [224, 224, 224]
   **RGB565** 59164
 
-- **Text Inactive / Entity Unavailable**
+- **Text Inactive / Entity Unavailable** (`text_inactive`, `entity_unavailable`)
 
   **RGB** `#737373` / [115, 115, 115]
   **RGB565** 29582
 
-- **Text Disabled / Component Pressed**
+- **Text Disabled / Component Pressed** (`text_disabled`, `component_pressed`)
 
   Every button's pressed state (`bco2`) and the highlighted tile of a
   dual-state button are compiled with this colour; the page's theme code
@@ -105,29 +100,29 @@ colour renders them neutral.
   **RGB** `#313131` / [49, 49, 49]
   **RGB565** 12678
 
-- **Component Text / Header Text**
+- **Component Text / Header Text** (`component_text`, `header_text`)
 
   **RGB** `#ffffff` / [255, 255, 255]
   **RGB565** 65535
 
-- **Component Active**
+- **Component Active** (`component_active`)
 
   Button Text Action, Active Slider
 
   **RGB** `#4aa5ee` / [74, 165, 238]
   **RGB565** 19773
 
-- **Component Active Dark**
+- **Component Active Dark** (`component_active_dark`)
 
   **RGB** `#3b86c3` / [59, 134, 195]
   **RGB565** 15416
 
-- **Component Accent / Header Accent**
+- **Component Accent / Header Accent** (`component_accent`, `header_accent`)
 
   **RGB** `#f69d31` / [246, 157, 49]
   **RGB565** 62694
 
-- **Component Background**
+- **Component Background** (`component_background`)
 
   Control backgrounds: slider tracks and the empty part of a progress bar. The TFTs compile those at [49, 49, 49]; the hub paints
   them with this colour when it shows the control. Not a fill for
@@ -136,12 +131,12 @@ colour renders them neutral.
   **RGB** `#282828` / [40, 40, 40]
   **RGB565** 10565
 
-- **Entity On**
+- **Entity On** (`entity_on`)
 
   **RGB** `#fdd835` / [253, 216, 53]
   **RGB565** 65222
 
-- **Entity Off**
+- **Entity Off** (`entity_off`)
 
   **RGB** `#44739e` / [68, 115, 158]
   **RGB565** 17299
@@ -157,14 +152,14 @@ Creating a new display panel type involves a pipeline from design through implem
 
 ### Step 1 — Design in Nextion Editor
 
-Start by editing `nextion/nspanel_haui.HMI` in the Nextion Editor:
+Start by editing `nextion/nspanel_haui.HMI` in the Nextion Editor, then repeat
+the page in `nextion/nspanel_haui_portrait.HMI` with the same names and ids
+([Nextion Editor §5 and §7.2](nextion-editor.md#5-add-a-widget-or-a-whole-page)):
 
-1. **Create the page layout** — The display is 480×320 pixels. Reserve the top header zone for navigation; the main area below it is for panel content.
-2. **Assign widget IDs and names** — Each interactive or data-bound widget needs a unique ID (starting from 0 or 1 per page) and a descriptive name (e.g., `tTitle`, `bUp`, `hVertPos`).
-3. **Add `sendme` in the Preinitialize Event** — The page must send a `sendme` command in its Preinitialize Event so the ESPHome firmware knows when the page is ready. See [Nextion Component](nextion.md) for details.
-4. **Use `Send Component ID`** (recommended) — Enable this on touch-enabled widgets so the event includes the widget's component ID in the payload, reducing manual touch-event parsing in Python.
-
-See [Nextion Component](nextion.md) for more about display-level operations, `sendme`, and touch event handling.
+1. **Create the page layout** — Reserve the top header zone for navigation; the main area below it is for panel content.
+2. **Assign widget names** — Give each interactive or data-bound widget a descriptive name (e.g., `tTitle`, `bUp`, `hVertPos`); its id is page-local and follows the component order.
+3. **Add `sendme` in the Preinitialize Event** — The page must send a `sendme` command in its Preinitialize Event so the ESPHome firmware knows when the page is ready; a solid-colour page also pastes its theme code there ([Nextion Editor → Hard rules](nextion-editor.md#hard-rules)).
+4. **Enable `Send Component ID`** on every widget the hub must react to; without it the hub receives no touch event for the widget.
 
 ### Step 2 — HMI Inspection
 
@@ -227,14 +222,13 @@ class YourPanelPage(HAUIPage):
         self._some_state: bool = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        """Register callbacks, create items, save state."""
-        super().start_panel(panel)
+        """Register callbacks, create items, read panel options."""
+        self._some_option = panel.get("some_option", "")
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        """Send display commands. Use rec_cmd for batching."""
-        with self.rec_cmd:
-            self.set_component_text(self.COMPONENTS.title, "Hello")
-            self.set_component_value(self.COMPONENTS.some_widget, 1)
+        """Send display commands (already batched by set_panel)."""
+        self.set_component_text(self.COMPONENTS.title, "Hello")
+        self.set_component_value(self.COMPONENTS.some_widget, 1)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         """Cleanup: unregister callbacks, restore state.
@@ -245,7 +239,7 @@ Key lifecycle hooks (see [Hub Component](hub.md) for the full lifecycle):
 
 | Hook | Purpose |
 |------|---------|
-| `prepare()` | Set instance attribute defaults |
+| `prepare()` | Set per-panel attribute defaults (runs again before every `start_panel`) |
 | `start_panel(panel)` | Register callbacks, create items |
 | `config_panel(panel)` | Auto button setup (rarely overridden) |
 | `before_render_panel(panel)` | Return `False` to abort rendering |
@@ -253,7 +247,9 @@ Key lifecycle hooks (see [Hub Component](hub.md) for the full lifecycle):
 | `after_render_panel(panel, rendered)` | Post-render actions |
 | `_stop_panel(panel)` | Cleanup (override this instead of `stop_panel`) |
 
-Use the `rec_cmd` context manager to batch display commands:
+`start_panel()`, `config_panel()` and `render_panel()` are sent as one batch.
+Callbacks from state listeners, timers and touches batch their own commands
+with the `rec_cmd` context manager:
 
 ```python
 with self.rec_cmd:
@@ -383,19 +379,18 @@ Fill in the empty values for non-English locale files, then commit the updated l
 
 ### Step 8 — Compile TFT
 
-The compiled display firmware (`nextion/nspanel_haui.tft`) is a **release asset**, not committed with every code change. After finalising the HMI design:
-
-1. Open `nextion/nspanel_haui.HMI` in the Nextion Editor.
-2. Compile and export the `.tft` file to `nextion/nspanel_haui.tft`.
-3. Upload it to the device with the `nspanel_haui.update_tft` action (`url`) or the firmware's **Update Display** button (disabled by default) in Home Assistant.
-
-See [Services Reference](../user/services.md) for TFT upload instructions.
+After finalising the HMI design, compile both projects to
+`nextion/nspanel_haui.tft` and `nextion/nspanel_haui_portrait.tft` and run the
+generators and gates in
+[Nextion Editor §8](nextion-editor.md#8-after-any-hmi-change-scripts-to-run).
+To try a local TFT on a device, install it with the `nspanel_haui.update_tft`
+action and its `url` field ([Services Reference](../user/services.md#tft-display-upload)).
 
 ### Summary of Files to Create or Modify
 
 | Step | File(s) | Action |
 |------|---------|--------|
-| 1 | `nextion/nspanel_haui.HMI` | Edit in Nextion Editor |
+| 1 | `nextion/nspanel_haui.HMI`, `nextion/nspanel_haui_portrait.HMI` | Edit in Nextion Editor |
 | 2 | — | Run `nextion2text` to inspect widget IDs |
 | 3 | `custom_components/nspanel_haui/haui/page/<yourpanel>.py` | **Create** |
 | 4 | `custom_components/nspanel_haui/haui/mapping/panel.py` | Edit (import + register) |
@@ -403,5 +398,5 @@ See [Services Reference](../user/services.md) for TFT upload instructions.
 | 6 | `docs/user/panels/panel_<yourpanel>.md` | **Create** |
 | 6 | `docs/user/panels/README.md` | Edit (add to overview) |
 | 7 | `haui/locale/*.json` | Run `extract_translations.py`, fill in blanks |
-| 8 | `nextion/nspanel_haui.tft` | Compile and upload as release asset |
+| 8 | `nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft` | Compile both |
 

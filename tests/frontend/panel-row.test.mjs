@@ -193,3 +193,11 @@ test('a selectable row answers Enter and Space, and only a selectable one is in 
   assert.match(flatten(row), /tabindex=0/);
   assert.match(flatten(panelRow({ group: 'system', key: 'sys', title: 'System' })), /tabindex=Symbol\(lit-nothing\)/);
 });
+
+test('a panel whose saved settings break a rule says so in text', () => {
+  const output = flatten(panelRow({ group: 'navigation', title: 'Lamp', key: 'light_0', invalid: true }));
+
+  assert.match(output, /haui-badge-warning/);
+  assert.match(output, /Check settings/);
+  assert.doesNotMatch(flatten(panelRow({ group: 'navigation', title: 'Lamp', key: 'light_0' })), /Check settings/);
+});

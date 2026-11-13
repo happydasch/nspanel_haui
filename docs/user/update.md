@@ -34,15 +34,26 @@ The four steps are for the **universal firmware**, the `nspanel_haui.bin` that e
 
 ## Update settings
 
-Every device has its own update settings. In the editor, open the device's **Updates** sidebar and change the **Update settings** card; each change is saved automatically. Text fields save after you pause typing. The **Enable updates** switch, **Update channel**, and its optional custom manifest URL are grouped together; the remaining settings are grouped as **Release checks**, **Firmware** and **Display**. The selected channel applies to both firmware and display updates; a custom manifest URL overrides the firmware feed.
+How devices install updates by themselves is one **update policy** for the whole hub: on the dashboard, press **Update policy** beside **Install updates**. Every device follows it, unless you switch on **Override the hub policy for this device** in that device's **Updates** sidebar.
+
+| Policy setting | Default | What it does |
+|----------------|---------|--------------|
+| **Install firmware updates automatically** | off | Installs new firmware as soon as a release is out. This can happen before you have updated the integration or read the release notes. |
+| **Wait before an automatic firmware install** | 10 minutes | The firmware install waits this long first. Until then the **Updates** sidebar offers **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**. |
+| **Install display updates automatically** | on | Installs the display file right after a firmware update. When off, the panel asks first. |
+| **Failed attempts before it stops** | 3 | After this many failed automatic attempts at one version, the device stops trying until you install it by hand or a newer version comes out. |
+| **Wait between attempts** | 1 hour | How long a failed automatic install waits before it tries again. |
+
+The other update settings belong to each device. In the editor, open the device's **Updates** sidebar and change the **Update settings** card; each change is saved automatically. Text fields save after you pause typing. The **Enable updates** switch, **Update channel**, and its optional custom manifest URL are grouped together, then **Release checks** and **Automatic updates**. The selected channel applies to both firmware and display updates; a custom manifest URL overrides the firmware feed.
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | **Enable updates** | on | Master switch. When off, the hub does not check for updates, installs nothing and refuses manual installs. |
-| **Auto-install firmware updates** | off | Installs new firmware as soon as a release is out. This can happen before you have updated the integration or read the release notes. |
-| **Auto-install TFT updates** | on | Installs the display file right after a firmware update. When off, the panel asks first. |
+| **Override the hub policy for this device** | off | This device uses its own copy of the policy settings above. |
 
-During an update the panel shows a release notice (once per release), an **Update** message while firmware is installed, and a question before the TFT install when **Auto-install TFT updates** is off.
+**Install updates** on the dashboard installs what every device is offered, one device after the other: a panel cannot be used while it updates, so they never all go at once. The first failure stops the devices after it, and you can cancel a device that has not started yet. While an update runs, the **Updates** sidebar and the dashboard show its step (starting, transferring, restarting and checking) and about how long is left.
+
+During an update the panel shows a release notice (once per release) and an **Update** message while firmware is installed, both as notifications (they wait while you read another notification), and a question before the TFT install when **Install display updates automatically** is off.
 
 All update settings are listed in [Device Configuration](configuration/device.md#updates). [Update Process](../develop/update-process.md#settings) explains when the hub checks for updates and which channels exist.
 
@@ -64,6 +75,15 @@ The hub checks that the file is valid before it installs it. The panel downloads
 ## Upgrading from older versions
 
 Some releases change behaviour or need extra steps. All breaking changes, the migration from 0.3.x and the steps for old firmware are listed in [Update Process → Upgrading](../develop/update-process.md#upgrading). The most recent ones:
+
+### One update policy for every device
+
+Automatic updates are now one [update policy](#update-settings) for the whole hub. A device that already had its own **Auto-install** settings keeps them: after the update its **Override the hub policy for this device** switch is on. Every other device follows the hub policy, whose defaults match the old ones.
+
+Two things behave differently:
+
+- An automatic firmware install waits 10 minutes before it starts (**Wait before an automatic firmware install**). Set it to **Start right away** for the old behaviour.
+- A display update the panel does not confirm is now tried again, up to 3 times an hour apart, instead of only once.
 
 ### Themes replace color schemes
 

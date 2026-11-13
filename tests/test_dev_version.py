@@ -19,7 +19,6 @@ _spec.loader.exec_module(dev_version)
 def test_derives_dev_version_from_stable_and_previous_dev():
     assert dev_version.derive_dev_version("0.4.4", 17) == "0.4.5.dev17"
     assert dev_version.derive_dev_version("0.4.5.dev16", 17) == "0.4.5.dev17"
-    assert dev_version.derive_dev_version("0.4.5.dev16+gabcdef0", 17) == "0.4.5.dev17"
 
 
 def test_rejects_unsupported_branch_version():
@@ -42,15 +41,33 @@ def test_writes_the_shared_firmware_version_sources(tmp_path: Path):
     )
     env_file = tmp_path / "github.env"
 
-    assert dev_version.write_dev_version(tmp_path, 17, "abcdef012345", env_file) == "0.4.5.dev17"
+    assert dev_version.write_dev_version(tmp_path, 17, env_file) == "0.4.5.dev17"
 
     assert json.loads((manifest_dir / "manifest.json").read_text())["version"] == "0.4.5.dev17"
     assert "yaml_version: '0.4.5.dev17'" in (version_dir / "version.yaml").read_text()
     assert "tft_version: '0.4.3'" in (version_dir / "version.yaml").read_text()
-    assert env_file.read_text() == "DEV_VERSION=0.4.5.dev17\nDEV_SHA=abcdef0\n"
+    assert env_file.read_text() == "DEV_VERSION=0.4.5.dev17\n"
+
+
+def test_writes_the_shipped_tft_version(tmp_path: Path):
+    version_dir = tmp_path / "esphome/nspanel_haui"
+    version_dir.mkdir(parents=True)
+    version_file = version_dir / "version.yaml"
+    version_file.write_text(
+        "substitutions:\n  yaml_version: '0.4.5.dev17'\n  tft_version: '0.4.3'\n",
+        encoding="utf-8",
+    )
+    env_file = tmp_path / "github.env"
+
+    dev_version.write_tft_version(tmp_path, "0.4.5", env_file)
+
+    assert "tft_version: '0.4.5'" in version_file.read_text()
+    assert "yaml_version: '0.4.5.dev17'" in version_file.read_text()
+    assert env_file.read_text() == "TFT_VERSION=0.4.5\n"
 
 
 def test_version_kind_is_shared_with_manual_bumps():
-    assert dev_version.version_kind("0.4.5.dev17+gabcdef0") == "dev"
+    assert dev_version.version_kind("0.4.5.dev17") == "dev"
+    assert dev_version.version_kind("0.4.5.dev17+gabcdef0") is None
     assert dev_version.version_kind("0.4.5") == "stable"
     assert dev_version.version_kind("0.4.5-dev17") is None

@@ -93,19 +93,16 @@ def test_dev_version_updates_manifest_and_yaml_but_not_pyproject_or_tft(
     """A dev bump mirrors the dev-release CI: manifest + yaml_version advance,
     while pyproject.toml and tft_version stay at the last stable version."""
     manifest, pyproject, version_yaml = version_files
-    assert bump_version.bump_text_sources("0.4.5.dev7+gabc1234", check=False) is True
-    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev7+gabc1234"
-    assert "yaml_version: '0.4.5.dev7+gabc1234'" in version_yaml.read_text()
+    assert bump_version.bump_text_sources("0.4.5.dev7", check=False) is True
+    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev7"
+    assert "yaml_version: '0.4.5.dev7'" in version_yaml.read_text()
     assert 'version = "0.4.1"' in pyproject.read_text()
     assert "tft_version: '0.4.1'" in version_yaml.read_text()
 
 
-def test_dev_version_accepts_plain_local(version_files):
-    """The local test-release shape (``.devN`` without a ``+local``) is valid too."""
-    manifest, _pyproject, version_yaml = version_files
-    assert bump_version.bump_text_sources("0.4.5.dev7", check=False) is True
-    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev7"
-    assert "yaml_version: '0.4.5.dev7'" in version_yaml.read_text()
+def test_dev_version_with_local_segment_is_refused(version_files):
+    """AwesomeVersion sorts ``.devN+local`` above the final release."""
+    assert bump_version.main(["0.4.5.dev7+gabc1234"]) == 2
 
 
 def test_dev_bump_never_touches_tft_or_hmis(version_files, monkeypatch):
@@ -118,9 +115,9 @@ def test_dev_bump_never_touches_tft_or_hmis(version_files, monkeypatch):
     )
     # Even with --tft-update requested, a dev version must not move the TFT:
     # the dev-release CI copies tft_version from the HMIs instead.
-    assert bump_version.main(["0.4.5.dev3+gabc1234", "--tft-update"]) == 0
-    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev3+gabc1234"
-    assert "yaml_version: '0.4.5.dev3+gabc1234'" in version_yaml.read_text()
+    assert bump_version.main(["0.4.5.dev3", "--tft-update"]) == 0
+    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev3"
+    assert "yaml_version: '0.4.5.dev3'" in version_yaml.read_text()
     assert "tft_version: '0.4.1'" in version_yaml.read_text()
     assert 'version = "0.4.1"' in pyproject.read_text()
     assert hmi_calls == []
@@ -262,11 +259,3 @@ def test_bump_script_changes_tft_sources_only_with_tft_update(version_files, mon
     assert json.loads(manifest.read_text())["version"] == "0.4.2"
     assert "tft_version: '0.4.2'" in version_yaml.read_text()
     assert hmi_calls == [("0.4.2", False)]
-
-
-def test_bump_script_text_only(tmp_path, monkeypatch, version_files):
-    """--text-only leaves the HMI binaries untouched."""
-    monkeypatch.setattr(bump_version, "bump_hmis", lambda *a, **k: pytest.fail("HMI touched"))
-    manifest = version_files[0]
-    assert bump_version.main(["0.4.2", "--text-only"]) == 0
-    assert json.loads(manifest.read_text())["version"] == "0.4.2"

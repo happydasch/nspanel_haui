@@ -5,9 +5,6 @@ display commands and service calls, so assertions are on what reaches the
 display and Home Assistant.
 """
 
-import pytest
-
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import CoverFeatures
 from custom_components.nspanel_haui.haui.mapping.color import Theme
@@ -77,21 +74,6 @@ class _App:
 
     def listen_state(self, cb, entity_id, attribute=None):
         return f"{entity_id}:{attribute}"
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
 
 
 OPEN_CLOSE_STOP = CoverFeatures.OPEN | CoverFeatures.CLOSE | CoverFeatures.STOP
@@ -185,3 +167,20 @@ def test_cover_with_position_shows_percentage():
     assert "hVertPos.val=42" in app.cmds
     assert "tsw bUp,1" in app.cmds
     assert "tsw bDown,1" in app.cmds
+
+
+def _last_vis(cmds, name):
+    return [cmd for cmd in cmds if cmd.startswith(f"vis {name},")][-1]
+
+
+def test_cover_controls_come_back_when_the_cover_is_available_again():
+    features = OPEN_CLOSE_STOP | CoverFeatures.SET_POSITION
+    entity = _cover(state="open", current_position=100, supported_features=features)
+    app, page = _show(entity)
+
+    for state in ("unavailable", "open"):
+        entity.state = state
+        page.callback_cover_entity("cover.garage", "state", None, state, {})
+
+    for name in ("bUp", "bStop", "bDown", "hVertPos"):
+        assert _last_vis(app.cmds, name) == f"vis {name},1"

@@ -60,16 +60,4 @@ export const panelEditorStyles = css`
   .haui-panel-editor-pin-text span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   @media (prefers-reduced-motion: reduce) { .haui-panel-editor-pin-bar { transition: none; } }
   .haui-panel-editor-alert { margin-top: 12px; }
-  .haui-config-section-count {
-    min-width: 20px;
-    padding: 4px 8px;
-    border-radius: var(--haui-radius-control);
-    background: var(--secondary-background-color);
-    color: var(--secondary-text-color);
-    font-size: var(--haui-text-caption);
-    font-weight: 500;
-    text-align: center;
-    box-sizing: border-box;
-  }
-  .haui-config-section[open] > summary .haui-config-section-count { background: var(--card-background-color); }
 `;

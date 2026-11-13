@@ -69,3 +69,14 @@ def test_a_command_the_panel_did_not_get_is_not_recorded() -> None:
     ctrl.send_cmd("send_command", 'a.txt="1"')
 
     assert ctrl.page_commands() == []
+
+
+def test_a_command_the_panel_did_not_get_is_sent_again() -> None:
+    ctrl, proxy = _controller()
+    proxy.connected = False
+    ctrl.send_cmd("send_command", 'a.txt="1"')
+
+    proxy.connected = True
+    ctrl.send_cmd("send_command", 'a.txt="1"')
+
+    assert ctrl.page_commands() == ['a.txt="1"']

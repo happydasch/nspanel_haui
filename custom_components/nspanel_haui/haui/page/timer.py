@@ -77,7 +77,7 @@ class TimerPage(HAUIPage):
         self._timer = self.initialize_timer(panel)
 
         # notification on timer finish
-        self._show_notification = panel.get("show_notification", self._show_notification)
+        self._show_notification = self.option(panel, "show_notification")
 
         # set function buttons
         stop_btn = {

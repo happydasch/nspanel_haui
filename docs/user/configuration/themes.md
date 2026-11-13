@@ -17,14 +17,16 @@ One **Color theme** picker lists every theme: the predefined ones under **Predef
 
 A custom theme includes the semantic page colors and both dark- and light-background palettes for weather, alarm and climate icons. Editing a built-in theme never changes it; it creates a custom theme instead.
 
+
+## Per-panel theme
+
+A panel can select its own **Color theme** in the editor's **Advanced** section. By default, it follows the device theme. This applies to user panels and editable popups; a popup uses its own theme when opened over another panel. The panel's theme controls its page, items and icons. Item and panel color fields remain explicit overrides and take precedence. The device's **Default icon color variant** remains in effect for every panel.
 ## Icon variant
 
 **Default icon color variant** chooses which icon palette to use when the background is dark or light. It is a per-device setting, separate from the selected theme. Pages with a fixed picture background choose the matching palette for that background. **Edit icon colors for** selects which palette you are editing in a custom theme.
 
 ## Color editing
 
-The **Theme colors** section edits the selected theme's semantic colors. Custom themes are shared by every device that selects them; changing a built-in theme's color creates a custom copy. The **Reset colors** button restores the selected theme's draft palette. Panel and item color settings remain explicit and can still take precedence; use the reset option in the sidebar if you want to clear those settings when applying the theme.
-
-When panel and item colors exist, the **Reset existing panel and item color overrides when applying this theme** checkbox clears them along with the theme application. Panel and item color settings are separate from semantic theme colors.
+The **Theme colors** section edits the selected theme's semantic colors. Custom themes are shared by every device that selects them; changing a built-in theme's color creates a custom copy. **Reset theme** restores the selected theme's complete saved palette, including semantic and icon colors. A changed color row has its own **Revert to theme color** action, which restores only that value. Applying a theme leaves panel and item color settings untouched; those overrides can still take precedence over theme colors.
 
 The **Use color scheme** background option on Clock, ClockTwo and Weather panels uses a solid dark or light background chosen to match the theme. It does not add picture backgrounds to themes. See the [device configuration](device.md#background-pages) and the [panel guides](../panels/README.md).

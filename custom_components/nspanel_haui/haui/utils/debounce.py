@@ -1,71 +1,53 @@
 """Debouncer for suppressing noisy state-change events (state flapping).
 
-Uses :class:`threading.Timer` internally. When *executor* is provided,
-timer callbacks are dispatched to the HA executor thread so page code
-always runs on the correct thread.
+The delayed call is scheduled with the app's ``run_in``, so it runs on the
+app's worker like every other timer callback.
 """
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
+from typing import Any, Protocol
+
+
+class _Timers(Protocol):
+    def run_in(self, cb: Callable[[dict[str, Any]], None], delay: float) -> str: ...
+    def cancel_timer(self, handle: str) -> None: ...
 
 
 class Debouncer:
-    """Simple debouncer.
+    """Coalesces rapid calls per key into one call after ``delay`` seconds.
 
-    Parameters
-    ----------
-    delay
-        Minimum delay (seconds) before the callback is executed.
-    executor
-        Optional callable that takes a no-arg function and schedules it
-        on the HA executor thread. If ``None`` the callback runs on the
-        timer thread directly (legacy behaviour).
+    Args:
+        app: The app whose timers schedule the delayed calls.
+        delay: Minimum delay (seconds) before the callback is executed.
     """
 
-    def __init__(
-        self,
-        delay: float = 0.3,
-        executor: Callable[[Callable[[], None]], None] | None = None,
-    ):
+    def __init__(self, app: _Timers, delay: float = 0.3) -> None:
         self.delay = delay
-        self._timers: dict[str, threading.Timer] = {}
-        self._executor = executor
+        self._app = app
+        self._handles: dict[str, str] = {}
 
     def call(self, key: str, func: Callable[[], None]) -> None:
         """Schedule *func* to be called after :attr:`delay` seconds.
 
-        If a previous timer for *key* exists, it is cancelled.
+        A call still pending for *key* is cancelled.
         """
-        # Cancel previous timer if it exists
-        if key in self._timers:
-            self._timers[key].cancel()
+        self.cancel(key)
 
-        # Wrap in executor dispatch when available
-        executor = self._executor
-        if executor is not None:
+        def _fire(_kwargs: dict[str, Any]) -> None:
+            self._handles.pop(key, None)
+            func()
 
-            def _wrapped(f: Callable[[], None] = func) -> None:
-                executor(f)
-
-            timer_func: Callable[[], None] = _wrapped
-        else:
-            timer_func = func
-
-        # Create a new timer
-        timer = threading.Timer(self.delay, timer_func)
-        self._timers[key] = timer
-        timer.start()
+        self._handles[key] = self._app.run_in(_fire, self.delay)
 
     def cancel(self, key: str) -> None:
-        """Cancel the timer associated with *key* if it exists."""
-        timer = self._timers.pop(key, None)
-        if timer:
-            timer.cancel()
+        """Cancel the call pending for *key*, if any."""
+        handle = self._handles.pop(key, None)
+        if handle is not None:
+            self._app.cancel_timer(handle)
 
     def clear_all(self) -> None:
-        """Cancel all scheduled timers."""
-        for timer in self._timers.values():
-            timer.cancel()
-        self._timers.clear()
+        """Cancel all pending calls."""
+        for key in list(self._handles):
+            self.cancel(key)

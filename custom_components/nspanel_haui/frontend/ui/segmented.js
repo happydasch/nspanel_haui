@@ -1,4 +1,6 @@
 import { html, nothing } from '../lit-import.js';
+import { countBadge } from './badge.js';
+import { icon } from './icon.js';
 
 export function segmented({ label, options, value, onSelect, disabled = false }) {
   return html`<div class="haui-segmented" role="group" aria-label=${label}>
@@ -7,8 +9,8 @@ export function segmented({ label, options, value, onSelect, disabled = false })
       aria-pressed=${option.value === value ? 'true' : 'false'}
       ?disabled=${disabled || option.disabled === true}
       @click=${() => onSelect?.(option.value)}>
-      ${option.icon ? html`<ha-icon icon=${`mdi:${option.icon}`} aria-hidden="true"></ha-icon>` : nothing}
-      <span>${option.label}</span>${option.count !== undefined ? html`<span class="haui-segmented-count">${option.count}</span>` : nothing}
+      ${option.icon ? icon(option.icon) : nothing}
+      <span>${option.label}</span>${option.count !== undefined ? countBadge(option.count) : nothing}
     </button>`)}
   </div>`;
 }

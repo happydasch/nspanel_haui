@@ -386,6 +386,7 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
     adapter, loop, helpers = env
     from custom_components.nspanel_haui.haui.controller import release_source
     from custom_components.nspanel_haui.haui.controller.update import HAUIUpdateController
+    from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
     seen: dict = {}
 
@@ -406,7 +407,7 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
         submit_off_worker=adapter.submit_off_worker,
         device=types.SimpleNamespace(device_info={"firmware_variant": "universal"}),
     )
-    ctrl.config = {}
+    ctrl.config = dict(DEFAULT_CONFIG["update"])
     ctrl._async_catalog_id = 0
     ctrl._lifecycle_generation = 0
     ctrl.log = lambda *a, **kw: None

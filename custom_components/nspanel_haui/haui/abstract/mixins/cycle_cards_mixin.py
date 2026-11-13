@@ -78,6 +78,7 @@ CARD_OPTIONS: list[PageOption] = [
     PageOption(
         key="card_interval",
         kind="int",
+        min=1,
         default=5,
         label=_("Seconds per card"),
         description=_("How long each cycle card is shown."),
@@ -86,6 +87,7 @@ CARD_OPTIONS: list[PageOption] = [
     PageOption(
         key="card_pause",
         kind="int",
+        min=0,
         default=15,
         label=_("First card pause"),
         description=_("Seconds the first card stays after a full cycle."),
@@ -149,6 +151,7 @@ class CycleCardsMixin:
             self, fnc_id: str, update_fnc_name: str | None = None, **kwargs: Any
         ) -> None: ...
         def get_inside_temp_entity_id(self, panel: HAUIPanel | None = None) -> str | None: ...
+        def option(self, panel: HAUIPanel, key: str) -> Any: ...
         def _build_items_from_panel(self, panel: HAUIPanel, *keys: str) -> list[HAUIItem]: ...
         def listen_items(self, items: list[HAUIItem], render: Callable[[], None]) -> None: ...
         def add_item_listener(
@@ -197,7 +200,7 @@ class CycleCardsMixin:
             self.set_function_component(component, component.name, visible=True)
         # live updates: the inside sensor feeds the header and its card, entity
         # cards follow their entities
-        if panel.get("show_home_temp", False) or _option(panel, "show_time_inside_temp"):
+        if self.option(panel, "show_home_temp") or _option(panel, "show_time_inside_temp"):
             inside_temp_id = self.get_inside_temp_entity_id(panel)
             if inside_temp_id is not None:
                 self.add_item_listener(inside_temp_id, self.callback_inside_temp)

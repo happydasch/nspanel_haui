@@ -149,7 +149,7 @@ class HAUIConnectionController(HAUIBase):
             self._last_disconnect_reason = reason or "lost connection"
             self._on_entering_disconnected(old)
         elif new_state == ConnectionState.HANDSHAKING:
-            self._on_entering_handshaking()
+            self._on_entering_handshaking(old)
 
     # ------------------------------------------------------------------
     # State-transition side-effects
@@ -183,14 +183,21 @@ class HAUIConnectionController(HAUIBase):
         if self._disconnected_since is None:
             self._disconnected_since = time.monotonic()
 
-    def _on_entering_handshaking(self) -> None:
+    def _on_entering_handshaking(self, old: ConnectionState) -> None:
         """Run side-effects when transitioning to HANDSHAKING.
 
         Start a timer so a stalled handshake (e.g. service calls failing
         silently) does not leave us in HANDSHAKING forever.
         The device retries req_connection every ~10 s, so 15 s gives
         one full retry cycle.
+
+        From CONNECTED the device rebooted or gave up on the hub without the
+        hub timing out first: the connection is reported lost now, as a
+        heartbeat timeout would, so the reconnect that follows (or the
+        handshake timeout) is reported like any other.
         """
+        if old == ConnectionState.CONNECTED:
+            self._connection_callback(False)
         self._start_handshake_timer()
 
     # ------------------------------------------------------------------

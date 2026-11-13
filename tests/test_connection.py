@@ -502,3 +502,27 @@ def test_controller_publishes_the_bare_heartbeat_action_name():
     assert proxy.detached == [("hub_heartbeat", "")]
     # Detached means detached: it must not go through the blocking publish path.
     assert proxy.published == []
+
+
+class TestConnectionCallback:
+    """Every reported connect after the first follows a reported disconnect."""
+
+    def _rebooted(self):
+        _, cb, ctrl = make_controller()
+        ctrl._set_state(ConnectionState.HANDSHAKING)
+        ctrl._set_state(ConnectionState.CONNECTED)
+        # The device rebooted without the hub timing out first.
+        ctrl.process_event(HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}'))
+        return cb, ctrl
+
+    def test_a_device_reboot_reports_a_disconnect_before_the_reconnect(self):
+        cb, ctrl = self._rebooted()
+        ctrl._set_state(ConnectionState.CONNECTED)
+
+        assert [call.args for call in cb.call_args_list] == [(True,), (False,), (True,)]
+
+    def test_a_reboot_whose_handshake_times_out_is_reported_disconnected_once(self):
+        cb, ctrl = self._rebooted()
+        ctrl._set_state(ConnectionState.DISCONNECTED, reason="handshake timeout")
+
+        assert [call.args for call in cb.call_args_list] == [(True,), (False,)]

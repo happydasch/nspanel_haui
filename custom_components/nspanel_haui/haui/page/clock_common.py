@@ -43,16 +43,16 @@ def background_option() -> PageOption:
 
 def light_background_selected(page: Any, panel: HAUIPanel) -> bool:
     """Whether a static page background uses the light contrast palette."""
-    background = page.render_template(panel.get("background", "dark"), False)
+    background = page.render_template(page.option(panel, "background"), False)
     return background != "scheme" and background_variant(background) == "light"
 
 
 def set_background_mode(page: Any, panel: HAUIPanel) -> None:
     """Resolve whether this page uses its selected theme or a static background palette."""
-    background = page.render_template(panel.get("background", "dark"), False)
+    background = page.render_template(page.option(panel, "background"), False)
     page._use_theme_background = background == "scheme"
     page._background_variant = (
-        page.app.theme.background_variant()
+        panel.theme.background_variant()
         if page._use_theme_background
         else background_variant(background)
     )
@@ -85,11 +85,11 @@ if TYPE_CHECKING:
 
 def background_commands(page: Any, panel: HAUIPanel) -> list[str]:
     """Set the system picture id first, before the target page's Preinitialize reads it."""
-    background = page.render_template(panel.get("background", "dark"), False)
+    background = page.render_template(page.option(panel, "background"), False)
     if background == "scheme":
         # Picture 0 is the HMI's layout-helper grid, not a blank background.
         # The TFT's solid dark/light fills are picture IDs 1 and 2.
-        picture_id = page.app.theme.background_picture_id()
+        picture_id = panel.theme.background_picture_id()
     elif background in BACKGROUNDS:
         picture_id = BACKGROUNDS[background]
     else:

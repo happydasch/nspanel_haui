@@ -8,7 +8,6 @@ import { HauiDialog } from '../../custom_components/nspanel_haui/frontend/dialog
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 
-import { getTheme } from '../../custom_components/nspanel_haui/frontend/dialogs/theme.js';
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
 import { openThemeSidebar, saveTheme } from '../../custom_components/nspanel_haui/frontend/theme-editor.js';
 import { filterLogEntries, logEntries, logText } from '../../custom_components/nspanel_haui/frontend/dialogs/logs.js';
@@ -35,16 +34,6 @@ test('every editor dialog shares the dialog base class', () => {
   for (const tag of DIALOGS) {
     assert.ok(customElements.get(tag).prototype instanceof HauiDialog, tag);
   }
-});
-
-test('color themes read complete palettes from the backend theme catalog', () => {
-  const dark = { background: 10, text: 20 };
-  const light = { background: hexToRgb565('#ffffff'), text: hexToRgb565('#101010') };
-  const themes = { dark: { colors: dark }, light: { colors: light } };
-
-  assert.deepEqual(getTheme('dark', themes), dark);
-  assert.deepEqual(getTheme('light', themes), light);
-  assert.throws(() => getTheme('unknown', themes), /Unknown color theme/);
 });
 
 test('theme sidebar loads themes, switches palette, and edits custom definitions', async () => {
@@ -96,10 +85,9 @@ test('the Theme sidebar shows a loading note, then the preview, palettes and act
     _builtins: {},
     _customThemes: {},
     requestUpdate() {},
-    _changedCount: () => 0,
+    _changedCount: () => 1,
     _renderPreview: () => '',
     _isBuiltin: () => true,
-    _panelColorOverrideCount: () => 1,
     _themeData: () => dark,
     _renderGroup: () => '',
   });
@@ -124,11 +112,20 @@ test('the Theme sidebar shows a loading note, then the preview, palettes and act
 
   // The sidebar frame carries the title and close control: no dialog of its own.
   assert.doesNotMatch(loaded, /<ha-dialog[\s>]/);
-  const resetToggle = findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-reset-overrides');
-  assert.ok(resetToggle);
-  assert.equal(resetToggle.values[1], 'haui-switch');
-  resetToggle.values[3]({ target: { checked: true } });
-  assert.equal(dlg._resetPanelColors, true);
+  const templateValues = [];
+  const collectValues = (value) => {
+    if (Array.isArray(value)) value.forEach(collectValues);
+    else if (value && Array.isArray(value.values)) {
+      templateValues.push(...value.values.filter((item) => typeof item === 'string'));
+      collectValues(value.values);
+    }
+  };
+  collectValues(loadedTemplate);
+  assert.ok(templateValues.includes('Reset theme'));
+  assert.ok(!templateValues.includes('Reset colors'));
+  const changedIndicator = findTemplateResult(loadedTemplate, (template) =>
+    template.strings.join('').includes('haui-footer-changed'));
+  assert.deepEqual(changedIndicator.values, ['1 changed']);
   assert.ok(findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-icon-theme'));
   assert.ok(findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-icon-variant'));
   // Both intro notes use the shared intro style, like the other sidebars' notes.
@@ -176,7 +173,7 @@ test('saving a theme persists its active ID without device color overrides', asy
     _selectedDevice: 'panel',
     _deviceConfig: {},
     _devicePanels: () => [],
-    _savePanels: async (_panels, _message, config) => {
+    _saveDeviceConfig: async (config) => {
       savedConfig = config;
       return true;
     },

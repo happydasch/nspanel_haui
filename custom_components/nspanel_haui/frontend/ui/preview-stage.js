@@ -2,6 +2,7 @@
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { emptyState } from './empty-state.js';
+import { icon } from './icon.js';
 
 /**
  * The preview stage: the dark bezel that holds a screen template, the two
@@ -26,7 +27,7 @@ export function previewStage({
     })
     : state === 'error'
       ? html`<div class="haui-preview-error" role="alert">
-          <ha-icon icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>
+          ${icon('alert-circle-outline')}
           <span>${error || t('The preview could not be rendered')}</span>
         </div>`
       : html`<div class="haui-preview-bezel" style=${`--vp-frame-pad:${framePad}px;--vp-hw-height:${hardwareHeight}px;`}>

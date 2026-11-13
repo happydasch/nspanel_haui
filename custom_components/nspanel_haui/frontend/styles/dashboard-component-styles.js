@@ -54,8 +54,6 @@ export const dashboardComponentStyles = css`
   button.haui-diag-entity:focus-visible,
   .haui-conn-status-button:focus-visible,
   .haui-logs-filter button:focus-visible,
-  .haui-theme-selector-field:focus-within,
-  .haui-focusable:focus-visible,
   .haui-switch:focus-visible,
   .haui-firmware-hero-action:focus-visible {
     outline: var(--haui-focus-ring);
@@ -78,7 +76,7 @@ export const dashboardComponentStyles = css`
   /* The actions at the end of a table row or card: Edit/Settings, then More. */
   .haui-row-action { width: 32px; height: 32px; flex: 0 0 auto; padding: 0; border-radius: var(--haui-radius-control); color: var(--secondary-text-color, #666); --mdc-icon-size: 18px; transition: background 120ms ease, color 120ms ease; }
   .haui-row-action:hover:not(:disabled), .haui-row-action[aria-expanded="true"] { background: var(--haui-surface-strong); color: var(--primary-text-color, #212121); }
-  .haui-badge, .haui-chip {
+  .haui-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -88,11 +86,13 @@ export const dashboardComponentStyles = css`
     font-size: var(--haui-text-caption);
     line-height: 1.3;
   }
-  .haui-badge-primary, .haui-chip-primary { background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, var(--card-background-color, #fff)); color: var(--primary-color, #03a9f4); }
-  .haui-badge-success, .haui-chip-success { background: var(--haui-good-soft); color: var(--haui-good); }
-  .haui-badge-warning, .haui-chip-warning { background: var(--haui-warn-soft); color: var(--haui-warn); }
-  .haui-badge-danger, .haui-chip-danger { background: var(--haui-bad-soft); color: var(--haui-bad); }
-  .haui-chip-neutral { background: var(--secondary-background-color, #f5f5f5); color: var(--secondary-text-color, #666); }
+  /* Tinted rather than filled, so a count shows on a hovered or open row as well;
+     the tones below still colour it. */
+  .haui-badge-count { box-sizing: border-box; min-width: 20px; justify-content: center; background: color-mix(in srgb, var(--secondary-text-color, #666) 12%, transparent); color: var(--secondary-text-color, #666); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .haui-badge-primary { background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, var(--card-background-color, #fff)); color: var(--primary-color, #03a9f4); }
+  .haui-badge-success { background: var(--haui-good-soft); color: var(--haui-good); }
+  .haui-badge-warning { background: var(--haui-warn-soft); color: var(--haui-warn); }
+  .haui-badge-danger { background: var(--haui-bad-soft); color: var(--haui-bad); }
   .haui-status-dot { display: inline-block; width: 8px; height: 8px; flex: 0 0 auto; border-radius: var(--haui-radius-round); background: var(--disabled-text-color, #888); }
   .haui-status-dot-online { background: var(--haui-good); }
   .haui-status-dot-offline { background: var(--haui-bad); }
@@ -113,6 +113,7 @@ export const dashboardComponentStyles = css`
   .haui-segmented-option.active { color: var(--primary-text-color); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-card); }
   .haui-segmented-option:disabled { cursor: not-allowed; opacity: .5; }
   .haui-field-error { display: block; margin-top: 4px; color: var(--error-color, #db4437); font-size: var(--haui-text-caption); }
+  .haui-field-warning { display: block; margin-top: 4px; color: var(--haui-warn); font-size: var(--haui-text-caption); }
   .haui-empty-state { display: grid; justify-items: center; gap: 8px; padding: 32px 20px; color: var(--secondary-text-color, #666); text-align: center; }
   .haui-empty-state h2, .haui-empty-state p { margin: 0; }
   .haui-empty-state-icon { display: block; --mdc-icon-size: 28px; }

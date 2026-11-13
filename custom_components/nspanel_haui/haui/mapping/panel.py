@@ -219,6 +219,9 @@ def _serialize_option(o: PageOption, language: str) -> dict:
         "section": get_translation(o.section, language) if o.section else None,
         "max_items": o.max_items,
         "allow_template": o.allow_template,
+        "required": o.required,
+        "min": o.min,
+        "max": o.max,
         "choices": [
             {"value": k, "label": get_translation(lbl, language)} for k, lbl in (o.choices or [])
         ],

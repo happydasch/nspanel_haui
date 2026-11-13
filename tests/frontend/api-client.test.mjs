@@ -27,7 +27,7 @@ test('a server error message is surfaced and a non-JSON error falls back', async
   const api = createApiClient(() => makeHass({
     fetchWithAuth: async () => jsonResponse({ message: 'Invalid panel config' }, 400),
   }));
-  await assert.rejects(api.panels.save('entry1', { devices: {} }), /Invalid panel config/);
+  await assert.rejects(api.panels.saveDevice('entry1', 'kitchen', []), /Invalid panel config/);
 
   const plain = createApiClient(() => makeHass({
     fetchWithAuth: async () => ({
@@ -43,24 +43,30 @@ test('panels and status requests use the documented routes and query parameters'
   const seen = [];
   const api = createApiClient(() => makeHass({
     fetchWithAuth: async (url, options = {}) => {
-      seen.push([options.method || 'GET', url]);
+      seen.push([options.method || 'GET', url, options.body]);
       if (url.includes('/status/')) return jsonResponse({ devices: { kitchen: {} } });
       return jsonResponse({ devices: {} });
     },
   }));
 
   await api.panels.load('entry1', 'de_DE');
-  await api.panels.save('entry1', { devices: {} });
+  await api.panels.saveDevice('entry1', 'kitchen', [{ type: 'clock' }]);
+  await api.devices.settings('entry1', 'kitchen / 2');
+  await api.devices.saveSettings('entry1', 'kitchen / 2', { locale: 'de_DE' });
+  await api.devices.reorder('entry1', ['office', 'kitchen']);
   await api.status.getAll('entry1');
   await api.status.get('entry1', 'kitchen');
   await api.devices.remove('entry1', 'kitchen');
 
   assert.deepEqual(seen, [
-    ['GET', '/api/nspanel_haui/panels/entry1?language=de_DE'],
-    ['POST', '/api/nspanel_haui/panels/entry1'],
-    ['GET', '/api/nspanel_haui/status/entry1'],
-    ['GET', '/api/nspanel_haui/status/entry1?device=kitchen'],
-    ['DELETE', '/api/nspanel_haui/devices/entry1?name=kitchen'],
+    ['GET', '/api/nspanel_haui/panels/entry1?language=de_DE', undefined],
+    ['PUT', '/api/nspanel_haui/panels/entry1/kitchen', JSON.stringify({ panels: [{ type: 'clock' }] })],
+    ['GET', '/api/nspanel_haui/devices/entry1/kitchen%20%2F%202', undefined],
+    ['PUT', '/api/nspanel_haui/devices/entry1/kitchen%20%2F%202', JSON.stringify({ config: { locale: 'de_DE' } })],
+    ['PUT', '/api/nspanel_haui/device_order/entry1', JSON.stringify({ device_order: ['office', 'kitchen'] })],
+    ['GET', '/api/nspanel_haui/status/entry1', undefined],
+    ['GET', '/api/nspanel_haui/status/entry1?device=kitchen', undefined],
+    ['DELETE', '/api/nspanel_haui/devices/entry1?name=kitchen', undefined],
   ]);
 });
 
@@ -117,5 +123,66 @@ test('YAML export returns the text and import posts it as YAML', async () => {
   assert.deepEqual(seen, [
     ['GET', '/api/nspanel_haui/yaml/entry1?device=kitchen', undefined],
     ['POST', '/api/nspanel_haui/yaml/entry1?device=kitchen', 'views: []'],
+  ]);
+});
+
+test('a refused panel save keeps the fields the hub names', async () => {
+  const errors = [{ device: 'kitchen', panel: 'light_0', field: 'item', kind: 'domain', message: 'Use a light entity' }];
+  const api = createApiClient(() => makeHass({
+    fetchWithAuth: async () => jsonResponse({ status: 'error', message: 'Panel light_0: item', errors }, 400),
+  }));
+
+  const refusal = await api.panels.saveDevice('entry1', 'kitchen', []).catch((error) => error);
+
+  assert.deepEqual(refusal.errors, errors);
+});
+
+test('starter templates are requested in the editor language', async () => {
+  const urls = [];
+  const api = createApiClient(() => makeHass({
+    fetchWithAuth: async (url) => { urls.push(url); return jsonResponse([]); },
+  }));
+
+  assert.deepEqual(await api.editor.panelTemplates('de'), []);
+  assert.deepEqual(urls, ['/api/nspanel_haui/panel_templates?language=de']);
+});
+
+test('the update policy is read and saved on its route', async () => {
+  const calls = [];
+  const api = createApiClient(() => makeHass({
+    fetchWithAuth: async (url, options = {}) => {
+      calls.push([options.method || 'GET', url, options.body || null]);
+      return jsonResponse({ policy: { max_attempts: 4 } });
+    },
+  }));
+
+  assert.deepEqual(await api.updates.policy('entry1'), { max_attempts: 4 });
+  assert.deepEqual(await api.updates.savePolicy('entry1', { max_attempts: 4 }), { max_attempts: 4 });
+  assert.deepEqual(calls, [
+    ['GET', '/api/nspanel_haui/update_policy/entry1', null],
+    ['PUT', '/api/nspanel_haui/update_policy/entry1', JSON.stringify({ policy: { max_attempts: 4 } })],
+  ]);
+});
+
+test('rollout and update control use their routes', async () => {
+  const calls = [];
+  const api = createApiClient(() => makeHass({
+    fetchWithAuth: async (url, options = {}) => {
+      calls.push([options.method || 'GET', url, options.body || null]);
+      return jsonResponse({ rollout: { state: 'running' }, update: {} });
+    },
+  }));
+
+  assert.deepEqual(await api.updates.rollout('entry1'), { state: 'running' });
+  assert.deepEqual(await api.updates.startRollout('entry1'), { state: 'running' });
+  await api.updates.cancelRollout('entry1');
+  await api.updates.cancelRollout('entry1', 'office');
+  await api.updates.control('entry1', 'kitchen', 'defer', 3600);
+  assert.deepEqual(calls, [
+    ['GET', '/api/nspanel_haui/rollout/entry1', null],
+    ['POST', '/api/nspanel_haui/rollout/entry1', JSON.stringify({})],
+    ['DELETE', '/api/nspanel_haui/rollout/entry1', null],
+    ['DELETE', '/api/nspanel_haui/rollout/entry1/office', null],
+    ['POST', '/api/nspanel_haui/update_control/entry1', JSON.stringify({ device: 'kitchen', action: 'defer', seconds: 3600 })],
   ]);
 });

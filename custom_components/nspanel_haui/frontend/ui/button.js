@@ -45,8 +45,9 @@ export function addButton({ label, onClick, disabled = false, id = null, classNa
     @click=${onClick || nothing}>+ ${label}</button>`;
 }
 
+/** The icon-only arrow that leaves a screen; `label` says where it goes. */
 export function backButton({ label, onClick }) {
-  return button({ label, iconName: 'back', variant: 'quiet', onClick, className: 'haui-back-button' });
+  return iconButton({ label, iconName: 'back', onClick, className: 'haui-back-button' });
 }
 
 /** The card-header chevron that expands or collapses a side-stack card. */

@@ -17,6 +17,7 @@ Every panel has the standard fields below. Each panel type adds its own options,
 |-------|-----|-------------|
 | **Type** | `type` | The panel type, for example `clock`, `grid` or `light`. You choose it when you add the panel. It cannot be changed later: delete the panel and add a new one instead. |
 | **Title** | `title` | The name in the panel's header. A title that is too long for the header is cut and ends in `..`. |
+| **Color theme** | `theme_id` | Colours for this panel only; the default follows the device theme. |
 | **Key** | `key` | A unique name for the panel on this device. You use it to open the panel from items, gestures and automations. |
 | **Show in navigation** | `show_in_navigation` | On (default): you reach the panel by swiping and with the header buttons. Off: the panel is hidden and only opens when something opens it, see [Stacked Panels and Popups](#stacked-panels-and-popups). |
 | **Panel pin** | `unlock_code` | A numeric PIN. When set, the panel asks for it before it opens. |
@@ -79,7 +80,7 @@ What you can change:
 | Popup | What you can edit |
 |-------|-------------------|
 | Entity popups (`popup_light`, `popup_climate`, `popup_media_player`, `popup_cover`, `popup_vacuum`, `popup_timer`, `popup_alarm`) | Everything the panel type offers, for example the Cover options for `popup_cover`. The entity still comes from the item that opens the popup. |
-| **Notify**, **Select**, **Unlock** | The title. A panel pin or an auto-close time would get in the way of these popups, so they are not offered. |
+| **Notify**, **Select**, **Unlock** | The title and **Color theme**. A panel pin or an auto-close time would get in the way of these popups, so they are not offered. |
 
 Good to know:
 

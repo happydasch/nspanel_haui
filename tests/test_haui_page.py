@@ -13,6 +13,7 @@ from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
 from custom_components.nspanel_haui.haui.abstract.mixins.touch_input_mixin import (
     _PendingReadRequest,
 )
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPRequest, ESPResponse
 
 # --- helpers ---------------------------------------------------------------
@@ -25,6 +26,7 @@ class FakePageApp:
         self.timers = []
         self.cancelled = []
         self.controller = {}
+        self.theme = Theme()
         self.device = type("MockDevice", (), {"get": lambda s, k, d=0: d})()
         self.sent_esphome: list[tuple] = []
         self.log_calls: list[tuple] = []
@@ -45,6 +47,7 @@ def _bare_page(page_id=1):
     page = HAUIPage.__new__(HAUIPage)
     page.app = FakePageApp()
     page.page_id = page_id
+    page.panel = None
     page._callbacks = []
     page._callback_map = {}
     page._fnc_id_by_component = {}
@@ -225,6 +228,44 @@ def test_panel_change_drops_the_previous_panels_read():
     assert new_values == []
     page.request_component_value(slider)
     assert len(page.app.sent_esphome) == 2
+
+
+def test_panel_change_drops_the_previous_panels_buffered_tap():
+    """A tap still waiting out the tap-or-swipe window never reaches the
+    next panel's button with the same id."""
+    page = _bare_page()
+    page._handles = []
+    page._listener_meta = {}
+    button = Component(7, "bConfirm")
+    old_taps: list = []
+    new_taps: list = []
+    page.on_release(button, lambda event, component: old_taps.append(component))
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, f"1,{button.id},0"))
+
+    page.stop_panel(None)
+    page.on_release(button, lambda event, component: new_taps.append(component))
+    for callback, _delay in page.app.timers:
+        callback({})
+
+    assert old_taps == []
+    assert new_taps == []
+
+
+def test_panel_change_drops_the_previous_panels_slider_release():
+    """A slider release waiting for its value read never reads the next
+    panel's slider with the same id."""
+    page = _bare_page()
+    page._handles = []
+    page._listener_meta = {}
+    slider = Component(13, "hBrightness")
+    page.bind_slider(slider, lambda value: None)
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, f"1,{slider.id},0"))
+
+    page.stop_panel(None)
+    page.bind_slider(slider, lambda value: None)
+    page._drag_flush_timeout()
+
+    assert page.app.sent_esphome == []
 
 
 def test_process_read_response_drops_when_pending_is_none():
@@ -432,7 +473,8 @@ def test_popup_item_keeps_the_opening_items_overrides():
             return self.config.get(key, default)
 
     page = HAUIPage.__new__(HAUIPage)
-    page.app = types.SimpleNamespace(log=lambda *a, **k: None)
+    page.app = types.SimpleNamespace(theme=Theme(), log=lambda *a, **k: None)
+    page.panel = None
     panel = _Panel(
         {"item_id": "light.bed", "item": "light.bed", "name": "Bedside", "icon": "mdi:lamp"}
     )

@@ -85,7 +85,10 @@ test('a hub-driven system panel offers no PIN or auto-close', () => {
     type: 'notify', key: 'popup_notify', show_in_navigation: false,
     unlock_code: '1', close_timeout: 5,
   });
-  assert.doesNotMatch(markup(dlg), /Panel pin|Close automatically|Advanced/);
+  const html = markup(dlg);
+  assert.match(html, /Color theme/);
+  assert.match(html, /Advanced/);
+  assert.doesNotMatch(html, /Panel pin|Close automatically/);
 
   const panel = save(dlg, { 'fld-title': 'Alert' });
   assert.equal(panel.unlock_code, undefined);
@@ -190,7 +193,6 @@ test('an entity popup without an entity previews a random one of its domain, kep
 
 test('in the sidebar a small preview with the name, type and key pins once the preview scrolls away', () => {
   const dlg = Object.assign(makeDialog(-1, { type: 'cover', key: 'popup_cover', title: 'Blinds' }), {
-    inline: true,
     previewContext: { entryId: 'e', device: 'kitchen', deviceConfig: {}, panels: [] },
     _previewPinned: false,
   });

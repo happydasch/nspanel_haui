@@ -30,9 +30,7 @@ Everything below the entry points happens inside one
 
 ## Data model
 
-`Notification` is an immutable tuple with the fields below. Being a tuple keeps
-index access and value equality working for older code, but new code should use
-the named fields.
+`Notification` is an immutable `NamedTuple`; use its named fields.
 
 | Field | Type | Default | Meaning |
 |-------|------|---------|---------|
@@ -51,9 +49,8 @@ the named fields.
 not substitute `id(notification)`: CPython reuses the identity of a freed tuple,
 and the queue replaces entries.
 
-The service and the queue take the generic fields only.
-
-For `info`/`warning`/`alert`/`critical`/`silent` presets there is a Home Assistant script:
+The hub has no severity presets; `info`/`warning`/`alert`/`critical`/`silent`
+presets live in a Home Assistant script that fills in the fields above:
 [Services → Preset notification script](../user/services.md#preset-notification-script).
 
 ## Delivery paths
@@ -75,9 +72,6 @@ without a matching device raises `ServiceValidationError` instead of silently
 doing nothing. A sound name outside `SOUND_NAMES` raises `ValueError` in the
 controller.
 
-The ESPHome action does not force-show explicitly, but a persistent notification
-is force-shown by the controller's persistent rule.
-
 ## Queue lifecycle
 
 ```mermaid
@@ -89,7 +83,7 @@ flowchart TD
     D -->|yes| E[Drop oldest]
     D -->|no| F[Append with new notif_id]
     E --> F
-    F --> G[Refresh list items and open list]
+    F --> G[Refresh list items and any open list]
     G --> H[Fire NotifEvent.NOTIF_ADD and HA 'added' event]
     H --> I{force_show or persistent?}
     I -->|yes, no notification view open| J[Open popup/list and wake display]
@@ -222,8 +216,8 @@ views.
 - `NOTIF_ADD` plays `notification.sound` when it is non-empty, but only when
   the device setting `sound_on_notification` is on (default `False`). A silent
   notification (`sound=""`) plays nothing.
-- A persistent notification starts the repeating sound loop at
-  `persistent_sound_interval` seconds (default 5). Each round plays the sound of
+- With `sound_on_notification` on, a persistent notification starts the
+  repeating sound loop at `persistent_sound_interval` seconds (default 5). Each round plays the sound of
   the **first queued audible persistent notification** (queue order); a silent
   persistent notification neither mutes the loop nor blocks a later audible one.
   When the sounding notification leaves the queue the next audible one takes

@@ -171,33 +171,36 @@ def _entry_with(*devices: dict) -> _Entry:
 
 
 _PROTECTED = [
-    (api.DeviceStatusView, "get"),
-    (api.NotificationsView, "get"),
-    (api.NotificationsView, "delete"),
-    (api.PanelConfigView, "get"),
-    (api.PanelConfigView, "post"),
-    (api.ThemesView, "get"),
-    (api.ThemesView, "post"),
-    (api.DeviceConfigView, "get"),
-    (api.DeviceConfigView, "post"),
-    (api.DeviceConfigView, "delete"),
-    (api.DeviceYamlView, "get"),
-    (api.DeviceYamlView, "post"),
-    (api.DeviceRefreshDisplayView, "post"),
-    (api.DeviceUpdateTftView, "post"),
-    (api.DeviceTftReleasesView, "get"),
-    (api.DeviceUpdateFirmwareView, "post"),
-    (api.DeviceFirmwareReleasesView, "get"),
+    (api.DeviceStatusView, "get", {"entry_id": "entry1"}),
+    (api.NotificationsView, "get", {"entry_id": "entry1"}),
+    (api.NotificationsView, "delete", {"entry_id": "entry1"}),
+    (api.PanelConfigView, "get", {"entry_id": "entry1"}),
+    (api.DeviceOrderView, "put", {"entry_id": "entry1"}),
+    (api.ThemesView, "get", {"entry_id": "entry1"}),
+    (api.ThemesView, "post", {"entry_id": "entry1"}),
+    (api.DeviceConfigView, "get", {"entry_id": "entry1"}),
+    (api.DeviceConfigView, "post", {"entry_id": "entry1"}),
+    (api.DeviceConfigView, "delete", {"entry_id": "entry1"}),
+    (api.DeviceSettingsView, "get", {"entry_id": "entry1", "device": "kitchen"}),
+    (api.DeviceSettingsView, "put", {"entry_id": "entry1", "device": "kitchen"}),
+    (api.DevicePanelsView, "put", {"entry_id": "entry1", "device": "kitchen"}),
+    (api.DeviceYamlView, "get", {"entry_id": "entry1"}),
+    (api.DeviceYamlView, "post", {"entry_id": "entry1"}),
+    (api.DeviceRefreshDisplayView, "post", {"entry_id": "entry1"}),
+    (api.DeviceUpdateTftView, "post", {"entry_id": "entry1"}),
+    (api.DeviceTftReleasesView, "get", {"entry_id": "entry1"}),
+    (api.DeviceUpdateFirmwareView, "post", {"entry_id": "entry1"}),
+    (api.DeviceFirmwareReleasesView, "get", {"entry_id": "entry1"}),
 ]
 
 
-@pytest.mark.parametrize(("view_cls", "method"), _PROTECTED)
-def test_config_endpoints_reject_non_admin_users(view_cls, method):
+@pytest.mark.parametrize(("view_cls", "method", "url_kwargs"), _PROTECTED)
+def test_config_endpoints_reject_non_admin_users(view_cls, method, url_kwargs):
     hass = MagicMock()
     request = _Request(hass, admin=False, body={}, query={"name": "panel"})
 
     with pytest.raises(_Unauthorized):
-        asyncio.run(getattr(view_cls(), method)(request, entry_id="entry1"))
+        asyncio.run(getattr(view_cls(), method)(request, **url_kwargs))
 
     assert hass.mock_calls == []
 
@@ -482,24 +485,279 @@ def _use_store(monkeypatch, hass, stored=None):
     return saved
 
 
-def test_enabling_a_device_from_the_editor_reloads_the_entry(monkeypatch):
+def test_disabling_a_device_from_the_editor_reloads_the_entry(monkeypatch):
     entry = _entry_with({"name": "kitchen"}, {"name": "office"})
     hass = _Hass(entry)
-    _use_store(monkeypatch, hass)
+    _use_store(
+        monkeypatch,
+        hass,
+        {
+            "version": 1,
+            "devices": {
+                "kitchen": {"config": {"enabled": True}, "panels": []},
+                "office": {"config": {"enabled": True}, "panels": []},
+            },
+        },
+    )
     kitchen_app = MagicMock()
     hass.data["nspanel_haui"]["entry1"] = {"kitchen": kitchen_app}
-    body = {
-        "version": 1,
-        "devices": {
-            "kitchen": {"config": {}, "panels": []},
-            "office": {"config": {"enabled": True}, "panels": []},
-        },
-    }
 
-    asyncio.run(api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1"))
+    result = asyncio.run(
+        api.DeviceSettingsView().put(
+            _Request(hass, admin=True, body={"config": {"enabled": False}}),
+            "entry1",
+            "kitchen",
+        )
+    )
 
+    assert result["body"]["reloaded"] is True
     assert hass.config_entries.scheduled_reloads == ["entry1"]
     assert list(hass.data["nspanel_haui"]["entry1"]) == ["kitchen"]
+
+
+def test_device_settings_get_migrates_legacy_keys_and_returns_one_device(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {"sleep_panel": "clock"}}}},
+    )
+
+    result = asyncio.run(
+        api.DeviceSettingsView().get(_Request(hass, admin=True), "entry1", "kitchen")
+    )
+
+    assert result["body"] == {"device": "kitchen", "config": {"idle_panel": "clock"}}
+
+
+def test_device_settings_get_returns_404_for_unknown_device(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    _use_store(monkeypatch, hass)
+
+    result = asyncio.run(
+        api.DeviceSettingsView().get(_Request(hass, admin=True), "entry1", "missing")
+    )
+
+    assert result["status_code"] == 404
+
+
+def test_device_settings_put_changes_only_the_addressed_config(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = {
+        "version": 1,
+        "device_order": ["kitchen", "office"],
+        "devices": {
+            "kitchen": {
+                "config": {"locale": "en_US"},
+                "panels": [{"type": "clock", "key": "k-clock"}],
+                "last_panel_update": "2025-01-01T00:00:00+00:00",
+            },
+            "office": {
+                "config": {"locale": "fr_FR"},
+                "panels": [{"type": "grid", "key": "o-grid"}],
+                "last_panel_update": "2025-02-01T00:00:00+00:00",
+            },
+        },
+    }
+    saved = _use_store(monkeypatch, hass, old)
+
+    result = asyncio.run(
+        api.DeviceSettingsView().put(
+            _Request(hass, admin=True, body={"config": {"locale": "de_DE", "ignored": True}}),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    assert written["devices"]["kitchen"]["config"] == {"locale": "de_DE"}
+    assert written["devices"]["kitchen"]["panels"] == old["devices"]["kitchen"]["panels"]
+    assert (
+        written["devices"]["kitchen"]["last_panel_update"]
+        == old["devices"]["kitchen"]["last_panel_update"]
+    )
+    assert written["devices"]["office"] == old["devices"]["office"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"config": {"locale": None}},
+        {"config": {"theme_id": "not-a-theme"}},
+        {"config": {"brightness": 101}},
+    ],
+)
+def test_device_settings_put_rejects_invalid_or_missing_config(monkeypatch, body):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+    )
+
+    result = asyncio.run(
+        api.DeviceSettingsView().put(_Request(hass, admin=True, body=body), "entry1", "kitchen")
+    )
+
+    assert result["status_code"] == 400
+    assert saved == []
+
+
+def test_device_panels_put_replaces_only_one_device_and_reloads_only_its_app(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = {
+        "version": 1,
+        "devices": {
+            "kitchen": {
+                "config": {"locale": "de_DE"},
+                "panels": [],
+                "last_panel_update": "old-kitchen",
+            },
+            "office": {
+                "config": {"locale": "fr_FR"},
+                "panels": [{"type": "clock", "key": "office"}],
+                "last_panel_update": "old-office",
+            },
+        },
+    }
+    saved = _use_store(monkeypatch, hass, old)
+    kitchen = _WorkerApp()
+    office = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": kitchen, "office": office}
+    panels = [{"type": "clock", "key": "new-kitchen"}]
+
+    result = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": panels}), "entry1", "kitchen"
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    assert written["devices"]["kitchen"]["panels"] == panels
+    assert written["devices"]["kitchen"]["config"] == old["devices"]["kitchen"]["config"]
+    assert written["devices"]["kitchen"]["last_panel_update"] != "old-kitchen"
+    assert written["devices"]["office"] == old["devices"]["office"]
+    assert kitchen.calls == ["worker", "reload_config"]
+    assert office.calls == []
+
+
+def test_device_panels_put_rejects_missing_panels_and_unknown_devices(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+    )
+
+    missing = asyncio.run(
+        api.DevicePanelsView().put(_Request(hass, admin=True, body={}), "entry1", "kitchen")
+    )
+    unknown = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": []}), "entry1", "missing"
+        )
+    )
+
+    assert missing["status_code"] == 400
+    assert unknown["status_code"] == 404
+    assert saved == []
+
+
+def test_device_panels_put_names_the_field_that_breaks_a_rule(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+    )
+    light = {"type": "light", "key": "light_0", "item": {"item": "sensor.x"}}
+
+    result = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": [light]}), "entry1", "kitchen"
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert result["body"]["errors"][0]["panel"] == "light_0"
+    assert result["body"]["errors"][0]["field"] == "item"
+    assert saved == []
+
+
+def test_device_panels_put_keeps_an_unchanged_stored_panel(monkeypatch):
+    light = {"type": "light", "key": "light_0", "item": {"item": "sensor.x"}}
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _WorkerApp()}
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": [light]}}},
+    )
+    panels = [light, {"type": "clock", "key": "clock_0"}]
+
+    result = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": panels}), "entry1", "kitchen"
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert saved[0]["devices"]["kitchen"]["panels"] == panels
+
+
+def test_device_panels_put_rejects_unknown_panel_theme(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+    )
+
+    result = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(
+                hass,
+                admin=True,
+                body={"panels": [{"type": "clock", "key": "clock", "theme_id": "missing"}]},
+            ),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert saved == []
+
+
+def test_device_order_put_normalizes_without_pushing_or_reloading(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {
+            "version": 1,
+            "devices": {
+                "kitchen": {"config": {}, "panels": []},
+                "office": {"config": {}, "panels": []},
+            },
+        },
+    )
+
+    result = asyncio.run(
+        api.DeviceOrderView().put(
+            _Request(hass, admin=True, body={"device_order": ["office", "missing", "office"]}),
+            "entry1",
+        )
+    )
+
+    assert result["body"]["device_order"] == ["office", "kitchen"]
+    assert saved[0]["device_order"] == ["office", "kitchen"]
+    assert hass.events == ["store_save"]
+    assert hass.config_entries.scheduled_reloads == []
+    assert hass.config_entries.reloads == []
 
 
 def _custom_theme(name="Evening"):
@@ -562,31 +820,44 @@ def test_theme_library_cannot_remove_a_theme_selected_by_a_device(monkeypatch):
     assert saved == []
 
 
-def test_panel_save_drops_response_only_fields(monkeypatch):
+def test_theme_library_cannot_remove_a_theme_selected_only_by_a_panel(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
-    saved = _use_store(monkeypatch, hass)
-    body = {
+    stored = {
         "version": 1,
-        "system_panels": [{"key": "sys_about"}],
-        "devices": {"kitchen": {"friendly_name": "Kitchen", "config": {}, "panels": []}},
+        "devices": {
+            "kitchen": {
+                "config": {},
+                "panels": [{"type": "clock", "key": "clock", "theme_id": "evening"}],
+            }
+        },
+        "themes": {"evening": _custom_theme()},
     }
-
-    asyncio.run(api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1"))
-
-    (stored,) = saved
-    assert "system_panels" not in stored
-    assert "friendly_name" not in stored["devices"]["kitchen"]
-
-
-def test_panel_save_rejects_empty_device_config_values(monkeypatch):
-    entry = _entry_with({"name": "kitchen"})
-    hass = _Hass(entry)
-    saved = _use_store(monkeypatch, hass)
-    body = {"version": 1, "devices": {"kitchen": {"config": {"locale": None}, "panels": []}}}
+    saved = _use_store(monkeypatch, hass, stored)
 
     result = asyncio.run(
-        api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1")
+        api.ThemesView().post(
+            _Request(hass, admin=True, body={"version": 1, "themes": {}}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 409
+    assert saved == []
+
+
+def test_device_settings_put_rejects_empty_config_values(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    saved = _use_store(
+        monkeypatch, hass, {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}}
+    )
+
+    result = asyncio.run(
+        api.DeviceSettingsView().put(
+            _Request(hass, admin=True, body={"config": {"locale": None}}),
+            "entry1",
+            "kitchen",
+        )
     )
 
     assert result["status_code"] == 400
@@ -597,12 +868,17 @@ def test_panel_save_rejects_edits_of_fixed_system_panels(monkeypatch):
     """Only popups can be edited; a panel under the Settings key is refused."""
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
-    saved = _use_store(monkeypatch, hass)
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+    )
     panels = [{"type": "system_settings", "key": "sys_settings", "show_in_navigation": False}]
-    body = {"version": 1, "devices": {"kitchen": {"config": {}, "panels": panels}}}
 
     result = asyncio.run(
-        api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1")
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": panels}), "entry1", "kitchen"
+        )
     )
 
     assert result["status_code"] == 400
@@ -622,6 +898,24 @@ def test_device_yaml_export_includes_the_selected_custom_theme_definition():
         "id": "evening",
         **custom,
     }
+
+
+def test_device_yaml_export_includes_panel_theme_definitions():
+    from custom_components.nspanel_haui.api.config import _device_yaml_data
+
+    custom = _custom_theme()
+    exported = _device_yaml_data(
+        {
+            "config": {"theme_id": "dark"},
+            "panels": [
+                {"type": "clock", "key": "clock", "theme_id": "evening"},
+                {"type": "grid", "key": "grid", "theme_id": ""},
+            ],
+        },
+        {"themes": {"evening": custom}},
+    )
+
+    assert exported["theme_definitions"] == [{"id": "evening", **custom}]
 
 
 def test_device_yaml_import_restores_custom_theme_definition(monkeypatch):
@@ -646,6 +940,33 @@ def test_device_yaml_import_restores_custom_theme_definition(monkeypatch):
     assert result["body"]["device"] == "kitchen"
     assert saved[0]["themes"]["evening"] == theme
     assert saved[0]["devices"]["kitchen"]["config"]["theme_id"] == "evening"
+
+
+def test_device_yaml_import_restores_custom_themes_used_by_panels(monkeypatch):
+    import yaml
+
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
+    theme = _custom_theme()
+    body = yaml.safe_dump(
+        {
+            "config": {"theme_id": "dark"},
+            "panels": [{"type": "clock", "key": "clock", "theme_id": "evening"}],
+            "theme_definitions": [{"id": "evening", **theme}],
+        },
+        sort_keys=False,
+    )
+
+    result = asyncio.run(
+        api.DeviceYamlView().post(
+            _Request(hass, admin=True, body=body, query={"device": "kitchen"}),
+            entry_id="entry1",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert saved[0]["themes"]["evening"] == theme
+    assert saved[0]["devices"]["kitchen"]["panels"][0]["theme_id"] == "evening"
 
 
 def test_yaml_import_rejects_empty_config_values(monkeypatch):
@@ -774,18 +1095,35 @@ class _WorkerApp:
             on_done(result, None)
 
 
-def test_panel_save_reloads_a_running_device_on_its_worker(monkeypatch):
+def test_per_device_saves_reload_a_running_device_on_its_worker(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
-    _use_store(monkeypatch, hass)
+    _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+    )
     app = _WorkerApp()
     hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
-    body = {"version": 1, "devices": {"kitchen": {"config": {"locale": "de_DE"}, "panels": []}}}
 
-    asyncio.run(api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1"))
-
+    asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": [{"type": "clock"}]}),
+            "entry1",
+            "kitchen",
+        )
+    )
     assert app.calls == ["worker", "reload_config"]
-    # Rebuilt the way setup builds it: store settings over defaults.
+    assert app.cfg["device"]["locale"] == "en_US"
+
+    asyncio.run(
+        api.DeviceSettingsView().put(
+            _Request(hass, admin=True, body={"config": {"locale": "de_DE"}}),
+            "entry1",
+            "kitchen",
+        )
+    )
+    assert app.calls == ["worker", "reload_config", "worker", "reload_config"]
     assert app.cfg["device"]["locale"] == "de_DE"
     assert app.cfg["device"]["timeout_display_off"] == 120
 
@@ -1409,18 +1747,25 @@ def test_add_device_rejects_a_body_without_a_devices_list(monkeypatch, body):
 def test_panel_save_with_a_store_only_device_does_not_reload(monkeypatch):
     # "office" has settings in the store but no config-entry record.
     hass = _Hass(_entry_with({"name": "kitchen"}))
-    _use_store(monkeypatch, hass)
+    _use_store(
+        monkeypatch,
+        hass,
+        {
+            "version": 1,
+            "devices": {
+                "kitchen": {"config": {}, "panels": []},
+                "office": {"config": {}, "panels": []},
+            },
+        },
+    )
     app = _WorkerApp()
     hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
-    body = {
-        "version": 1,
-        "devices": {
-            "kitchen": {"config": {}, "panels": []},
-            "office": {"config": {}, "panels": []},
-        },
-    }
 
-    asyncio.run(api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1"))
+    asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": []}), "entry1", "kitchen"
+        )
+    )
 
     assert hass.config_entries.scheduled_reloads == []
     assert app.calls == ["worker", "reload_config"]
@@ -1587,3 +1932,291 @@ def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fa
     assert result["body"]["device_info"]["ip"] == ""
     assert result["body"]["device_info"]["ssid"] == ""
     assert result["body"]["device_info"]["rssi"] is None
+
+
+def test_panel_templates_are_served_in_the_language_asked_for(monkeypatch):
+    from custom_components.nspanel_haui.haui.mapping import templates
+
+    asked = []
+    monkeypatch.setattr(
+        templates, "get_panel_templates", lambda language: asked.append(language) or ["t"]
+    )
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+
+    result = asyncio.run(
+        api.PanelTemplatesView().get(_Request(hass, admin=False, query={"language": "de"}))
+    )
+
+    assert result == {"status_code": 200, "body": ["t"]}
+    assert asked == ["de"]
+
+
+def test_update_policy_get_answers_the_defaults_on_an_empty_store(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    _use_store(monkeypatch, hass, None)
+
+    result = asyncio.run(api.UpdatePolicyView().get(_Request(hass, admin=False), "entry1"))
+
+    assert result["status_code"] == 200
+    assert result["body"]["policy"]["max_attempts"] == 3
+    assert result["body"]["policy"]["install_delay"] == 600
+
+
+def test_update_policy_put_stores_it_and_reloads_every_device(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}}, "office": {"config": {}}}},
+    )
+    kitchen = _WorkerApp()
+    office = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": kitchen, "office": office}
+
+    result = asyncio.run(
+        api.UpdatePolicyView().put(
+            _Request(hass, admin=True, body={"policy": {"max_attempts": 5}}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert saved[0]["update_policy"]["max_attempts"] == 5
+    assert result["body"]["policy"]["max_attempts"] == 5
+    assert "reload_config" in kitchen.calls
+    assert "reload_config" in office.calls
+    assert kitchen.cfg["update"]["max_attempts"] == 5
+
+
+def test_update_policy_put_refuses_an_invalid_policy(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
+
+    result = asyncio.run(
+        api.UpdatePolicyView().put(
+            _Request(hass, admin=True, body={"policy": {"max_attempts": 0}}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert saved == []
+
+
+class _ControlApp(_WorkerApp):
+    """A running app whose update controller has a firmware install scheduled."""
+
+    def __init__(self, offered="0.5.1"):
+        super().__init__()
+        self.offered = offered
+
+    async def async_update_state(self):
+        return {
+            "firmware_update_available": bool(self.offered),
+            "firmware_update_version": self.offered,
+        }
+
+    async def async_update_control(self, action, seconds=None):
+        if action == "defer" and seconds not in (3600, 86400):
+            raise ValueError("Defer by 3600 or 86400 seconds")
+        self.calls.append((action, seconds))
+        return {"firmware_scheduled": None}
+
+
+def _control(hass, body):
+    return asyncio.run(
+        api.UpdateControlView().post(_Request(hass, admin=True, body=body), "entry1")
+    )
+
+
+def test_update_control_defers_the_scheduled_install(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    app = _ControlApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = _control(hass, {"device": "kitchen", "action": "defer", "seconds": 3600})
+
+    assert result["status_code"] == 200
+    assert app.calls == [("defer", 3600)]
+
+
+def test_update_control_refuses_a_bad_defer(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _ControlApp()}
+
+    result = _control(hass, {"device": "kitchen", "action": "defer", "seconds": 60})
+
+    assert result["status_code"] == 400
+
+
+def test_update_control_skip_stores_the_offered_version_and_reloads_that_device(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {"version": 1, "devices": {"kitchen": {"config": {}}, "office": {"config": {}}}},
+    )
+    kitchen = _ControlApp()
+    office = _ControlApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": kitchen, "office": office}
+
+    result = _control(hass, {"device": "kitchen", "action": "skip"})
+
+    assert result["status_code"] == 200
+    assert saved[0]["devices"]["kitchen"]["config"]["update"]["skipped_firmware_version"] == "0.5.1"
+    assert "reload_config" in kitchen.calls
+    assert office.calls == []
+
+
+def test_update_control_skip_needs_an_offered_update(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {"kitchen": {"config": {}}}})
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _ControlApp(offered=None)}
+
+    result = _control(hass, {"device": "kitchen", "action": "skip"})
+
+    assert result["status_code"] == 400
+    assert saved == []
+
+
+def test_update_control_refuses_an_unknown_action(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _ControlApp()}
+
+    assert _control(hass, {"device": "kitchen", "action": "explode"})["status_code"] == 400
+
+
+class _RolloutApp(_WorkerApp):
+    """A running device whose update state the rollout reads."""
+
+    def __init__(self, firmware=False, tft=False, connected=True):
+        super().__init__()
+        self.snapshot = {
+            "connected": connected,
+            "display": {
+                "installed_version": "0.5.0",
+                "available": tft,
+                "state": "idle",
+                "last_error": None,
+            },
+            "firmware": {"available": firmware, "installing": False, "last_error": None},
+        }
+
+    async def async_update_snapshot(self):
+        return self.snapshot
+
+    async def async_set_rollout_hold(self, hold):
+        self.calls.append(("hold", hold))
+
+
+def _rollout_hass(monkeypatch, apps, order):
+    hass = _Hass(_entry_with(*({"name": name} for name in apps)))
+    hass.async_create_background_task = lambda coro, name: (coro.close(), None)[1]
+    _use_store(monkeypatch, hass, {"version": 1, "device_order": order, "devices": {}})
+    hass.data["nspanel_haui"]["entry1"] = apps
+    return hass
+
+
+def test_status_of_every_device_carries_the_rollout(monkeypatch):
+    hass = _Hass(_entry_with())
+
+    result = asyncio.run(api.DeviceStatusView().get(_Request(hass, admin=True), "entry1"))
+
+    assert result["body"]["rollout"]["state"] == "idle"
+
+
+def test_rollout_starts_with_the_devices_that_have_an_offered_update(monkeypatch):
+    apps = {
+        "kitchen": _RolloutApp(firmware=True),
+        "hall": _RolloutApp(),
+        "office": _RolloutApp(tft=True),
+        "attic": _RolloutApp(firmware=True, connected=False),
+    }
+    hass = _rollout_hass(monkeypatch, apps, ["office", "hall", "kitchen", "attic"])
+
+    result = asyncio.run(api.RolloutView().post(_Request(hass, admin=True, body={}), "entry1"))
+
+    assert result["status_code"] == 200
+    rollout = result["body"]["rollout"]
+    assert [(entry["name"], entry["kind"]) for entry in rollout["devices"]] == [
+        ("office", "tft"),
+        ("kitchen", "firmware"),
+    ]
+    assert ("hold", True) in apps["kitchen"].calls
+
+
+def test_rollout_without_an_offered_update_is_refused(monkeypatch):
+    hass = _rollout_hass(monkeypatch, {"hall": _RolloutApp()}, ["hall"])
+
+    result = asyncio.run(api.RolloutView().post(_Request(hass, admin=True, body={}), "entry1"))
+
+    assert result["status_code"] == 400
+
+
+def test_rollout_cancels_one_queued_device(monkeypatch):
+    apps = {"kitchen": _RolloutApp(firmware=True), "office": _RolloutApp(firmware=True)}
+    hass = _rollout_hass(monkeypatch, apps, ["kitchen", "office"])
+
+    async def run():
+        await api.RolloutView().post(_Request(hass, admin=True, body={}), "entry1")
+        return await api.RolloutDeviceView().delete(_Request(hass, admin=True), "entry1", "office")
+
+    result = asyncio.run(run())
+
+    states = {entry["name"]: entry["state"] for entry in result["body"]["rollout"]["devices"]}
+    assert states["office"] == "cancelled"
+    assert ("hold", False) in apps["office"].calls
+
+
+@pytest.mark.parametrize(
+    "sent_update",
+    [{"enabled": True}, {"enabled": True, "skipped_firmware_version": "0.5.0"}, None],
+)
+def test_a_settings_save_keeps_the_skipped_firmware_version(monkeypatch, sent_update):
+    """Only Skip this version writes the skip; a settings save from a stale editor keeps it."""
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(
+        monkeypatch,
+        hass,
+        {
+            "version": 1,
+            "devices": {
+                "kitchen": {
+                    "config": {"update": {"enabled": True, "skipped_firmware_version": "0.5.1"}},
+                    "panels": [],
+                }
+            },
+        },
+    )
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _WorkerApp()}
+    config = {"locale": "de_DE"} if sent_update is None else {"update": sent_update}
+
+    result = asyncio.run(
+        api.DeviceSettingsView().put(
+            _Request(hass, admin=True, body={"config": config}), "entry1", "kitchen"
+        )
+    )
+
+    assert result["status_code"] == 200
+    stored = saved[0]["devices"]["kitchen"]["config"]
+    assert stored["update"]["skipped_firmware_version"] == "0.5.1"
+
+
+def test_a_settings_save_refuses_a_bad_device_policy(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    saved = _use_store(
+        monkeypatch, hass, {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}}
+    )
+
+    result = asyncio.run(
+        api.DeviceSettingsView().put(
+            _Request(
+                hass,
+                admin=True,
+                body={"config": {"update": {"policy_override": True, "retry_interval": 0}}},
+            ),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert saved == []

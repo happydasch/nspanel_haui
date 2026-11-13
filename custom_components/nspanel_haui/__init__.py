@@ -53,7 +53,7 @@ def _build_config_dict(
         find_store_device,
     )
     from .haui.mapping.color import BUILTIN_THEMES
-    from .haui.mapping.const import DEFAULT_CONFIG
+    from .haui.mapping.const import DEFAULT_CONFIG, UPDATE_POLICY_DEFAULTS, UPDATE_POLICY_FIELDS
     from .hub.storage import migrate_device_config_keys
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
@@ -100,6 +100,12 @@ def _build_config_dict(
             if isinstance(update_cfg, dict):
                 cfg["update"] = deep_merge(cfg["update"], update_cfg)
 
+    # A device follows the hub's automatic update policy unless it overrides it.
+    if not cfg["update"].get("policy_override"):
+        hub_policy = (panels or {}).get("update_policy") or {}
+        for field in UPDATE_POLICY_FIELDS:
+            cfg["update"][field] = hub_policy.get(field, UPDATE_POLICY_DEFAULTS[field])
+
     populate_devices_from_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
 
     # Collect panels from the (now single) runtime device.
@@ -121,21 +127,27 @@ def _build_config_dict(
                 dev[key] = copy.deepcopy(val)
     saved_themes = panels.get("themes", {}) if panels else {}
     all_themes = {**saved_themes, **BUILTIN_THEMES}
+    cfg["themes"] = all_themes
     for dev in cfg.get("devices", []):
         theme_id = dev["theme_id"]
-        theme = all_themes.get(theme_id)
-        if not isinstance(theme, dict):
+        if theme_id not in all_themes:
             _LOGGER.warning(
                 "Unknown color theme %r for device %s; using built-in dark theme",
                 theme_id,
                 dev.get("name", ""),
             )
-            theme_id = "dark"
-            dev["theme_id"] = theme_id
-            theme = BUILTIN_THEMES[theme_id]
-        dev["resolved_theme"] = copy.deepcopy(theme)
+            dev["theme_id"] = "dark"
     if cfg.get("devices"):
-        cfg["device"]["resolved_theme"] = copy.deepcopy(cfg["devices"][0]["resolved_theme"])
+        cfg["device"]["theme_id"] = cfg["devices"][0]["theme_id"]
+    for panel in cfg.get("panels", []):
+        theme_id = panel.get("theme_id", "")
+        if theme_id and theme_id not in all_themes:
+            _LOGGER.warning(
+                "Unknown color theme %r for panel %s; using built-in dark theme",
+                theme_id,
+                panel.get("key", panel.get("title", "")),
+            )
+            panel["theme_id"] = "dark"
 
     # Filter out disabled devices - runs after store merge and defaults fill
     # so store overrides of "enabled" are respected.
@@ -535,11 +547,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
+    from .hub.rollout import async_stop_rollout
     from .web.preview.live_panel import async_stop_viewers
     from .web.websocket import async_stop_hosts
 
     await async_stop_viewers(hass, entry.entry_id)
     await async_stop_hosts(hass, entry.entry_id)
+    await async_stop_rollout(hass, entry.entry_id)
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
 
     if apps is None:

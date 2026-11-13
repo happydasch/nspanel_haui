@@ -19,6 +19,7 @@ import { t } from '../localize.js';
 /** @typedef {import('../api/types.js').Notification} Notification */
 /** @typedef {import('../api/types.js').Theme} Theme */
 /** @typedef {import('../api/types.js').PanelTypeDescriptor} PanelTypeDescriptor */
+/** @typedef {import('../api/types.js').PanelTemplate} PanelTemplate */
 /** @typedef {import('../api/types.js').SystemPanel} SystemPanel */
 /** @typedef {import('../api/client.js').ApiClient} ApiClient */
 
@@ -50,7 +51,7 @@ export function isAnchoredOverlayKind(kind) {
  */
 export const SIDEBAR_OVERLAY_KINDS = Object.freeze([
   'device-settings', 'device-schedule', 'device-gestures',
-  'panel-catalog', 'panel-editor', 'firmware', 'theme', 'logs',
+  'panel-catalog', 'panel-editor', 'firmware', 'theme', 'logs', 'update-policy',
 ]);
 
 /** @param {string|null|undefined} kind */
@@ -84,7 +85,7 @@ export function isDeviceOptionOverlayKind(kind) {
  * @typedef {{ kind: string, anchorKey: string|null, subject: string|null, draft: any }} Overlay
  *
  * @typedef {Object} StoreState
- * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, statusError: string|null, panelTypes: PanelTypeDescriptor[], systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
+ * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, fieldErrors: Array<{ panel: string, field: string, kind: string, message: string }>, statusError: string|null, panelTypes: PanelTypeDescriptor[], panelTemplates: PanelTemplate[], updatePolicy: Record<string, any>|null, rollout: Record<string, any>|null, systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
  * @property {DevicesState} devices
  * @property {Notification[]} notifications
  * @property {{ route: Route, overlays: Overlay[], toast: { message: string, type: string }|null, dialogs: Object<string, any>, menus: Object<string, any>, preview: { mode: 'simulated'|'live', idle: boolean, showEntities: boolean } }} ui
@@ -168,32 +169,6 @@ function withStatuses(byName, statuses) {
 }
 
 /**
- * The POST body for the current state.
- *
- * @param {StoreState} state
- * @returns {PanelStore}
- */
-function panelStoreFromState(state) {
-  /** @type {Object<string, DeviceEntry>} */
-  const devices = {};
-  for (const name of state.devices.order) {
-    const device = state.devices.byName[name];
-    devices[name] = {
-      friendly_name: device.friendlyName,
-      config: device.config,
-      panels: device.panels,
-    };
-  }
-  return {
-    version: 1,
-    device_order: [...state.devices.order],
-    themes: state.hub.themes,
-    system_panels: state.hub.systemPanels,
-    devices,
-  };
-}
-
-/**
  * @param {StoreStorage} storage
  * @returns {StoreState}
  */
@@ -204,8 +179,16 @@ function createInitialState(storage) {
       loading: true,
       saving: false,
       error: null,
+      // The fields the hub named when it refused the last panel save.
+      fieldErrors: [],
       statusError: null,
       panelTypes: [],
+      // The starter templates of the Add panel catalog.
+      panelTemplates: [],
+      // The hub's automatic update policy; null until loaded.
+      updatePolicy: null,
+      // Fleet's one-at-a-time update rollout; null until read.
+      rollout: null,
       systemPanels: [],
       themes: {},
     },
@@ -390,9 +373,15 @@ export function createStore({ client, storage, onToast }) {
       if (panelTypesPromise) return panelTypesPromise;
       panelTypesPromise = (async () => {
         try {
+          // The catalog works without its starter templates; panel types never wait on them.
+          const templates = client.editor.panelTemplates(lang).catch(() => {
+            showToast(t('Failed to load panel templates'), 'error');
+            return [];
+          });
           const panelTypes = await client.editor.panelTypes(lang);
+          const panelTemplates = await templates;
           panelTypesLanguage = lang;
-          commit((current) => ({ ...current, hub: { ...current.hub, panelTypes } }));
+          commit((current) => ({ ...current, hub: { ...current.hub, panelTypes, panelTemplates } }));
         } catch (error) {
           showToast(t('Failed to load panel types'), 'error');
         } finally {
@@ -595,6 +584,18 @@ export function createStore({ client, storage, onToast }) {
             hub: { ...current.hub, statusError: error },
           };
         });
+        // A running rollout changes every tick; an idle one only when started.
+        if (!state.hub.rollout || state.hub.rollout.state === 'running') {
+          try {
+            const rollout = await client.updates.rollout(entryId);
+            commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
+          } catch (caught) {
+            commit((current) => ({
+              ...current,
+              hub: { ...current.hub, statusError: /** @type {Error} */ (caught).message || t('Fetch failed') },
+            }));
+          }
+        }
       };
       void fetchAll();
       allTimer = setInterval(fetchAll, 5000);
@@ -608,44 +609,164 @@ export function createStore({ client, storage, onToast }) {
     },
 
     /**
-     * Persist the selected (or given) device's panels and config.
+     * Save one device's panels without touching its settings or other devices.
      *
-     * Each save sends the whole store, so a save started before the previous
-     * one returns would be built from stale data: it is refused. State only
-     * changes once the server accepts the save.
-     *
-     * @param {{ panels: PanelConfig[], toastMessage?: string, deviceConfig?: DeviceConfig, deviceName?: string }} payload
+     * @param {{ panels: PanelConfig[], toastMessage?: string, deviceName?: string }} payload
      * @returns {Promise<boolean>}
      */
-    async savePanels({ panels, toastMessage, deviceConfig, deviceName }) {
+    async savePanels({ panels, toastMessage, deviceName }) {
       const name = deviceName || state.devices.selected;
       const entryId = state.hub.entryId;
-      if (!name || !entryId) return false;
-      if (state.devices.byName[name] === undefined) return false;
+      if (!name || !entryId || state.devices.byName[name] === undefined) return false;
       if (state.hub.saving) {
         showToast(t('Another save is still in progress'), 'error');
         return false;
       }
 
       commit((current) => ({ ...current, hub: { ...current.hub, saving: true } }));
-
-      const payload = panelStoreFromState(state);
-      const device = payload.devices[name] || (payload.devices[name] = {});
-      device.panels = panels;
-      const nextConfig = deviceConfig ? mergeDeviceConfig(deviceConfig) : null;
-      if (nextConfig) device.config = nextConfig;
-
       let saved = false;
       try {
-        await client.panels.save(entryId, payload);
+        await client.panels.saveDevice(entryId, name, panels);
         commit((current) => {
           const byName = { ...current.devices.byName };
-          const currentDevice = byName[name];
-          byName[name] = {
-            ...currentDevice,
-            panels,
-            config: nextConfig || currentDevice.config,
+          byName[name] = { ...byName[name], panels };
+          return {
+            ...current,
+            devices: { ...current.devices, byName },
+            hub: { ...current.hub, saving: false, error: null, fieldErrors: [] },
           };
+        });
+        showToast(toastMessage, 'success');
+        saved = true;
+      } catch (error) {
+        const message = /** @type {Error} */ (error).message || t('Network error');
+        const fieldErrors = /** @type {any} */ (error).errors || [];
+        commit((current) => ({
+          ...current,
+          hub: { ...current.hub, saving: false, error: message, fieldErrors },
+        }));
+        showToast(message, 'error');
+      }
+      return saved;
+    },
+
+    /** Read the hub's update rollout into the store. */
+    async loadRollout() {
+      const entryId = state.hub.entryId;
+      if (!entryId) return;
+      try {
+        const rollout = await client.updates.rollout(entryId);
+        commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
+      } catch (error) {
+        showToast(/** @type {Error} */ (error).message || t('Fetch failed'), 'error');
+      }
+    },
+
+    /**
+     * Install every offered update one device at a time on the hub.
+     * @returns {Promise<boolean>} whether the rollout started
+     */
+    async startRollout() {
+      const entryId = state.hub.entryId;
+      if (!entryId) return false;
+      try {
+        const rollout = await client.updates.startRollout(entryId);
+        commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
+        return true;
+      } catch (error) {
+        showToast(/** @type {Error} */ (error).message || t('Failed to start the update rollout'), 'error');
+        return false;
+      }
+    },
+
+    /**
+     * Cancel one queued device of the rollout, or every queued device.
+     * @param {string|null} [device]
+     */
+    async cancelRollout(device = null) {
+      const entryId = state.hub.entryId;
+      if (!entryId) return;
+      try {
+        const rollout = await client.updates.cancelRollout(entryId, device || undefined);
+        commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
+      } catch (error) {
+        showToast(/** @type {Error} */ (error).message || t('Failed to cancel the update rollout'), 'error');
+      }
+    },
+
+    /**
+     * Start, defer or skip a device's scheduled automatic firmware install.
+     * @param {string} device
+     * @param {'install_now'|'defer'|'skip'} action
+     * @param {number} [seconds]
+     * @returns {Promise<boolean>} whether the hub accepted it
+     */
+    async controlUpdate(device, action, seconds) {
+      const entryId = state.hub.entryId;
+      if (!entryId) return false;
+      try {
+        await client.updates.control(entryId, device, action, seconds);
+        return true;
+      } catch (error) {
+        showToast(/** @type {Error} */ (error).message || t('Failed to change the scheduled update'), 'error');
+        return false;
+      }
+    },
+
+    /** Load the hub's automatic update policy. */
+    async loadUpdatePolicy() {
+      const entryId = state.hub.entryId;
+      if (!entryId) return;
+      try {
+        const updatePolicy = await client.updates.policy(entryId);
+        commit((current) => ({ ...current, hub: { ...current.hub, updatePolicy } }));
+      } catch (error) {
+        showToast(/** @type {Error} */ (error).message || t('Failed to load the update policy'), 'error');
+      }
+    },
+
+    /**
+     * Save the hub's automatic update policy.
+     * @param {Record<string, any>} policy
+     * @returns {Promise<boolean>} whether the hub accepted it
+     */
+    async saveUpdatePolicy(policy) {
+      const entryId = state.hub.entryId;
+      if (!entryId || state.hub.saving) return false;
+      commit((current) => ({ ...current, hub: { ...current.hub, saving: true } }));
+      try {
+        const updatePolicy = await client.updates.savePolicy(entryId, policy);
+        commit((current) => ({ ...current, hub: { ...current.hub, saving: false, updatePolicy } }));
+        showToast(t('Update policy saved'), 'success');
+        return true;
+      } catch (error) {
+        commit((current) => ({ ...current, hub: { ...current.hub, saving: false } }));
+        showToast(/** @type {Error} */ (error).message || t('Failed to save the update policy'), 'error');
+        return false;
+      }
+    },
+
+    /** Replace the current device's settings with the server-accepted config. */
+    /**
+     * @param {{ deviceConfig: DeviceConfig, toastMessage?: string, deviceName?: string }} payload
+     */
+    async saveDeviceConfig({ deviceConfig, toastMessage, deviceName }) {
+      const name = deviceName || state.devices.selected;
+      const entryId = state.hub.entryId;
+      if (!name || !entryId || state.devices.byName[name] === undefined) return false;
+      if (state.hub.saving) {
+        showToast(t('Another save is still in progress'), 'error');
+        return false;
+      }
+
+      const config = mergeDeviceConfig(deviceConfig);
+      commit((current) => ({ ...current, hub: { ...current.hub, saving: true } }));
+      let saved = false;
+      try {
+        const body = await client.devices.saveSettings(entryId, name, config);
+        commit((current) => {
+          const byName = { ...current.devices.byName };
+          byName[name] = { ...byName[name], config: mergeDeviceConfig(body.config) };
           return {
             ...current,
             devices: { ...current.devices, byName },
@@ -665,6 +786,27 @@ export function createStore({ client, storage, onToast }) {
       return saved;
     },
 
+    /** Load fresh settings before opening the device settings editor. @param {string} name */
+    async loadDeviceConfig(name) {
+      const entryId = state.hub.entryId;
+      if (!name || !entryId || state.devices.byName[name] === undefined) return false;
+      try {
+        const body = await client.devices.settings(entryId, name);
+        commit((current) => {
+          const byName = { ...current.devices.byName };
+          byName[name] = { ...byName[name], config: mergeDeviceConfig(body.config) };
+          return { ...current, devices: { ...current.devices, byName } };
+        });
+        return true;
+      } catch (error) {
+        const message = /** @type {Error} */ (error).message || t('Network error');
+        commit((current) => ({ ...current, hub: { ...current.hub, error: message } }));
+        showToast(message, 'error');
+        return false;
+      }
+    },
+
+
     /**
      * Enable or disable a device (settings live in its config block).
      * @param {string} name
@@ -673,11 +815,10 @@ export function createStore({ client, storage, onToast }) {
       const device = state.devices.byName[name];
       if (!device) return;
       const enabled = device.config.enabled === false;
-      const message = `"${device.friendlyName}" ${enabled ? t('enabled') : t('disabled')}`;
-      await actions.savePanels({
-        panels: device.panels,
-        toastMessage: message,
+      const message = '"' + device.friendlyName + '" ' + (enabled ? t('enabled') : t('disabled'));
+      await actions.saveDeviceConfig({
         deviceConfig: { ...device.config, enabled },
+        toastMessage: message,
         deviceName: name,
       });
     },
@@ -772,27 +913,40 @@ export function createStore({ client, storage, onToast }) {
 
     /** Persist a complete drag-reordered device order optimistically. @param {string[]} requestedOrder */
     async reorderDevices(requestedOrder) {
+      const entryId = state.hub.entryId;
+      if (!entryId || state.hub.saving) {
+        if (state.hub.saving) showToast(t('Another save is still in progress'), 'error');
+        return false;
+      }
       const existing = state.devices.order;
       const wanted = [...new Set(requestedOrder.filter((name) => existing.includes(name)))];
       const nextOrder = [...wanted, ...existing.filter((name) => !wanted.includes(name))];
       if (nextOrder.length !== existing.length || nextOrder.every((name, index) => name === existing[index])) return false;
       const previousOrder = [...existing];
-      commit((current) => ({ ...current, devices: { ...current.devices, order: nextOrder } }));
-      const deviceName = state.devices.selected || nextOrder[0];
-      const device = deviceName ? state.devices.byName[deviceName] : null;
-      if (!device) {
-        commit((current) => ({ ...current, devices: { ...current.devices, order: previousOrder } }));
+      commit((current) => ({
+        ...current,
+        devices: { ...current.devices, order: nextOrder },
+        hub: { ...current.hub, saving: true },
+      }));
+      try {
+        const body = await client.devices.reorder(entryId, nextOrder);
+        commit((current) => ({
+          ...current,
+          devices: { ...current.devices, order: body.device_order },
+          hub: { ...current.hub, saving: false, error: null },
+        }));
+        showToast(t('Device order saved'), 'success');
+        return true;
+      } catch (error) {
+        const message = /** @type {Error} */ (error).message || t('Network error');
+        commit((current) => ({
+          ...current,
+          devices: { ...current.devices, order: previousOrder },
+          hub: { ...current.hub, saving: false, error: message },
+        }));
+        showToast(message, 'error');
         return false;
       }
-      const saved = await actions.savePanels({
-        panels: device.panels,
-        toastMessage: t('Device order saved'),
-        deviceName,
-      });
-      if (!saved) {
-        commit((current) => ({ ...current, devices: { ...current.devices, order: previousOrder } }));
-      }
-      return saved;
     },
 
     showToast,
@@ -849,10 +1003,6 @@ export function createStore({ client, storage, onToast }) {
       return selectors.selected()?.status || null;
     },
 
-    /** @returns {PanelStore} */
-    panelStore() {
-      return panelStoreFromState(state);
-    },
   };
 
   return {

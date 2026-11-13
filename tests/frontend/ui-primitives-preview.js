@@ -1,8 +1,9 @@
 import { LitElement, html, css } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { haStyle, editorContainerStyles, editorStyles } from '../../custom_components/nspanel_haui/frontend/styles.js';
+import { previewStyles } from '../../custom_components/nspanel_haui/frontend/styles/preview-styles.js';
 import { icon } from '../../custom_components/nspanel_haui/frontend/ui/icon.js';
 import { button, iconButton, backButton } from '../../custom_components/nspanel_haui/frontend/ui/button.js';
-import { badge, chip, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
+import { badge, countBadge, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
 import { surface, sectionHeading } from '../../custom_components/nspanel_haui/frontend/ui/surface.js';
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
 import { sortHandle } from '../../custom_components/nspanel_haui/frontend/ui/sort-handle.js';
@@ -13,6 +14,8 @@ import { renderFooter } from '../../custom_components/nspanel_haui/frontend/tool
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
 import { sidebarFrame } from '../../custom_components/nspanel_haui/frontend/ui/sidebar.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
+import { updateProgress } from '../../custom_components/nspanel_haui/frontend/ui/update-progress.js';
+import { rolloutCard } from '../../custom_components/nspanel_haui/frontend/ui/rollout-card.js';
 
 const noop = () => {};
 const DIAGNOSTICS_DEMO = {
@@ -61,7 +64,7 @@ const DIAGNOSTICS_DEMO = {
 };
 
 class UiPrimitivesPreview extends LitElement {
-  static styles = [haStyle, editorContainerStyles, editorStyles, css`
+  static styles = [haStyle, editorContainerStyles, editorStyles, previewStyles, css`
     :host { min-height: 100vh; background: var(--primary-background-color, #f5f5f5); }
     .gallery { width: min(100% - 32px, 1200px); margin: 0 auto; padding: 24px 0; }
     .gallery > h1 { margin: 0 0 6px; font-size: 24px; }
@@ -80,16 +83,17 @@ class UiPrimitivesPreview extends LitElement {
       <p>Test-only page. It uses the shipped Lit renderers and editor styles; focus controls or resize the browser to inspect states.</p>
       <div class="gallery-grid">
         <section class="gallery-card"><h2>Icons and buttons</h2>
-          <div class="gallery-row">${icon('home')}${button({ label: 'Primary', iconName: 'check', variant: 'primary' })}${button({ label: 'Quiet', variant: 'quiet' })}${backButton({ label: 'Back' })}${iconButton({ label: 'Close', iconName: 'close' })}${iconButton({ label: 'Disabled', iconName: 'more', disabled: true })}</div>
+          <div class="gallery-row">${icon('home')}${button({ label: 'Primary', iconName: 'check', variant: 'primary' })}${button({ label: 'Quiet', variant: 'quiet' })}${backButton({ label: 'Back', onClick: () => {} })}${iconButton({ label: 'Close', iconName: 'close' })}${iconButton({ label: 'Disabled', iconName: 'more', disabled: true })}</div>
           <div class="gallery-row">${button({ label: 'Saving', busy: true })}${button({ label: 'Unavailable', disabled: true })}</div>
         </section>
-        <section class="gallery-card"><h2>Badges, chips and connection</h2>
-          <div class="gallery-row">${['neutral', 'primary', 'success', 'warning', 'danger'].map((tone) => badge(tone, tone))}${chip('Portrait', { iconName: 'monitor' })}</div>
+        <section class="gallery-card"><h2>Badges and connection</h2>
+          <div class="gallery-row">${['neutral', 'primary', 'success', 'warning', 'danger'].map((tone) => badge(tone, tone))}</div>
+          <div class="gallery-row">${countBadge(12)}${countBadge(3, { tone: 'warning' })}${countBadge(1, { tone: 'danger' })}${countBadge(4, { title: '4 items' })}</div>
           <div class="gallery-row">${statusDot('online', 'Online')}${statusDot('offline', 'Offline')}${statusDot('stale', 'Stale')}${statusDot('unknown', 'Unknown')}</div>
         </section>
         <section class="gallery-card"><h2>Surfaces</h2>
           <div class="gallery-stack">${surface({ title: 'Plain surface', subtitle: 'Header, subtitle and body', body: 'Example content' })}${surface({ title: 'Gradient', variant: 'gradient', body: 'Summary surface' })}${surface({ title: 'Flush', variant: 'flush', body: 'Table content' })}</div>
-          ${sectionHeading({ title: 'Section heading', subtitle: 'Optional subtitle', badge: badge('2', 'primary') })}
+          ${sectionHeading({ title: 'Section heading', subtitle: 'Optional subtitle', badge: countBadge(2) })}
         </section>
         <section class="gallery-card"><h2>Segmented control</h2>
           ${segmented({ label: 'Workspace view', value: 'preview', options: [{ label: 'Preview', value: 'preview' }, { label: 'Panels', value: 'panels', count: 3 }, { label: 'Disabled', value: 'disabled', disabled: true }], onSelect() {} })}
@@ -127,6 +131,32 @@ class UiPrimitivesPreview extends LitElement {
         </section>
         <section class="gallery-card"><h2>Device details and diagnostics expanded</h2>
           ${deviceDetails({ ...DIAGNOSTICS_DEMO, diagnosticsExpanded: true })}
+        </section>
+        <section class="gallery-card"><h2>Update progress: transferring, past its estimate, failed</h2>
+          ${updateProgress({ label: 'Display update', progress: {
+            phase: 'transferring', started_at: new Date(Date.now() - 300000).toISOString(),
+            phase_started_at: new Date(Date.now() - 240000).toISOString(), expected_seconds: 900 } })}
+          ${updateProgress({ label: 'Firmware update', progress: {
+            phase: 'verifying', started_at: new Date(Date.now() - 400000).toISOString(),
+            phase_started_at: new Date(Date.now() - 20000).toISOString(), expected_seconds: 180 } })}
+          ${updateProgress({ label: 'Display update', progress: {
+            phase: 'failed', started_at: null, phase_started_at: new Date().toISOString(), expected_seconds: 900 } })}
+        </section>
+        <section class="gallery-card"><h2>Update rollout: running, stopped</h2>
+          ${rolloutCard({
+            devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen' }, status: { update: { firmware_progress: {
+              phase: 'transferring', started_at: new Date(Date.now() - 60000).toISOString(),
+              phase_started_at: new Date(Date.now() - 50000).toISOString(), expected_seconds: 180 } } } }],
+            rollout: { id: 1, state: 'running', devices: [
+              { name: 'kitchen', kind: 'firmware', state: 'installing', error: null },
+              { name: 'office', kind: 'tft', state: 'queued', error: null },
+            ] },
+            onCancel() {},
+          })}
+          ${rolloutCard({ devices: [], rollout: { id: 2, state: 'stopped', devices: [
+            { name: 'kitchen', kind: 'firmware', state: 'failed', error: 'The panel did not reboot.' },
+            { name: 'office', kind: 'tft', state: 'not_started', error: null },
+          ] } })}
         </section>
         <section class="gallery-card"><h2>Persistent editor footer</h2>${renderFooter({})}</section>
       </div>

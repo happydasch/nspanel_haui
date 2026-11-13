@@ -18,7 +18,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
-- **Themes** are a shared library of predefined and custom palettes: the Theme sidebar on Preview selects one per device, edits shared semantic and state-icon colors, and imports or exports the library; existing panel and item colors stay explicit overrides until reset ([Themes](docs/user/configuration/themes.md)).
+- Editor saves now use scoped endpoints for one device's settings or panels, and a separate device-order endpoint; saving preserves other devices' data and reordering does not reload the hub.
+- **Themes** are a shared library of predefined and custom palettes: the Theme sidebar on Preview selects one per device, edits shared semantic and state-icon colors, and imports or exports the library; applying a theme leaves panel and item colors as explicit overrides ([Themes](docs/user/configuration/themes.md)).
+- Every panel, including editable popups, can override its color theme; an empty selection follows the device, and the selected theme colors the page, items and icons ([Panels](docs/user/configuration/panels.md), [Themes](docs/user/configuration/themes.md)).
 - The **Theme** section of the device settings selects the device's theme from the same predefined and custom dropdown, with **New theme**, **Export all** and **Import**; editing a theme's colors stays in the Theme sidebar ([Themes](docs/user/configuration/themes.md)).
 - Single swipes and multi-swipe sequences are one list, the device setting `gestures`: each gesture can step to the next or previous panel or open a panel, and saved `swipe_actions` and `gesture_sequences` are converted ([Gestures](docs/user/configuration/device.md#gestures)).
 - The **Schedule** and **Gestures** cards use consistent collapsible entry rows with summaries and counts; a newly added entry opens for editing.
@@ -56,6 +58,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   the `0.4.8` patch line; the cycle base is committed with
   `scripts/bump_version.py` and the Development Firmware workflow keeps it when
   it writes its run number.
+- Development firmware builds run CI on the version commit they push to `dev`, which also deploys its screen overview to the dev docs; the commit no longer carries a skip-CI trailer ([Release process](docs/develop/release.md#published-development-firmware)).
+- **Add panel** offers eight starter templates under **Start from a template**; a template opens in the editor with the entities it needs marked ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
+- The panel editor and the hub check each panel option against its type (entity domain, required entity, number range, choices, item limit, colour); a new or changed panel that breaks a rule cannot be saved, an unknown entity only warns, and older panels show **Check settings** ([The Panel Editor](docs/user/configuration/README.md#the-panel-editor)).
+- Automatic updates follow one hub-wide **Update policy** on Fleet that a device can override; devices that stored their own auto-install settings keep them as an override ([Updating](docs/user/update.md#one-update-policy-for-every-device)).
+- A failed automatic firmware or display install is retried after the policy's interval and stops after its attempt limit (3 by default) instead of retrying the firmware hourly forever and the display never ([Update Process](docs/develop/update-process.md#the-update-policy)).
+- An automatic firmware install waits 10 minutes first; the Updates sidebar can install it now, put it off by an hour or a day, or skip the version ([Update Process](docs/develop/update-process.md#firmware)).
+- **Install updates** on Fleet installs one device at a time on the hub, stops at the first failure and can cancel the devices still queued ([Update Process](docs/develop/update-process.md#installing-every-device-one-at-a-time)).
+- A running firmware or display install shows its step and an estimate of the time left in the Updates sidebar and on Fleet ([Update Process](docs/develop/update-process.md#progress)).
 
 ### Fixed
 
@@ -68,6 +78,16 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Panels: the idle-panel drag hint only appears when there are idle panels to reorder.
 - Hub log: a panel's missing entity is warned about once, until it exists again, instead of on every render, which filled the log and pushed every other message out.
 - Editor: a page left open across a Home Assistant restart that changed the editor reloads itself, instead of failing with "nspanel-simulator-frame has already been used" and showing a blank panel.
+- Hub: grid and row updates and light colour drags run on the device's worker instead of a second thread, entity service calls reach Home Assistant in order, and a slow weather forecast no longer stalls the panel.
+- Panels: a page no longer carries one panel's state into the next: the select popup forgets the previous popup's multiple selection and page, the unlock popup opens without the last code, light, weather and timer panels start from their own options, and a tap still being told apart from a swipe never reaches the next panel.
+- Cover, climate, media and vacuum panels show their controls again when their entity comes back after being unavailable, instead of keeping them hidden until the panel is opened again.
+- Connection: a panel that reboots without the hub timing out first is reported disconnected before it reconnects (`nspanel_haui.connection_changed` fires `false`, then `true`), so the update and idle handling reset as after any other drop.
+- Updates: a check always answers the editor and the update entity, also for a release without a title or notes (which used to break the check); a firmware install never starts during a TFT upload, nor a TFT upload during a firmware install, even when one began while the other's files were fetched.
+- Hub: a touch that recovers a lost page switch no longer leaves the page timeout armed to reload the page again 10 s later; a command the panel did not receive is sent again instead of being dropped as a duplicate; clearing the notifications closes an open notification list.
+- Updates: a working TFT install no longer shows the error of an earlier failed attempt in the update entity, and a TFT install or release list whose check a newer one replaced says so instead of acting on a manifest that may be stale; idle page: saving while a later idle panel of the carousel is shown keeps it the idle page, so a touch still leaves it.
+- Update notices: the release notice and the firmware install notice are queued notifications, so they never replace a notification you are reading; they appear in the notification list and fire `nspanel_haui.notification`, and the install notice leaves the queue when the install ends ([Update Process](docs/develop/update-process.md#on-the-display)).
+- Updates: a firmware or TFT install and the TFT release list always answer the editor and the update entity, also when they fail on the hub after fetching or when the device's app stops meanwhile, instead of leaving the request waiting forever.
+- Hub: every panel option, device setting and update setting has its default in one place (the panel type's option, `DEVICE_CONFIG`, `DEFAULT_CONFIG["update"]`); the pages and controllers no longer keep second copies, some of which had drifted from the declared default.
 
 ## [0.4.7] — 2026-11-11
 

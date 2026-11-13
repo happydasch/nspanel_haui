@@ -8,7 +8,6 @@ import { HauiDialog } from '../../custom_components/nspanel_haui/frontend/dialog
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 
-import { getTheme } from '../../custom_components/nspanel_haui/frontend/dialogs/theme.js';
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
 import { openThemeSidebar, saveTheme } from '../../custom_components/nspanel_haui/frontend/theme-editor.js';
 import { filterLogEntries, logEntries, logText } from '../../custom_components/nspanel_haui/frontend/dialogs/logs.js';
@@ -53,7 +52,6 @@ test('changing a color of a built-in theme switches to a custom copy and saves i
     _themeNotice: '',
     _autoThemeId: '',
     _keepThemeColors: false,
-    _resetPanelColors: false,
     requestUpdate() {},
   });
 
@@ -164,7 +162,6 @@ test('custom color themes can be saved, renamed, exported, and deleted', async (
     _nameAction: 'save-as',
     _themeName: 'Evening',
     _themeError: '',
-    _resetPanelColors: false,
     requestUpdate() {},
     hass: {
       fetchWithAuth: async (_url, options) => {
@@ -224,33 +221,146 @@ test('custom color themes can be saved, renamed, exported, and deleted', async (
   assert.equal(Object.hasOwn(dlg._customThemes, 'evening'), false);
   assert.equal(dlg.themeId, 'dark');
 });
-test('applying a theme clears legacy page-specific color overrides', async () => {
+test('changed count tolerates a theme with a missing icon variant', () => {
+  const dlg = document.createElement('nspanel-theme-sidebar');
+  const theme = {
+    name: 'Custom',
+    colors: { background: 10 },
+    icons: { dark: { weather: { sunny: 20 } } },
+  };
+  Object.assign(dlg, {
+    themeId: 'custom',
+    themeVariant: 'dark',
+    _originalThemeId: 'custom',
+    _originalThemeVariant: 'dark',
+    _themes: { custom: theme },
+    _colors: { background: 10 },
+    _icons: {
+      dark: { weather: { sunny: 20 } },
+      light: { weather: { sunny: 30 } },
+    },
+  });
+
+  assert.equal(dlg._changedCount(), 1);
+});
+
+test('reverting a changed color restores only that saved theme value', () => {
+  const dlg = document.createElement('nspanel-theme-sidebar');
+  const theme = {
+    name: 'Custom',
+    colors: { background: 10, text: 20 },
+    icons: {
+      dark: { weather: { sunny: 30 } },
+      light: { weather: { sunny: 40 } },
+    },
+  };
+  Object.assign(dlg, {
+    themeId: 'custom',
+    iconVariant: 'dark',
+    _themes: { custom: theme },
+    _colors: { background: 11, text: 21 },
+    _icons: structuredClone(theme.icons),
+    requestUpdate() {},
+  });
+  dlg._icons.dark.weather.sunny = 31;
+
+  dlg._resetColor('background');
+
+  assert.equal(dlg._colors.background, 10);
+  assert.equal(dlg._colors.text, 21);
+  assert.equal(dlg._icons.dark.weather.sunny, 31);
+});
+
+test('resetting the theme restores its saved colors and icons without changing panels', () => {
+  const dlg = document.createElement('nspanel-theme-sidebar');
+  const theme = {
+    name: 'Custom',
+    colors: { background: 10, text: 20 },
+    icons: {
+      dark: { weather: { sunny: 30 } },
+      light: { weather: { sunny: 40 } },
+    },
+  };
+  const panels = [{ items: [{ text_color: 100, back_color: 200 }] }];
+  Object.assign(dlg, {
+    themeId: 'custom',
+    _themes: { custom: theme },
+    _colors: { background: 11, text: 21 },
+    _icons: {
+      dark: { weather: { sunny: 31 } },
+      light: { weather: { sunny: 41 } },
+    },
+    panels,
+    requestUpdate() {},
+  });
+
+  dlg._resetTheme();
+
+  assert.deepEqual(dlg._colors, theme.colors);
+  assert.deepEqual(dlg._icons, theme.icons);
+  assert.strictEqual(dlg.panels, panels);
+  assert.deepEqual(panels, [{ items: [{ text_color: 100, back_color: 200 }] }]);
+});
+
+test('applying a theme saves settings separately and preserves panel color overrides', async () => {
   let savedPanels;
   let savedConfig;
+  let message;
+  const panels = [{
+    type: 'grid',
+    items: [{ text_color: 123, back_color: 456, color: 789 }],
+    keypad_bg_color: 42,
+    off_color: 11,
+  }];
   const host = {
     _selectedDevice: 'panel',
     _deviceConfig: {},
-    _devicePanels: () => [{
-      type: 'grid',
-      items: [{ text_color: 123, back_color: 456, color: 789 }],
-      keypad_bg_color: 42,
-      off_color: 11,
-    }],
-    _savePanels: async (panels, _message, config) => {
-      savedPanels = panels;
+    _devicePanels: () => panels,
+    _saveDeviceConfig: async (config, nextMessage) => {
       savedConfig = config;
+      message = nextMessage;
+      return true;
+    },
+    _savePanels: async () => assert.fail('Theme apply without reset must not save panels'),
+    store: { actions: { closeOverlay() {} } },
+    requestUpdate() {},
+  };
+
+  await saveTheme(host, { themeId: 'dark', themeVariant: 'dark' });
+
+  assert.equal(savedPanels, undefined);
+  assert.deepEqual(panels, [{
+    type: 'grid',
+    items: [{ text_color: 123, back_color: 456, color: 789 }],
+    keypad_bg_color: 42,
+    off_color: 11,
+  }]);
+  assert.equal(message, 'Theme applied');
+  assert.equal(savedConfig.theme_id, 'dark');
+});
+test('theme color reset saves settings first, then saves that device’s panels', async () => {
+  const calls = [];
+  const panels = [{ type: 'grid', key: 'one' }];
+  const host = {
+    _selectedDevice: 'panel',
+    _deviceConfig: {},
+    _devicePanels: () => panels,
+    _saveDeviceConfig: async (config, message) => {
+      calls.push(['settings', config.theme_id, message]);
+      return true;
+    },
+    _savePanels: async (saved, message) => {
+      calls.push(['panels', saved, message]);
       return true;
     },
     store: { actions: { closeOverlay() {} } },
     requestUpdate() {},
   };
 
-  await saveTheme(host, { themeId: 'dark', resetPanelColors: true, themeVariant: 'dark' });
+  await saveTheme(host, { themeId: 'dark', themeVariant: 'dark', resetPanelColors: true });
 
-  assert.equal('theme_overrides' in savedConfig, false);
-  assert.equal('text_color' in savedPanels[0].items[0], false);
-  assert.equal('back_color' in savedPanels[0].items[0], false);
-  assert.equal(savedPanels[0].items[0].color, 789);
-  assert.equal('keypad_bg_color' in savedPanels[0], false);
-  assert.equal('off_color' in savedPanels[0], false);
+  assert.deepEqual(calls, [
+    ['settings', 'dark', 'Theme applied'],
+    ['panels', panels, ''],
+  ]);
 });

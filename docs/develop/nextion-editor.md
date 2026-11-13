@@ -44,9 +44,8 @@ noVNC under `build/novnc/`. The VM defaults to `192.168.65.2:5900`; set
 local port. The page listens on `127.0.0.1` only, and the VM's VNC password
 still applies. Stop the bridge with `Ctrl+C`.
 
-The HMI is a binary project file — open it in the Nextion Editor, never edit it
-by hand. Choose the project variant matching the NSPanel's display
-(480 × 320 landscape).
+The HMI is a binary project file — open it in the Nextion Editor; scripts patch
+only what [§7](#7-creating-the-us-portrait-tft) describes.
 
 **Verification command for a landscape HMI:**
 
@@ -60,13 +59,11 @@ Use the matching `-i` for the portrait HMI (see
 different `-o` folder (e.g. `build/nextion-out/portrait`). `build/` is
 git-ignored — safe to regenerate.
 
-
-
 ## 3. The sync contract between HMI and Python
 
 The hub renders the display by name (`tHeader.txt="..."`) and maps touches by
 **id + object name**. Every widget the Python side touches must exist in the
-HMI with matching coordinates of truth:
+HMI with the same id and name:
 
 | HMI side | Python side |
 |----------|-------------|
@@ -113,9 +110,9 @@ Example: if the HMI page `clock` has widget `tTime` with id `3`, Python has
 - **Respect the visible area.** The landscape panel is 480 × 320 px but the
   bezel hides the rightmost 30 px — keep interactive/important content left of
   x = 450 (see [Nextion Component](nextion.md#nextion-display-configuration-used-in-this-project)).
-- **Version text lives in the HMI too.** If a page (e.g. System/About) shows
-  a version, keep it in sync with `custom_components/nspanel_haui/manifest.json`
-  and `esphome/nspanel_haui/version.yaml` on release.
+- **The TFT version lives in the HMI too.** `system.tftVersion` in both HMIs
+  must equal the TFT version in `esphome/nspanel_haui/version.yaml`;
+  `bump_version --tft-update` writes it (see [§8](#8-after-any-hmi-change-scripts-to-run), step 3).
 
 ## 4. Typical workflow: change an existing widget
 
@@ -179,8 +176,7 @@ No Python changes are needed unless you also change the object name or id.
 4. In Python, create `haui/page/dehumidifier.py` with a `HAUIPage` subclass,
    a `COMPONENTS` registry, and a `DESCRIPTOR` (unique `type_key`,
    `page_id`/`page_name` matching the editor, `label`/`description` via `_()`).
-5. Register it in `haui/mapping/panel.py` (`_page_classes` list) — the
-   registration logic itself is closed for modification.
+5. Register it in `haui/mapping/panel.py` (`_page_classes` list).
 6. Set `DESCRIPTOR.page_id` to the physical Nextion page — the editor's shared
    Nextion-simulator preview resolves it automatically. Document the panel in
    `docs/user/panels/panel_<key>.md` and run the checks.
@@ -203,8 +199,9 @@ No Python changes are needed unless you also change the object name or id.
   has.
 - **Pictures/backgrounds** live in `nextion/images/` (`bkg/`, `grid_landscape.png`,
   `grid_portrait.png`, …).
-  Backgrounds are imported as picture resources; the hub sets `.pic`/`.picc`
-  from `haui/mapping/`. Some pages (About, Clock, Clock Two, Weather) are
+  Backgrounds are imported as picture resources; the hub picks them from
+  `haui/mapping/background.py` and sends them before the page switch
+  (`page_load_commands`). Some pages (About, Clock, Clock Two, Weather) are
   **entirely picture-background based** — their look is the PNG, not widgets.
   The background tiles are generated: put the source picture in
   `nextion/src_images/bkg/`, named after its key in
@@ -255,8 +252,8 @@ the result alongside the landscape TFT on every release.
    ```
 
    The check fails when a widget exists on only one side, so a widget added
-   to the landscape project needs its `PORTRAIT_LAYOUT` entry first. It now
-   also verifies attribute values (alignment, font, …) against the spec, so a
+   to the landscape project needs its `PORTRAIT_LAYOUT` entry first. It also
+   verifies attribute values (alignment, font, …) against the spec, so a
    change to `PORTRAIT_ATTRS` cannot pass while the committed HMI still has
    the old value. Only x/y/w/h (plus the page size) and the spec's attribute
    overrides change; names, ids and `sendme` are untouched, and every widget's
@@ -283,7 +280,7 @@ the result alongside the landscape TFT on every release.
      `COMPONENTS` registries accordingly — the hub must address the portrait
      page with the same names/ids it addresses the landscape one (the page id
      and name are the same; only the TFT asset differs).
-4. Compile (`Build`) → `nextion/nspanel_haui_portrait.tft`.
+4. `Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`.
 5. Re-dump the portrait HMI and diff the component names against the Python
    registries.
 6. Nothing to mirror for the editor: the panel previews are rendered by the
@@ -432,8 +429,8 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    right TFT for `display_model: us`.
 
 The docs' screen overview (`docs/assets/screens/`, `docs/screens.html`) is
-regenerated by the `Screens` workflow after each development firmware build,
-so don't commit it by hand. To see every card locally, run
+regenerated by the `Development Firmware` workflow with each development build
+(or its `screens_only` run), so don't commit it by hand. To see every card locally, run
 `python -m scripts.preview_gallery.gen_preview_gallery --serve`. A release
 ships both TFTs and both HMI sources together; the version places and gates are
 in [Release process & strategy](release.md).

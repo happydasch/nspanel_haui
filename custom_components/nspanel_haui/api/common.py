@@ -21,15 +21,21 @@ ALL_DEVICES = "*"
 class ApiError(Exception):
     """A refused request; ``api_errors`` answers it with the error response."""
 
-    def __init__(self, message: str, status_code: int) -> None:
+    def __init__(self, message: str, status_code: int, details: dict | None = None) -> None:
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.details = details or {}
 
 
-def error(view: HomeAssistantView, message: str, status_code: int):
-    """Build the ``{"status": "error", "message": ...}`` response used by all views."""
-    return view.json({"status": "error", "message": message}, status_code=status_code)
+def error(view: HomeAssistantView, message: str, status_code: int, details: dict | None = None):
+    """Build the ``{"status": "error", "message": ...}`` response used by all views.
+
+    ``details`` adds fields to the body, e.g. the ``errors`` of a refused panel save.
+    """
+    return view.json(
+        {"status": "error", "message": message, **(details or {})}, status_code=status_code
+    )
 
 
 def api_errors(
@@ -42,7 +48,7 @@ def api_errors(
         try:
             return await handler(view, request, *args, **kwargs)
         except ApiError as exc:
-            return error(view, exc.message, exc.status_code)
+            return error(view, exc.message, exc.status_code, exc.details)
 
     return wrapper
 
@@ -130,6 +136,34 @@ async def for_each_app(
         else:
             done.append(name)
     return done, failed
+
+
+def used_theme_ids(store: dict[str, Any]) -> set[str]:
+    """Return custom theme IDs referenced by device settings or panel configs."""
+    used: set[str] = set()
+    for device in store.get("devices", {}).values():
+        if not isinstance(device, dict):
+            continue
+        config = device.get("config", {})
+        if isinstance(config, dict):
+            theme_id = config.get("theme_id", "dark")
+            if isinstance(theme_id, str) and theme_id:
+                used.add(theme_id)
+        for panel in device.get("panels", []):
+            if isinstance(panel, dict):
+                theme_id = panel.get("theme_id", "")
+                if isinstance(theme_id, str) and theme_id:
+                    used.add(theme_id)
+    return used
+
+
+def ensure_known_theme_ids(store: dict[str, Any], themes: dict[str, Any]) -> None:
+    """Reject device or panel references to a theme absent from the library."""
+    from ..haui.mapping.color import BUILTIN_THEMES
+
+    unknown = used_theme_ids(store) - set(BUILTIN_THEMES) - set(themes)
+    if unknown:
+        raise ApiError(f"Unknown color theme {sorted(unknown)[0]!r}", 400)
 
 
 def now_iso() -> str:

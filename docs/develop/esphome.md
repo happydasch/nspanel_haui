@@ -8,8 +8,7 @@ description: ESPHome configuration, scripts, events, and actions for the NSPanel
 The NSPanel runs on an ESP32 with ESPHome, which exposes it to Home Assistant. The release firmware (`nspanel_haui.bin`) needs no ESPHome installation — the hub connects through Home Assistant's built-in ESPHome integration. ESPHome is only needed for **local development or a local firmware build**:
 
 - ESPHome 2026.10 or later (`min_version` in `esphome/nspanel_haui/base.yaml`).
-- A **temporary vendored patch** of the stock `nextion` component. The numeric-response fix ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) that the firmware's `read_response` path relies on missed the 2026.10.0 release and only ships in ESPHome 2026.11.0; `esphome/nextion_patch/` also carries the TFT upload TX buffer option ([esphome#21435](https://github.com/esphome/esphome/pull/21435)) and a TFT-upload retry fix that is not upstream yet. The configs override the stock component through `external_components` — a git source for installed setups, a local source for the universal/dev configs. Remove the patch and its override blocks once a released ESPHome contains every fix in `esphome/nextion_patch/README.md`, and bump `min_version` with it.
-- Scripts and actions for display communication and device functionality.
+- A **temporary vendored patch** of the stock `nextion` component in `esphome/nextion_patch/`: the numeric-response fix ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) that the firmware's `read_response` path relies on and the TFT upload TX buffer option ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), both merged after the 2026.10.0 release, plus a TFT-upload retry fix that is not upstream yet. The configs override the stock component through `external_components` — a git source for installed setups, a local source for the universal/dev configs. Remove the patch and its override blocks once a released ESPHome contains every fix in `esphome/nextion_patch/README.md`, and bump `min_version` with it.
 
 Device ↔ hub communication uses ESPHome Native API events.
 
@@ -99,7 +98,7 @@ Defined in `esphome/nspanel_haui/globals.yaml`:
 
 Defined in `esphome/nspanel_haui/scripts_connection.yaml`:
 
-- `set_hub_connected(connected, force)` — a disconnect (`connected = 0`) is skipped while other API clients remain unless `force = 1`; hub-initiated close and device-detected timeouts are forced, while the last-client API callback is not. Updates `hub_connection`, records its transition time for the brightness grace, anchors/resets `hub_heartbeat`, writes `system.firstRun.txt="0"` on connect, and publishes the `client_status` sensor. The firmware pins page 0 (System) while disconnected, holds full brightness for `timeout_dim` plus the configured ramp, then dims if auto-dimming is enabled. It does not turn brightness off or enter hardware sleep automatically while disconnected. Reconnect gets the same full-brightness grace before normal inactivity behavior resumes.
+- `set_hub_connected(connected, force)` — a disconnect (`connected = 0`) is skipped while other API clients remain unless `force = 1`; hub-initiated close and device-detected timeouts are forced, while the last-client API callback is not. Updates `hub_connection`, records its transition time for the brightness grace, anchors/resets `hub_heartbeat`, writes `system.firstRun.txt="0"` on connect, wakes the display on disconnect, and publishes the `client_status` sensor. What the display does while disconnected is described under [Brightness and Dimming](#brightness-and-dimming).
 - `check_hub_connection` — runs every 100 ms; detects a heartbeat timeout (`heartbeat_interval × 2`) or hub unavailability.
 - `check_connection` — runs every 100 ms; sends `req_connection` when disconnected but the hub is available, with a 10 s cooldown.
 
@@ -114,7 +113,7 @@ Device → hub events, published under the `esphome.` prefix (`esphome.heartbeat
 | `res_connection` | JSON: `heartbeat_interval`. Reply to `hub_connection_response`. |
 | `res_device_state` | JSON: `page`, `brightness`, `button_left`, `button_right`, `relay_left`, `relay_right`, `use_relay_left`, `use_relay_right`, `display_state`, `yaml_version`, `tft_required_version`, `tft_version`, `ssid`, `rssi`, `firmware_variant` (`universal` or `custom`). Reply to `req_device_state`. |
 | `read_response` | JSON: `name`, `type` (`"number"` or `"text"`), `value`. Reply to `req_val` / `req_txt`. |
-| `connected` | Empty. Sent after the connection was established. |
+| `connected` | Empty. Sent whenever the device's overall connection state (display initialized, API client, hub available, handshake done) changes, on connect and on disconnect. |
 | `display_off` / `display_on` | Empty. Explicit hardware sleep/wake actions; the automatic display state machine does not hardware-sleep the display. |
 | `page` | New page id. A new page was opened. |
 | `component` | `page_id,component_id,touch_event`. A Nextion component was touched. |
@@ -149,7 +148,7 @@ Hub → device actions (ESPHome Native API service calls):
 | `goto_page` (`page`) | Switch the active display page. |
 | `set_brightness` (`intensity`) | Change display brightness. |
 | `display_off` / `display_on` | Hardware sleep/wake (no-hub path). |
-| `install_firmware_url` (`url`, `md5sum`) | Flash the OTA image at `url`. The hub sends it for every firmware install; use `nspanel_haui.update_firmware`, the **HAUI Firmware** entity or the editor's **Install firmware** picker instead — they track the install. |
+| `install_firmware_url` (`url`, `md5sum`) | Flash the OTA image at `url`. The hub sends it for every firmware install; use `nspanel_haui.update_firmware`, the **HAUI Firmware** entity or the editor's **Updates** sidebar instead — they track the install. |
 | `upload_tft_url` (`url`) | Update the TFT from a URL. The hub sends it; use `nspanel_haui.update_tft` (optionally with `url`) or the **HAUI Display** entity instead. |
 | `play_rtttl` (`song_str`) | Play any standard RTTTL string (`name:d=...,o=...,b=...:notes`). |
 | `play_sound` (`name`) | Play a built-in sound (list below). |
@@ -217,8 +216,6 @@ stateDiagram-v2
     Off --> On: touch / button / reconnect grace
 ```
 
-While disconnected, this state machine has no `Off` transition: page 0 (System) stays visible, and the display only dims after the connection grace when auto-dimming is enabled.
-
 Sensors and numbers (values are restored on reboot; a timeout > 0 activates it):
 
 - `brightness` (0–100, disabled by default): current brightness, the last value set by the device (not read back from the Nextion).
@@ -249,7 +246,6 @@ The production package and universal release image expose the diagnostic entitie
 - `Client Status`: `online` / `offline`, the hub connection state.
 - WiFi information: IP, SSID and RSSI; BSSID is disabled by default.
 - `Touch` and `Brightness`: current touch activity and display brightness; both are disabled by default.
-- `TFT Version`: read by the firmware from the display and sent to the hub through the device-state protocol; it is not exposed as a Home Assistant entity.
 
 ### Exposed sensors (curated set)
 
@@ -262,11 +258,11 @@ When a sensor value is needed by both firmware and HAUI, keep the ESPHome `id:` 
 | `binary_sensor.nspanel_kitchen_touch` | A touch is currently active on the display; disabled by default |
 | `binary_sensor.nspanel_kitchen_button_left` / `..._button_right` | Physical relay buttons (diagnostic) |
 | `sensor.nspanel_kitchen_ip` / `..._ssid` / `..._rssi` | WiFi/network info; also read by the editor's device status |
-| `text_sensor.nspanel_kitchen_client_status` | `online` / `offline`, the hub connection state |
+| `sensor.nspanel_kitchen_client_status` | `online` / `offline`, the hub connection state |
 | `sensor.nspanel_kitchen_current_page` / `..._current_page_number` | Nextion page name / id the display shows; disabled by default (see [Page](#page)) |
-| `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100); disabled by default |
+| `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the firmware set, 0–100); disabled by default |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
 
-The firmware-only readback components `touch_x`, `touch_y`, `tft_version`, `req_val_component`, `req_txt_component`, `res_txt` and `res_val` are marked `internal: true`. They support the firmware ↔ hub pipeline and are not Home Assistant entities; their number and text values are published through the unified `esphome.read_response` event, so no sensor is needed per value. The inactivity timer uses a rollover-safe `millis()` clock inside the firmware; changing timeout or brightness settings never resets it. The current page sensors, the `touch` binary sensor, the `brightness` sensor, the WiFi BSSID and the temperature calculation's `adc` and `resistance` sensors are instead `disabled_by_default: true`; they are not enabled as entities by default, but are not marked internal.
+The firmware-only readback components `touch_x`, `touch_y`, `tft_version`, `req_val_component`, `req_txt_component`, `res_txt` and `res_val` are marked `internal: true`. They support the firmware ↔ hub pipeline and are not Home Assistant entities; their number and text values are published through the unified `esphome.read_response` event, so no sensor is needed per value. The display reports `tft_version` through the device-state protocol. The current page sensors, the `touch` binary sensor, the `brightness` sensor, the WiFi BSSID and the temperature calculation's `adc` and `resistance` sensors are instead `disabled_by_default: true`; they are not enabled as entities by default, but are not marked internal.
 
 The hub resolves the built-in temperature entity through the entity registry using ESPHome's authored name (`Temperature`), so the example entity ID above is not a stable identifier. A renamed device or HA area-prefixed entity ID (e.g. `sensor.nspanel_bedroom_temperature` on a device called "NSPanel Bedroom") does not break the clock and weather panels. A clock/weather panel can also override the sensor per panel with the editor's **Inside temperature sensor** picker, e.g. to show a room sensor's value instead.

@@ -57,6 +57,7 @@ class VacuumPage(HAUIPage):
                 key="item",
                 kind="item",
                 domain="vacuum",
+                required=True,
                 description=_("Vacuum robot entity for starting, stopping and returning to dock."),
                 section=_("Vacuum"),
             ),
@@ -132,7 +133,7 @@ class VacuumPage(HAUIPage):
         self.listen_items(self._items, self.update_item_buttons)
         # optional battery sensor: vacuum entities no longer report the
         # battery_level / battery_icon attributes (deprecated in Home Assistant)
-        battery_sensor = panel.get("battery_sensor", None)
+        battery_sensor = self.option(panel, "battery_sensor")
         if isinstance(battery_sensor, list):
             battery_sensor = battery_sensor[0] if battery_sensor else None
         self._battery_item = self._item_from_ref(battery_sensor)
@@ -240,6 +241,7 @@ class VacuumPage(HAUIPage):
         state = item.get_item_state()
         for component, flag in (
             (self.COMPONENTS.btn_fan, VacuumFeatures.FAN_SPEED),
+            (self.COMPONENTS.btn_action, VacuumFeatures.START),
             (self.COMPONENTS.btn_home, VacuumFeatures.RETURN_HOME),
             (self.COMPONENTS.btn_locate, VacuumFeatures.LOCATE),
         ):

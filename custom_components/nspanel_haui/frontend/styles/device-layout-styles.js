@@ -28,7 +28,7 @@ export const deviceLayoutStyles = css`
   .haui-device-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr); grid-template-areas: "workspace side"; align-items: start; gap: 16px 20px; }
   .haui-device-side { position: sticky; top: 18px; display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
   .haui-device-lead { min-width: 0; grid-area: lead; }
-    .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); transition: background 150ms ease, border-color 150ms ease; }
+  .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); transition: background 150ms ease, border-color 150ms ease; }
   .haui-device-workspace.is-live { border-color: var(--haui-live-border); background: var(--haui-live-surface); }
   .haui-device-workspace.is-live .haui-workspace-header { border-color: var(--haui-live-border); }
   .haui-device-side-stack { display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
@@ -135,7 +135,8 @@ export const deviceLayoutStyles = css`
     /* The device switch already names the selected device. */
     .haui-device-head:has(.haui-device-switch) h1 { display: none; }
     .haui-device-workspace .haui-workspace-header { gap: 8px; padding: 8px 12px; }
-    .haui-segmented-option > ha-icon { display: none; }
+    /* Only the view toggle: the catalog's layout toggle is icon-only. */
+    .haui-workspace-header .haui-segmented-option > ha-icon { display: none; }
     .haui-device-workspace .haui-preview-controls { gap: 4px; }
     .haui-device-workspace .haui-preview-controls .haui-preview-tool { box-sizing: border-box; width: 32px; height: 32px; justify-content: center; padding: 0; }
     .haui-device-workspace .haui-preview-controls .haui-preview-tool > span { display: none; }

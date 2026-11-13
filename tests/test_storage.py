@@ -24,7 +24,13 @@ from custom_components.nspanel_haui.hub.storage import (  # noqa: E402
 
 
 def test_empty_store_has_an_empty_device_order() -> None:
-    assert empty_store() == {"version": 1, "device_order": [], "devices": {}, "themes": {}}
+    assert empty_store() == {
+        "version": 1,
+        "device_order": [],
+        "devices": {},
+        "themes": {},
+        "update_policy": {},
+    }
 
 
 def test_normalize_device_order_preserves_valid_order_and_appends_new_devices() -> None:

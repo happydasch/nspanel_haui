@@ -99,6 +99,19 @@ export const firmwareStyles = css`  /* ── Updates sidebar ──────
   .haui-update-set { font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
   .haui-update-advanced > .haui-update-field { margin-top: 8px; }
   .haui-update-off-note { margin: 0; padding: 12px 16px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-update-retry { margin: 0; padding: 8px 16px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-update-retry.is-stopped { color: var(--error-color, #db4437); }
+  .haui-update-policy-fields { display: grid; gap: 12px; padding: 12px 16px; }
+  .haui-update-scheduled { display: grid; gap: 8px; padding: 12px 16px; }
+  .haui-update-scheduled p { margin: 0; font-size: var(--haui-text-body); }
+  .haui-update-scheduled-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .haui-update-progress { display: grid; gap: 8px; padding: 12px 16px; }
+  .haui-update-steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: var(--haui-text-caption); color: var(--secondary-text-color); }
+  .haui-update-steps li.is-current { color: var(--primary-text-color); font-weight: 600; }
+  .haui-update-progress-bar { height: 4px; border-radius: var(--haui-radius-pill); background: var(--divider-color, #e0e0e0); overflow: hidden; }
+  .haui-update-progress-bar span { display: block; height: 100%; width: var(--haui-update-progress, 0%); background: var(--primary-color, #03a9f4); }
+  .haui-update-progress-time { margin: 0; font-size: var(--haui-text-caption); color: var(--secondary-text-color); }
+  .haui-update-progress.is-failed .haui-update-progress-time { color: var(--error-color, #db4437); }
   /* The install picker takes the card look of the sidebar it opens in. */
   .haui-firmware-sidebar .haui-update-picker { padding: 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--haui-card-background); }
 `;

@@ -6,7 +6,7 @@ import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 import { t } from '../localize.js';
-import { renderSelect, renderToggle } from '../form-fields.js';
+import { renderSelect } from '../form-fields.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
 import { themeSelectorStyles } from '../styles/theme-selector-styles.js';
 import { themeSidebarStyles } from '../styles/theme-sidebar-styles.js';
@@ -29,13 +29,6 @@ async function ensureColorDefaults(api) {
   if (_themeDefaults) return;
   _themeDefaults = await api.editor.colorDefaults();
 }
-
-export function getTheme(themeId, themes) {
-  const theme = themes?.[themeId];
-  if (!theme) throw new Error(`Unknown color theme: ${themeId}`);
-  return theme.colors;
-}
-
 
 /* Groups: [key, friendly label]. All swatches use the same rounded-rectangle shape. */
 function getColorGroups() {
@@ -124,7 +117,6 @@ class ThemeSidebar extends HauiDialog {
       themeId: { type: String },
       iconVariant: { type: String },
       entryId: { type: String },
-      panels: { type: Array },
       api: { type: Object },
     };
   }
@@ -134,7 +126,6 @@ class ThemeSidebar extends HauiDialog {
     this.themeVariant = "dark";
     this.themeId = "dark";
     this.entryId = "";
-    this.panels = [];
     this.iconVariant = "dark";
     this._colors = {};
     this._icons = {};
@@ -142,7 +133,6 @@ class ThemeSidebar extends HauiDialog {
     this._builtins = {};
     this._customThemes = {};
     this._loading = false;
-    this._resetPanelColors = false;
     this._themeName = "";
     this._nameAction = "";
     this._themeError = "";
@@ -158,7 +148,6 @@ class ThemeSidebar extends HauiDialog {
       this._originalThemeId = this.themeId;
       this._originalThemeVariant = this.themeVariant;
       this._loadThemes();
-      this._resetPanelColors = false;
       this._edited = false;
     } else if (changed.has("themeId") && this._keepThemeColors) {
       // _customizeTheme() keeps the palette being edited; rebuilding would drop the change.
@@ -246,27 +235,6 @@ class ThemeSidebar extends HauiDialog {
     this.requestUpdate();
   }
 
-  _panelColorOverrideCount() {
-    const fields = new Set([
-      "text_color", "back_color", "color_pressed", "back_color_pressed", "power_color",
-      "keypad_bg_color", "keypad_text_color", "arm_button_color", "arm_button_back_color",
-      "disarm_button_color", "disarm_button_back_color", "off_color", "letter_color", "special_color",
-    ]);
-    let count = 0;
-    const visit = (value) => {
-      if (Array.isArray(value)) {
-        value.forEach(visit);
-      } else if (value && typeof value === "object") {
-        for (const [key, child] of Object.entries(value)) {
-          if (fields.has(key)) count++;
-          else visit(child);
-        }
-      }
-    };
-    visit(this.panels);
-    return count;
-  }
-
   _isBuiltin() {
     return Object.hasOwn(this._builtins, this.themeId);
   }
@@ -298,10 +266,11 @@ class ThemeSidebar extends HauiDialog {
   _changedCount() {
     let count = 0;
     for (const key of Object.keys(this._colors)) if (this._isModified(key)) count++;
+    const themes = this._themeData();
     for (const variant of ["dark", "light"]) {
       for (const [domain, states] of Object.entries(this._icons[variant] || {})) {
         for (const state of Object.keys(states)) {
-          if (this._icons[variant][domain][state] !== this._themeData().icons[variant][domain][state]) count++;
+          if (this._icons[variant][domain][state] !== themes.icons?.[variant]?.[domain]?.[state]) count++;
         }
       }
     }
@@ -350,11 +319,10 @@ class ThemeSidebar extends HauiDialog {
     this.requestUpdate();
   }
 
-  _resetAll() {
+  _resetTheme() {
     const theme = this._themeData();
     this._colors = { ...theme.colors };
     this._icons = JSON.parse(JSON.stringify(theme.icons));
-    this._resetPanelColors = true;
     this._edited = true;
     this.requestUpdate();
   }
@@ -475,7 +443,6 @@ class ThemeSidebar extends HauiDialog {
     this._emit("dialog-save", {
       themeId: this.themeId,
       themeVariant: this.themeVariant,
-      resetPanelColors: this._resetPanelColors,
     });
   }
 
@@ -569,7 +536,7 @@ class ThemeSidebar extends HauiDialog {
                   ? html`
                       <ha-icon-button
                         class="haui-color-reset"
-                        title="${t("Reset to default")}"
+                        title="${t("Revert to theme color")}"
                         @click=${() => this._resetColor(key)}
                       >
                         <ha-icon icon="mdi:undo-variant"></ha-icon>
@@ -659,23 +626,6 @@ class ThemeSidebar extends HauiDialog {
               <p class="haui-config-section-intro">
                 ${t("Changes update the selected theme and are shared by devices using it.")}
               </p>
-              ${this._panelColorOverrideCount() > 0
-                ? html`
-                    <div class="haui-checkbox-wrap">
-                      <div class="haui-checkbox-row">
-                        ${renderToggle("cp-reset-overrides", this._resetPanelColors, (checked) => {
-                          this._resetPanelColors = checked;
-                        })}
-                        <label for="cp-reset-overrides">
-                          ${t("Reset existing panel and item color overrides when applying this theme")}
-                        </label>
-                      </div>
-                      <div class="haui-field-hint">
-                        ${t("Panel and item color overrides still take precedence until they are reset.")}
-                      </div>
-                    </div>
-                  `
-                : nothing}
               ${getColorGroups().map((group) => this._renderGroup(group))}
             </div>
           </details>
@@ -686,10 +636,10 @@ class ThemeSidebar extends HauiDialog {
             <ha-button
               variant="neutral"
               appearance="plain"
-              .disabled=${changed === 0 && this._panelColorOverrideCount() === 0}
-              @click=${this._resetAll}
+              .disabled=${changed === 0}
+              @click=${this._resetTheme}
             >
-              ${t("Reset colors")}
+              ${t("Reset theme")}
             </ha-button>
             ${changed > 0
               ? html`<span class="haui-footer-changed">${t("{count} changed").replace("{count}", changed)}</span>`
@@ -710,9 +660,7 @@ class ThemeSidebar extends HauiDialog {
               .disabled=${!this._themeData()}
               @click=${this._dispatchSave}
             >
-              ${this._resetPanelColors
-                ? t("Apply theme and reset custom colors")
-                : t("Apply theme")}
+              ${t("Apply theme")}
             </ha-button>
           </ha-dialog-footer>
         </div>

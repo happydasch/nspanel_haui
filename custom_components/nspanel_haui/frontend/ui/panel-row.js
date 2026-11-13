@@ -1,6 +1,7 @@
 // @ts-check
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
+import { badge } from './badge.js';
 
 /** Whether a drag sits over the lower half of a row: the drop lands after it. */
 export function dropsAfter(event) {
@@ -21,12 +22,13 @@ const OWN_CLICK = 'button, a, input, select, textarea, label, [role="menu"], [ro
  * @param {{ key?: string, group: string, title: unknown, typeLabel?: string, keyLabel?: string,
  *   itemCount?: number, thumbnail?: unknown, handle?: unknown, actions?: unknown,
  *   lockReason?: string, menu?: unknown, selected?: boolean, onEdit?: (() => void)|null,
- *   onSelect?: (() => void)|null, onDrop?: ((sourceKey: string, after: boolean) => void)|null }} options
+ *   onSelect?: (() => void)|null, onDrop?: ((sourceKey: string, after: boolean) => void)|null,
+ *   invalid?: boolean }} options - `invalid`: the saved panel breaks a rule of its type
  */
 export function panelRow({
   key = '', group, title, typeLabel = '', keyLabel = '', itemCount, thumbnail = nothing,
   handle = nothing, actions = nothing, lockReason = '', menu = nothing, selected = false,
-  onEdit = null, onSelect = null, onDrop = null,
+  onEdit = null, onSelect = null, onDrop = null, invalid = false,
 }) {
   const selectOnClick = onSelect ? (event) => {
     if (/** @type {Element} */ (event.target).closest?.(OWN_CLICK)) return;
@@ -75,6 +77,7 @@ export function panelRow({
         ?disabled=${!onEdit} @click=${onEdit ?? nothing}>${title}</button>
       ${typeLabel ? html`<span class="haui-panel-row-sub">${typeLabel}</span>` : nothing}
       ${lockReason ? html`<span class="haui-panel-row-lock">${lockReason}</span>` : nothing}
+      ${invalid ? badge(t('Check settings'), 'warning', 'haui-panel-row-invalid') : nothing}
     </div>
     <code class="haui-panel-row-key">${keyLabel || key || t('Auto key')}</code>
     <span class="haui-panel-row-count">${countLabel}</span>

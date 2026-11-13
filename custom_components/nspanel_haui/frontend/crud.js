@@ -73,6 +73,26 @@ export function openAddFrom(host, source) {
   openPanelDialog(host, -1, data, data.type);
 }
 
+/**
+ * Open the editor for a new panel that starts from a starter template, under a
+ * key that is free on this device. The slots' preview-only `domain` hints are
+ * dropped; their empty entities stay for the user to choose.
+ *
+ * @param {any} host - editor component
+ * @param {any} template - the template's panel config (keyless)
+ */
+export function openAddFromTemplate(host, template) {
+  const data = clone(template);
+  for (const value of Object.values(data)) {
+    if (!Array.isArray(value)) continue;
+    for (const entry of value) {
+      if (entry && typeof entry === 'object') delete entry.domain;
+    }
+  }
+  data.key = generateAutoKey(host._devicePanels(), data.type);
+  openPanelDialog(host, -1, data, data.type);
+}
+
 export function openEdit(host, index) {
   const panels = host._devicePanels();
   if (index < 0 || index >= panels.length) {
@@ -397,18 +417,18 @@ export function toggleNavVisibility(host, panelKey) {
  * The store only changes once the server accepts the save; the dialog closes
  * here because that is UI state.
  *
- * `deviceName` defaults to the selected device.
+/**
+ * Save one device's panels; other device data is never part of this write.
  *
  * @returns {Promise<boolean>} whether the save was accepted
  */
 export async function savePanels(
-  host, newPanels, toastMessage, deviceConfig = host._deviceConfig, deviceName = host._selectedDevice
+  host, newPanels, toastMessage, deviceName = host._selectedDevice
 ) {
   if (!deviceName || !host.entryId) return false;
   const saved = await host.store.actions.savePanels({
     panels: newPanels,
     toastMessage,
-    deviceConfig,
     deviceName,
   });
   if (saved) {
@@ -418,6 +438,21 @@ export async function savePanels(
     host._error = null;
   } else {
     host._error = host.store.getState().hub.error;
+    host._serverErrors = host.store.getState().hub.fieldErrors;
   }
+  return saved;
+}
+
+/** Save one device's settings without including its panels. */
+export async function saveDeviceConfig(
+  host, deviceConfig, toastMessage, deviceName = host._selectedDevice
+) {
+  if (!deviceName || !host.entryId) return false;
+  const saved = await host.store.actions.saveDeviceConfig({
+    deviceConfig,
+    toastMessage,
+    deviceName,
+  });
+  host._error = saved ? null : host.store.getState().hub.error;
   return saved;
 }

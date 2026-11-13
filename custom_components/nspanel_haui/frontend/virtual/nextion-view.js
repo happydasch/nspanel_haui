@@ -91,7 +91,7 @@ export function backgroundStyle(fill, attrs, pictureUrl) {
 function fontStyle(layout, fontId) {
   const font = layout.fonts[fontId] || layout.fonts[0];
   return `font-family:${font.family},sans-serif;font-weight:${font.weight};`
-    + `font-size: ${Math.round(font.size * FONT_SCALE)}px;line-height:${font.size}px;`
+    + `font-size:${Math.round(font.size * FONT_SCALE)}px;line-height:${font.size}px;`
     + `--mdc-icon-size:${Math.round(font.size * FONT_SCALE)}px;`;
 }
 

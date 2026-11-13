@@ -25,7 +25,8 @@ def test_light_background_is_available_on_each_picture_page() -> None:
         )
         assert [key for key, _label in option.choices] == expected_keys
         assert option.choices[0] == ("scheme", "Use color scheme")
-        page = SimpleNamespace(render_template=lambda value, *_args: value)
+        page = page_cls.__new__(page_cls)
+        page.render_template = lambda value, *_args: value
         panel = SimpleNamespace(
             get=lambda key, default=None: "light" if key == "background" else default
         )
@@ -37,12 +38,12 @@ def test_theme_background_uses_solid_picture_not_layout_helper() -> None:
     from custom_components.nspanel_haui.haui.mapping.color import Theme
 
     for variant, picture_id in (("dark", 1), ("light", 2)):
-        page = SimpleNamespace(
-            app=SimpleNamespace(theme=Theme(variant)),
-            render_template=lambda value, *_args: value,
-        )
+        page = ClockPage.__new__(ClockPage)
+        page.app = SimpleNamespace(theme=Theme(variant))
+        page.render_template = lambda value, *_args: value
         panel = SimpleNamespace(
-            get=lambda key, default=None: "scheme" if key == "background" else default
+            get=lambda key, default=None: "scheme" if key == "background" else default,
+            theme=page.app.theme,
         )
         assert background_commands(page, panel) == [f"system.vBackground.val={picture_id}"]
         assert picture_id != 0

@@ -71,8 +71,11 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
       else this._deviceConfig = store.selectors.configFor(name);
     },
     _devicePanels() { return store.selectors.devicePanels(); },
-    _savePanels(nextPanels, message, config, deviceName) {
-      return Crud.savePanels(this, nextPanels, message, config, deviceName);
+    _savePanels(nextPanels, message, deviceName) {
+      return Crud.savePanels(this, nextPanels, message, deviceName);
+    },
+    _saveDeviceConfig(config, message, deviceName) {
+      return Crud.saveDeviceConfig(this, config, message, deviceName);
     },
     _selectDevice(name) { store.actions.selectDevice(name); },
     requestUpdate() {},
@@ -93,7 +96,19 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
   let lastConfig = null;
   const sync = () => {
     const state = store.getState();
-    host._panels = store.selectors.panelStore();
+    host._panels = {
+      device_order: [...state.devices.order],
+      themes: state.hub.themes,
+      system_panels: state.hub.systemPanels,
+      devices: Object.fromEntries(state.devices.order.map((name) => {
+        const device = state.devices.byName[name];
+        return [name, {
+          friendly_name: device.friendlyName,
+          config: device.config,
+          panels: device.panels,
+        }];
+      })),
+    };
     host._selectedDevice = state.devices.selected;
     const config = state.devices.selected
       ? store.selectors.configFor(state.devices.selected)

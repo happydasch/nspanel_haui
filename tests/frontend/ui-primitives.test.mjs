@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { button, iconButton } from '../../custom_components/nspanel_haui/frontend/ui/button.js';
-import { badge, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
+import { badge, countBadge, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { popover, menuItem } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
@@ -36,6 +36,21 @@ test('badges and status dots preserve visible status and accessible names', () =
   const dot = byRole(root, 'img', { name: 'Disconnected' });
   assertRole(dot, 'img');
   assertAccessibleName(dot, 'Disconnected');
+});
+
+test('a count badge shows its number, keeps a tone and says what it counts', () => {
+  const root = render([
+    countBadge(3, { title: '3 items' }),
+    countBadge(2, { tone: 'danger' }),
+    countBadge(0, { tone: 'unknown' }),
+  ]);
+  const [items, errors, none] = root.querySelectorAll('.haui-badge-count');
+  assert.equal(items.textContent, '3');
+  assert.equal(items.getAttribute('title'), '3 items');
+  assert.ok(errors.classList.contains('haui-badge-danger'));
+  assert.equal(errors.hasAttribute('title'), false);
+  assert.equal(none.textContent, '0');
+  assert.ok(none.classList.contains('haui-badge-neutral'));
 });
 
 test('segmented controls report selection and invoke the chosen option', () => {

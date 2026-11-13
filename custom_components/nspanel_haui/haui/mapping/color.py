@@ -230,7 +230,7 @@ def _validate_theme_colors(values: dict, path: str) -> dict[str, int]:
 # Program.s globals the solid-colour pages paint themselves from in their
 # Preinitialize event, before the display draws them, keyed by ``COLORS`` key.
 # The hub sets them right before every page switch (``Theme.display_commands``)
-# so a page shows the device's theme from its first frame. The Preinitialize code
+# so a page shows the panel's theme from its first frame. The Preinitialize code
 # is generated from the HMI by ``scripts/hmi_layout/gen_virtual_layout.py
 # --theme-code``; Program.s declares each global with its ``COLORS`` default.
 THEME_GLOBALS = {
@@ -290,3 +290,24 @@ class Theme:
     def display_commands(self) -> list[str]:
         """Nextion commands that set the display's theme globals (``THEME_GLOBALS``)."""
         return [f"{name}={self.get(key)}" for key, name in THEME_GLOBALS.items()]
+
+
+class ThemeLibrary:
+    """Resolved Theme objects over one library of built-in and saved themes."""
+
+    def __init__(self, palettes: dict[str, dict], variant: str = "dark") -> None:
+        self.palettes = palettes
+        self.variant = variant if variant in ("dark", "light") else "dark"
+        self._themes: dict[tuple[str, str], Theme] = {}
+
+    def theme(self, theme_id: str, variant: str | None = None) -> Theme:
+        """Return the cached theme; unknown ids are a config-building error."""
+        selected_variant = self.variant if variant is None else variant
+        key = (theme_id, selected_variant)
+        if key not in self._themes:
+            self._themes[key] = Theme(
+                selected_variant,
+                self.palettes[theme_id],
+                theme_id=theme_id,
+            )
+        return self._themes[key]

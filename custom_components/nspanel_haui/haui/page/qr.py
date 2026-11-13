@@ -20,6 +20,7 @@ class QRPage(HAUIPage):
             PageOption(
                 key="essid",
                 kind="str",
+                required=True,
                 default="",
                 label=_("WiFi SSID"),
                 description=_("WiFi network name (SSID)."),
@@ -93,13 +94,13 @@ class QRPage(HAUIPage):
         self.on_release(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
 
         # Compute initial state
-        essid = panel.get("essid", "")
-        password = panel.get("password", "")
+        essid = self.option(panel, "essid")
+        password = self.option(panel, "password")
         qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
         items = self._build_items_from_panel(panel, "items")
         self.listen_items(items, lambda: self._render_items(items))
-        self._has_text = panel.get("show_info", True) or bool(items)
-        self._is_big = panel.get("start_big_qr", False)
+        self._has_text = self.option(panel, "show_info") or bool(items)
+        self._is_big = self.option(panel, "start_big_qr")
 
         # Add zoom button on right secondary only — leave nav buttons alone
         zoom_btn = {
@@ -127,7 +128,7 @@ class QRPage(HAUIPage):
         # Nextion never paints empty/stale slots between batches.
         if items:
             self._render_items(items)
-        elif panel.get("show_info", True):
+        elif self.option(panel, "show_info"):
             self._render_text(panel)
         self._apply_zoom_state()
 
@@ -136,8 +137,8 @@ class QRPage(HAUIPage):
         return self._is_big
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        essid = panel.get("essid", "")
-        password = panel.get("password", "")
+        essid = self.option(panel, "essid")
+        password = self.option(panel, "password")
         qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
         self.set_title(panel.get_title())
         self.set_component_text(self.COMPONENTS.qr_code, qr_code)
@@ -145,7 +146,7 @@ class QRPage(HAUIPage):
         items = self._build_items_from_panel(panel, "items")
         if items:
             self._render_items(items)
-        elif panel.get("show_info", True):
+        elif self.option(panel, "show_info"):
             self._render_text(panel)
         self._apply_zoom_state()
 
@@ -244,12 +245,12 @@ class QRPage(HAUIPage):
         self._set_info_text_colors()
         self.set_component_text(self.COMPONENTS.q1_icon, ICO_WIFI)
         self.set_component_text(self.COMPONENTS.q1_title, "SSID")
-        essid = panel.get("essid", "") or ""
+        essid = self.option(panel, "essid") or ""
         self.set_component_text(self.COMPONENTS.q1_text, str(essid))
         self.set_component_text(self.COMPONENTS.q1_text_add, "")
         self.set_component_text(self.COMPONENTS.q2_icon, ICO_KEY)
         self.set_component_text(self.COMPONENTS.q2_title, "Password")
-        password = panel.get("password", "") or ""
+        password = self.option(panel, "password") or ""
         self.set_component_text(self.COMPONENTS.q2_text, str(password))
         self.set_component_text(self.COMPONENTS.q2_text_add, "")
 

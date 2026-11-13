@@ -46,15 +46,12 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
-Install `requirements-docs.txt` as well to use the docs target. Backend tests
-also require Node 22+ for card-render replay; frontend tests require Node 22+.
-The Docker instance's `.dev/ha-docker` and the virtualenv instance's
-`.dev/ha-config` are ignored state directories; `.venv_ha` is ignored as well.
+Install `requirements-docs.txt` as well to use the docs target. Backend and
+frontend tests both need Node 22+ (the backend tests replay card renders).
 `ha-docker-down` removes the container but preserves its config. Resetting
 either instance is intentionally not a Make target: follow the reset
 instructions below only when you mean to delete that instance's Home Assistant
-state. Docker bridge networking does not pass LAN mDNS; add panels by IP (see
-the Docker notes below).
+state.
 
 ## Local development deployment
 
@@ -261,13 +258,17 @@ marking them as verified.
 
 ## Developer Docs
 
-- **[Design Guidelines](design.md)** — Styling, theming, and panel design principles
-- **[Communication Overview](communication.md)** — How the layers talk to each other
-- **[ESPHome Component](esphome.md)** — ESP32 firmware details
-- **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
-- **[Nextion Component](nextion.md)** — Display-level operations and widget management
-- **[Services Reference](../user/services.md)** — Home Assistant services for display control and TFT upload
+- **[Release Process & Strategy](release.md)** — Branches, versioning, CI gates, release assets and development builds
 - **[Update Process](update-process.md)** — How the hub checks for and installs firmware and TFT updates, universal and custom builds, and the notifications it shows
+- **[Design Guidelines](design.md)** — Styling, theming, and the workflow for adding a panel type
+- **[Frontend Architecture](frontend.md)** — The sidebar editor: structure, components, styling and tests
+- **[Communication Overview](communication.md)** — Handshake, heartbeats and display reads between hub, device and display
+- **[Notification Process](notifications.md)** — The notification queue, delivery paths and popup presentation
+- **[ESPHome Component](esphome.md)** — ESP32 firmware: config, events, actions and entities
+- **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
+- **[Nextion Component](nextion.md)** — Display configuration, rendering and HMI basics
+- **[Nextion Editor (Human Guide)](nextion-editor.md)** — Editing both HMI projects and the scripts to run afterwards
+- **[Services Reference](../user/services.md)** — Home Assistant services for display control and TFT upload
 
 ---
 
@@ -302,8 +303,7 @@ image*; the asset contract and CI rules are in
 
 - **One binary installs any number of panels.** `name_add_mac_suffix: true`
   appends the last six MAC digits at runtime, so every panel gets a unique
-  hostname, mDNS name and setup access point from the same `.bin`. Runtime
-  *credential* adoption (Improv-style onboarding) is post-0.4.
+  hostname, mDNS name and setup access point from the same `.bin`.
 - **The image carries no Wi-Fi network.** With a network in the YAML, ESPHome
   keys the captive-portal Wi-Fi to the build's config hash, and every firmware
   update with a changed config forgets it. Without one it uses a fixed key; an
@@ -356,7 +356,7 @@ For your own `custom` firmware, follow
 [Your custom firmware: choose `dev` or `master`](release.md#your-custom-firmware-choose-dev-or-master)
 to build the checked-out branch with a commit-identifying version and publish it
 to a local manifest. For the CI-built universal `dev` image, set the test panel's
-**Firmware update channel** to **Development** and leave **Custom manifest URL**
+**Update channel** to **Development** and leave **Custom manifest URL**
 empty; the hub follows the newest
 [published dev prerelease](release.md#published-development-firmware).
 The hub logs manifest reads, install starts and outcomes; the Device screen's
@@ -371,16 +371,9 @@ Firmware → **Run workflow** on `dev`) when the build changes what a device
 installs — firmware or display inputs — and hub-only, docs and frontend pushes
 ride along in the next build. Each run publishes a versioned universal
 prerelease and commits its version and the regenerated screen overview back to
-`dev` as one `[skip ci]` commit. Set the `screens_only` input to regenerate the
-screens with a docs-only commit, without building, tagging or publishing
-firmware.
-
-The per-push trigger made every commit publish a prerelease, push a bot version
-commit and regenerate the screens, and a fix push published `0.4.6.dev53`
-minutes before the stable `0.4.6`. The 2026-11-09 GitHub Actions outage then
-failed those chained runs before their jobs started. The build keeps its PEP 440
-tag (identical to the manifest version, no `+g<sha>` segment) so the Marketplace
-ordering is unchanged; the mechanics are in
+`dev` as one commit, then dispatches CI on `dev` to test it and deploy the docs.
+Set the `screens_only` input to regenerate the screens with a docs-only commit,
+without building, tagging or publishing firmware. The mechanics are in
 [Release process & strategy](release.md#published-development-firmware).
 
 ### Release assets and gates

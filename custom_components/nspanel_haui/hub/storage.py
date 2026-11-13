@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.helpers.storage import Store
 
 from ..haui.device_config import DEVICE_CONFIG, find_store_device
-from ..haui.mapping.const import GESTURES
+from ..haui.mapping.const import GESTURES, UPDATE_POLICY_FIELDS
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -34,8 +34,12 @@ DEVICE_CONFIG_KEY_RENAMES: dict[str, str] = {
 
 
 def migrate_device_config_keys(device_config: dict) -> bool:
-    """Rename legacy device-config keys in place and convert the old gesture settings."""
-    modified = False
+    """Rename legacy device-config keys in place and convert the old gesture settings.
+
+    A device that stored its own automatic update policy before the hub-wide
+    policy existed keeps it: it is marked ``update.policy_override``.
+    """
+    modified = migrate_update_policy_override(device_config)
     for old_key, new_key in DEVICE_CONFIG_KEY_RENAMES.items():
         if old_key not in device_config:
             continue
@@ -44,6 +48,21 @@ def migrate_device_config_keys(device_config: dict) -> bool:
             device_config[new_key] = old_value
         modified = True
     return migrate_gesture_settings(device_config) or modified
+
+
+def migrate_update_policy_override(device_config: dict) -> bool:
+    """Mark a device that stored its own update policy as overriding the hub's.
+
+    Runs once: a device whose ``update`` block already says ``policy_override``
+    (either way) is left alone.
+    """
+    update = device_config.get("update")
+    if not isinstance(update, dict) or "policy_override" in update:
+        return False
+    if not any(field in update for field in UPDATE_POLICY_FIELDS):
+        return False
+    update["policy_override"] = True
+    return True
 
 
 def migrate_gesture_settings(device_config: dict) -> bool:
@@ -122,7 +141,7 @@ def panel_store(hass: Any, entry_id: str) -> Store:
 
 def empty_store() -> dict:
     """Return a fresh panel store payload for an entry with no saved panels."""
-    return {"version": 1, "device_order": [], "devices": {}, "themes": {}}
+    return {"version": 1, "device_order": [], "devices": {}, "themes": {}, "update_policy": {}}
 
 
 def normalize_device_order(store_data: dict) -> bool:

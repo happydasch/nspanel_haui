@@ -230,3 +230,93 @@ test('Fleet lists the newest events of every device first', () => {
     'hall newest', 'kitchen 8', 'kitchen 7', 'kitchen 6', 'kitchen 5', 'kitchen 4', 'kitchen 3', 'kitchen 2',
   ]);
 });
+
+test('Fleet opens the hub update policy', () => {
+  const opened = [];
+  const view = renderFleetView({
+    devices: [{
+      name: 'kitchen',
+      device: { friendlyName: 'Kitchen', config: {}, panels: [] },
+      status: { connected: true, device_info: {}, update: {}, logs: [] },
+      updates: false,
+    }],
+    events: [], version: '0.5.0',
+    onOpenDevice() {}, onReorderDevices() {},
+    onUpdatePolicy: () => opened.push(true),
+  });
+
+  const policy = buttons(view).find((button) => /Update policy/.test(button.textContent));
+  policy.click();
+
+  assert.deepEqual(opened, [true]);
+});
+
+
+const ROLLOUT_DEVICES = [
+  {
+    name: 'kitchen',
+    device: { friendlyName: 'Kitchen', config: {}, panels: [] },
+    status: {
+      connected: false, device_info: {}, logs: [],
+      update: { firmware_progress: {
+        phase: 'transferring', started_at: new Date().toISOString(),
+        phase_started_at: new Date().toISOString(), expected_seconds: 180,
+      } },
+    },
+    updates: true,
+  },
+  {
+    name: 'office',
+    device: { friendlyName: 'Office', config: {}, panels: [] },
+    status: { connected: true, device_info: {}, update: {}, logs: [] },
+    updates: true,
+  },
+];
+
+function rolloutView(rollout, callbacks = {}) {
+  return renderFleetView({
+    devices: ROLLOUT_DEVICES, events: [], version: '0.5.0',
+    onOpenDevice() {}, onReorderDevices() {}, rollout, ...callbacks,
+  });
+}
+
+test('a running rollout lists every device with its step and can be cancelled', () => {
+  const cancelled = [];
+  const view = rolloutView({
+    id: 1, state: 'running', devices: [
+      { name: 'kitchen', kind: 'firmware', state: 'installing', error: null },
+      { name: 'office', kind: 'tft', state: 'queued', error: null },
+    ],
+  }, { onCancelRollout: (device) => cancelled.push(device) });
+  const root = render(view);
+  const card = root.querySelector('.haui-rollout');
+
+  assert.ok(card, 'the rollout card shows');
+  assert.match(card.textContent, /Kitchen/);
+  assert.match(card.textContent, /Installing/);
+  assert.match(card.textContent, /Queued/);
+  assert.ok(card.querySelector('[role="progressbar"]'), 'the installing device shows its progress');
+  [...card.querySelectorAll('button')].find((button) => button.getAttribute('aria-label') === 'Cancel Office').click();
+  [...card.querySelectorAll('button')].find((button) => /Cancel remaining/.test(button.textContent)).click();
+  assert.deepEqual(cancelled, ['office', null]);
+});
+
+test('a stopped rollout names the failure and offers no cancel', () => {
+  const root = render(rolloutView({
+    id: 1, state: 'stopped', devices: [
+      { name: 'kitchen', kind: 'firmware', state: 'failed', error: 'the panel did not reboot' },
+      { name: 'office', kind: 'tft', state: 'not_started', error: null },
+    ],
+  }));
+  const card = root.querySelector('.haui-rollout');
+
+  assert.match(card.textContent, /the panel did not reboot/);
+  assert.match(card.textContent, /Not started/);
+  assert.equal([...card.querySelectorAll('button')].filter((button) => /Cancel/.test(button.textContent + (button.getAttribute('aria-label') || ''))).length, 0);
+});
+
+test('no rollout card without a rollout', () => {
+  const root = render(rolloutView({ id: 0, state: 'idle', devices: [] }));
+
+  assert.equal(root.querySelector('.haui-rollout'), null);
+});

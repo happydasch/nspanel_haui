@@ -79,6 +79,20 @@ def test_tapping_other_entry_reports_it():
     assert selections == ["high"]
 
 
+def test_a_select_popup_does_not_inherit_the_previous_popups_options():
+    """Media's group popup (multiple) and then its source popup (single) on one page."""
+    page, _selections = _select_page(
+        items=["Kitchen", "Office"], selected=["Kitchen"], multiple=True
+    )
+    page._current_page = 1
+
+    page.set_panel(_Panel({"items": ["Radio 1", "Radio 2"], "selected": "Radio 1"}))
+
+    assert page._multiple is False
+    assert page._selected == "Radio 1"
+    assert 'bSel1.txt="Radio 1"' in page.cmds
+
+
 def test_long_selection_label_is_shortened_without_changing_selected_value():
     label = "Laundry cycle complete: remove the clothes now"
     page, selections = _select_page(items=[{"value": "notification-1", "name": label}])

@@ -16,12 +16,19 @@ from .haui_entity import HAUIEntity
 
 if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
+    from ..mapping.color import Theme
 
 
 class HAUIItem(HAUIConfigAccess):
     """Represents an item from a panel"""
 
-    def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        app: NSPanelHAUI,
+        config: dict[str, Any] | None = None,
+        *,
+        theme: Theme | None = None,
+    ) -> None:
         """Initialize for config entity.
 
         Args:
@@ -37,6 +44,7 @@ class HAUIItem(HAUIConfigAccess):
         if cfg.get("value") in (None, ""):
             cfg.pop("value", None)
         super().__init__(app, cfg)
+        self._theme = theme
         # type of item
         self._internal: bool = False  # is it an internal item
         self._internal_type: str | None = None  # internal item type
@@ -46,6 +54,11 @@ class HAUIItem(HAUIConfigAccess):
         self._entity: HAUIEntity | None = None  # entity representation (external items only)
         # prepare the item
         self._prepare_item(self.get("item", None))
+
+    @property
+    def theme(self) -> Theme:
+        """Return the explicitly supplied panel theme or the device theme."""
+        return self._theme or self.app.theme
 
     def _prepare_item(self, item_id: str | None) -> None:
         """Prepares internal values from entity.
@@ -239,12 +252,7 @@ class HAUIItem(HAUIConfigAccess):
         return self._entity.get_entity_attr(state, None)
 
     def call_item_service(self, service: str, **kwargs: Any) -> None:
-        """Calls a service on the entity.
-
-        The call is dispatched on a daemon thread so the ESPHome dispatch thread
-        isn't blocked while Home Assistant completes the service - some
-        integrations (e.g. Sonos `select_source`) can take many seconds,
-        which would stall heartbeats and trip a false disconnect.
+        """Calls a service on the entity without waiting for it to complete.
 
         Args:
             service (str): Service to call

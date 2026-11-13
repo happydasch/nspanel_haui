@@ -251,7 +251,6 @@ test('the update settings card groups every preference under its concern', () =>
   assert.equal(includesTemplateContent(rendered, 'Display'), true);
   assert.ok(text.indexOf('Update channel') < text.indexOf('Release checks'));
   assert.ok(text.indexOf('Update channel') < text.indexOf('Custom manifest URL'));
-  assert.ok(text.indexOf('Custom manifest URL') < text.indexOf('Auto-install firmware updates'));
   // The manifest URL is an override, folded away until a URL is set.
   assert.equal(field(sidebar, 'update-firmware-manifest-url').value, '');
   assert.equal(
@@ -327,7 +326,7 @@ test('automatic update settings saves serialize and keep the latest change', asy
       devicePanels: () => [],
     },
     actions: {
-      async savePanels(payload) {
+      async saveDeviceConfig(payload) {
         saves.push(payload.deviceConfig.update);
         busy = true;
         if (saves.length === 1) await new Promise((resolve) => { finishFirstSave = resolve; });

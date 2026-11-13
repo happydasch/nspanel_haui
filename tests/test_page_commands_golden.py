@@ -10,12 +10,10 @@ Regenerate deliberately with ``PAGE_COMMANDS_REGEN=1 pytest tests/test_page_comm
 
 import json
 import os
-import types
 from pathlib import Path
 
 import pytest
 
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import FncType
 from custom_components.nspanel_haui.haui.features import (
@@ -139,19 +137,6 @@ class _App:
 
     def cancel_timer(self, handle):
         pass
-
-
-class _SyncThread:
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity, "threading", types.SimpleNamespace(Thread=_SyncThread))
 
 
 @pytest.fixture(scope="module", autouse=True)

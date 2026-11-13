@@ -77,7 +77,9 @@ class DeviceStatusView(HomeAssistantView):
                 if status is not None:
                     result[dev_name] = status
 
-        return self.json({"devices": result})
+        from ..hub.rollout import rollout_snapshot
+
+        return self.json({"devices": result, "rollout": rollout_snapshot(hass, entry_id)})
 
     @staticmethod
     async def _build_running_status(hass: Any, app: Any, device_name: str) -> dict:

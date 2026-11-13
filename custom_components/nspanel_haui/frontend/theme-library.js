@@ -23,6 +23,22 @@ export function builtinThemeLabel(id) {
 }
 
 /**
+ * Build select options for the device default, built-in themes and saved custom themes.
+ * @param {Record<string, {name: string}>} library
+ * @param {{includeDeviceTheme?: boolean}} [options]
+ * @returns {{value: string, label: string}[]}
+ */
+export function themeOptions(library, { includeDeviceTheme = false } = {}) {
+  const options = includeDeviceTheme
+    ? [{ value: '', label: t('Device theme (default)') }]
+    : [];
+  for (const [id, theme] of Object.entries(library)) {
+    options.push({ value: id, label: builtinThemeLabel(id) || theme.name });
+  }
+  return options;
+}
+
+/**
  * A custom theme name derived from `base` that no existing theme uses.
  * @param {Record<string, { name: string }>} themes
  * @param {string} base

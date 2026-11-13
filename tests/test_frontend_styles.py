@@ -99,3 +99,43 @@ def test_guard_allows_motion_with_reduced_motion_override(tmp_path: Path) -> Non
     css = ".animated { transition: opacity 150ms; } @media (prefers-reduced-motion: reduce) { .animated { transition: none; } }"
 
     assert check_css_sources([(style, css)], frontend, root) == []
+
+
+def test_guard_requires_reduced_motion_per_selector(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "motion.js"
+    css = (
+        ".covered { transition: opacity 150ms; } .missed { transition: opacity 150ms; }"
+        " @media (prefers-reduced-motion: reduce) { .covered { transition: none; } }"
+    )
+
+    errors = check_css_sources([(style, css)], frontend, root)
+
+    assert any("'.missed'" in error for error in errors)
+    assert not any("'.covered'" in error for error in errors)
+
+
+def test_guard_accepts_catch_all_in_the_same_composed_sheet(tmp_path: Path) -> None:
+    frontend = tmp_path / "frontend"
+    (frontend / "styles").mkdir(parents=True)
+    (frontend / "styles.js").write_text(
+        "import { motionStyles } from './styles/motion.js';\n"
+        "import { resetStyles } from './styles/reset.js';\n"
+        "export const sharedStyles = css`${resetStyles}${motionStyles}`;\n",
+        encoding="utf-8",
+    )
+    sources = [
+        (frontend / "styles" / "motion.js", ".animated { transition: opacity 150ms; }"),
+        (
+            frontend / "styles" / "reset.js",
+            "@media (prefers-reduced-motion: reduce) { :host * { transition: none !important; } }",
+        ),
+        (frontend / "styles" / "alone.js", ".alone { transition: opacity 150ms; }"),
+    ]
+
+    errors = check_css_sources(sources, frontend, tmp_path)
+
+    assert errors == [
+        "frontend/styles/alone.js: motion on '.alone' must respect prefers-reduced-motion"
+    ]

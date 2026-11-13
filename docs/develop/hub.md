@@ -5,32 +5,44 @@ description: NSPanelHAUI hub app architecture, structure, and internal component
 
 # Hub Component
 
-NSPanelHAUI is the backend that allows to manage home automation devices using the NSPanel.
-
-## Requirements
-
-- Home Assistant with ESPHome integration
-- Dependencies are auto-installed by Home Assistant (see `manifest.json`)
-
-## Installation
-
-1. Install the NSPanel HAUI custom integration from the Home Assistant Marketplace or by copying to `custom_components/nspanel_haui/`
-2. Restart Home Assistant
-3. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow)
+The hub app (`NSPanelHAUI`, `hub/app.py`) runs inside Home Assistant, one
+instance per enabled device: it reads entity states, renders display commands
+and publishes them to the panel through the ESPHome native API. Installing the
+integration is covered in [Installation](../user/install.md); running a
+checkout in a test instance in [Development](development.md#local-development-deployment).
 
 ## Structure
 
-The classes are structured as described below.
+### Base classes
 
-### Base Component
+- `haui.abstract.haui_base.HAUIBase` — base of every runtime object: config
+  access, logging, command batching (`rec_cmd`), ESPHome send helpers and the
+  `start`/`stop` lifecycle.
+- `haui.abstract.haui_config_access.HAUIConfigAccess` — the lighter sibling for
+  data and config wrappers that need no display transport or lifecycle.
+- `haui.abstract.haui_page.HAUIPage` — a page on the display; its touch input,
+  function buttons, component callbacks and paging come from the mixins in
+  `haui/abstract/mixins/`.
+- `haui.abstract.display_interface.DisplayInterface` — the display commands
+  pages send (`send_cmd`, `set_component_text`, `set_component_value`), through
+  the `DisplayTransport` protocol to the ESPHome controller.
 
-All parts of haui are based on the `haui.abstract.haui_base.HAUIBase` class. This class provides some basic functionality. There are more specialized classes, which extend from `HAUIBase`:
+### Home Assistant adapter and threading
 
-- `haui.abstract.haui_base.HAUIBase`
-  Base class with common functionality
+`HAAdapter` (`hub/adapter.py`) bridges Home Assistant's async API to the
+synchronous `haui/` core, which imports nothing from `homeassistant`:
+`ItemProxy` wraps one entity's state, attributes and services, `ESPHomeProxy`
+sends actions to the device and listens for its events.
 
-- `haui.abstract.haui_page.HAUIPage`
-  Page representation, this class is used when interacting with the page on the device
+Every call from Home Assistant into an app (device events, state changes,
+timers, reloads, services, notify) runs on that app's single worker thread, in
+order: use `app.dispatch()` (fire-and-forget) or `await app.async_run_on_worker()`.
+Blocking work (HTTP, disk) never runs on the worker: `app.run_off_worker()`
+waits for the result, `app.submit_off_worker(..., on_done=…)` applies it back on
+the worker later; the callable must not touch app state. Only liveness traffic
+bypasses the worker: `run_every(..., on_loop=True)` runs on the event loop and
+`publish_detached()` sends without waiting, which the hub→device heartbeat uses
+so a busy worker never delays it.
 
 ### App
 
@@ -51,17 +63,9 @@ The configuration is built from the device's settings and panels in the panel st
 
 `haui.device.HAUIDevice`
 
-This class represents the whole device.
-
-The integration version comes from `manifest.json`. The device's `yaml_version` is
-its ESPHome firmware version, and `tft_version` identifies the display file. These
-values are reported separately; the release process expects integration and
-firmware versions to align, not to be the same underlying version field.
-
-The lifetime of a device is:
-
-- start
-- stop
+This class represents the whole device: its reported state and versions, the
+physical buttons, gestures, sounds and the firmware auto switches. It is started
+and stopped with the app.
 
 ### Page
 
@@ -81,29 +85,27 @@ The panel represents a configured page. The panel contains the configuration and
 
 The lifetime of a panel is:
 
-- **prepare()** (optional) — set instance attribute defaults, called during `__init__()`
 - **page_load_commands**(panel) — what the display reads while it loads the page (the theme colours, a picture background); `prepare_page_load()` sends it right before the page switch
-
-page loaded ..
-
-- **start_panel**(panel)
+- **prepare()** (optional) — set the page's per-panel attribute defaults; runs during `__init__()` and again before every `start_panel`, so nothing one panel set carries over to the next panel on the same page
+- **start_panel**(panel) — once the page is loaded: register callbacks, create items, read panel options (`self.option(panel, key)`, which takes an option's default from the page's descriptor)
 - **config_panel**(panel) — gives the header buttons `start_panel` registered without a function their default one (navigation, home or idle, unlock or notifications)
-- **before_render_panel**(panel)
-  -> if True, panel can be rendered
-  -> if False, panel will not be rendered
-  - **render_panel**(panel)
+- **before_render_panel**(panel) — return `False` to skip rendering
+- **render_panel**(panel) — send the display commands
 - **after_render_panel**(panel, rendered)
-- **stop_panel**(panel)
+- **stop_panel**(panel) — clears listeners and callbacks, then calls the page's `_stop_panel(panel)`
+
+`start_panel`, `config_panel` and `render_panel` are sent as one command batch.
+
 ```mermaid
 sequenceDiagram
     participant Page as Page Instance
     participant Panel as HAUIPanel
 
-    Page->>Page: prepare()
-    Note over Page: instance attributes set
-
     Page->>Panel: page_load_commands(panel)
     Note over Page: sent before the page switch
+
+    Page->>Page: prepare()
+    Note over Page: per-panel attribute defaults set
 
     Page->>Panel: start_panel(panel)
     Page->>Panel: config_panel(panel)
@@ -116,7 +118,7 @@ sequenceDiagram
         Page->>Panel: after_render_panel(panel, rendered=False)
     end
 
-    Note over Panel: panel is active<br/>(entity updates trigger refresh)
+    Note over Panel: panel is active<br/>(the page refreshes on entity updates)
 
     Page->>Panel: refresh_panel()
     Page->>Panel: render_panel(panel)
@@ -127,7 +129,7 @@ sequenceDiagram
 
 While a panel is active, it can be refreshed using:
 
-- **refresh_panel()** — re-renders the currently set panel by calling render_panel. This will not be triggered automatically.
+- **refresh_panel()** — re-renders the currently set panel by calling `render_panel` in one batch. Pages call it from their state listeners and timers; navigation calls it after buffer overflow recovery and a restored idle snapshot, the notification controller when the open list changes.
 
 The ESPHome controller keeps what the shown page was sent since it loaded (`page_commands()`: the last write to each target, an attribute or a widget's `vis`/`tsw`, in the order of those writes; a page switch starts it over). Replayed on a freshly loaded page after the page's `load_commands` (what `prepare_page_load` sent), it ends on the screen the panel shows: a new Live viewer gets the page this way, whichever hook drew each widget, and the panel draws nothing again.
 
@@ -144,73 +146,44 @@ config and resolved through ``HAUIItem``.
 
 ## Connection
 
-The connection between the Hub app and the device is managed by `haui.controller.HAUIConnectionController` using a 3-state machine: `DISCONNECTED → HANDSHAKING → CONNECTED`.
+`haui.controller.HAUIConnectionController` runs the device connection: a
+`DISCONNECTED → HANDSHAKING → CONNECTED` state machine with a three-step
+handshake, bidirectional heartbeats, a 15 s handshake timeout and livesign
+detection (any non-handshake event while disconnected restarts the handshake).
+The protocol, timings and failure cases are in
+[Communication Overview](communication.md).
 
-### State Machine
-
-```mermaid
-stateDiagram-v2
-    state DISCONNECTED
-    state HANDSHAKING
-    state CONNECTED
-
-    [*] --> DISCONNECTED
-
-    DISCONNECTED --> HANDSHAKING: req_connection<br/>received from device
-
-    HANDSHAKING --> HANDSHAKING: res_connection received<br/>(sends req_device_state)
-    HANDSHAKING --> CONNECTED: res_device_state received<br/>(sends hub_connection_initialized)
-
-    HANDSHAKING --> DISCONNECTED: handshake not completed<br/>within 15s
-    CONNECTED --> DISCONNECTED: heartbeat timeout<br/>or hub_connection_closed
-    CONNECTED --> CONNECTED: bidirectional heartbeats<br/>(every heartbeat_interval)
-
-    DISCONNECTED --> DISCONNECTED: livesign detection<br/>(re-initiate handshake)
-```
-
-### Bidirectional Heartbeats
-
-Once connected, both sides independently monitor liveness:
-
-- **Hub→Device**: Periodic `hub_heartbeat` action at the device-declared `heartbeat_interval` (default 5s). First heartbeat fires immediately ("now+0"), then every interval. The hub also answers each incoming `esphome.heartbeat` with an immediate `hub_heartbeat`; the timer is a fallback.
-- **Device→Hub**: `esphome.heartbeat` events update `_last_time` in the controller. Timeout = `interval × overdue_factor` (default 10s).
-
-### Timeout Monitoring
-
-The `_check_timeout()` method runs on a periodic timer (same interval as heartbeats):
-- Only active in CONNECTED state
-- If `time.monotonic() > _last_time + max(interval × factor, 10.0)`, transitions to DISCONNECTED
-- Extended-disconnect warnings log every 60s when state stays DISCONNECTED
-
-### Handshake Timeout
-
-A handshake that does not complete within 15s (`_HANDSHAKE_TIMEOUT`) logs a warning and returns to DISCONNECTED; the device retries `req_connection` every 10s.
-
-### Reconnection (Livesign Detection)
-
-Any event received while in DISCONNECTED (except `req_connection`, `res_connection` and `res_device_state`) triggers immediate handshake re-initiation:
-1. Sets state → HANDSHAKING
-2. Sends `hub_connection_response` with hub version
-3. Returns early (the same event is NOT processed further)
-4. Subsequent `res_connection` → `res_device_state` complete the handshake
-
-### Connection State Callbacks
-
-On state transitions:
-- **CONNECTED**: Sends `hub_connection_initialized`, starts timers, invokes `callback_connection(True)`; the firmware's inactivity timer is unchanged
-- **DISCONNECTED** (from CONNECTED): Sends `hub_connection_closed`, stops timers, invokes `callback_connection(False)`
-
-The callback propagates to `HAUIDevice.on_connection_changed()`, which handles navigation (open sys_system on first connect, restore panel on reconnect).
+On a transition to CONNECTED, and whenever it leaves CONNECTED (to DISCONNECTED, or
+to HANDSHAKING when the device reboots), the controller
+calls `callback_connection(bool)`, which `HAUIDevice.on_connection_changed()`
+handles: it opens the System panel on the first connect and restores the panel on
+a reconnect. `health()` reports the drops and late heartbeats of the last
+24 hours for the editor's diagnostics (see below).
 
 ## Device Status and Details
 
 The editor refreshes status by polling the authenticated
 `/api/nspanel_haui/status/{entry_id}` endpoint every five seconds: the editor
-store polls the selected device while the editor is open, and the Device
-Manager polls every device while it is open. This is separate from the
+store polls the selected device while the editor is open, and every device
+while the Fleet screen shows them. This is separate from the
 `HAUIConnectionController`: that controller owns the device handshake and
 heartbeats, not editor data refresh, and the integration does not use Home
 Assistant's `DataUpdateCoordinator` for this status view.
+The editor writes each store concern independently: `PUT /api/nspanel_haui/devices/{entry_id}/{device}` replaces one device's settings (and its `GET` reads current settings); `PUT /api/nspanel_haui/panels/{entry_id}/{device}` replaces only that device's panels; `PUT /api/nspanel_haui/device_order/{entry_id}` stores the editor's order; and `POST /api/nspanel_haui/themes/{entry_id}` manages shared themes. The whole-store panels route is read-only, so these writes never replace another device's data.
+
+### REST API
+
+`api/__init__.py` registers these views (`VIEWS`), all under `/api/nspanel_haui/`.
+Every view needs an authenticated Home Assistant user, and all but the editor
+lookups require an admin. The editor calls them through `frontend/api/client.js`.
+
+| Module | Routes |
+|--------|--------|
+| `api/editor.py` | `GET translations/{language}`, `panel_types`, `color_defaults`, `icons` |
+| `api/config.py` | `GET panels/{entry_id}` (the whole store, read-only); `GET`/`POST`/`DELETE devices/{entry_id}` (list, add, remove); `GET`/`PUT devices/{entry_id}/{device}` (settings); `PUT panels/{entry_id}/{device}`; `PUT device_order/{entry_id}`; `GET`/`POST yaml/{entry_id}` (export, import one device) |
+| `api/themes.py` | `GET`/`POST themes/{entry_id}` |
+| `api/status.py` | `GET status/{entry_id}`; `GET`/`DELETE notifications/{entry_id}`; `POST refresh_display/{entry_id}` |
+| `api/updates.py` | `POST update_tft/{entry_id}`, `update_firmware/{entry_id}`, `check_update/{entry_id}`; `GET tft_releases/{entry_id}`, `firmware_releases/{entry_id}`; `POST update_upload/{entry_id}/{kind}` (a local file, served to the device once through `GET update_artifact/{token}`, which needs no login) |
 
 For an enabled device, the API gathers mutable runtime details (connection, current page,
 listeners and timers) on that device app's worker. It reads Wi-Fi readings from the linked
@@ -266,19 +239,30 @@ current page or resetting the hub's separate idle-page timer.
 
 ## Navigation
 
-The navigation is kept simple. There are navigateable panels and non-navigateable panels. Panels that are not navigateable will be kept in a stack when opened so that it is possible to return to the last navigateable item.
-
-All navigation related functionality can be found in `haui.controller.HAUINavigationController`.
+`haui.controller.HAUINavigationController` owns navigation. There are navigable
+panels (`show_in_navigation`) and non-navigable panels; panels that are not
+navigable are kept in a stack when opened, so `close_panel()` / `go_back()`
+return to the last navigable one. It opens panels (`open_panel`,
+`open_home_panel`), waits for the display's page ack before rendering (see
+[Nextion Component](nextion.md#panel-rendering-and-refresh)), locks panels with
+an unlock code behind the unlock popup, and runs the idle page:
+`open_idle_panel()` / `exit_idle_to_prev_or_home()` and the once-per-second
+inactivity check that opens it. The idle page is a page switch only; display
+dimming and off belong to the firmware.
 
 ## Gestures
 
 Supported gestures: swipe_left, swipe_right, swipe_up, swipe_down
 
-All swipes go to `haui.controller.HAUIGestureController`. It runs the action of the gesture a swipe completes: a `GestureAction` (next or previous panel) or the key of a panel to open. Gestures are the `gestures` device setting (Panels view → Gestures card; see [Device Configuration](../user/configuration/device.md#gestures)), read on every swipe so a saved config applies without a restart. The controller keeps the latest swipes, as many as the longest gesture has; a swipe runs at most one action (the completed gesture with the most swipes, then the first in the list), and a gesture of several swipes that ran clears them. A slider drag also reports a swipe, so the controller ignores swipes while the page suppresses gestures. `hub/storage.py` (`migrate_gesture_settings`) converts the older `swipe_actions` and `gesture_sequences` settings.
+All swipes go to `haui.controller.HAUIGestureController`. It runs the action of the gesture a swipe completes: a `GestureAction` (next or previous panel) or the key of a panel to open. Gestures are the `gestures` device setting (the editor's Gestures sidebar; see [Device Configuration](../user/configuration/device.md#gestures)), read on every swipe so a saved config applies without a restart. The controller keeps the latest swipes, as many as the longest gesture has; a swipe runs at most one action (the completed gesture with the most swipes, then the first in the list), and a gesture of several swipes that ran clears them. A slider drag also reports a swipe, so the controller ignores swipes while the page suppresses gestures. `hub/storage.py` (`migrate_gesture_settings`) converts the older `swipe_actions` and `gesture_sequences` settings.
 
 ## Updates
 
-All update functionality can be found in `haui.controller.HAUIUpdateController`
+`haui.controller.HAUIUpdateController` checks for and installs firmware and TFT
+updates and backs the **HAUI Firmware** and **HAUI Display** update entities;
+`haui/controller/release_source.py` fetches manifests and release lists off the
+worker and caches GitHub releases hub-wide. The whole cycle is in
+[Update Process](update-process.md).
 
 ## Events
 
@@ -286,23 +270,68 @@ All events are wrapped in the `haui.abstract.haui_event.HAUIEvent` class. This c
 
 ## Communication
 
-Most of the communication happens by publishing to ESPHome. There are two commands to change the display `send_cmd` and `send_cmds`. It is possible to record all calls to send_cmd of `haui.abstract.haui_page.HAUIPage` and to use them together with send_cmds:
+Pages change the display with `send_cmd` / `send_cmds` and the
+`set_component_*` helpers, never through the ESPHome controller directly. The
+`rec_cmd` context manager batches them into one `send_commands` action:
 
 ```python
-# batch multiple commands using the rec_cmd context manager
 with self.rec_cmd:
     self.set_component_text(self.COMPONENTS.title, "Hello")
     self.set_component_value(self.COMPONENTS.t_info, 42)
-    self.render_panel(panel)
-
-# commands are deduplicated and sent automatically on exit
 ```
 
-Commands recorded inside the `with rec_cmd:` block are deduplicated — only the last write to each target is sent — and the batch is sent automatically when the block exits. The lower-level `start_rec_cmd()` / `stop_rec_cmd()` methods are also available for manual use if needed.
+Commands recorded inside the block are deduplicated — only the last write to
+each target is sent — and the batch is sent when the block exits;
+`start_rec_cmd()` / `stop_rec_cmd()` are the lower-level form. The panel
+lifecycle is already batched (see [Panel](#panel)), so `with self.rec_cmd:` is
+for callbacks from state listeners, timers and touches.
 
-## Available Pages
+## Pages and panels
 
-The pages represent pages on the nextion displays. The pages interact with the ESP and are the main place where to add code for interaction with the device. All pages are defined in `haui.page.*`. See `haui.abstract.haui_page.HAUIPage` for functionality.
+The page classes live in `haui/page/`, one module per page type. A panel is a
+configured instance of a page: a page can serve several panels (the alarm page
+serves alarm panels and the unlock popup), and every panel can have its own key
+for navigation. `PANEL_MAPPING`, `SYS_PANEL_MAPPING` and `POPUP_PANEL_MAPPING`
+in `haui/mapping/panel.py` map the keys to pages. The panel types are described
+in the [Panels Overview](../user/panels/README.md).
+
+### Popup parameters
+
+`popup_notify` and `popup_select` take these parameters when they are opened from
+code (`navigation.open_panel(PopupPanelKey.…, **kwargs)`). The user pages are
+[Popup Notify](../user/panels/popup_notify.md) and
+[Popup Select](../user/panels/popup_select.md).
+
+**`popup_notify`**
+
+- `notification`, `title` — Message text and title. Line breaks in the message (`\n`) render as line breaks on the display.
+- `icon` (optional) — Shown only when set, beside the text (above it in portrait). When omitted, no icon is displayed and the text uses the icon's area too: the full width in landscape, the full height in portrait, so more text fits on each page. `icon_color` colours it.
+- `btn_left`, `btn_right` (optional) — Button labels; a button is shown only when set. Colors via `btn_left_color`, `btn_left_back_color` and the `btn_right_*` equivalents.
+- `icon_color` (optional) — Icon colour in any `parse_color_value` format (`#rrggbb`, RGB565 int, `[r, g, b]`, integer string). Leave it empty (or unset) for the theme's text colour.
+- `text_size` — `auto` (default: the largest font that fits the message on one page) or a font size 1-3, paged at that size when the message does not fit. The per-notification `text_size` field on the service/actions overrides this panel value.
+- `close_on_button` — Close when a button is pressed. Default: true.
+- `button_callback_fnc`, `close_callback_fnc` — Callbacks.
+
+A queued notification's popup never takes `close_timeout`: the notification
+controller owns its lifetime (see [Notification Process](notifications.md)). A
+popup opened directly with `open_panel` can use `close_timeout` to close itself
+after a number of seconds.
+
+**`popup_select`**
+
+- `items` — The entries (`{value, name}` dicts or plain strings). At least one is required.
+- `selected` — The currently selected value (a list with `multiple`).
+- `select_mode` — Display style:
+    - `default` — 3×4 button grid
+    - `full` — Full-width list (4 buttons per page)
+- `multiple` — Allow selecting multiple items. Default: false.
+- `multiple_delay` — Delay in seconds before the selection is applied when `multiple` is enabled. Default: 1.5.
+- `close_on_select` — Close the popup after a selection is made. Default: true.
+- `close_timeout` — Automatically close after this many seconds. 0 = no auto-close.
+- `selection_callback_fnc`, `close_callback_fnc` — Callbacks.
+
+In single-selection mode, tapping the already selected entry keeps it selected
+and applies it again.
 
 ## Device Linking
 
@@ -350,56 +379,6 @@ If the registry has no unique enabled match on the linked device, treat the
 entity as unavailable: do not read or write a guessed ID. HAUI's built-in
 inside-temperature display shows its unavailable value in that case.
 
-## Available Panels
-
-Panels are configured representations of a page. A page can have multiple panels, like the alarm page, which is used for alarm activation and the unlock popup. There can be multiple panels using the same page. All panels can have a custom key defined, which is used for navigation. See [Panels Overview](../user/panels/README.md) for more details about the different panels.
-
-### Popup parameters
-
-`popup_notify` and `popup_select` take these parameters when they are opened from
-code (`navigation.open_panel(PopupPanelKey.…, **kwargs)`). The user pages are
-[Popup Notify](../user/panels/popup_notify.md) and
-[Popup Select](../user/panels/popup_select.md).
-
-**`popup_notify`**
-
-- `notification`, `title` — Message text and title. Line breaks in the message (`\n`) render as line breaks on the display.
-- `icon` (optional) — Shown only when set, beside the text (above it in portrait). When omitted, no icon is displayed and the text uses the icon's area too: the full width in landscape, the full height in portrait, so more text fits on each page. `icon_color` colours it.
-- `btn_left`, `btn_right` (optional) — Button labels; a button is shown only when set. Colors via `btn_left_color`, `btn_left_back_color` and the `btn_right_*` equivalents.
-- `icon_color` (optional) — Icon colour in any `parse_color_value` format (`#rrggbb`, RGB565 int, `[r, g, b]`, integer string). Leave it empty (or unset) for the theme's text colour.
-- `text_size` — `auto` (default: the largest font that fits the message on one page) or a font size 1-3, paged at that size when the message does not fit. The per-notification `text_size` field on the service/actions overrides this panel value.
-- `close_on_button` — Close when a button is pressed. Default: true.
-- `button_callback_fnc`, `close_callback_fnc` — Callbacks.
-
-Queued-notification popups do not use the popup's generic `close_timeout`.
-Navigating away from a popup does not dismiss its notification; it stays queued
-until dismissed or until its optional `timeout` expires. The notification
-timeout countdown begins when the item is queued, not when its popup opens, and
-expiry removes it from the queue (opening the next queued notification when
-appropriate). A programmatic `open_panel` popup that is not a queued notification
-can still use `close_timeout` to close itself after a number of seconds.
-
-The text size is the largest font — large, medium or small — at which the whole
-message fits on one page of the popup's text area, measured with the display
-fonts' real character widths, so lines break between words exactly where the
-display shows them.
-
-**`popup_select`**
-
-- `items` — The entries (`{value, name}` dicts or plain strings). At least one is required.
-- `selected` — The currently selected value (a list with `multiple`).
-- `select_mode` — Display style:
-    - `default` — 3×4 button grid
-    - `full` — Full-width list (4 buttons per page)
-- `multiple` — Allow selecting multiple items. Default: false.
-- `multiple_delay` — Delay in seconds before the selection is applied when `multiple` is enabled. Default: 1.5.
-- `close_on_select` — Close the popup after a selection is made. Default: true.
-- `close_timeout` — Automatically close after this many seconds. 0 = no auto-close.
-- `selection_callback_fnc`, `close_callback_fnc` — Callbacks.
-
-In single-selection mode, tapping the already selected entry keeps it selected
-and applies it again.
-
 ## Virtual Panel (Live Preview)
 
 The editor's [live preview](../user/configuration/README.md#the-live-preview) in Simulated mode and its panel cards run on one second `NSPanelHAUI` app per device, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one. The app starts on first use, follows every save (`api.config.push_panels`) and stops after ten minutes without a viewer or a card render, or when the hub entry unloads.
@@ -409,6 +388,8 @@ The editor's [live preview](../user/configuration/README.md#the-live-preview) in
 | `VirtualNSPanelHAUI` | `web/preview/virtual_panel.py` | Reads states through the sandbox, routes service calls, suppresses HA bus events, uses an inert update controller |
 | `VirtualESPHomeProxy` | `web/preview/virtual_panel.py` | Stands in for `ESPHomeProxy` and the firmware: answers the connection handshake, sends heartbeats, forwards display commands, page changes, brightness and sounds to the browser; refuses TFT and firmware uploads |
 | `Sandbox` | `web/preview/sandbox.py` | Simulated entity states over the real ones; simulates the common services (on/off, light, cover, climate, media, lock, alarm, vacuum, number/select/text, button, timer) |
+| Sample data | `web/preview/sample_data.py` | Representative entities shared by the editor previews and the card gallery |
+| Button lights | `web/preview/button_lights.py` | The preview frame's hardware button lights, shared by the Simulated and Live previews |
 | `VirtualPanelHost` | `web/preview/virtual_panel.py` | Owns a device's virtual app: fans its display output out to every Simulated viewer (a late viewer gets the current panel redrawn) and renders panel cards |
 | WebSocket commands | `web/websocket.py` | `nspanel_haui/virtual_panel/subscribe`, `/event`, `/home`, `/open`, `/idle`, `/reset_sandbox` and `/render` (admin only) |
 | `LivePanel` | `web/preview/live_panel.py` | One Live viewer of the device's own app; its WebSocket commands are `nspanel_haui/live_panel/subscribe`, `/event`, `/slider` and `/action` (admin only) |

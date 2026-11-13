@@ -497,7 +497,7 @@ The integration fires events on the Home Assistant event bus, so automations can
 |-------|------|------|
 | `nspanel_haui.page_changed` | A panel is opened or closed | `device`, `action` (`opened` / `closed`), `panel` (key), `type`, `title`, `page` |
 | `nspanel_haui.notification` | A notification is added or removed | `device`, `id`, `state` (`added` / `removed`), `title`, `message`, `icon`, `icon_color`, `sound`, `persistent`, `force_show`, `timeout` |
-| `nspanel_haui.connection_changed` | The panel connects or disconnects | `device`, `connected` |
+| `nspanel_haui.connection_changed` | The panel connects or disconnects; a reboot fires `connected: false` and then `true` | `device`, `connected` |
 | `nspanel_haui.display_update_changed` | The display version or the state of a display update changes | `device`, `connected`, `enabled`, `installed_version`, `latest_version`, `state` (`idle` / `checking` / `installing` / `done` / `error`), `update_reason`, `last_error` |
 | `nspanel_haui.firmware_update_changed` | The firmware version or the state of a firmware update changes | `device`, `connected`, `enabled`, `installed_version`, `latest_version`, `installing`, `reason`, `last_error` |
 

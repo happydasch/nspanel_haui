@@ -14,11 +14,18 @@ function hostWithStore(panels, serverStore) {
     if (method === 'GET' && path.startsWith('/api/nspanel_haui/panels/')) {
       return jsonResponse(structuredClone(serverStore));
     }
-    if (path.startsWith('/api/nspanel_haui/devices/')) {
+    if (method === 'PUT' && path.startsWith('/api/nspanel_haui/devices/entry1/')) {
+      const config = JSON.parse(opts.body).config;
+      return jsonResponse({ status: 'ok', config });
+    }
+    if (method === 'POST' && path.startsWith('/api/nspanel_haui/devices/')) {
       bodies.push(opts.body);
       return jsonResponse({ status: 'ok', devices_added: [] });
     }
-    if (method === 'POST' && path.startsWith('/api/nspanel_haui/panels/')) {
+    if (method === 'DELETE' && path.startsWith('/api/nspanel_haui/devices/')) {
+      return jsonResponse({ status: 'ok' });
+    }
+    if (method === 'PUT' && path.startsWith('/api/nspanel_haui/panels/entry1/')) {
       return jsonResponse({ status: 'ok' });
     }
     throw new Error(`unexpected ${method} ${path}`);

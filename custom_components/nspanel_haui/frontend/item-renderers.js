@@ -28,47 +28,17 @@ import {
   renderIconPicker,
   renderNumberInput,
   renderSelect,
+  fieldMessage,
   renderToggle,
-  saveColor,
-  renderColorPresets,
-  colorFieldText,
+  renderColorField,
+  renderField,
 } from './form-field-controls.js';
-import { parseRgbListToHex, hexToColorMatching } from './color-utils.js';
+import { parseRgbListToHex } from './color-utils.js';
 import { formVal } from './dom-helpers.js';
 import { dropsAfter } from './ui/panel-row.js';
 import { badge } from './ui/badge.js';
 import { addButton } from './ui/button.js';
 import { emptyState } from './ui/empty-state.js';
-
-/* ── color popover helpers ──────────────────────────────────────────────── */
-
-/**
- * Toggle a color popover, closing all others first.
- * Also installs a one-shot document mousedown handler to close on outside
- * click when the popover is opened.
- * @param {Event} e - click event from the palette button
- */
-function toggleColorPopover(e) {
-  const btn = e.currentTarget;
-  const root = btn.getRootNode();
-  // Close all other open color popovers in this shadow root
-  root.querySelectorAll(".haui-color-popover.open").forEach(el => el.classList.remove("open"));
-  const pop = btn.closest(".haui-field").querySelector(".haui-color-popover");
-  if (!pop) return;
-  const wasOpen = pop.classList.contains("open");
-  pop.classList.toggle("open");
-  // When opening, install a one-shot outside-click handler
-  if (!wasOpen) {
-    const close = (ev) => {
-      if (!pop.contains(ev.target) && !btn.contains(ev.target)) {
-        pop.classList.remove("open");
-        document.removeEventListener("mousedown", close);
-      }
-    };
-    // Use setTimeout to avoid the current click event triggering the handler
-    setTimeout(() => document.addEventListener("mousedown", close), 0);
-  }
-}
 
 /* ── item list row (shared by all item list UIs) ─────────────────────── */
 
@@ -286,7 +256,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
 /**
  * Render a rich entity list editor for `kind: item_list`.
  */
-export function renderItemListField(host, opt, currentValue) {
+export function renderItemListField(host, opt, currentValue, feedback = {}) {
   if (!host._itemListData) host._itemListData = {};
   if (!host._itemListData[opt.key]) {
     let list = Array.isArray(currentValue) ? [...currentValue] : [];
@@ -307,6 +277,7 @@ export function renderItemListField(host, opt, currentValue) {
     <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
       ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
+      ${fieldMessage(id, feedback)}
 
       <div class="haui-item-list">
         ${entities.length === 0 && editingIndex !== -1
@@ -316,7 +287,8 @@ export function renderItemListField(host, opt, currentValue) {
           if (editingIndex === i) {
             return renderItemEditFields(host);
           }
-          return renderItemListRow(
+          const entryFeedback = feedback.entries?.get(i);
+          return html`${renderItemListRow(
             host,
             item,
             {
@@ -349,7 +321,7 @@ export function renderItemListField(host, opt, currentValue) {
                 host.requestUpdate();
               },
             }
-          );
+          )}${entryFeedback ? fieldMessage(`${id}-${i}`, entryFeedback) : nothing}`;
         })}
       </div>
 
@@ -382,62 +354,29 @@ export function renderItemListField(host, opt, currentValue) {
   `;
 }
 
-function renderItemColorEditor(host, { id, label, hint, value, getValue, setValue }) {
-  const colorHex = parseRgbListToHex(value);
-  const hasTemplate = formatFieldValue(value).includes("{{");
-  const applyColor = (hex) => {
-    const nextValue = hexToColorMatching(hex, getValue());
-    saveColor(hex);
-    setValue(nextValue);
-  };
-  const closePopover = () => host.renderRoot?.querySelectorAll(".haui-color-popover.open")
-    .forEach((element) => element.classList.remove("open"));
-
-  return html`
-    <div class="haui-field">
-      <label for=${id} title=${hint}>${label}</label>
-      <div class="haui-field-row">
-        <div class="input-preview-wrap">
-          <div class="haui-color-swatch haui-color-editor-swatch input-preview"
-            style=${`--haui-color-swatch:${colorHex || "#888"}`}
-            title=${colorHex || t("no color")}
-            @click=${(event) => event.currentTarget.querySelector("input[type=color]")?.click()}
-          >
-            <input type="color" .value=${colorHex || "#000000"}
-              @input=${(event) => applyColor(event.target.value)}
-            />
-          </div>
-          <input
-            id=${id}
-            class="haui-input"
-            .value=${colorFieldText(value)}
-            @input=${(event) => {
-              const raw = event.target.value;
-              if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, event.target);
-              setValue(parseFieldValue(raw));
-            }}
-            @focus=${(event) => {
-              if (host.api && String(event.target.value || "").includes("{{")) {
-                scheduleTemplateRender(host.api, event.target.value, `tp-${id}`, event.target);
-              }
-            }}
-          />
-        </div>
-        <ha-icon-button class="haui-color-picker-btn" @click=${toggleColorPopover} title=${t("Presets")}>
-          <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
-        </ha-icon-button>
-      </div>
-      <div class="haui-color-popover" @click=${(event) => event.stopPropagation()}>
-        ${!hasTemplate ? renderColorPresets(colorHex, (hex) => {
-          applyColor(hex);
-          closePopover();
-        }) : ""}
-      </div>
-      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : ""}
-      <div class="haui-template-preview" ?hidden=${!hasTemplate}>
-        <span id=${`tp-${id}`}>${hasTemplate ? "..." : ""}</span>
-      </div>
-    </div>`;
+function renderItemColorEditor(host, { id, label, hint, value, setValue }) {
+  // Kept on the item draft, so the next item opens with its presets closed.
+  const openPresets = host._editingItem.openPresets ?? [];
+  const presetsOpen = openPresets.includes(id);
+  return renderField({
+    id,
+    label,
+    hint,
+    control: renderColorField({
+      id,
+      value,
+      api: host.api,
+      onChange: setValue,
+      presetsOpen,
+      onTogglePresets: () => {
+        host._editingItem = {
+          ...host._editingItem,
+          openPresets: presetsOpen ? openPresets.filter((key) => key !== id) : [...openPresets, id],
+        };
+        host.requestUpdate();
+      },
+    }),
+  });
 }
 
 /* ── per-item option field (mirrors renderOptionField for item configs) ─ */
@@ -474,10 +413,11 @@ function renderItemOptionField(host, opt, currentValue) {
       `;
 
     case "int":
+      // an empty field unsets the option, so the item uses the panel's value again
       return html`
         <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          ${renderNumberInput(id, val, (raw) => setVal(parseInt(raw, 10) || 0), { step: "1" })}
+          ${renderNumberInput(id, val, (raw) => setVal(raw === "" ? undefined : parseInt(raw, 10)), { step: "1" })}
           ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
@@ -488,7 +428,6 @@ function renderItemOptionField(host, opt, currentValue) {
         label: opt.label,
         hint: opt.description,
         value: val,
-        getValue: () => host._editingItem?.config?.[opt.key],
         setValue: setVal,
       });
 
@@ -542,7 +481,6 @@ function renderPromotedField(host, ee, f, label, hint) {
       label,
       hint,
       value: ee.config?.[f],
-      getValue: () => host._editingItem?.config?.[f],
       setValue: (value) => {
         host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: value } };
         setTimeout(() => host.requestUpdate(), 0);
@@ -556,15 +494,16 @@ function renderPromotedField(host, ee, f, label, hint) {
     const dictPreviewText = showDictPreview
       ? t("State-keyed: {value}").replace("{value}", Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", "))
       : "";
-    return html`
-      <div class="haui-field">
-        <label for="item-${f}" title=${hint}>${label}</label>
-        ${renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
-          host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
-          setTimeout(() => host.requestUpdate(), 0);
-        })}
-        <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
-      </div>`;
+    return renderField({
+      id: `item-${f}`,
+      label,
+      hint,
+      control: renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
+        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
+        setTimeout(() => host.requestUpdate(), 0);
+      }),
+      extra: html`<div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+    });
   }
   const rawVal = ee.config?.[f];
   const displayStr = formatFieldValue(rawVal);
@@ -573,25 +512,27 @@ function renderPromotedField(host, ee, f, label, hint) {
     ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
     : "";
   const hasTpl = displayStr.includes("{{");
-  return html`
-    <div class="haui-field">
-      <label for="item-${f}" title=${hint}>${label}</label>
-      <input id="item-${f}" .value=${displayStr} class="haui-input"
-        @input=${(e) => {
-          const raw = e.target.value;
-          if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
-          host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
-          setTimeout(() => host.requestUpdate(), 0);
-        }}
-        @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-      />
+  return renderField({
+    id: `item-${f}`,
+    label,
+    hint,
+    control: html`<input id="item-${f}" .value=${displayStr} class="haui-input"
+      @input=${(e) => {
+        const raw = e.target.value;
+        if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
+        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
+        setTimeout(() => host.requestUpdate(), 0);
+      }}
+      @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
+    />`,
+    extra: html`
       ${host.hass
         ? html`<div class="haui-template-preview" ?hidden=${!hasTpl}>
             <span id="tp-item-${f}">${hasTpl ? "..." : ""}</span>
           </div>`
         : ""}
-      <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
-    </div>`;
+      <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+  });
 }
 
 /* ── inline item edit form ──────────────────────────────────────────── */
@@ -699,44 +640,37 @@ export function renderItemEditFields(host, descriptor) {
         { f: 'icon', label: t("Icon"), hint: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.") },
         { f: 'color', label: t("Color"), hint: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.") },
       ].map(fd => renderPromotedField(host, ee, fd.f, fd.label, fd.hint))}
-      <div
-        class="haui-collapsible-title"
-        @click=${(e) => {
-          const toggle = e.currentTarget;
-          const arrow = toggle.querySelector(".haui-collapsible-icon");
-          const section = toggle.nextElementSibling;
-          if (arrow) arrow.classList.toggle("is-open");
-          if (section) section.classList.toggle("is-open");
-        }}
-      >
-        <ha-icon icon="mdi:chevron-right" class="haui-collapsible-icon"></ha-icon>
-        ${t("Advanced")}
-      </div>
-      <div class="haui-item-advanced-section">
-        ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
-          (f) => {
-            const fieldLabels = {
-              value: t("Value"),
-              state: t("State"),
-              popup_key: t("Popup key"),
-            };
-            const hints = {
-              value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
-              state: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic."),
-              popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
-            };
-            const typedFields = new Set(["value"]);
-            const isTyped = typedFields.has(f);
-            const rawVal = ee.config?.[f];
-            const displayStr = formatFieldValue(rawVal);
-            const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
-            const dictPreviewText = showDictPreview
-              ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
-              : "";
-            return html`
-              <div class="haui-field">
-                <label for="item-${f}" title=${hints[f]}>${fieldLabels[f]}</label>
-                <input
+      <details class="haui-item-advanced">
+        <summary class="haui-collapsible-title">
+          <ha-icon icon="mdi:chevron-right" class="haui-collapsible-icon"></ha-icon>
+          <span>${t("Advanced")}</span>
+        </summary>
+        <div class="haui-item-advanced-section">
+          ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
+            (f) => {
+              const fieldLabels = {
+                value: t("Value"),
+                state: t("State"),
+                popup_key: t("Popup key"),
+              };
+              const hints = {
+                value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
+                state: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic."),
+                popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
+              };
+              const typedFields = new Set(["value"]);
+              const isTyped = typedFields.has(f);
+              const rawVal = ee.config?.[f];
+              const displayStr = formatFieldValue(rawVal);
+              const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
+              const dictPreviewText = showDictPreview
+                ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
+                : "";
+              return renderField({
+                id: `item-${f}`,
+                label: fieldLabels[f],
+                hint: hints[f],
+                control: html`<input
                   id="item-${f}"
                   class="haui-input"
                   .value=${displayStr}
@@ -750,50 +684,51 @@ export function renderItemEditFields(host, descriptor) {
                     setTimeout(() => host.requestUpdate(), 0);
                   }}
                   @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-                />
-                ${host.hass
-                  ? html`<div class="haui-template-preview" ?hidden=${!displayStr.includes("{{")}>
-                      <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
-                    </div>`
-                  : ""}
-                <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
-              </div>
-            `;
-          }
-        )}
-        ${host._editingItemType === ITEM_TYPE.ACTION
-          ? html`
-            <div class="haui-field">
-              <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
-              <textarea
-                id="item-service_data"
-                class="haui-w-full haui-item-service-data"
-                .value=${(() => {
-                  const sd = host._editingItem?.config?.service_data;
-                  if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);
-                  return sd != null ? String(sd) : '';
-                })()}
-                @input=${(e) => {
-                  const raw = e.target.value;
-                  let parsed;
-                  try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-                  host._editingItem = host._editingItem
-                    ? { ...host._editingItem, config: { ...host._editingItem.config, service_data: parsed } }
-                    : { config: { service_data: parsed } };
-                  setTimeout(() => host.requestUpdate(), 0);
-                }}
-                placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
-              ></textarea>
-              <div class="haui-field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
-            </div>`
-          : ""}
-        ${(() => {
-          if (!descriptor?.item_options?.length) return "";
-          return descriptor.item_options.map((opt) =>
-            renderItemOptionField(host, opt, ee.config?.[opt.key])
-          );
-        })()}
-      </div>
+                />`,
+                extra: html`
+                  ${host.hass
+                    ? html`<div class="haui-template-preview" ?hidden=${!displayStr.includes("{{")}>
+                        <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
+                      </div>`
+                    : ""}
+                  <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+              });
+            }
+          )}
+          ${host._editingItemType === ITEM_TYPE.ACTION
+            ? html`
+              <div class="haui-field">
+                <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
+                <textarea
+                  id="item-service_data"
+                  class="haui-w-full haui-item-service-data"
+                  .value=${(() => {
+                    const sd = host._editingItem?.config?.service_data;
+                    if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);
+                    return sd != null ? String(sd) : '';
+                  })()}
+                  @input=${(e) => {
+                    const raw = e.target.value;
+                    let parsed;
+                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+                    host._editingItem = host._editingItem
+                      ? { ...host._editingItem, config: { ...host._editingItem.config, service_data: parsed } }
+                      : { config: { service_data: parsed } };
+                    setTimeout(() => host.requestUpdate(), 0);
+                  }}
+                  placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
+                ></textarea>
+                <div class="haui-field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
+              </div>`
+            : ""}
+          ${(() => {
+            if (!descriptor?.item_options?.length) return "";
+            return descriptor.item_options.map((opt) =>
+              renderItemOptionField(host, opt, ee.config?.[opt.key])
+            );
+          })()}
+        </div>
+      </details>
 
       <div class="haui-item-edit-actions">
         <ha-button variant="neutral" appearance="plain" @click=${() => { host._editingItem = null; host._editingItemType = null; host.requestUpdate(); }}>

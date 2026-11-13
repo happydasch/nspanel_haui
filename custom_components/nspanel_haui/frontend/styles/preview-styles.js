@@ -14,7 +14,8 @@ export const previewStyles = css`
     background: var(--haui-screen);
     transition: background 150ms ease;
   }
-  @container haui-editor (max-width: 600px) {
+  /* The workspace element is its own container: the stage follows the workspace's width. */
+  @container haui-workspace (max-width: 600px) {
     .haui-preview-stage { min-height: 240px; padding: 24px; }
   }
   .haui-preview-stage.is-live { background: var(--haui-live-preview); }

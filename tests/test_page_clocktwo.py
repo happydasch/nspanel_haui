@@ -1,7 +1,6 @@
 """Clocktwo (word clock) page."""
 
 import datetime
-import threading
 from types import SimpleNamespace
 
 from custom_components.nspanel_haui.haui.mapping.color import Theme
@@ -18,7 +17,6 @@ class _Panel:
 
 def test_init_interface_batches_the_entire_word_clock_matrix():
     page = ClockTwoPage.__new__(ClockTwoPage)
-    page._rec_cmd_lock = threading.RLock()
     page._recording = False
     page._rec_cmd_depth = 0
     page._rec_cmd = []
@@ -52,7 +50,6 @@ def test_intro_text_full_hour_default_matches_descriptor():
 def test_dark_display_keeps_the_word_clock_current():
     """The dark display is awake; see test_page_clock."""
     page = ClockTwoPage.__new__(ClockTwoPage)
-    page._rec_cmd_lock = threading.RLock()
     page._recording = False
     page._rec_cmd_depth = 0
     page._rec_cmd = []
@@ -69,13 +66,16 @@ def test_dark_display_keeps_the_word_clock_current():
 def test_background_setting_can_use_selected_theme() -> None:
     page = ClockTwoPage.__new__(ClockTwoPage)
     page.app = SimpleNamespace(theme=Theme("light"))
+    page.panel = None
     page._use_theme_background = True
     page._background_variant = "light"
     page._light_background = True
     page.render_template = lambda value, _parse=False: value
 
     assert page.get_color("background") == page.app.theme.get("background")
-    commands = page.page_load_commands(_Panel({"background": "scheme"}))
+    panel = _Panel({"background": "scheme"})
+    panel.theme = page.app.theme
+    commands = page.page_load_commands(panel)
     assert commands[0] == "system.vBackground.val=2"
     assert "thmBg=65535" in commands[1:]
 
@@ -85,8 +85,10 @@ def test_background_is_sent_before_the_page_loads():
     page = ClockTwoPage.__new__(ClockTwoPage)
     page.app = SimpleNamespace(theme=SimpleNamespace(display_commands=lambda: ["thmBg=1"]))
     page.render_template = lambda template, parse_icons=True: template
+    panel = _Panel({})
+    panel.theme = page.app.theme
 
-    assert page.page_load_commands(_Panel({})) == ["system.vBackground.val=1", "thmBg=1"]
+    assert page.page_load_commands(panel) == ["system.vBackground.val=1", "thmBg=1"]
 
 
 def test_options_saved_for_the_shown_panel_apply_without_a_page_load():

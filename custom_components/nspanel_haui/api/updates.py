@@ -487,3 +487,187 @@ class DeviceUpdateCheckView(HomeAssistantView):
         return self.json(
             {"status": "ok", "devices_checked": checked, "failed": failed, "results": results}
         )
+
+
+class UpdatePolicyView(HomeAssistantView):
+    """The hub's automatic update policy, which every device follows unless it overrides it."""
+
+    url = "/api/nspanel_haui/update_policy/{entry_id}"
+    name = "api:nspanel_haui:update_policy"
+    requires_auth = True
+
+    @api_errors
+    async def get(self, request, entry_id: str):
+        """Return the policy, its defaults filled in."""
+        from ..haui.config_models import validate_update_policy
+        from ..hub.storage import empty_store, panel_store
+
+        hass = request.app["hass"]
+        data = await panel_store(hass, entry_id).async_load() or empty_store()
+        policy = await hass.async_add_executor_job(
+            validate_update_policy, data.get("update_policy") or {}
+        )
+        return self.json({"policy": policy})
+
+    @require_admin
+    @api_errors
+    async def put(self, request, entry_id: str):
+        """Store the policy and apply it to every running device."""
+        from ..haui.config_models import validate_update_policy
+        from ..hub.storage import empty_store, panel_store
+        from .config import push_panels
+
+        hass = request.app["hass"]
+        body = await json_object(request)
+        submitted = body.get("policy")
+        if not isinstance(submitted, dict):
+            raise ApiError("Body must be {'policy': {...}}", 400)
+        try:
+            policy = await hass.async_add_executor_job(validate_update_policy, submitted)
+        except ValueError as exc:
+            raise ApiError(str(exc), 400) from exc
+        store = panel_store(hass, entry_id)
+        data = await store.async_load() or empty_store()
+        data["update_policy"] = policy
+        await store.async_save(data)
+        return self.json(
+            {"status": "ok", "policy": policy, **await push_panels(hass, entry_id, data)}
+        )
+
+
+class UpdateControlView(HomeAssistantView):
+    """Act on a device's scheduled automatic firmware install: start now, defer or skip."""
+
+    url = "/api/nspanel_haui/update_control/{entry_id}"
+    name = "api:nspanel_haui:update_control"
+    requires_auth = True
+
+    @require_admin
+    @api_errors
+    async def post(self, request, entry_id: str):
+        """Body ``{device, action, seconds?}``.
+
+        ``install_now`` and ``defer`` (``seconds`` 3600 or 86400) act on the
+        scheduled install. ``skip`` stores the offered firmware version in the
+        device settings, so automatic installs pass over it, even after a
+        restart; a manual install or a newer version is not affected.
+        """
+        from ..hub.storage import empty_store, panel_store
+        from .config import push_panels
+
+        hass = request.app["hass"]
+        body = await json_object(request)
+        device = (body.get("device") or "").strip()
+        if not device:
+            raise ApiError("Body must name a device", 400)
+        app = device_app(running_apps(hass, entry_id), device)
+        action = body.get("action")
+        if action in ("install_now", "defer"):
+            try:
+                result = await app.async_update_control(action, body.get("seconds"))
+            except ValueError as exc:
+                raise ApiError(str(exc), 400) from exc
+            return self.json({"status": "ok", "update": result})
+        if action != "skip":
+            raise ApiError(f"Unknown update control action {action!r}", 400)
+        state = await app.async_update_state()
+        version = (
+            state.get("firmware_update_version") if state.get("firmware_update_available") else None
+        )
+        if not version:
+            raise ApiError("No firmware update is offered to skip", 400)
+        store = panel_store(hass, entry_id)
+        data = await store.async_load() or empty_store()
+        stored = data.get("devices", {}).get(device)
+        if stored is None:
+            raise ApiError(f'Device "{device}" not found', 404)
+        stored.setdefault("config", {}).setdefault("update", {})["skipped_firmware_version"] = (
+            version
+        )
+        await store.async_save(data)
+        return self.json(
+            {
+                "status": "ok",
+                "skipped_version": version,
+                **await push_panels(hass, entry_id, data, device_name=device),
+            }
+        )
+
+
+async def _offered_devices(hass: Any, entry_id: str, apps: dict[str, Any]) -> list[str]:
+    """Connected devices with an offered update, in the editor's device order."""
+    from ..hub.storage import empty_store, panel_store
+
+    data = await panel_store(hass, entry_id).async_load() or empty_store()
+    order = [name for name in data.get("device_order", []) if name in apps]
+    order += [name for name in apps if name not in order]
+    offered = []
+    for name in order:
+        snapshot = await apps[name].async_update_snapshot()
+        if snapshot["connected"] and (
+            snapshot["firmware"]["available"] or snapshot["display"]["available"]
+        ):
+            offered.append(name)
+    return offered
+
+
+class RolloutView(HomeAssistantView):
+    """Fleet's *Install updates*: one device at a time, stopping at the first failure."""
+
+    url = "/api/nspanel_haui/rollout/{entry_id}"
+    name = "api:nspanel_haui:rollout"
+    requires_auth = True
+
+    @api_errors
+    async def get(self, request, entry_id: str):
+        """Return the rollout (idle when none ran since Home Assistant started)."""
+        from ..hub.rollout import rollout_snapshot
+
+        return self.json({"rollout": rollout_snapshot(request.app["hass"], entry_id)})
+
+    @require_admin
+    @api_errors
+    async def post(self, request, entry_id: str):
+        """Start a rollout; body ``{devices?: [...]}``, by default every connected
+        device with an offered update, in the editor's device order."""
+        from ..hub.rollout import async_get_rollout
+
+        hass = request.app["hass"]
+        body = await json_object(request)
+        apps = running_apps(hass, entry_id)
+        devices = body.get("devices")
+        if devices is None:
+            devices = await _offered_devices(hass, entry_id, apps)
+        if not isinstance(devices, list) or not devices:
+            raise ApiError("No device has an update to install", 400)
+        try:
+            rollout = await async_get_rollout(hass, entry_id).async_start(devices)
+        except ValueError as exc:
+            raise ApiError(str(exc), 400) from exc
+        return self.json({"status": "ok", "rollout": rollout})
+
+    @require_admin
+    @api_errors
+    async def delete(self, request, entry_id: str):
+        """Cancel every device still queued; the one installing finishes."""
+        from ..hub.rollout import async_get_rollout
+
+        rollout = await async_get_rollout(request.app["hass"], entry_id).async_cancel()
+        return self.json({"status": "ok", "rollout": rollout})
+
+
+class RolloutDeviceView(HomeAssistantView):
+    """Cancel one queued device of the rollout."""
+
+    url = "/api/nspanel_haui/rollout/{entry_id}/{device}"
+    name = "api:nspanel_haui:rollout_device"
+    requires_auth = True
+
+    @require_admin
+    @api_errors
+    async def delete(self, request, entry_id: str, device: str):
+        """Cancel ``device`` if it is still queued."""
+        from ..hub.rollout import async_get_rollout
+
+        rollout = await async_get_rollout(request.app["hass"], entry_id).async_cancel(device)
+        return self.json({"status": "ok", "rollout": rollout})

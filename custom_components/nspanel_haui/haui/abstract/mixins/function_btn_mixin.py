@@ -409,6 +409,18 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         else:
             self.update_function_component(fnc_id, visible=False)
 
+    def _note_component_visibility(self, component: Component, visible: bool) -> None:
+        """Record a ``vis`` command sent for ``component`` in its function items.
+
+        ``show_component`` and ``hide_component`` call this for every ``vis``
+        command, so ``current_visible`` stays what the display shows when a
+        page hides a function component directly (an unavailable entity), and
+        the next ``update_function_component(visible=True)`` shows it again.
+        """
+        for fnc_item in self._fnc_items.values():
+            if fnc_item["fnc_component"] == component:
+                fnc_item["current_visible"] = visible
+
     # ------------------------------------------------------------------
     # Auto-assignment
     # ------------------------------------------------------------------

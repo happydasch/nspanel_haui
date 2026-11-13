@@ -16,6 +16,7 @@ import { createStore } from '../store/store.js';
 import { StoreController } from '../store/controller.js';
 import { createRouter } from './router.js';
 import { renderFleetView } from '../views/fleet.js';
+import { updatePolicyView } from '../views/update-policy.js';
 import { renderDeviceView } from '../views/device.js';
 import { modalSidebar } from '../ui/sidebar.js';
 import { railOverflows } from '../ui/device-rail.js';
@@ -31,6 +32,7 @@ import { idlePanelKeys } from '../ui/panel-pills.js';
 import { renderSimulatorPreview } from '../previews/simulator-frame.js';
 import { previewRenderKey } from '../previews/previewer.js';
 import * as Crud from '../crud.js';
+import { panelHasOptionErrors } from '../option-rules.js';
 import * as DeviceConfig from '../device-config.js';
 import * as Toast from '../toast.js';
 
@@ -129,6 +131,8 @@ class NSPanelEditor extends LitElement {
       _scanError: { type: String, state: true },
       _removeTarget: { type: String, state: true },
       _confirmBulkUpdate: { type: Boolean, state: true },
+      // The hub update policy's unsaved edits; null while it is as saved.
+      _policyDraft: { type: Object, state: true },
       _panelSearch: { type: String, state: true },
       _selectedPanelKey: { type: String, state: true },
       _panelPreviewCollapsed: { type: Boolean, state: true },
@@ -199,6 +203,7 @@ class NSPanelEditor extends LitElement {
     this._scanError = '';
     this._removeTarget = null;
     this._confirmBulkUpdate = false;
+    this._policyDraft = null;
     this._panelSearch = '';
     this._selectedPanelKey = null;
     this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
@@ -661,6 +666,7 @@ class NSPanelEditor extends LitElement {
     else if (kind === 'device-schedule') this._closeDeviceOption('schedule');
     else if (kind === 'device-gestures') this._closeDeviceOption('gestures');
     else if (kind === 'logs') this._closeLogs();
+    else if (kind === 'update-policy') this._closeUpdatePolicy();
   }
 
   /**
@@ -806,7 +812,7 @@ class NSPanelEditor extends LitElement {
     const draft = this._gestureDraft;
     if (!draft || draft.device !== this._selectedDevice || this._saving) return;
     const config = { ...this._deviceConfig, gestures: clone(draft.gestures) };
-    if (await this._savePanels(this._devicePanels(), t('Device configuration saved'), config)) {
+    if (await this._saveDeviceConfig(config, t('Device configuration saved'))) {
       this._gestureDraft = null;
       this._closeDeviceOption('gestures');
     }
@@ -846,7 +852,7 @@ class NSPanelEditor extends LitElement {
       use_auto_display_off: draft.use_auto_display_off,
       timeout_display_off: draft.timeout_display_off,
     };
-    if (await this._savePanels(this._devicePanels(), t('Device configuration saved'), config)) {
+    if (await this._saveDeviceConfig(config, t('Device configuration saved'))) {
       this._scheduleDraft = null;
       this._closeDeviceOption('schedule');
     }
@@ -881,7 +887,8 @@ class NSPanelEditor extends LitElement {
       this._router?.navigate({ view: 'device', device: route.device, panelView: 'panels' }, { replace: true });
     }
   }
-  async _savePanels(p, m, c) { return Crud.savePanels(this, p, m, c); }
+  async _savePanels(p, m) { return Crud.savePanels(this, p, m); }
+  async _saveDeviceConfig(c, m, n) { return Crud.saveDeviceConfig(this, c, m, n); }
 
   /* ── device actions ───────────────────────────────────────────────────── */
 
@@ -900,8 +907,7 @@ class NSPanelEditor extends LitElement {
 
   _openDeviceConfig() {
     this._captureSidebarFocus();
-    DeviceConfig.openDeviceConfig(this);
-    this.requestUpdate();
+    return DeviceConfig.openDeviceConfig(this);
   }
   _closeDeviceConfig() {
     DeviceConfig.closeDeviceConfig(this);
@@ -973,7 +979,7 @@ class NSPanelEditor extends LitElement {
   get _bulkUpdateParams() {
     return {
       title: t('Install all offered updates?'),
-      message: t('Install the offered firmware and display updates on {count} device(s)? A display cannot be used while it updates, and a firmware update restarts the panel.')
+      message: t('Install the offered firmware and display updates on {count} device(s), one after the other? A display cannot be used while it updates, and a firmware update restarts the panel. The first failure stops the devices after it.')
         .replace('{count}', String(this._updatableDevices().length)),
       confirmText: t('Install'),
       cancelText: t('Cancel'),
@@ -982,20 +988,12 @@ class NSPanelEditor extends LitElement {
   }
 
   /**
-   * Install what each device is offered. Firmware goes first: the display the
-   * new firmware needs follows on its own after the panel restarts.
+   * Install what each device is offered, one device at a time on the hub: a
+   * panel is offline while it updates, so they never all go at once.
    */
   async _installOfferedUpdates() {
     this._confirmBulkUpdate = false;
-    const state = this._store.getState();
-    for (const name of this._updatableDevices()) {
-      const update = state.devices.byName[name].status.update;
-      if (update.firmware_update_available) {
-        await DeviceEvents.installFirmware(this, { detail: { name } });
-      } else {
-        await DeviceEvents.installTft(this, { detail: { name } });
-      }
-    }
+    await this._store.actions.startRollout();
   }
 
   get _removeDeviceParams() {
@@ -1069,6 +1067,7 @@ class NSPanelEditor extends LitElement {
     const hubVersion = versions.length === 1 ? versions[0] : versions.length > 1 ? t('Mixed versions') : t('Unknown');
     // Logs is Fleet's one sidebar: every device's lines, or one device's from its menu.
     const logs = state.ui.overlays.find((overlay) => overlay.kind === 'logs');
+    const policyOpen = state.ui.overlays.some((overlay) => overlay.kind === 'update-policy');
     return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderFleetView({
@@ -1097,6 +1096,9 @@ class NSPanelEditor extends LitElement {
         onScan: () => this._scanDevices(),
         onAddDevices: (found) => this._addDevices(found),
         onOpenLogs: () => this._openLogs(null),
+        onUpdatePolicy: () => this._openUpdatePolicy(),
+        rollout: state.hub.rollout,
+        onCancelRollout: (device) => this._store.actions.cancelRollout(device),
       })}
       ${this._renderNotificationsView()}
       <nspanel-dialog-confirm
@@ -1111,6 +1113,17 @@ class NSPanelEditor extends LitElement {
         @dialog-closed=${() => { this._confirmBulkUpdate = false; }}
         @dialog-confirmed=${this._installOfferedUpdates}
       ></nspanel-dialog-confirm>
+      ${policyOpen && state.hub.updatePolicy ? modalSidebar({
+        label: t('Update policy'),
+        body: updatePolicyView({
+          policy: this._policyDraft || state.hub.updatePolicy,
+          dirty: this._policyDraft !== null,
+          saving: state.hub.saving,
+          onChange: (policy) => { this._policyDraft = policy; this.requestUpdate(); },
+          onSave: () => this._saveUpdatePolicy(),
+        }),
+        onClose: () => this._closeUpdatePolicy(),
+      }) : nothing}
       ${logs ? modalSidebar({
         label: logs.subject
           ? `${t('Logs')} · ${state.devices.byName[logs.subject]?.friendlyName || logs.subject}`
@@ -1162,10 +1175,12 @@ class NSPanelEditor extends LitElement {
     // Every open sidebar stays rendered and the topmost one is shown, so a nested
     // editor keeps the draft below it.
     const panelEditor = sidebarKinds.includes('panel-editor') && this._editingPanel ? html`<nspanel-panel-editor
-      .hass=${this.hass} .api=${this.api} .open=${true} .inline=${true}
+      .hass=${this.hass} .api=${this.api} .open=${true}
       .panel=${this._editingPanel} .panelTypes=${this._panelTypes}
+      .themes=${{ ...this._builtinThemes, ...this._customThemes }}
       .devicePanels=${this._devicePanels()} .systemPanels=${this._panels?.system_panels || []}
       .saving=${this._saving} .error=${this._error} .entryId=${this.entryId}
+      .serverErrors=${this._serverErrors || []}
       .dialogVersion=${this._dialogVersion}
       .previewContext=${buildPreviewContext(this.entryId, name, device, status, this.api, state.hub.themes)}
       @dialog-closed=${() => {
@@ -1175,7 +1190,7 @@ class NSPanelEditor extends LitElement {
       }} @dialog-save=${this._save}
     ></nspanel-panel-editor>` : null;
     const deviceSettings = html`<nspanel-device-settings
-      .hass=${this.hass} .open=${true} .inline=${true}
+      .hass=${this.hass} .open=${true}
       .config=${this._deviceConfigForm}
       .panels=${device.panels}
       .saving=${this._saving}
@@ -1190,8 +1205,13 @@ class NSPanelEditor extends LitElement {
       compactPreviews: this._panelCatalogCompact,
       onPreviewSize: (compact) => this._chooseCatalogPreviewSize(compact),
       onSelect: (type) => this._openAdd(type),
-      templates: this._panelTemplates(),
-      onSelectTemplate: (panel) => this._openAddFrom(panel),
+      copies: this._panelTemplates(),
+      onSelectCopy: (panel) => this._openAddFrom(panel),
+      starters: state.hub.panelTemplates || [],
+      onSelectStarter: (panel) => {
+        this._panelCatalogOpen = false;
+        Crud.openAddFromTemplate(this, panel);
+      },
       popups: groupPanels(device.panels, state.hub.systemPanels || []).defaults,
       onSelectPopup: (entry) => this._openSysPanelFromCatalog(entry),
       preview: (panel, byKey = false) => renderSimulatorPreview(
@@ -1202,15 +1222,17 @@ class NSPanelEditor extends LitElement {
       .hass=${this.hass} .api=${this.api} .open=${true}
       .deviceStatus=${device.status} .deviceName=${name} .entryId=${this.entryId}
       .config=${device.config}
+      .hubPolicy=${state.hub.updatePolicy}
       @dialog-closed=${() => this._closeFirmware()}
       @update-check=${() => this._store.actions.pollSelectedStatus()}
       @save-update-settings=${(event) => this._saveUpdateSettings(event)}
       @update-tft=${(event) => DeviceEvents.installTft(this, event)}
       @update-firmware=${(event) => DeviceEvents.installFirmware(this, event)}
+      @update-control=${(event) => this._controlUpdate(name, event.detail)}
     ></nspanel-firmware-popover>`;
     const theme = () => html`<nspanel-theme-sidebar
       .hass=${this.hass} .api=${this.api} .open=${true}
-      .entryId=${this.entryId} .panels=${this._devicePanels()}
+      .entryId=${this.entryId}
       .themeId=${this._themeId || 'dark'}
       .themeVariant=${this._themeVariant}
       @dialog-closed=${this._closeThemeSidebar} @dialog-save=${this._onThemeSave}
@@ -1373,6 +1395,7 @@ class NSPanelEditor extends LitElement {
       firmware: () => t('Updates'),
       theme: () => t('Theme'),
       logs: () => t('Logs'),
+      'update-policy': () => t('Update policy'),
     };
     const label = kind ? labels[kind] : undefined;
     if (!label) throw new Error(`Unknown sidebar kind: ${kind}`);
@@ -1394,17 +1417,17 @@ class NSPanelEditor extends LitElement {
       anchorKey: top.anchorKey,
       label: t('Actions for {name}').replace('{name}', this._panels.devices?.[name]?.friendly_name || name),
       items: [
-        { label: t('View'), iconName: 'mdi:monitor', onSelect: at(() => this._navigateToDevice(name)) },
-        { label: t('Panels'), iconName: 'mdi:view-dashboard-outline', onSelect: at(() => this._router?.navigate({ view: 'device', device: name, panelView: 'panels' })) },
+        { label: t('View'), iconName: 'screen', onSelect: at(() => this._navigateToDevice(name)) },
+        { label: t('Panels'), iconName: 'panels', onSelect: at(() => this._router?.navigate({ view: 'device', device: name, panelView: 'panels' })) },
         'divider',
-        { label: t('Logs'), iconName: 'mdi:text-box-outline', onSelect: at(() => this._openLogs(name)) },
+        { label: t('Logs'), iconName: 'log', onSelect: at(() => this._openLogs(name)) },
         'divider',
         {
           label: enabled ? t('Disable') : t('Enable'),
-          iconName: enabled ? 'mdi:close-circle-outline' : 'mdi:check-circle-outline',
+          iconName: enabled ? 'close-circle-outline' : 'check-circle-outline',
           onSelect: () => DeviceEvents.toggleDevice(this, name),
         },
-        { label: t('Remove'), iconName: 'mdi:delete-outline', danger: true, onSelect: () => { this._removeTarget = name; } },
+        { label: t('Remove'), iconName: 'delete', danger: true, onSelect: () => { this._removeTarget = name; } },
       ],
     };
   }
@@ -1555,20 +1578,21 @@ class NSPanelEditor extends LitElement {
         title: nameOf(panel),
         typeLabel: descriptor?.label || panel.type || '',
         itemCount: Array.isArray(panel.items) ? panel.items.length : 0,
+        invalid: panelHasOptionErrors(descriptor, panel, { popup: false }),
         preview: renderSimulatorPreview(context, panel, index, renderKey),
         roles: panelRoleMarkers(panel.key, roleConfig),
         onEdit: () => this._openEdit(index),
         menu: [
-          { label: t('Edit'), iconName: 'mdi:pencil-outline', onSelect: () => this._openEdit(index) },
-          { label: t('Duplicate'), iconName: 'mdi:content-copy', onSelect: () => Crud.duplicatePanel(this, panel.key) },
+          { label: t('Edit'), iconName: 'edit', onSelect: () => this._openEdit(index) },
+          { label: t('Duplicate'), iconName: 'content-copy', onSelect: () => Crud.duplicatePanel(this, panel.key) },
           'divider',
           {
             label: isNavigation ? t('Hide from navigation') : t('Show in navigation'),
-            iconName: isNavigation ? 'mdi:eye-off-outline' : 'mdi:eye-outline',
+            iconName: isNavigation ? 'eye-off-outline' : 'eye-outline',
             onSelect: () => this._toggleNavVisibility(panel.key),
           },
           'divider',
-          { label: t('Delete'), iconName: 'mdi:delete-outline', danger: true, onSelect: () => this._confirmDelete(index) },
+          { label: t('Delete'), iconName: 'delete', danger: true, onSelect: () => this._confirmDelete(index) },
         ],
       };
     });
@@ -1583,9 +1607,9 @@ class NSPanelEditor extends LitElement {
       roles: panelRoleMarkers(entry.key, roleConfig),
       onEdit: () => this._openSysPanelEdit(entry),
       menu: [
-        { label: t('Edit'), iconName: 'mdi:pencil-outline', onSelect: () => this._openSysPanelEdit(entry) },
+        { label: t('Edit'), iconName: 'edit', onSelect: () => this._openSysPanelEdit(entry) },
         'divider',
-        { label: t('Reset to default'), iconName: 'mdi:restore', onSelect: () => this._resetSysPanelOverride(entry.key) },
+        { label: t('Reset to default'), iconName: 'restore', onSelect: () => this._resetSysPanelOverride(entry.key) },
       ],
     }));
 
@@ -1722,7 +1746,7 @@ class NSPanelEditor extends LitElement {
       ]
       : [
         { label: t('Edit'), iconName: 'edit', variant: 'primary', onClick: () => this._openEdit(index) },
-        { label: t('Duplicate'), iconName: 'mdi:content-copy', onClick: () => Crud.duplicatePanel(this, panel.key) },
+        { label: t('Duplicate'), iconName: 'content-copy', onClick: () => Crud.duplicatePanel(this, panel.key) },
         { label: t('Delete'), iconName: 'delete', danger: true, onClick: () => this._confirmDelete(index) },
       ];
     return {
@@ -1875,8 +1899,8 @@ class NSPanelEditor extends LitElement {
     if (!cfg || !this._selectedDevice) return;
     const previousModel = this._deviceConfig?.display_model;
 
-    // savePanels shows the success or error haui-toast; keep the dialog open on failure.
-    if (await this._savePanels(this._devicePanels(), t("Device configuration saved"), clone(cfg))) {
+    // saveDeviceConfig shows the success or error toast; keep the dialog open on failure.
+    if (await this._saveDeviceConfig(clone(cfg), t("Device configuration saved"))) {
       this._closeDeviceConfig();
       // The display cannot report which layout it runs, so a model change
       // needs the matching TFT.  The upload restarts the display, so ask
@@ -1893,7 +1917,40 @@ class NSPanelEditor extends LitElement {
   /** Open the Updates sidebar on the device's screen. @param {string} deviceName */
   _openFirmware(deviceName) {
     this._captureSidebarFocus();
+    // The Updates sidebar names the hub policy a device follows.
+    void this._store.actions.loadUpdatePolicy();
     this._store.actions.pushOverlay({ kind: 'firmware', anchorKey: 'firmware', subject: deviceName, draft: null });
+  }
+
+  /**
+   * Start, put off or skip the device's scheduled firmware install, then read
+   * its status again so the sidebar shows the result.
+   * @param {string} name
+   * @param {{ action: 'install_now'|'defer'|'skip', seconds?: number }} detail
+   */
+  async _controlUpdate(name, detail) {
+    if (await this._store.actions.controlUpdate(name, detail.action, detail.seconds)) {
+      await this._store.actions.pollSelectedStatus();
+    }
+  }
+
+  /** Open the hub's automatic update policy from Fleet. */
+  _openUpdatePolicy() {
+    this._captureSidebarFocus();
+    this._policyDraft = null;
+    void this._store.actions.loadUpdatePolicy();
+    this._store.actions.pushOverlay({ kind: 'update-policy', anchorKey: 'update-policy', subject: null, draft: null });
+  }
+
+  _closeUpdatePolicy() {
+    this._policyDraft = null;
+    this._store.actions.closeOverlay('update-policy', 'update-policy');
+    this._restoreSidebarFocus();
+  }
+
+  async _saveUpdatePolicy() {
+    if (!this._policyDraft) return;
+    if (await this._store.actions.saveUpdatePolicy(this._policyDraft)) this._closeUpdatePolicy();
   }
 
   async _saveUpdateSettings(event) {
@@ -1913,11 +1970,10 @@ class NSPanelEditor extends LitElement {
         }
         const config = this._store.selectors.configFor(pending.deviceName);
         if (!config) continue;
-        await Crud.savePanels(
+        await Crud.saveDeviceConfig(
           this,
-          this._store.selectors.devicePanels(pending.deviceName),
-          '',
           { ...config, update: pending.update },
+          '',
           pending.deviceName,
         );
       }

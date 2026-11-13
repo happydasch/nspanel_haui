@@ -13,19 +13,9 @@ export const fleetStyles = css`
     flex: 1 0 auto;
     color: var(--primary-text-color);
   }
-  /* Section headers: one quiet rank for both cards, with the count as a chip. */
+  /* Section headers: one quiet rank for both cards, with the count as a badge. */
   .haui-section-heading.haui-surface-heading { justify-content: flex-start; gap: 8px; padding: 0; border: 0; }
   .haui-section-heading h2 { margin: 0; }
-  .haui-section-count {
-    padding: 4px 8px;
-    border-radius: var(--haui-radius-pill);
-    background: var(--secondary-background-color);
-    color: var(--secondary-text-color);
-    font-size: var(--haui-text-caption);
-    font-variant-numeric: tabular-nums;
-    font-weight: var(--ha-font-weight-medium, 500);
-    line-height: 1.3;
-  }
   .haui-inventory-overview > header,
   .haui-event-list > header {
     display: flex;
@@ -57,8 +47,8 @@ export const fleetStyles = css`
     scroll-snap-type: x mandatory; scrollbar-width: thin;
   }
   .haui-fleet-carousel-wrap { position: relative; }
-  .haui-carousel-arrow { position: absolute; z-index: 1; top: 74px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-round); color: var(--primary-text-color); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); --mdc-icon-size: 18px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity 150ms ease; }
-  .haui-fleet-carousel-wrap:hover .haui-carousel-arrow, .haui-fleet-carousel-wrap:focus-within .haui-carousel-arrow { opacity: 1; }
+  /* Centred on the preview of a 280px card: the row only scrolls once its cards have shrunk to that width. */
+  .haui-carousel-arrow { position: absolute; z-index: 1; top: 90px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-round); color: var(--primary-text-color); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); --mdc-icon-size: 18px; line-height: 1; cursor: pointer; transition: opacity 150ms ease; }
   .haui-carousel-arrow.is-left { left: -4px; }
   .haui-carousel-arrow.is-right { right: -4px; }
   .haui-device-card { scroll-snap-align: start; min-width: 0; overflow: hidden; }
@@ -72,8 +62,7 @@ export const fleetStyles = css`
   .haui-device-card.is-portrait .haui-device-card-select nspanel-simulator-frame,
   .haui-device-card.is-portrait .haui-device-card-bezel { width: 116px; max-width: 100%; margin: 0 auto; aspect-ratio: 320 / 480; }
   .haui-device-update-badge { position: absolute; right: 8px; bottom: 8px; border-radius: var(--haui-radius-pill); padding: 4px 8px; background: var(--haui-warn-soft); color: var(--warning-color); font-size: var(--haui-text-caption); font-weight: 600; }
-  .haui-device-sort { position: absolute; top: 8px; left: 8px; opacity: 0; transition: opacity 150ms ease; }
-  .haui-device-card:hover .haui-device-sort, .haui-device-card:focus-within .haui-device-sort { opacity: 1; }
+  .haui-device-sort { position: absolute; top: 8px; left: 8px; transition: opacity 150ms ease; }
   .haui-device-card-info { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 12px 12px 12px; }
   .haui-device-card-name { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-menu { min-width: 220px; }
@@ -90,6 +79,14 @@ export const fleetStyles = css`
   .haui-discovered li .haui-button { min-height: 34px; }
   .haui-device-card-name, .haui-device-row-name { border: 0; padding: 0; color: var(--primary-text-color); background: transparent; font: inherit; font-weight: var(--ha-font-weight-medium, 500); text-align: start; cursor: pointer; }
   .haui-carousel-arrow:disabled { opacity: 0; pointer-events: none; }
+  /* A mouse shows the arrows and the grip on hover or focus; a touch screen keeps them
+     shown, since a tap cannot hover and a hidden control would still take the tap. */
+  @media (hover: hover) {
+    .haui-carousel-arrow, .haui-device-sort { opacity: 0; }
+    .haui-fleet-carousel-wrap:hover .haui-carousel-arrow:not(:disabled),
+    .haui-fleet-carousel-wrap:focus-within .haui-carousel-arrow:not(:disabled),
+    .haui-device-card:hover .haui-device-sort, .haui-device-card:focus-within .haui-device-sort { opacity: 1; }
+  }
   .haui-fleet-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr); gap: 16px; margin-top: 8px; }
   .haui-inventory-overview { padding: 20px 28px 16px; }
   .haui-fleet-inventory-heading { flex: 0 0 auto; }
@@ -183,4 +180,14 @@ export const fleetStyles = css`
   }
   @container haui-editor (max-width: 720px) { .haui-dashboard-content { width: min(100% - 28px, 1440px); padding-top: 16px; } .haui-device-table { grid-template-columns: minmax(0, 1fr) repeat(2, max-content) auto; column-gap: 12px; } .haui-device-row { padding: 4px 12px; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } .haui-device-row-actions { grid-column: 4; } }
   @media (prefers-reduced-motion: reduce) { .haui-device-sort { transition: none; } }
+  .haui-rollout { margin-bottom: 16px; }
+  .haui-rollout-summary { margin: 0 0 8px; font-size: var(--haui-text-caption); color: var(--secondary-text-color); }
+  .haui-rollout-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .haui-rollout-row { display: grid; gap: 4px; }
+  .haui-rollout-row-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .haui-rollout-kind { font-size: var(--haui-text-caption); color: var(--secondary-text-color); }
+  .haui-rollout-cancel { margin-left: auto; }
+  .haui-rollout-row .haui-update-progress { padding: 0; }
+  .haui-rollout-error { margin: 0; font-size: var(--haui-text-caption); color: var(--error-color, #db4437); }
+  .haui-rollout-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
 `;

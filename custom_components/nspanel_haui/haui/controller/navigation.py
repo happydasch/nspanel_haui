@@ -174,10 +174,16 @@ class HAUINavigationController(HAUIBase):
                     self.log(f"Idle panel key '{key}' not found", level="WARNING")
                 continue
             new_panels.append(panel)
-        if [p.get("key") for p in new_panels] != [p.get("key") for p in self._idle_panels]:
+        keys = [p.get("key") for p in new_panels]
+        current = 0
+        if keys != [p.get("key") for p in self._idle_panels]:
             self._idle_panel_idx = 0
+        elif self._idle_panel is not None:
+            # Same carousel, rebuilt panels (a save): keep the entry that is
+            # the idle panel, which may be on screen right now.
+            current = keys.index(self._idle_panel.get("key"))
         self._idle_panels = new_panels
-        self._idle_panel = self._idle_panels[0] if self._idle_panels else None
+        self._idle_panel = self._idle_panels[current] if self._idle_panels else None
         if log and self._idle_panels:
             self.log(
                 "Idle panel carousel: "
@@ -551,7 +557,9 @@ class HAUINavigationController(HAUIBase):
 
     def _page_timeout_callback(self, _kwargs: dict[str, Any]) -> None:
         """Last-resort fallback: page event never arrived within timeout."""
-        self._page_timeout = None
+        # The touch recovery calls this directly: the pending timer must not
+        # fire on top of it.
+        self._cancel_timer("_page_timeout")
         # Force re-send goto_page and render the current panel. This avoids
         # pushing a duplicate onto the navigation stack when the ESPHome page
         # ack doesn't arrive in time.
@@ -1075,7 +1083,7 @@ class HAUINavigationController(HAUIBase):
         ):
             return
         is_button = event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT)
-        if is_button and not self.app.device.get("reset_interaction_on_button", True):
+        if is_button and not self.app.device.get("reset_interaction_on_button"):
             return
         self.reset_activity()
 

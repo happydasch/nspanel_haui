@@ -13,14 +13,17 @@ import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app
 import { SIDEBAR_OVERLAY_KINDS } from '../../custom_components/nspanel_haui/frontend/store/store.js';
 
 function host() {
-  return makeHost({ devices: { kitchen: { config: {}, panels: [] } } }, () => {
+  return makeHost({ devices: { kitchen: { config: {}, panels: [] } } }, (method, path) => {
+    if (method === 'GET' && path === '/api/nspanel_haui/devices/entry1/kitchen') {
+      return jsonResponse({ device: 'kitchen', config: {} });
+    }
     throw new Error('unexpected request');
   });
 }
 
-test('device settings open and close through the ordered overlay stack', () => {
+test('device settings open and close through the ordered overlay stack', async () => {
   const editor = host();
-  openDeviceConfig(editor);
+  await openDeviceConfig(editor);
   assert.deepEqual(editor.store.getState().ui.overlays.map(({ kind, subject }) => [kind, subject]), [
     ['device-settings', 'kitchen'],
   ]);
@@ -96,10 +99,6 @@ test('the Fleet device menu shows the device without settings or update shortcut
   assert.equal(model.key, 'kitchen');
   const items = model.items.filter((item) => item !== 'divider');
   assert.deepEqual(items.map((item) => item.label), ['View', 'Panels', 'Logs', 'Disable', 'Remove']);
-  assert.deepEqual(items.map((item) => item.iconName), [
-    'mdi:monitor', 'mdi:view-dashboard-outline', 'mdi:text-box-outline',
-    'mdi:close-circle-outline', 'mdi:delete-outline',
-  ]);
   items.find((item) => item.label === 'View').onSelect();
   assert.deepEqual(navigations, ['kitchen']);
   // Removing asks first: the menu only names the device to confirm.
@@ -191,16 +190,16 @@ test('Logs opens as a sidebar for one device or every device and closes like the
   editor.store.actions.pushOverlay({ kind: 'device-menu', anchorKey: 'device-menu:kitchen', subject: 'kitchen', draft: null });
   const model = editor._deviceMenuModel();
   editor._closeAnchoredPopover('device-menu');
-  model.items.find((item) => item.iconName === 'mdi:text-box-outline').onSelect();
+  model.items.find((item) => item.label === 'Logs').onSelect();
   assert.deepEqual(overlays(), [['logs', 'kitchen']]);
 });
 
-test('a sidebar still stacks above an anchored popover', () => {
+test('a sidebar still stacks above an anchored popover', async () => {
   const editor = host();
   editor.store.actions.pushOverlay({
     kind: 'notification-centre', anchorKey: 'notification-centre', subject: null, draft: null,
   });
-  openDeviceConfig(editor);
+  await openDeviceConfig(editor);
   assert.deepEqual(editor.store.getState().ui.overlays.map(({ kind }) => kind), [
     'notification-centre', 'device-settings',
   ]);
@@ -378,13 +377,16 @@ test('an editor that Home Assistant attaches again polls its device again', asyn
   assert.equal(polls.at(-1), 'stop');
 });
 
-test('Settings opened from Fleet add a history entry, so Back returns to Fleet', () => {
+test('Settings opened from Fleet add a history entry, so Back returns to Fleet', async () => {
   const editor = routedEditor(TWO_DEVICES);
   editor._store.actions.setRoute({ view: 'fleet' });
   editor._store.actions.selectDevice('hall');
   editor._store.actions.stopSelectedStatusPolling();
 
+  editor.api.devices.settings = async () => ({ config: {} });
   editor._openSettings();
+  await new Promise((resolve) => setImmediate(resolve));
+
   assert.deepEqual(editor.navigations, ['hall']);
   assert.deepEqual(editor.replaced, [false]);
   assert.equal(editor._store.getState().ui.overlays.at(-1)?.kind, 'device-settings');

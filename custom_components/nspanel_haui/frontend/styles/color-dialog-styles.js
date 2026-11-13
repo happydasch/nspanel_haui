@@ -13,19 +13,6 @@
 import { css } from '../lit-import.js';
 
 export const colorDialogStyles = css`
-
-  .haui-theme-field {
-    margin: 12px 0 16px;
-  }
-  .haui-theme-field label {
-    display: block;
-    margin-bottom: 4px;
-    font-weight: 500;
-    font-size: var(--haui-text-label);
-  }
-  .haui-theme-field select {
-    max-width: 320px;
-  }
   /* ── footer change counter ─────────── */
   .haui-footer-changed {
     font-size: var(--haui-text-caption);

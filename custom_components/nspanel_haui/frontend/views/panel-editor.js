@@ -1,8 +1,7 @@
 /**
  * NSPanel HAUI - panel editor view.
  *
- * Renders the shared panel form in the Device sidebar and preserves its
- * existing modal presentation for routes that still use the legacy shell.
+ * Renders the shared panel form in the Device sidebar.
  *
  * Maintains its own form state (panel type, title, config options, key, show_in_nav)
  * to avoid polluting the editor's state surface.
@@ -14,16 +13,38 @@ import {
   getPanelOptionGroups, renderField, renderNumberInput, renderOptionField, renderSelect,
   renderToggleField,
 } from '../form-fields.js';
-import { dialogHeader } from '../dialogs/dialog-header.js';
 import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
+import { themeOptions } from '../theme-library.js';
 import { buildPanelConfig, generateAutoKey, panelKeyError } from '../crud.js';
+import { entityWarnings, fieldId, optionErrors } from '../option-rules.js';
 import { renderSimulatorPreview } from '../previews/simulator-frame.js';
+import { countBadge } from '../ui/badge.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
 import { panelEditorStyles } from '../styles/panel-editor-styles.js';
 
 // Options that hold the panel's list of items.
 const ITEM_LIST_KINDS = ['item_list', 'list_items', 'list_entities'];
+/**
+ * What an option field shows under itself: its error or warning, and those of
+ * its list entries (`fld-<key>-<index>`) by index.
+ * @param {string} key
+ * @param {Map<string, string>} errors
+ * @param {Map<string, string>} warnings
+ */
+function optionFeedback(key, errors, warnings) {
+  const id = `fld-${key}`;
+  const entries = new Map();
+  for (const [source, tone] of [[errors, 'error'], [warnings, 'warning']]) {
+    for (const [fieldKey, message] of source) {
+      if (!fieldKey.startsWith(`${id}-`)) continue;
+      const index = Number(fieldKey.slice(id.length + 1));
+      if (Number.isInteger(index) && !entries.get(index)?.error) entries.set(index, { [tone]: message });
+    }
+  }
+  return { error: errors.get(id), warning: warnings.get(id), entries };
+}
+
 // The pinned preview bar's height: it takes over as the full preview's last part scrolls under it.
 const PIN_BAR_HEIGHT = 77;
 
@@ -47,15 +68,17 @@ class PanelEditor extends HauiDialog {
   static get properties() {
     return {
       api: { type: Object },
-      inline: { type: Boolean },
       panel: { type: Object },
       panelTypes: { type: Array },
+      themes: { type: Object },
       saving: { type: Boolean },
       error: { type: String },
       entryId: { type: String },
       devicePanels: { type: Array },
       systemPanels: { type: Array },
       dialogVersion: { type: Number },
+      // The hub's refusal of the last save: [{ panel, field, kind, message }].
+      serverErrors: { type: Array },
       // What the hub renders the panel with: { entryId, device, deviceConfig, panels, deviceInfo, api }.
       previewContext: { type: Object },
       _previewPanel: { state: true },
@@ -65,10 +88,11 @@ class PanelEditor extends HauiDialog {
 
   constructor() {
     super();
-    this.inline = false;
     this.api = null;
     this.panel = null;
     this.panelTypes = [];
+    this.themes = {};
+    this.serverErrors = [];
     this.saving = false;
     this.error = null;
     this.entryId = null;
@@ -82,9 +106,13 @@ class PanelEditor extends HauiDialog {
     this.previewContext = null;
     this._previewPanel = null;
     this._previewPinned = false;
+    /** Keys of the colour options whose presets are shown. */
+    this._openColorPresets = new Set();
   }
 
   willUpdate(changed) {
+    // The hub's refusal holds for the form as it was saved; any edit lifts it.
+    if (changed.has('serverErrors')) this.__serverErrorsFor = JSON.stringify(this._editingPanel?.data ?? null);
     if ((changed.has("open") && this.open) || changed.has("dialogVersion")) {
       // Reset user type selection each time the dialog opens or a new panel
       // session starts. The dialogVersion counter is incremented by the parent
@@ -95,6 +123,7 @@ class PanelEditor extends HauiDialog {
       // An item left open in the previous session would keep Save disabled.
       this._editingItem = null;
       this._editingItemType = null;
+      this._openColorPresets.clear();
       this._previewPanel = null;
       this.__previewJson = null;
       this.__sample = null;
@@ -141,21 +170,27 @@ class PanelEditor extends HauiDialog {
     const headerTitle = isAdd ? t('Add Panel') : `${t('Edit Panel')} — ${typeLabel}`;
     const saveLabel = this.saving ? t('Saving...') : isAdd ? t('Add') : t('Save');
     const errors = this._fieldErrors();
+    const warnings = this._fieldWarnings();
     // The rich item list is edited in _itemListData; the panel data is its saved state.
     const itemCount = (options) => options.reduce((count, opt) => {
       const list = this._itemListData?.[opt.key] ?? ep.data[opt.key];
       return count + (Array.isArray(list) ? list.length : 0);
     }, 0);
 
+    // Hub-driven popups reuse this field while their other advanced controls stay hidden.
+    const panelThemeField = renderField({
+      id: 'fld-theme',
+      label: t('Color theme'),
+      control: renderSelect('fld-theme', ep.data.theme_id || '',
+        themeOptions(this.themes, { includeDeviceTheme: true }),
+        (value) => this._setPanelValue('theme_id', value)),
+      hint: t('Colours for this panel only. Default follows the device theme.'),
+    });
+    // The sidebar frame's strip carries the title and the close control.
     const content = html`
-        ${this._renderHeader(headerTitle)}
-
-        <form id="panel-edit-form" @submit=${(e) => e.preventDefault()}
-          @scroll=${this.inline ? this._onFormScroll : null}>
-          ${this.inline
-            ? this._renderPinnedPreview(sysPanel, ep.data.title || typeLabel,
-                [typeLabel, ep.data.key].filter(Boolean).join(' · '))
-            : nothing}
+        <form id="panel-edit-form" @submit=${(e) => e.preventDefault()} @scroll=${this._onFormScroll}>
+          ${this._renderPinnedPreview(sysPanel, ep.data.title || typeLabel,
+            [typeLabel, ep.data.key].filter(Boolean).join(' · '))}
           <div class="haui-dialog-body">
 
           ${this._renderPreview(sysPanel)}
@@ -189,22 +224,25 @@ class PanelEditor extends HauiDialog {
               <details class="haui-config-section" ?open=${lists.some((opt) => opt.kind === 'item_list')}>
                 <summary>
                   ${sectionLabel}
-                  ${lists.length ? html`<span class="haui-config-section-count"
-                    title=${t('{count} items').replace('{count}', String(itemCount(lists)))}
-                  >${itemCount(lists)}</span>` : nothing}
+                  ${lists.length ? countBadge(itemCount(lists), {
+                    title: t('{count} items').replace('{count}', String(itemCount(lists))),
+                  }) : nothing}
                 </summary>
                 <div class="haui-config-section-body">
-                  ${group.options.map(opt => renderOptionField(this, opt, ep.data[opt.key]))}
+                  ${group.options.map(opt => renderOptionField(this, opt, ep.data[opt.key],
+                    optionFeedback(opt.key, errors, warnings)))}
                 </div>
               </details>
             `;
           })}
 
-          ${sysPanel?.hub_driven ? "" : html`
           <details class="haui-config-section">
             <summary>${t('Advanced')}</summary>
             <div class="haui-config-section-body">
 
+              ${panelThemeField}
+
+              ${sysPanel?.hub_driven ? nothing : html`
               ${sysPanel ? nothing : renderField({
                 id: 'fld-key',
                 label: t('Panel key'),
@@ -259,9 +297,9 @@ class PanelEditor extends HauiDialog {
                 }, { min: 0 }),
                 hint: t('Close the panel and go back after this many seconds. 0 = stay open.'),
               })}
+              `}
             </div>
           </details>
-          `}
 
           ${this.error
             ? html`<ha-alert class="haui-panel-editor-alert" alert-type="error">${this.error}</ha-alert>`
@@ -293,12 +331,9 @@ class PanelEditor extends HauiDialog {
           </ha-dialog-footer>
         </div>
     `;
-    if (this.inline) {
-      return html`<aside class="haui-panel-editor-sidebar" aria-label=${headerTitle}>
+    return html`<aside class="haui-panel-editor-sidebar" aria-label=${headerTitle}>
         ${content}
       </aside>`;
-    }
-    return html`<ha-dialog .open=${this.open} @closed=${this._dispatchClose}>${content}</ha-dialog>`;
   }
 
   /**
@@ -364,11 +399,6 @@ class PanelEditor extends HauiDialog {
     return entityId ? { item: entityId, item_id: entityId } : null;
   }
 
-  /** The dialog's header; in the sidebar the frame's strip carries the title and the close control. */
-  _renderHeader(title) {
-    return this.inline ? nothing : dialogHeader(title, this._dispatchClose);
-  }
-
   _onTypeChange(newType) {
     // Idempotency guard: skip if the type hasn't actually changed.
     if (newType === this._editingPanelType) return;
@@ -418,6 +448,7 @@ class PanelEditor extends HauiDialog {
       delete panel.title;
     }
 
+    if (!panel.theme_id) delete panel.theme_id;
     const sysPanel = this._sysPanel();
     const showInNavEl = form.querySelector("#fld-show-in-nav");
     panel.show_in_navigation = sysPanel ? false : showInNavEl ? showInNavEl.checked : true;
@@ -474,7 +505,33 @@ class PanelEditor extends HauiDialog {
     if (data.unlock_code && !/^\d+$/.test(String(data.unlock_code))) {
       errors.set('fld-unlock-code', t('The PIN can only contain digits'));
     }
+    const popup = Boolean(this._sysPanel());
+    for (const [id, error] of optionErrors(this._descriptor(), data, this._itemListData || {}, { popup })) {
+      if (!errors.has(id)) errors.set(id, error.message);
+    }
+    // The hub's refusal names fields the form's own rules did not catch.
+    const refused = this.__serverErrorsFor === JSON.stringify(this._editingPanel?.data ?? null);
+    for (const error of refused ? this.serverErrors || [] : []) {
+      const id = fieldId(error.field);
+      if (error.panel === data.key && !errors.has(id)) errors.set(id, error.message);
+    }
     return errors;
+  }
+
+  /**
+   * Entities the form names that Home Assistant does not know right now, by
+   * field id. They warn but do not block the save.
+   * @returns {Map<string, string>}
+   */
+  _fieldWarnings() {
+    const data = this._editingPanel?.data || this.panel?.data || {};
+    return entityWarnings(this._descriptor(), data, this._itemListData || {}, this.hass?.states);
+  }
+
+  /** The descriptor of the panel type the form edits. */
+  _descriptor() {
+    const type = this._editingPanelType || this._editingPanel?.data?.type || this.panel?.data?.type;
+    return this.panelTypes.find((pt) => pt.type_key === type);
   }
 
   /** The hub's render of the form's current state, a moment after the last edit. */
@@ -501,7 +558,9 @@ class PanelEditor extends HauiDialog {
     // updates leave the section as the user set it.
     const shown = new Set();
     for (const id of this._fieldErrors().keys()) {
-      const field = this.renderRoot?.querySelector?.(`#${id}`);
+      // A list entry's error (`fld-<key>-<index>`) sits in its list's field.
+      const field = this.renderRoot?.querySelector?.(`#${id}`)
+        || this.renderRoot?.querySelector?.(`#${id.replace(/-\d+$/, '')}`);
       if (!field) continue;
       shown.add(id);
       if (this.__shownErrors?.has(id)) continue;

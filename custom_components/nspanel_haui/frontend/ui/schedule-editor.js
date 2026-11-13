@@ -25,13 +25,6 @@ export function scheduleWindowLabel(entry) {
   return `${boundary(entry.start, entry.start_offset)} → ${boundary(entry.end, entry.end_offset)}`;
 }
 
-/** A folded schedule's windows, or that the device settings apply all day. */
-export function scheduleSummary(schedule = []) {
-  return schedule.length
-    ? schedule.map(scheduleWindowLabel).join(' · ')
-    : t('Nothing scheduled: the device settings apply all day.');
-}
-
 /**
  * Render the schedule entries of the Panels side stack as an `entryList`: each
  * entry folds to its window and what it turns off; only `expandedEntryIndex`

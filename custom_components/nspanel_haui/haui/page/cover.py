@@ -24,6 +24,7 @@ class CoverPage(HAUIPage):
                 key="item",
                 kind="item",
                 domain="cover",
+                required=True,
                 description=_(
                     "Cover entity for opening, closing and positioning window coverings."
                 ),

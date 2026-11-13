@@ -175,3 +175,18 @@ def test_demo_entity_panels_show_the_controls_their_sample_entity_supports(hub_l
     vacuum = renders["vacuum"]["commands"]
     for widget in ("bFan", "bAction", "bHome", "bLocate"):
         assert f"vis {widget},1" in vacuum
+
+
+@pytest.mark.parametrize(
+    ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
+)
+def test_every_starter_template_renders_and_replays(hub_loop, tmp_path, display_model, orientation):
+    from custom_components.nspanel_haui.haui.mapping.templates import PANEL_TEMPLATES
+
+    templates = {f"template:{t.key}": {**t.panel, "key": ""} for t in PANEL_TEMPLATES}
+
+    renders = sample_world.render_every_card(hub_loop, display_model, extra_panels=templates)
+
+    for name in templates:
+        assert renders[name]["commands"], name
+    _replay(tmp_path, orientation, {name: renders[name] for name in templates})

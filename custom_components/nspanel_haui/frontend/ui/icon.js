@@ -1,7 +1,7 @@
 import { html } from '../lit-import.js';
 
 const ICONS = Object.freeze({
-  home: 'home', bell: 'bell-outline', tune: 'tune', settings: 'cog-outline',
+  home: 'home', bell: 'bell-outline', tune: 'tune', settings: 'cog-outline', template: 'shape-plus-outline',
   devices: 'devices', grid: 'view-grid-outline', plus: 'plus', check: 'check',
   back: 'arrow-left', up: 'arrow-up', down: 'arrow-down', grip: 'drag',
   more: 'dots-horizontal', edit: 'pencil-outline', list: 'format-list-bulleted',

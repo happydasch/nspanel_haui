@@ -9,6 +9,7 @@ import time_machine
 
 from custom_components.nspanel_haui.haui.abstract import haui_page
 from custom_components.nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import CARD_OPTIONS
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page import weather as weather_module
 from custom_components.nspanel_haui.haui.page.clock import ClockPage
 from custom_components.nspanel_haui.haui.page.weather import WeatherPage
@@ -79,6 +80,7 @@ class _App:
     def __init__(self, states=None):
         self.device = _Device()
         self.device_config = {}
+        self.theme = Theme("dark")
         self.controller = {"notification": _Notification()}
         self.states = states or {}
         self.listened = []
@@ -159,8 +161,8 @@ class _Panel:
 
 
 def _show(monkeypatch, cls, app=None, **config):
-    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config: _Item(config))
-    monkeypatch.setattr(weather_module, "HAUIItem", lambda app, config: _Item(config))
+    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config, **kwargs: _Item(config))
+    monkeypatch.setattr(weather_module, "HAUIItem", lambda app, config, **kwargs: _Item(config))
     page = cls(app or _App(), {"page_id": cls.DESCRIPTOR.page_id})
     page.cmds = []
     page.send_cmd = page.cmds.append
@@ -168,6 +170,7 @@ def _show(monkeypatch, cls, app=None, **config):
     page.translate = lambda text: text
     page.get_locale = lambda: "en"
     panel = _Panel(config)
+    panel.theme = page.app.theme
     page.panel = panel
     with time_machine.travel(_NOW, tick=False):
         page.start_panel(panel)

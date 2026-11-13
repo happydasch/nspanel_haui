@@ -247,13 +247,16 @@ def render_every_card(
     display_model: str,
     device_settings: dict[str, Any] | None = None,
     themes: dict[str, Any] | None = None,
+    extra_panels: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Render every panel card for a device of ``display_model`` (``eu``, ``us``).
 
     User cards render their sample panel (or a bare panel of the type), system
     cards the device's configured panel by key, as the editor sends them.
     ``device_settings`` are stored device settings laid over the sample ones,
-    and ``themes`` supplies the shared theme library.
+    and ``themes`` supplies the shared theme library. ``extra_panels`` adds
+    cards by name, each rendered from the panel config given (e.g. a keyless
+    starter template, as the Add panel catalog sends it).
 
     Returns:
         Card name (type key or system key) -> ``{page, before, commands}``.
@@ -296,6 +299,8 @@ def render_every_card(
         }
         for entry in get_system_panel_entries():
             cards[entry["key"]] = by_key(entry["key"])
+        for name, panel in (extra_panels or {}).items():
+            cards[name] = host.async_render(panel)
         return dict(zip(cards, await asyncio.gather(*cards.values()), strict=True))
 
     def run(coro: Any) -> Any:

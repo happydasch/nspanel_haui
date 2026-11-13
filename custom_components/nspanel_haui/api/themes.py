@@ -11,7 +11,7 @@ from ..haui.mapping.color import (
     validate_themes,
 )
 from ..hub.storage import empty_store, panel_store
-from .common import ApiError, api_errors
+from .common import ApiError, api_errors, ensure_known_theme_ids, used_theme_ids
 
 
 class ThemesView(HomeAssistantView):
@@ -47,25 +47,18 @@ class ThemesView(HomeAssistantView):
         except Exception as exc:
             raise ApiError(str(exc), 400) from exc
 
-        builtin_names = {theme["name"].casefold() for theme in BUILTIN_THEMES.values()}
-        if builtin_names.intersection(theme["name"].casefold() for theme in themes.values()):
-            raise ApiError("Custom theme names must not duplicate built-in themes", 400)
-
         store = panel_store(hass, entry_id)
         data = await store.async_load() or empty_store()
         old_themes = data.get("themes", {})
-        active_ids = {
-            device.get("config", {}).get("theme_id", "dark")
-            for device in data.get("devices", {}).values()
-            if isinstance(device, dict)
-        }
+        active_ids = used_theme_ids(data)
         removed_in_use = (set(old_themes) - set(themes)) & active_ids
         if removed_in_use:
             raise ApiError(
-                "Cannot remove a color theme that is selected by a device: "
+                "Cannot remove a color theme that is selected by a device or panel: "
                 + ", ".join(sorted(removed_in_use)),
                 409,
             )
+        ensure_known_theme_ids(data, themes)
         changed_active = any(
             old_themes.get(theme_id) != themes.get(theme_id)
             for theme_id in active_ids

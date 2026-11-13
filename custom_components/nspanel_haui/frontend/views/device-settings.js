@@ -8,7 +8,6 @@ import { html, css, nothing } from '../lit-import.js';
 import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderField, renderNumberInput, renderSelect, renderToggle, renderToggleField } from '../form-fields.js';
-import { dialogHeader } from '../dialogs/dialog-header.js';
 import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
@@ -136,7 +135,6 @@ class DeviceSettings extends HauiDialog {
   static get properties() {
     return {
       config: { type: Object },
-      inline: { type: Boolean },
       saving: { type: Boolean },
       api: { type: Object },
       entryId: { type: String },
@@ -165,7 +163,6 @@ class DeviceSettings extends HauiDialog {
 
   constructor() {
     super();
-    this.inline = false;
     this.config = null;
     this.saving = false;
     this.api = null;
@@ -189,9 +186,8 @@ class DeviceSettings extends HauiDialog {
     const snapMode = snapValue === -1 ? "-1" : snapValue === 0 ? "0" : "custom";
     const snapCustomVal = snapMode === "custom" && snapValue > 0 ? snapValue : 60;
 
+    // The sidebar frame's strip carries the title and the close control.
     const content = html`
-        ${this._renderHeader(t("Device Settings"))}
-
         <form id="device-config-form" @submit=${(e) => e.preventDefault()}>
           <div class="haui-dialog-body">
 
@@ -460,15 +456,7 @@ class DeviceSettings extends HauiDialog {
           </ha-dialog-footer>
         </div>
     `;
-    if (this.inline) {
-      return html`<aside class="haui-device-settings-sidebar" aria-label=${t("Device Settings")}>${content}</aside>`;
-    }
-    return html`<ha-dialog .open=${this.open} @closed=${this._dispatchClose}>${content}</ha-dialog>`;
-  }
-
-  /** The dialog's header; in the sidebar the frame's strip carries the title and the close control. */
-  _renderHeader(title) {
-    return this.inline ? nothing : dialogHeader(title, this._dispatchClose);
+    return html`<aside class="haui-device-settings-sidebar" aria-label=${t("Device Settings")}>${content}</aside>`;
   }
 
   _dispatchSave() {

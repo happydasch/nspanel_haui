@@ -16,7 +16,7 @@ from ..haui.controller.notification import HAUINotificationController
 from ..haui.controller.update import HAUIUpdateController
 from ..haui.device import HAUIDevice
 from ..haui.device_config import DEVICE_CONFIG_FIELDS
-from ..haui.mapping.color import Theme
+from ..haui.mapping.color import Theme, ThemeLibrary
 from ..haui.mapping.const import ESPEvent, NotifEvent
 from ..haui.mapping.panel import PAGE_MAPPING
 from ..haui.version import get_integration_version, integration_version_mismatch
@@ -52,6 +52,8 @@ class NSPanelHAUI(HAAdapter):
         self.controller: ControllerDict = {}  # type: ignore[typeddict-item]
         self.device_config: HAUIConfig
         self.device: HAUIDevice
+        self.theme_library: ThemeLibrary
+        self.theme: Theme
         self._runtime_device_name: str = runtime_device_name
         # entity-id slug of the device name, computed with HA's own slugify so
         # haui/ builds the same ids HA assigns (haui/ must not import homeassistant)
@@ -63,17 +65,20 @@ class NSPanelHAUI(HAAdapter):
         self._preview_state_subscribers: set[Callable[[dict[str, Any]], None]] = set()
         self._preview_output_subscribers: set[Callable[[str, Any], None]] = set()
         self._preview_state_lock = threading.Lock()
+        # update requests waiting for their answer (event loop only)
+        self._update_requests: set[asyncio.Future[dict[str, Any]]] = set()
+
+    def _apply_themes(self, device_cfg: dict, themes: dict[str, dict] | None = None) -> None:
+        """Build the theme library and select the device's default theme."""
+        palettes = themes if themes is not None else self.device_config.get("themes")
+        self.theme_library = ThemeLibrary(palettes, device_cfg["theme_variant"])
+        self.theme = self.theme_library.theme(device_cfg["theme_id"])
 
     def initialize(self) -> None:
         self.device_config = HAUIConfig(self, self._config_args)
         device_cfg = self.device_config.get("device")
+        self._apply_themes(device_cfg)
         self.device = self._create_device(device_cfg)
-
-        self.theme = Theme(
-            device_cfg["theme_variant"],
-            device_cfg.get("resolved_theme"),
-            theme_id=device_cfg["theme_id"],
-        )
 
         # The runtime device name comes from the constructor (set by async_setup_entry).
         # We don't pick devices[0] anymore — each app drives exactly one device.
@@ -151,6 +156,8 @@ class NSPanelHAUI(HAAdapter):
         for controller in self.controller.values():
             if isinstance(controller, HAUIBase):
                 controller.stop()
+        # The stopped worker answers no update request still waiting.
+        self._loop.call_soon_threadsafe(self._fail_update_requests)
 
         # Belt-and-suspenders: cancel any HA handles that controllers
         # missed in their own stop_part cleanup.
@@ -219,11 +226,7 @@ class NSPanelHAUI(HAAdapter):
             }
             for field in DEVICE_CONFIG_FIELDS:
                 self.device.config[field] = device_cfg[field]
-        self.theme = Theme(
-            device_cfg["theme_variant"],
-            device_cfg.get("resolved_theme"),
-            theme_id=device_cfg["theme_id"],
-        )
+        self._apply_themes(device_cfg, new_config.get("themes"))
 
         self.device_config._panels = new_config._panels
         self.device_config._panels_by_id = new_config._panels_by_id
@@ -278,8 +281,20 @@ class NSPanelHAUI(HAAdapter):
         def _start() -> None:
             getattr(self.controller["update"], method)(on_complete=_finish, **kwargs)
 
-        await self.async_run_on_worker(_start)
-        return await future
+        self._update_requests.add(future)
+        try:
+            await self.async_run_on_worker(_start)
+            return await future
+        finally:
+            self._update_requests.discard(future)
+
+    def _fail_update_requests(self) -> None:
+        """End the update requests still waiting: a stopped app answers none (event loop)."""
+        for future in self._update_requests:
+            if not future.done():
+                future.set_exception(
+                    RuntimeError("The device's app stopped before the update request finished")
+                )
 
     async def async_list_tft_releases(self) -> dict[str, Any]:
         """List TFT releases without waiting for network work on the device worker."""
@@ -329,6 +344,29 @@ class NSPanelHAUI(HAAdapter):
     ) -> None:
         """Queue a firmware install from app-worker code without blocking it."""
         self.controller["update"].start_async_firmware_install(version, url, on_complete)
+
+    async def async_update_state(self) -> dict[str, Any]:
+        """The update controller's state, as the status endpoint reports it."""
+        return await self.async_run_on_worker(self.controller["update"].get_update_state)
+
+    async def async_update_snapshot(self) -> dict[str, Any]:
+        """The update controller's full snapshot (connection, firmware, display)."""
+        return await self.async_run_on_worker(self.controller["update"].get_update_snapshot)
+
+    async def async_set_rollout_hold(self, hold: bool) -> None:
+        """Hold (or release) automatic firmware installs while a hub rollout runs."""
+        await self.async_run_on_worker(self.controller["update"].set_rollout_hold, hold)
+
+    async def async_update_control(self, action: str, seconds: int | None = None) -> dict[str, Any]:
+        """Start now or defer the scheduled automatic firmware install.
+
+        Raises:
+            ValueError: Nothing is scheduled, or the action or duration is unknown
+                (see ``HAUIUpdateController.control_scheduled``).
+        """
+        return await self.async_run_on_worker(
+            self.controller["update"].control_scheduled, action, seconds
+        )
 
     def publish_display_update(self) -> None:
         """Fire the current TFT update state for the "HAUI Display" entity."""

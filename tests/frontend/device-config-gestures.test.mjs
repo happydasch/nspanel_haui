@@ -4,7 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
-import { gestureEditor, gestureSummary } from '../../custom_components/nspanel_haui/frontend/ui/gesture-editor.js';
+import {
+  gestureActionLabel, gestureEditor, gestureSwipesLabel,
+} from '../../custom_components/nspanel_haui/frontend/ui/gesture-editor.js';
 import { deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { DEVICE_CONFIG_DEFAULTS, GESTURE_NAMES } from '../../custom_components/nspanel_haui/frontend/constants.js';
 
@@ -37,7 +39,7 @@ test('device settings include Special pages and save Home and Idle assignments',
     { key: 'clock', title: 'Clock' },
     { key: 'weather', title: 'Weather' },
   ];
-  const { dlg, events } = dialog({ config, _deviceConfigForm: config, inline: true, panels });
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels });
   const output = flat(dlg.render());
   const separatelyManagedDefaults = new Set([
     'theme_variant', 'theme_id', 'home_panel', 'idle_panel', 'idle_panel_extra', 'schedule', 'gestures',
@@ -138,8 +140,10 @@ test('removing a gesture keeps the others, and their fold states, as they were',
 });
 
 test('an unfinished gesture says what it still lacks', () => {
-  assert.equal(gestureSummary([{ swipes: [], action: '', timeframe: 3 }]), 'No swipes: No action');
-  assert.equal(gestureSummary([{ swipes: ['swipe_up'], action: 'gone', timeframe: 3 }]), 'Swipe up: gone');
+  assert.equal(gestureSwipesLabel({ swipes: [] }), 'No swipes');
+  assert.equal(gestureActionLabel(''), 'No action');
+  assert.equal(gestureSwipesLabel({ swipes: ['swipe_up'] }), 'Swipe up');
+  assert.equal(gestureActionLabel('gone'), 'gone');
 });
 
 test('gestures are edited in a draft: only a new one opens, and Save writes them', async () => {
@@ -173,7 +177,7 @@ test('gestures are edited in a draft: only a new one opens, and Save writes them
 
   const saved = [];
   editor._devicePanels = () => [];
-  editor._savePanels = async (_panels, _message, config) => {
+  editor._saveDeviceConfig = async (config) => {
     saved.push(config);
     editor._deviceConfig = config;
     return true;

@@ -54,7 +54,7 @@ class PreviewWorkspace extends LitElement {
   }
 
   static styles = [haStyle, dialogStyles, previewStyles, css`
-    :host { display: block; width: 100%; min-width: 0; container-type: inline-size; container-name: haui-editor; }
+    :host { display: block; width: 100%; min-width: 0; container: haui-workspace / inline-size; }
   `];
 
   constructor() {

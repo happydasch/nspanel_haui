@@ -36,7 +36,7 @@ test('selecting a built-in or custom theme reports its id', () => {
     custom: { evening: theme('Evening', 3) },
     onSelect: (id) => selected.push(id),
   }));
-  const select = byLabel(root, 'Theme');
+  const select = byRole(root, 'combobox', { name: 'Theme' });
 
   assert.ok(select);
   assert.equal(select.value, 'dark');
@@ -50,7 +50,7 @@ test('selecting a built-in or custom theme reports its id', () => {
 
 test('the selector only offers the custom theme group when custom themes exist', () => {
   const root = render(selector());
-  const select = byLabel(root, 'Theme');
+  const select = byRole(root, 'combobox', { name: 'Theme' });
 
   assert.ok(select);
   assert.deepEqual([...select.options].map((option) => option.value), ['dark', 'light']);
@@ -59,7 +59,7 @@ test('the selector only offers the custom theme group when custom themes exist',
 
 test('the picker shows the selected palette in its own field', () => {
   const root = render(selector());
-  const field = byLabel(root, 'Theme').closest('.haui-theme-selector-field');
+  const field = byRole(root, 'combobox', { name: 'Theme' }).closest('.haui-theme-selector-field');
 
   assert.ok(field);
   assert.equal(field.querySelectorAll('.haui-theme-selector-chip i').length, 4);
@@ -119,7 +119,6 @@ test('name editing reports input and save actions and exposes status and error r
 
 test('device settings is mounted without a theme selector', async () => {
   const settings = await mount('nspanel-device-settings', {
-    inline: true,
     config: { locale: 'en', snapshot_max_age_seconds: -1 },
   });
 

@@ -69,12 +69,14 @@ Each row has a picture of the panel as the display shows it, with your entities 
 
 In this list you can:
 
-- **Add** — **Add panel** opens the catalog: a stack of collapsible groups. The panel types sit under **Backgrounds**, **Entities**, **Grouping** and **Tools**, each with a full-width picture of the panel; below them, **Extend a popup** changes a built-in popup and **Copy an existing panel** starts from a panel of any of your devices. A group opens when you select it, and a search opens the groups it looks into.
+- **Add** — **Add panel** opens the catalog: a stack of collapsible groups. The panel types sit under **Backgrounds**, **Entities**, **Grouping** and **Tools**, each with a full-width picture of the panel; below them, **Start from a template** offers ready-made panels (a lights grid, a room overview, a thermostat, a bedside clock, a weather station, guest Wi-Fi and more), **Extend a popup** changes a built-in popup and **Copy an existing panel** starts from a panel of any of your devices. A template opens in the editor with its entities marked: choose one for each, then save. A group opens when you select it, and a search opens the groups it looks into.
 - **Edit** — select a panel's name or the pencil.
 - **Preview** — hover over the picture or tap it to enlarge it.
 - **Duplicate** — in the row's **More** menu.
 - **Reorder** — drag a row by its grip, also between Navigation and Hidden.
 - **Delete** — remove a panel.
+
+A panel saved before this version whose settings no longer fit its type (for example a light panel bound to a sensor) shows **Check settings** in the list. It keeps working as before; fix it the next time you edit it.
 
 The built-in panels System, Blank, Settings and About cannot be changed and are not listed.
 
@@ -96,7 +98,8 @@ How the editor helps:
 
 - **Preview** — the picture at the top shows the panel with your current, unsaved values. It follows every change.
 - **Items** — the section with the panel's items is open and shows how many there are. Select an item to edit it and drag it to move it.
-- **Errors** — a field that cannot be saved is marked with the reason, for example a key that another panel uses. **Save** stays disabled until it is fixed.
+- **Errors** — a field that cannot be saved is marked with the reason, and **Save** stays disabled until it is fixed: a key that another panel uses, an entity of the wrong kind (a light panel needs a light), a missing entity the panel needs, a number outside its range, more items than the page shows, a value that is not one of the choices, or a colour the display cannot read. A popup you extend may leave its entity empty: it shows the entity it is opened for.
+- **Warnings** — an entity Home Assistant does not know right now is marked too, but you can still save: it may be offline or not created yet.
 - **Width** — drag the left edge of a sidebar to make it wider or narrower. A double click on the edge restores the default width.
 
 ## The Item Editor

@@ -22,7 +22,7 @@ function rejectingHost() {
 test('a rejected colour save shows only the error and keeps the old colours', async () => {
   const host = rejectingHost();
 
-  await saveTheme(host, { themeId: 'dark', resetPanelColors: true, themeVariant: 'dark' });
+  await saveTheme(host, { themeId: 'dark', themeVariant: 'dark' });
 
   assert.deepEqual(host.toasts.map(([kind]) => kind), ['error']);
   assert.equal(host._deviceConfig.enabled, true);
@@ -66,6 +66,19 @@ test('a new panel can start as a copy of an existing one under a free key', () =
   assert.equal(host._editingPanel.data.key, 'grid_1');
   assert.equal(host._editingPanel.data.title, 'Lights');
   assert.notEqual(host._editingPanel.data.items, panels[0].items);
+  assert.equal(host.store.getState().ui.overlays.at(-1).kind, 'panel-editor');
+});
+
+test('a new panel can start from a template, without its preview hints', () => {
+  const host = makeHost({ devices: { kitchen: { config: {}, panels: [] } } }, () => {});
+  const template = { type: 'grid', title: 'Lights', items: [{ item: '', domain: 'light', icon: 'mdi:lightbulb' }] };
+
+  Crud.openAddFromTemplate(host, template);
+
+  assert.equal(host._editingPanel.index, -1);
+  assert.equal(host._editingPanel.data.key, 'grid_0');
+  assert.deepEqual(host._editingPanel.data.items, [{ item: '', icon: 'mdi:lightbulb' }]);
+  assert.equal(template.items[0].domain, 'light');
   assert.equal(host.store.getState().ui.overlays.at(-1).kind, 'panel-editor');
 });
 
@@ -130,7 +143,7 @@ test('a save started while another is in flight is not sent', async () => {
   await first;
 
   assert.equal(await second, false);
-  assert.deepEqual(host.calls, ['POST /api/nspanel_haui/panels/entry1']);
+  assert.deepEqual(host.calls, ['PUT /api/nspanel_haui/panels/entry1/kitchen']);
   assert.deepEqual(host._panels.devices.kitchen.panels, [clock]);
 });
 
@@ -168,7 +181,7 @@ test('a user panel cannot take the key of a fixed system panel, only of a popup'
   host._error = null;
   await Crud.saveFromData(host, { type: 'cover', key: 'popup_cover', show_in_navigation: false }, -1);
   assert.equal(host._error, null);
-  assert.deepEqual(host.calls, ['POST /api/nspanel_haui/panels/entry1']);
+  assert.deepEqual(host.calls, ['PUT /api/nspanel_haui/panels/entry1/kitchen']);
 });
 
 test('generateAutoKey picks the first unused {type}_{n} for the type', () => {

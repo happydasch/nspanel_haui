@@ -85,6 +85,16 @@ class PageOption:
     """Maximum number of items allowed in an item_list. ``None`` means unlimited (default)."""
     allow_template: bool = False
     """For a ``select``: also offer a Home Assistant template instead of a fixed choice."""
+    required: bool = False
+    """The panel cannot work without a value (``haui/option_rules.py``).
+
+    A panel saved under a popup key is exempt for its ``item``: the popup takes
+    its entity from the context it opens with.
+    """
+    min: float | None = None
+    """Smallest value an ``int`` / ``float`` option accepts; ``None`` means no limit."""
+    max: float | None = None
+    """Largest value an ``int`` / ``float`` option accepts; ``None`` means no limit."""
 
 
 @dataclass

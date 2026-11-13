@@ -53,11 +53,10 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panels-overview-groups > li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; border-bottom: 1px solid var(--divider-color); }
   .haui-panels-overview-groups > li:last-child { border-bottom: 0; }
   .haui-panels-overview-groups ha-icon { color: var(--secondary-text-color); --mdc-icon-size: 16px; }
-  .haui-panels-overview-groups span { overflow: hidden; font-size: var(--haui-text-label); text-overflow: ellipsis; white-space: nowrap; }
-  .haui-panels-overview-groups strong { box-sizing: border-box; min-width: 22px; padding: 4px 8px; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-align: center; }
+  .haui-panels-overview-groups > li > span:not(.haui-badge) { overflow: hidden; font-size: var(--haui-text-label); text-overflow: ellipsis; white-space: nowrap; }
   .haui-panels-overview-hints { display: grid; gap: 8px; margin: 0; padding: 8px 12px; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); list-style: none; }
   .haui-panels-overview-hints > li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.45; }
-  .haui-panels-overview-hints ha-icon { margin-top: 4px; --mdc-icon-size: 15px; }
+  .haui-panels-overview-hints ha-icon { --mdc-icon-size: 15px; }
   /* Home and Idle are the two roles the device assigns to panels. */
   .haui-panels-overview-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
   .haui-panels-overview-role-tile { display: grid; min-width: 0; align-content: start; gap: 8px; padding: 8px; border: 0; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: background 120ms ease; }
@@ -88,8 +87,8 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-catalog-search-field input::placeholder { color: var(--ha-color-neutral-60, var(--secondary-text-color)); }
   /* Shares the row with the view toggle at every width: it takes what the toggle leaves, up to its full size. */
   .haui-panel-search { display: inline-flex; max-width: 260px; flex: 1 1 0; }
-  /* The view toggle is as tall as the field beside it (34px options + the toggle's 3px padding). */
-  .haui-workspace-header .haui-segmented-option { min-height: 34px; }
+  /* The view toggle is as tall as the 40px field beside it: 30px options, the toggle's 4px padding and 1px border. */
+  .haui-workspace-header .haui-segmented-option { min-height: 30px; }
   .haui-preview-tool { display: inline-flex; min-height: 32px; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--haui-radius-pill); color: var(--secondary-text-color); background: transparent; font: inherit; font-size: var(--haui-text-caption); font-weight: 500; white-space: nowrap; cursor: pointer; }
   .haui-preview-tool:hover:not(:disabled) { background: var(--haui-surface-soft); color: var(--primary-text-color); }
   .haui-preview-tool.is-active { background: var(--haui-surface-strong); color: var(--primary-text-color); }
@@ -98,7 +97,6 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-preview-tool:disabled { cursor: not-allowed; opacity: .5; }
   .haui-workspace-body.is-preview { display: flex; }
   .haui-workspace-body.is-preview > * { flex: 1 1 auto; }
-  .haui-segmented-count { min-width: 18px; padding: 4px 4px; border-radius: var(--haui-radius-pill); background: var(--haui-surface-soft); font-size: var(--haui-text-eyebrow); text-align: center; }
   .haui-panel-catalog { display: grid; align-content: start; gap: 12px; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
   /* The toolbar is the catalog's first row, so its own padding is the only space
      above the field: the grid has no top padding to double it. Negative inline
@@ -106,8 +104,8 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-catalog-controls { position: sticky; z-index: 1; top: 0; margin-inline: -16px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); background: var(--card-background-color); }
   .haui-panel-catalog-controls-row { display: flex; min-width: 0; align-items: center; gap: 8px; }
   .haui-panel-catalog-layout { display: flex; flex: 0 0 auto; align-items: center; }
-  /* 34px options in the toggle's 3px padding make the toggle as tall as the 40px field beside it. */
-  .haui-panel-catalog-layout .haui-segmented-option { position: relative; box-sizing: border-box; width: 38px; min-height: 34px; justify-content: center; padding: 0; }
+  /* 30px options in the toggle's 4px padding and 1px border make it as tall as the 40px field beside it. */
+  .haui-panel-catalog-layout .haui-segmented-option { position: relative; box-sizing: border-box; width: 38px; min-height: 30px; justify-content: center; padding: 0; }
   .haui-panel-catalog-layout .haui-segmented-option > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .haui-panel-catalog-layout .haui-segmented-option > ha-icon { --mdc-icon-size: 20px; }
   .haui-panel-catalog-hint { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-label); }
@@ -155,11 +153,6 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-catalog-group { margin-inline-start: 12px; }
   .haui-panel-catalog-group > summary { font-size: var(--haui-text-label); }
   .haui-panel-catalog-content .haui-panel-catalog-hint { margin: 0; }
-  .haui-panel-catalog-count { box-sizing: border-box; min-width: 20px; padding: 4px 8px; border-radius: var(--haui-radius-control); background: var(--card-background-color); color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-align: center; }
-  .haui-panel-catalog-section > summary:hover .haui-panel-catalog-count,
-  .haui-panel-catalog-section[open] > summary .haui-panel-catalog-count,
-  .haui-panel-catalog-group > summary:hover .haui-panel-catalog-count,
-  .haui-panel-catalog-group[open] > summary .haui-panel-catalog-count { background: var(--secondary-background-color); }
   /* Diagnostics: the collapsed heading carries the connection status; expanded shows tiles and hub details. */
   .haui-device-diagnostics { display: grid; gap: 12px; }
   /* The heading icon, drawn like the connection icon of the card above; its corner bubble counts the issues. */
@@ -226,7 +219,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   }
   @media (prefers-reduced-motion: reduce) { .haui-conn-status.online .haui-conn-status-button > .haui-conn-status-dot { animation: none; } }
   .haui-conn-card { position: absolute; z-index: 5; top: calc(100% - 6px); left: 12px; display: grid; width: min(280px, calc(100% - 24px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
-  .haui-conn-status:hover > .haui-conn-card, .haui-conn-status-button:focus-visible + .haui-conn-card, .haui-conn-status-button[aria-expanded="true"] + .haui-conn-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
+  .haui-conn-status-button:focus-visible + .haui-conn-card, .haui-conn-status-button[aria-expanded="true"] + .haui-conn-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
   .haui-conn-card-head { justify-content: flex-start; gap: 8px; padding: 0; border: 0; }
   .haui-conn-card-head .haui-surface-heading-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
   .haui-conn-card-head h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }
@@ -258,10 +251,11 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-tile-card dd { overflow: hidden; margin: 0; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
   .haui-tile-card > p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-tile-info > .haui-diag-tile:focus-visible + .haui-tile-card, .haui-tile-info > .haui-diag-tile[aria-expanded="true"] + .haui-tile-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
-  /* Only a real pointer hovers: a tap's sticky hover would keep the card open after a second tap. */
+  /* Only a real pointer hovers: a tap's sticky hover would keep a card open after a second tap. */
   @media (hover: hover) {
     .haui-tile-info > .haui-diag-tile:hover { background: var(--haui-surface-strong); }
-    .haui-tile-info:hover > .haui-tile-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
+    .haui-tile-info:hover > .haui-tile-card,
+    .haui-conn-status:hover > .haui-conn-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
   }
   .haui-details-more > summary { display: flex; align-items: center; gap: 4px; padding: 4px 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); list-style: none; cursor: pointer; user-select: none; }
   .haui-details-more > summary::-webkit-details-marker { display: none; }

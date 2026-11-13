@@ -52,6 +52,7 @@ class MediaPage(HAUIPage):
                 key="item",
                 kind="item",
                 domain="media_player",
+                required=True,
                 description=_("Media player entity to control playback and volume."),
                 section=_("Media Player"),
             ),
@@ -163,10 +164,10 @@ class MediaPage(HAUIPage):
         # debug: trace panel config for media/override debugging
         self.log(
             f"MediaPage.start_panel: key={panel.get('key', None)!r} type={panel.get_type()!r} "
-            f"sonos_favorites={panel.get('sonos_favorites', None)!r} "
-            f"media_favorites={panel.get('media_favorites', None)!r} "
-            f"sonos_favorites_in_source={panel.get('sonos_favorites_in_source', None)!r} "
-            f"item_id={panel.get('item_id', None)!r} item={panel.get('item', None)!r}",
+            f"sonos_favorites={self.option(panel, 'sonos_favorites')!r} "
+            f"media_favorites={self.option(panel, 'media_favorites')!r} "
+            f"sonos_favorites_in_source={self.option(panel, 'sonos_favorites_in_source')!r} "
+            f"item_id={panel.get('item_id', None)!r} item={self.option(panel, 'item')!r}",
             level="DEBUG",
         )
         # set function buttons
@@ -188,16 +189,14 @@ class MediaPage(HAUIPage):
         # the volume slider is a drag control: swipes are suppressed while it
         # is dragged and its value is read once the touch ends
         self.bind_slider(self.COMPONENTS.h_volume, self.process_volume)
-        self._sonos_favorites = self._item_from_ref(panel.get("sonos_favorites", None))
+        self._sonos_favorites = self._item_from_ref(self.option(panel, "sonos_favorites"))
         # sonos favorites in source popup
-        self._sonos_favorites_in_source = panel.get(
-            "sonos_favorites_in_source", self._sonos_favorites_in_source
-        )
+        self._sonos_favorites_in_source = self.option(panel, "sonos_favorites_in_source")
         # media favorites and group items — plain entity ID strings from config
-        self._media_favorites = self._entity_ids(panel.get("media_favorites", []))
-        self._group_items = self._entity_ids(panel.get("group_items", []))
+        self._media_favorites = self._entity_ids(self.option(panel, "media_favorites"))
+        self._group_items = self._entity_ids(self.option(panel, "group_items"))
         # set item
-        item = self._item_from_ref(panel.get("item_id", None) or panel.get("item", None))
+        item = self._item_from_ref(panel.get("item_id", None) or self.option(panel, "item"))
         self.set_media_item(item)
         # set title
         self._title = self._panel_title(panel, item, self.translate("Media"))

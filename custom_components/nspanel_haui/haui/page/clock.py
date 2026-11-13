@@ -166,18 +166,18 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # setting: show_weather
-        self._show_weather = panel.get("show_weather", True)
+        self._show_weather = self.option(panel, "show_weather")
         self.set_function_component(
             self.COMPONENTS.t_main_icon,
             self.COMPONENTS.t_main_icon.name,
             visible=self._show_weather,
         )
         # setting: show_temp
-        self._show_temp = panel.get("show_temp", True)
+        self._show_temp = self.option(panel, "show_temp")
         # setting: show_home_temp
-        self._show_home_temp = panel.get("show_home_temp", False)
+        self._show_home_temp = self.option(panel, "show_home_temp")
         # setting: weather_icons
-        self._weather_icons_mode = panel.get("weather_icons", "color")
+        self._weather_icons_mode = self.option(panel, "weather_icons")
         self._start_cards(panel, has_weather=weather_item is not None)
         # Tap-to-advance on the big time area
         self.on_release(
@@ -195,7 +195,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
             visible=self._show_temp,
         )
         # notification (shares t_main_icon with the weather icon)
-        self._show_notifications = panel.get("show_notifications", True)
+        self._show_notifications = self.option(panel, "show_notifications")
         # Pre-register entity button components so config_panel registers
         # touch callbacks.  Start hidden — update_items() applies the
         # correct visible/icon/color state once entity data is available.

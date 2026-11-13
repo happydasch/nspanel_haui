@@ -74,8 +74,22 @@ export const DEVICE_CONFIG_DEFAULTS = {
     firmware_auto_update: false,
     firmware_update_channel: "stable",
     auto_install: true,
+    install_delay: 600,
+    max_attempts: 3,
+    retry_interval: 3600,
+    policy_override: false,
   },
 };
+
+// Mirrors UPDATE_POLICY_DEFAULTS in haui/mapping/const.py — the hub-wide
+// automatic update policy every device follows unless it overrides it.
+export const UPDATE_POLICY_DEFAULTS = Object.freeze({
+  firmware_auto_update: false,
+  auto_install: true,
+  install_delay: 600,
+  max_attempts: 3,
+  retry_interval: 3600,
+});
 
 // Mirrors DEFAULT_CONFIG["update"]["firmware_manifest_url"] in Python (the
 // stable channel's manifest).  It is not part of DEVICE_CONFIG_DEFAULTS: the

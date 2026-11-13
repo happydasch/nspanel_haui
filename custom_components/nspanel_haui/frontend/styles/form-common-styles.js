@@ -116,7 +116,7 @@ export const formCommonStyles = css`
     appearance: none;
     -webkit-appearance: none;
     background: var(--secondary-text-color, #666);
-    border-radius: var(--haui-radius-control);
+    border-radius: var(--haui-radius-pill);
     cursor: pointer;
     outline: none;
     transition: background 150ms;

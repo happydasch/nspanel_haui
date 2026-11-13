@@ -52,6 +52,8 @@ test('the firmware popover leads with its status, then versions, then settings',
   assert.ok(status >= 0);
   assert.ok(versions > status);
   assert.ok(settings > versions);
+  assert.match(markup, /<section class="haui-surface haui-firmware-settings"/);
+  assert.doesNotMatch(markup, /<section class="haui-firmware-settings"/);
   assert.equal(rowInstallActions(dlg.render()).length, 2);
   assert.doesNotMatch(markup, /Install update|Download firmware|Firmware download version/);
   assert.match(markup, /0\.4\.3/);

@@ -2,13 +2,14 @@
  * Theme sidebar body. The shell supplies the sidebar frame and its title;
  * this component edits the shared theme library and this device's selection.
  */
-import { css, html, nothing } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 import { t } from '../localize.js';
 import { renderSelect, renderToggle } from '../form-fields.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
 import { themeSelectorStyles } from '../styles/theme-selector-styles.js';
+import { themeSidebarStyles } from '../styles/theme-sidebar-styles.js';
 import { themeSelector } from '../ui/theme-selector.js';
 import { emptyState } from '../ui/empty-state.js';
 import {
@@ -110,30 +111,12 @@ function getIconColorGroups(icons, variant) {
 /* ── dialog component ────────────────────────────────────────────────── */
 
 class ThemeSidebar extends HauiDialog {
-  static styles = [...HauiDialog.styles, sidebarFooterStyles, themeSelectorStyles, css`
-    .haui-theme-sidebar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-    .haui-theme-sidebar > .haui-theme-preview {
-      flex: 0 0 auto;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--divider-color);
-      background: var(--secondary-background-color);
-    }
-    .haui-theme-sidebar > .haui-dialog-body {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      box-sizing: border-box;
-      padding: 16px;
-    }
-    .haui-theme-section { margin: 0 0 20px; }
-    .haui-theme-color-group { padding-block: 12px; border-bottom: 1px solid var(--divider-color); }
-    .haui-theme-color-group:first-child { padding-top: 0; }
-    .haui-theme-color-group:last-child { padding-bottom: 0; border-bottom: 0; }
-    @media (max-width: 600px) {
-      .haui-theme-sidebar > .haui-dialog-body { padding: 12px; }
-    }
-  `];
+  static styles = [
+    ...HauiDialog.styles,
+    sidebarFooterStyles,
+    themeSelectorStyles,
+    themeSidebarStyles,
+  ];
 
   static get properties() {
     return {

@@ -11,7 +11,7 @@
 import { isPortraitModel } from '../constants.js';
 import { LitElement, html, css } from '../lit-import.js';
 import { dashboardTokens } from '../styles/tokens.js';
-import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
+import { previewStyles } from '../styles/preview-styles.js';
 import { buildPreviewDisplay, lastPanelRender, loadPanelRender, previewRenderKey } from './previewer.js';
 import {
   loadIconMap,
@@ -68,43 +68,12 @@ export class SimulatorFrameElement extends LitElement {
   }
 
   static get styles() {
-    return [dashboardTokens, virtualPanelStyles, css`
+    return [dashboardTokens, previewStyles, css`
       :host {
         --vp-touch-action: auto;
         display: block;
         width: 100%;
         min-width: 0;
-      }
-      /* A card preview takes no touch input: a swipe that starts on it must
-         scroll the list or carousel around it, as on the rest of the card. */
-      .haui-preview-sim {
-        position: relative;
-        max-width: 100%;
-        margin: 0 auto;
-        overflow: hidden;
-        /* A picture page or a card still loading; a solid page sets its theme colour inline. */
-        background: var(--haui-bezel);
-      }
-      .haui-preview-sim-scaler {
-        position: absolute;
-        left: 0;
-        top: 0;
-      }
-      /* Holds the card's shape until the render arrives: the layouts'
-         visible sizes (layout_landscape.json, layout_portrait.json). */
-      .haui-preview-sim-loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        aspect-ratio: 450 / 320;
-        color: var(--secondary-text-color, #666);
-        opacity: 0.6;
-      }
-      .haui-preview-sim-loading.is-portrait {
-        aspect-ratio: 320 / 480;
-        max-width: 320px;
-        max-height: 480px;
-        margin-inline: auto;
       }
     `];
   }

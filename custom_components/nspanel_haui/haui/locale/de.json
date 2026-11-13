@@ -526,6 +526,7 @@
     "Colors for the main page area: background and text at various states.": "Farben für den Hauptseitenbereich: Hintergrund und Text in verschiedenen Zuständen.",
     "Colors for the top bar: background, title text, and accent icons.": "Farben für die obere Leiste: Hintergrund, Titeltext und Akzent-Symbole.",
     "Colors for weather state icons.": "Farben für Wetterstatus-Symbole.",
+    "Colors the display uses for weather, alarm and climate state icons.": "Farben, die das Display für Wetter-, Alarm- und Klimastatus-Symbole verwendet.",
     "Compact": "Kompakt",
     "Component": "Komponente",
     "Configuration": "Konfiguration",

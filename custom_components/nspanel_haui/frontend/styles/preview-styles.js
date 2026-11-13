@@ -115,6 +115,49 @@ export const previewStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .vp-screen {
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    touch-action: var(--vp-touch-action, none);
+  }
+  .vp-widget { position: absolute; box-sizing: border-box; overflow: hidden; }
+  .vp-text { display: flex; }
+  .vp-text-inner { max-width: 100%; }
+  .vp-icon { vertical-align: middle; display: inline-flex; }
+  .vp-missing-icon { opacity: 0.5; }
+  .vp-slider-fill,
+  .vp-slider-cursor { position: absolute; }
+  .vp-circle { border-radius: var(--haui-radius-round); }
+  .vp-qr { display: flex; align-items: center; justify-content: center; }
+  .vp-workspace, .vp-body { display: flex; flex-direction: column; width: 100%; }
+  .haui-preview-sim {
+    position: relative;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    /* A picture page or a card still loading; a solid page sets its theme colour inline. */
+    background: var(--haui-bezel);
+  }
+  .haui-preview-sim-scaler {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .haui-preview-sim-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 450 / 320;
+    color: var(--secondary-text-color, #666);
+    opacity: 0.6;
+  }
+  .haui-preview-sim-loading.is-portrait {
+    aspect-ratio: 320 / 480;
+    max-width: 320px;
+    max-height: 480px;
+    margin-inline: auto;
+  }
   .vp-tooltip .vp-tooltip-id { opacity: .7; font-family: var(--haui-mono); }
   @media (prefers-reduced-motion: reduce) {
     .haui-preview-stage, .vp-relay-light { transition: none; }

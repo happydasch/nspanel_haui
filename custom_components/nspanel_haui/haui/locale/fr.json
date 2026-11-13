@@ -526,6 +526,7 @@
     "Colors for the main page area: background and text at various states.": "Couleurs de la zone principale de la page : arrière-plan et texte dans divers états.",
     "Colors for the top bar: background, title text, and accent icons.": "Couleurs de la barre supérieure : arrière-plan, texte du titre et icônes d'accent.",
     "Colors for weather state icons.": "Couleurs des icônes d’état météo.",
+    "Colors the display uses for weather, alarm and climate state icons.": "Couleurs utilisées par l’écran pour les icônes d’état météo, d’alarme et de climatisation.",
     "Compact": "Compact",
     "Component": "Composant",
     "Configuration": "Configuration",

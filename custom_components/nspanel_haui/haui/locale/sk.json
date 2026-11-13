@@ -526,6 +526,7 @@
     "Colors for the main page area: background and text at various states.": "Farby hlavnej oblasti stránky: pozadie a text v rôznych stavoch.",
     "Colors for the top bar: background, title text, and accent icons.": "Farby hornej lišty: pozadie, text nadpisu a zvýraznené ikony.",
     "Colors for weather state icons.": "Farby ikon počasia.",
+    "Colors the display uses for weather, alarm and climate state icons.": "Farby, ktoré displej používa pre ikony stavov počasia, alarmu a klimatizácie.",
     "Compact": "Kompaktný",
     "Component": "Komponent",
     "Configuration": "Konfigurácia",

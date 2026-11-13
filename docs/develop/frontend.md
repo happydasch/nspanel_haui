@@ -378,9 +378,11 @@ The dashboard phases are implemented; the remaining dialog surfaces are listed b
   scale; `styles.js` composes shared tokens, primitives, panel pills, entries, form/dialog content
   and per-screen fragments. `styles/content.js` is one fragment, not an aggregator. Device styles are
   split between `styles/device-layout-styles.js` and `styles/device-panel-styles.js`; shared firmware
-  and preview rules live in `styles/firmware-styles.js` and `styles/preview-styles.js`. The shell uses
-  `editorStyles`, dialogs use `dialogStyles`, and the preview simulator composes the shared tokens and
-  virtual-panel styles. Element-local styles are reserved for layout specific to that element.
+  and preview rules live in `styles/firmware-styles.js` and `styles/preview-styles.js`. Logs, theme, and
+  panel-editor surfaces keep their focused rules in `styles/logs-styles.js`,
+  `styles/theme-sidebar-styles.js`, and `styles/panel-editor-styles.js`. The shell uses `editorStyles`,
+  dialogs use `dialogStyles`, and the preview simulator composes the shared tokens and `previewStyles`.
+  Element-local styles are reserved for layout specific to that element.
 - `frontend/app/router.js` parses/serializes the Fleet and Device hashes and binds history to the store.
 - Fleet: scroll-snap carousel of real home-panel covers with arrows that disable at the scroll extents, a
   summary that waits for the first status payload, the inventory (`Firmware`/`TFT` columns), latest events,

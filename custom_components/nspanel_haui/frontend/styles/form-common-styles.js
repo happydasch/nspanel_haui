@@ -58,6 +58,9 @@ export const formCommonStyles = css`
   .haui-input:focus {
     border-color: var(--primary-color, #03a9f4);
   }
+  .haui-input[aria-invalid="true"] {
+    border-color: var(--error-color, #db4437);
+  }
   .haui-input::placeholder {
     color: var(--secondary-text-color, #666);
   }

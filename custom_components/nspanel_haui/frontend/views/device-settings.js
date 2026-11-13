@@ -145,11 +145,6 @@ class DeviceSettings extends HauiDialog {
   }
 
   static styles = [HauiDialog.styles, sidebarFooterStyles, css`
-    .haui-footer-toggle-wrapper label {
-      margin: 0;
-      font-weight: 500;
-      font-size: var(--haui-text-label);
-    }
     .haui-device-settings-sidebar {
       display: flex;
       flex-direction: column;
@@ -447,7 +442,7 @@ class DeviceSettings extends HauiDialog {
               this._deviceConfigForm = { ...this._deviceConfigForm, enabled: checked };
               this.requestUpdate();
             })}
-            <label for="dc-enabled" style="margin-inline-start:8px;">${t("Device Enabled")}</label>
+            <label for="dc-enabled">${t("Device Enabled")}</label>
           </div>
           <ha-dialog-footer>
             <ha-button slot="secondaryAction" variant="neutral" appearance="plain" @click=${this._dispatchClose}>

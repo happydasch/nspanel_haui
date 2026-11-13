@@ -201,6 +201,12 @@ export const contentStyles = css`
     gap: 8px;
     flex: 1;
   }
+  .haui-footer-toggle-wrapper label {
+    margin: 0;
+    margin-inline-start: 8px;
+    font-weight: 500;
+    font-size: var(--haui-text-label);
+  }
 
   /* ── RSSI signal bars ──────────────── */
   .haui-rssi-bars {

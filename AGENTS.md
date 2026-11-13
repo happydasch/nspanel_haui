@@ -551,7 +551,7 @@ The sidebar editor (`custom_components/nspanel_haui/frontend/`) is one static cu
 | `views/` | One render entry per screen region (`renderFleetView`, `renderDeviceView`, `renderPanelList`, `panelCatalog`, `notificationsView`) | Prepared data in, callbacks out; no transport, no store |
 | `ui/` | Reusable template components — the visual inventory in `docs/develop/frontend.md` | Data in, callbacks out; no transport, no store |
 | `dialogs/`, `previews/`, `virtual/`, the element-based views (`workspace.js`, `device-settings.js`, `panel-editor.js`) | Dialog surfaces, the hub-render replay, the Nextion simulator, surfaces that have not migrated to a render function | Use the client, never raw `fetch` |
-| `styles/` | Shared `css` fragments composed by `styles.js` | One module per surface; shared rules, not per-call-site one-offs |
+| `styles/` | Shared `css` fragments composed by `styles.js` or adopted by their owning custom element | One module per surface; shared rules, not per-call-site one-offs |
 
 **A view or a component never reaches into the shell, the store or the API.** It gets prepared data and `on*` callbacks; the shell maps those to store actions. `ui/` and `views/` import nothing from `store/` or `api/` today — keep it that way, and add new shared state as a store field plus an action before wiring any component to it.
 

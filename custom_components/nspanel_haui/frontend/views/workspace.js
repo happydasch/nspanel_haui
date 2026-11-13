@@ -16,7 +16,6 @@ import { renderDisplay } from '../virtual/nextion-view.js';
 import { entityAt, toDisplayCoords } from '../virtual/touch-input.js';
 import { LivePanelSession } from '../virtual/live-panel-session.js';
 import { VirtualPanelSession } from '../virtual/virtual-panel-session.js';
-import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 
 // Largest on-screen scale; the workspace shrinks it to fit the available width.
 const MAX_SCALE = 1.25;
@@ -54,16 +53,9 @@ class PreviewWorkspace extends LitElement {
     };
   }
 
-  static styles = [
-    haStyle,
-    dialogStyles,
-    virtualPanelStyles,
-    previewStyles,
-    css`
-      :host { display: block; width: 100%; min-width: 0; container-type: inline-size; container-name: haui-editor; }
-      .vp-workspace, .vp-body { display: flex; flex-direction: column; width: 100%; }
-    `,
-  ];
+  static styles = [haStyle, dialogStyles, previewStyles, css`
+    :host { display: block; width: 100%; min-width: 0; container-type: inline-size; container-name: haui-editor; }
+  `];
 
   constructor() {
     super();

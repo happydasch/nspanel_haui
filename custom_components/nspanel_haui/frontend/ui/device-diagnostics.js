@@ -64,7 +64,7 @@ export function diagnosticsModel(status, now = Date.now()) {
   const requiredTft = info.tft_required_version;
   const tftPending = Boolean(info.tft_version && requiredTft && isOlderVersion(info.tft_version, requiredTft));
   const weakSignal = connected && rssiBarCount(info.rssi) === 1;
-  const mismatch = status?.haui_version_mismatch === true;
+  const mismatch = status?.integration_version_mismatch === true;
   const updateFailed = update.state === 'error';
   const health = status?.connection_health || null;
   const drops = Number.isFinite(health?.drops_24h) ? health.drops_24h : 0;
@@ -72,7 +72,7 @@ export function diagnosticsModel(status, now = Date.now()) {
   /** @type {{ key: string, label: string }[]} */
   const issues = [];
   if (!connected) issues.push({ key: 'offline', label: t('Offline') });
-  if (mismatch) issues.push({ key: 'mismatch', label: t('Firmware does not match the hub') });
+  if (mismatch) issues.push({ key: 'mismatch', label: t('Firmware version does not match the integration') });
   if (updateFailed) issues.push({ key: 'update', label: t('Display update failed') });
   else if (tftPending) issues.push({ key: 'tft', label: t('Display update pending') });
   if (weakSignal) issues.push({ key: 'wifi', label: t('Weak Wi-Fi signal') });
@@ -174,13 +174,13 @@ function tiles(model, status, onLogs) {
     : model.logProblems ? t('{count} warnings').replace('{count}', String(model.logProblems)) : t('No warnings');
   return html`<div class="haui-diag-tiles">
     ${infoTile({
-      key: 'diag-firmware', label: t('Firmware'),
+      key: 'diag-firmware', label: t('Versions'),
       value: model.mismatch ? t('Mismatch') : info.yaml_version ? t('Matches') : unknown,
       tone: model.mismatch ? 'bad' : '',
       facts: [
-        [t('Firmware'), status?.haui_version || unknown],
-        [t('YAML version'), info.yaml_version || unknown, model.mismatch ? 'bad' : ''],
-        [t('Display'), displayState(model)],
+        [t('Integration'), status?.integration_version || unknown],
+        [t('Firmware (YAML)'), info.yaml_version || unknown, model.mismatch ? 'bad' : ''],
+        [t('Display (TFT)'), displayState(model)],
       ],
     })}
     ${infoTile({
@@ -398,7 +398,7 @@ export function diagnosticsReport(name, status, now = new Date()) {
     'NSPanel HAUI diagnostics',
     `Device: ${name}`,
     `Generated: ${now.toISOString()}`,
-    `Integration: ${status?.haui_version || 'unknown'}`,
+    `Integration: ${status?.integration_version || 'unknown'}`,
     `Firmware (YAML): ${info.yaml_version || 'unknown'} (matches hub: ${yesNo(!model.mismatch)})`,
     `Display (TFT): ${info.tft_version || 'unknown'}${info.tft_required_version ? ` (required ${info.tft_required_version})` : ''}`,
     `Display update: ${update.state || 'idle'}${update.version ? ` ${update.version}` : ''}${update.last_error ? ` (${update.last_error})` : ''}`,

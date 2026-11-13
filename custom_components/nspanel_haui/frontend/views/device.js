@@ -36,22 +36,25 @@ export function previewControls({ preview, onMode, onIdle }) {
 }
 
 /**
- * Device frame: the workspace changes view while the side stack stays contextual.
+ * Device frame: the workspace changes view while the side column stays contextual.
  * The view's lead card (`leadContent`, its next actions) heads the side column,
- * which stays in view while the workspace scrolls, and moves above the workspace
- * once the layout is one column.
+ * followed by the view's own cards (`sideContent`): on Preview the device facts,
+ * on Panels the selected panel (or the list's overview). The side column sticks to
+ * the viewport and moves above the workspace once the layout is one column.
  * A modal sidebar (settings, panel editor, catalog) opens over the page; the side
- * stack stays in place underneath it.
+ * column stays in place underneath it.
  *
  * @param {{ devices: any[], selectedName: string, title?: string, onBack?: () => void,
  *   panelCount: number, panelView: string,
- *   workspace: unknown, leadContent?: unknown, sideContent: unknown, sidebarContent?: unknown, preview?: any,
+ *   workspace: unknown, leadContent?: unknown, sideContent?: unknown, sidebarContent?: unknown, preview?: any,
+ *   sideLabel?: string,
  *   panelSearch?: { query: string, onQuery: (query: string) => void }|null, railCollapsed?: boolean,
  *   sidebarOpen?: boolean, sidebarLabel?: string, onCloseSide?: () => void, onSelectDevice: (name: string) => void,
  *   onSwitchView: (view: string) => void, onMode?: (mode: string) => void, onIdle?: () => void }} model
  */
 export function renderDeviceView({
-  devices, selectedName, title = selectedName, onBack, panelCount, panelView, workspace, leadContent = nothing, sideContent, sidebarContent = nothing, preview, panelSearch = null, railCollapsed = false,
+  devices, selectedName, title = selectedName, onBack, panelCount, panelView, workspace, leadContent = nothing, sideContent = nothing, sidebarContent = nothing, preview, panelSearch = null, railCollapsed = false,
+  sideLabel = t('Device details'),
   sidebarOpen = false, sidebarLabel = t('Editor sidebar'), onCloseSide, onSelectDevice, onSwitchView,
   onMode = () => {}, onIdle = () => {},
 }) {
@@ -70,7 +73,7 @@ export function renderDeviceView({
     <div class="haui-device-layout">
       <div class="haui-device-side">
         ${leadContent !== nothing ? html`<div class="haui-device-lead">${leadContent}</div>` : nothing}
-        <aside class="haui-device-side-stack" aria-label=${t('Device details')}>${sideContent}</aside>
+        <aside class="haui-device-side-stack" aria-label=${sideLabel}>${sideContent}</aside>
       </div>
       <section class=${`haui-device-workspace${live ? ' is-live' : ''}`} aria-label=${t('Device workspace')}>
         <header class="haui-workspace-header">
@@ -78,8 +81,8 @@ export function renderDeviceView({
             label: t('Workspace view'),
             value: panelView,
             options: [
-              { label: t('Preview'), value: 'preview', disabled: panelCount === 0 },
-              { label: t('Panels'), value: 'panels', count: panelCount },
+              { label: t('Device'), value: 'preview', icon: 'monitor', disabled: panelCount === 0 },
+              { label: t('Panels'), value: 'panels', icon: 'view-dashboard-outline', count: panelCount },
             ],
             onSelect: onSwitchView,
           })}

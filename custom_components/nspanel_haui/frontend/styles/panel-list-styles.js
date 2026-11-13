@@ -16,7 +16,10 @@ export const panelListStyles = css`
   }
   .haui-panel-group-heading strong { font-size: 14px; font-weight: 600; }
   .haui-panel-group-heading span { color: var(--secondary-text-color); font-size: 12px; }
+  .haui-panel-group-title { display: flex; min-width: 0; align-items: center; gap: 2px; }
+  .haui-panel-group-toggle { width: 28px; height: 28px; flex: 0 0 auto; --mdc-icon-size: 20px; }
   .haui-panel-list { display: flex; min-height: 48px; flex-direction: column; }
+  .haui-panel-list[hidden] { display: none; }
   .haui-panel-row {
     display: grid;
     grid-template-columns: 28px auto minmax(0, 1fr) auto auto auto;
@@ -25,9 +28,17 @@ export const panelListStyles = css`
     min-height: 58px;
     padding: 8px 16px;
     border-bottom: 1px solid var(--divider-color);
+    cursor: pointer;
     transition: background 120ms ease, opacity 150ms ease;
   }
   .haui-panel-row:hover { background: var(--haui-surface-soft); }
+  /* The row the side card describes: a tint and an edge marker, kept while hovered. */
+  .haui-panel-row.is-selected,
+  .haui-panel-row.is-selected:hover {
+    background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+    box-shadow: inset 3px 0 0 var(--primary-color);
+  }
+  .haui-panel-row:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
   .haui-panel-row.is-dragging { opacity: .5; }
   .haui-panel-row.is-drop-before { box-shadow: inset 0 2px 0 var(--primary-color); }
   .haui-panel-row.is-drop-after { box-shadow: inset 0 -2px 0 var(--primary-color); }
@@ -129,7 +140,8 @@ export const panelListStyles = css`
   .haui-panel-menu { min-width: 220px; }
   @container haui-editor (max-width: 720px) {
     .haui-panel-row { grid-template-columns: 18px auto minmax(0, 1fr) auto; }
-    .haui-panel-row-key, .haui-panel-row-count { display: none; }
+    .haui-panel-row-key, .haui-panel-row-count, .haui-panel-row-sub,
+    .haui-panel-group-heading > span { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     .haui-panel-row { transition: none; }

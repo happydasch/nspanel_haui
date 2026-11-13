@@ -12,15 +12,7 @@ import { dialogHeader } from '../dialogs/dialog-header.js';
 import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
-import { colorDialogStyles } from '../styles/color-dialog-styles.js';
-import { themeSelectorStyles } from '../styles/theme-selector-styles.js';
-import { themeSelector } from '../ui/theme-selector.js';
-import {
-  builtinThemeLabel,
-  downloadThemes,
-  parseThemeFile,
-  themeIdFromName,
-} from '../theme-library.js';
+import { idlePanelConfig, idlePanelKeys, panelPills, panelPillStyles } from '../ui/panel-pills.js';
 
 /**
  * Render a toggle row used within the device config form.
@@ -154,10 +146,11 @@ class DeviceSettings extends HauiDialog {
       saving: { type: Boolean },
       api: { type: Object },
       entryId: { type: String },
+      panels: { type: Array },
     };
   }
 
-  static styles = [HauiDialog.styles, sidebarFooterStyles, colorDialogStyles, themeSelectorStyles, css`
+  static styles = [HauiDialog.styles, sidebarFooterStyles, panelPillStyles, css`
     .footer-toggle-wrapper label {
       margin: 0;
       font-weight: 500;
@@ -187,167 +180,14 @@ class DeviceSettings extends HauiDialog {
     this.saving = false;
     this.api = null;
     this.entryId = "";
+    this.panels = [];
     this._deviceConfigForm = null;
-    this._builtinThemes = {};
-    this._customThemes = {};
-    this._themesLoading = false;
-    this._themeError = "";
-    this._themeNotice = "";
-    this._nameAction = "";
-    this._themeName = "";
   }
 
   willUpdate(changed) {
     if (changed.has("config")) {
       this._deviceConfigForm = this.config ? { ...this.config } : null;
     }
-    if (changed.has("entryId")) this._loadThemes();
-  }
-
-  /* ── theme library ─────────────────────────────────────────────────────── */
-
-  /** The theme library is shared by the hub's devices; the sidebar edits it. */
-  async _loadThemes() {
-    if (!this.api || !this.entryId) return;
-    this._themesLoading = true;
-    try {
-      const data = await this.api.editor.themes(this.entryId);
-      this._builtinThemes = data.builtins || {};
-      this._customThemes = data.themes || {};
-      this._themeError = "";
-    } catch (_err) {
-      this._themeError = t("Unable to load color themes.");
-    } finally {
-      this._themesLoading = false;
-      this.requestUpdate();
-    }
-  }
-
-  _themeData() {
-    const id = this._deviceConfigForm?.theme_id || "dark";
-    return this._customThemes[id] || this._builtinThemes[id] || this._builtinThemes.dark;
-  }
-
-  _selectTheme(id) {
-    this._deviceConfigForm = { ...this._deviceConfigForm, theme_id: id };
-    this._themeError = "";
-    this._themeNotice = "";
-    this.requestUpdate();
-  }
-
-  _startNewTheme() {
-    this._nameAction = "new";
-    this._themeName = "";
-    this._themeError = "";
-    this._themeNotice = "";
-    this.requestUpdate();
-  }
-
-  async _saveNamedTheme() {
-    const name = this._themeName.trim();
-    if (!name || name.length > 64) {
-      this._themeError = t("Enter a name up to 64 characters.");
-      this.requestUpdate();
-      return;
-    }
-    const id = themeIdFromName(name);
-    const taken = Object.values({ ...this._builtinThemes, ...this._customThemes })
-      .some((theme) => theme.name.toLowerCase() === name.toLowerCase());
-    if (!id || taken || this._builtinThemes[id] || this._customThemes[id]) {
-      this._themeError = t("A color theme with this name already exists.");
-      this.requestUpdate();
-      return;
-    }
-    const source = this._themeData();
-    const themes = {
-      ...this._customThemes,
-      [id]: {
-        name,
-        colors: { ...source.colors },
-        icons: JSON.parse(JSON.stringify(source.icons)),
-      },
-    };
-    if (await this._persistThemes(themes)) {
-      this._selectTheme(id);
-      this._themeNotice = t('Created the custom theme "{name}". Edit its colors in the Theme sidebar.').replace("{name}", name);
-    }
-  }
-
-  _exportThemes() {
-    downloadThemes(this._customThemes, "nspanel-haui-themes.json");
-  }
-
-  async _importThemes(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    try {
-      const imported = parseThemeFile(await file.text());
-      const existingNames = new Set(
-        Object.values({ ...this._builtinThemes, ...this._customThemes })
-          .map((theme) => theme.name.toLowerCase()),
-      );
-      for (const [id, theme] of Object.entries(imported)) {
-        if (this._builtinThemes[id] || this._customThemes[id] || existingNames.has(String(theme.name).toLowerCase())) {
-          this._themeError = t("Import has a color theme name or ID that already exists.");
-          this.requestUpdate();
-          return;
-        }
-        existingNames.add(String(theme.name).toLowerCase());
-      }
-      await this._persistThemes({ ...this._customThemes, ...imported });
-    } catch (_err) {
-      this._themeError = t("Invalid color theme file.");
-      this.requestUpdate();
-    }
-  }
-
-  async _persistThemes(themes) {
-    try {
-      const data = await this.api.editor.saveThemes(this.entryId, { version: 1, themes });
-      this._customThemes = data.themes || {};
-      this._themeError = "";
-      this._nameAction = "";
-      this.requestUpdate();
-      return true;
-    } catch (_err) {
-      this._themeError = t("Unable to save color themes. Check for duplicate names or themes in use.");
-      this.requestUpdate();
-      return false;
-    }
-  }
-
-  _renderThemeSection(cfg) {
-    return html`
-      <details class="config-section" @toggle=${(event) => { if (event.target.open) this._loadThemes(); }}>
-        <summary>${t("Theme")}</summary>
-        <div class="config-section-body">
-          <p class="config-section-intro">
-            ${t("The display colors and icon palettes this device uses. Custom themes are shared by every device that selects them; edit their colors in the Theme sidebar on the device Preview.")}
-          </p>
-          ${this._themesLoading
-            ? html`<p class="config-section-intro">${t("Loading themes...")}</p>`
-            : themeSelector({
-              builtins: this._builtinThemes,
-              custom: this._customThemes,
-              selectedId: cfg.theme_id || "dark",
-              label: t("Color theme"),
-              builtinLabel: builtinThemeLabel,
-              onSelect: (id) => this._selectTheme(id),
-              onNew: () => this._startNewTheme(),
-              onExportAll: () => this._exportThemes(),
-              onImport: (event) => this._importThemes(event),
-              notice: this._themeNotice,
-              error: this._themeError,
-              nameAction: this._nameAction,
-              themeName: this._themeName,
-              onNameInput: (value) => { this._themeName = value; },
-              onSaveName: () => this._saveNamedTheme(),
-              onCancelName: () => { this._nameAction = ""; this.requestUpdate(); },
-            })}
-        </div>
-      </details>
-    `;
   }
 
   render() {
@@ -366,7 +206,7 @@ class DeviceSettings extends HauiDialog {
           <div class="dialog-body">
 
           <p class="config-section-intro">
-            ${t("Configure how this device behaves: display theme, language and regional formats, diagnostics, audible alerts, hardware buttons, navigation, display dimming and display-off, and automatic page switching.")}
+            ${t("Configure how this device behaves: language and regional formats, diagnostics, audible alerts, hardware buttons, navigation, display dimming and display-off, and automatic page switching.")}
           </p>
 
           <details class="config-section">
@@ -392,8 +232,6 @@ class DeviceSettings extends HauiDialog {
               ], (v) => v, t("Used when Date format is Default. The selected layout follows the device language."))}
             </div>
           </details>
-
-          ${this._renderThemeSection(cfg)}
 
           <details class="config-section">
             <summary>${t("General Settings")}</summary>
@@ -472,6 +310,46 @@ class DeviceSettings extends HauiDialog {
                   t("When enabled, the hub switches to the configured idle page after the page timeout. The next touch or button press returns to the panel you were on."))}
                 ${intField(this, "dc-timeout_page", "timeout_page", cfg, t("Page timeout (seconds)"), 30, 0, 3600,
                   t("Seconds of inactivity before the idle page opens (0 = disabled, max 3600)."))}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Special pages")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Choose the page opened by Home and the ordered pages shown while the device is idle.")}
+              </p>
+              <div class="form-group">
+                <label for="dc-home-panel">${t("Home panel")}</label>
+                ${panelPills({
+                  id: "dc-home-panel", panels: this.panels || [],
+                  keys: cfg.home_panel ? [String(cfg.home_panel)] : [], single: true,
+                  addLabel: t("Set panel"), disabled: this.saving,
+                  onChange: (keys) => {
+                    this._deviceConfigForm = { ...this._deviceConfigForm, home_panel: keys[0] || "" };
+                    this.requestUpdate();
+                  },
+                })}
+                <div class="field-hint">${t("If no home panel is set, the first panel in navigation is used.")}</div>
+              </div>
+              <div class="form-group">
+                <label for="dc-idle-panels">${t("Idle panels")}</label>
+                ${panelPills({
+                  id: "dc-idle-panels", panels: this.panels || [],
+                  keys: idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra),
+                  numbered: true, reorderable: true, disabled: this.saving,
+                  onChange: (keys) => {
+                    this._deviceConfigForm = { ...this._deviceConfigForm, ...idlePanelConfig(keys) };
+                    this.requestUpdate();
+                  },
+                })}
+                <div class="field-hint">
+                  ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
+                </div>
+                ${idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra).length ? "" : html`
+                  <div class="field-hint">${t("Nothing opens automatically until you add a panel.")}</div>
+                `}
+              </div>
             </div>
           </details>
 

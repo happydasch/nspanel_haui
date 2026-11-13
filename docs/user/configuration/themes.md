@@ -7,13 +7,13 @@ description: Choose and customize display colors and state-icon palettes for NSP
 
 A theme defines the display's semantic page colors and the weather, alarm and climate icon palettes. The four predefined themes are **Dark**, **Light**, **White** and **Black**. Custom themes are shared by all devices under the same hub entry.
 
-On a device's **Preview**, select **Choose theme** below **Add panel** to open the Theme sidebar. The color swatches at the top show the current draft as you select and edit themes. Select a theme and press **Apply** to use it on that device; **Cancel** discards the draft.
+In the device's **Preview** view, the **Manage this device** card has three buttons in one row: **Theme**, **Schedule** and **Gestures**. Each opens its editor in a sidebar: **Theme** the Theme sidebar, **Schedule** and **Gestures** their own, which keep their explicit **Save** action. In the Theme sidebar the **Color theme** picker selects the device's theme (saved immediately) and shows the selected palette's colors in the field; it shows the current draft as you edit, and **Apply** saves the sidebar changes while **Cancel** discards them.
 
-The same selector is in the device settings sidebar: **Settings** on the device Preview opens **Device settings**, whose **Theme** section selects the device's theme and offers **New theme**, **Export all** and **Import**. A theme picked there is saved with the rest of the device settings; editing a theme's colors stays in the Theme sidebar.
+Choose **Theme** to select a device's theme and to edit the shared theme library and icon palettes.
 
 ## Predefined and custom themes
 
-One **Color theme** dropdown lists every theme: the predefined ones under **Predefined themes** and your own under **Custom themes**. The swatches below it show the selected theme's colors. Editing a built-in theme's colors creates a custom copy automatically; use **New theme** to copy the current selection explicitly, or use **Duplicate** on a custom theme. A custom theme can be renamed, deleted, exported individually, or imported from a JSON file. **Export all** downloads the custom theme library.
+One **Color theme** picker lists every theme: the predefined ones under **Predefined themes** and your own under **Custom themes**. Its palette chip shows the selected theme's colors, and the row of actions under it holds **New**, **Export** and **Import**, plus **Duplicate**, **Rename** and **Delete** icons when a custom theme is selected. Editing a built-in theme's colors creates a custom copy automatically; use **New** to copy the current selection explicitly, or use **Duplicate** on a custom theme. A custom theme can be renamed or deleted. **Export** downloads the currently selected theme, including predefined themes and the current edited colors and icon palettes; **Import** adds themes from a JSON file.
 
 A custom theme includes the semantic page colors and both dark- and light-background palettes for weather, alarm and climate icons. Editing a built-in theme never changes it; it creates a custom theme instead.
 

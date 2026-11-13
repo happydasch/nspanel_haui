@@ -49,6 +49,7 @@ class PreviewWorkspace extends LitElement {
       _hover: { state: true },
       mode: { type: String },
       showEntities: { type: Boolean },
+      optionSelection: { type: String },
     };
   }
 
@@ -215,6 +216,7 @@ class PreviewWorkspace extends LitElement {
     this._hover = null;
     this.mode = 'simulated';
     this.showEntities = false;
+    this.optionSelection = '';
     this._pointerId = null;
     this._resizeObserver = null;
   }
@@ -232,6 +234,7 @@ class PreviewWorkspace extends LitElement {
     }
     if (changed.has('mode')) this.setLive(this.mode === 'live');
     if (changed.has('showEntities') && !this.showEntities) this._hover = null;
+    if (changed.has('optionSelection')) this._hover = null;
     const stage = this.renderRoot.querySelector('.haui-preview-stage');
     if (stage && !this._resizeObserver && typeof ResizeObserver === 'function') {
       this._resizeObserver = new ResizeObserver(entries => {

@@ -13,7 +13,8 @@ NSPanel HAUI has three parts. Update them together, in this order:
 | Firmware | The software on the panel's ESP32 | By the hub: the panel's **HAUI Firmware** update |
 | Display | The TFT file on the panel's screen | By the hub, automatically after the firmware |
 
-The integration and the firmware must have the same version. If they differ, the device's **Diagnostics** card shows **Firmware does not match the hub**. The display has its own version number, which may differ: the hub updates the display only when the firmware needs a newer one.
+The integration and firmware release versions are expected to match, but they are separate values: the integration version comes from the integration's `manifest.json`, while the firmware version is reported by ESPHome as `yaml_version`.
+If they differ, the device's **Diagnostics** card shows **Firmware version does not match the integration**. The display has its own `tft_version`, which may differ: the hub updates the display only when the firmware needs a newer one.
 
 ## Update in four steps
 
@@ -33,7 +34,7 @@ The four steps are for the **universal firmware**, the `nspanel_haui.bin` that e
 
 ## Update settings
 
-Every panel has its own update settings. In the editor, open the device's **Updates** sidebar and change the **Update settings** card; each change is saved automatically. Text fields save after you pause typing. The card groups settings as **Update channel**, **Release checks**, **Firmware** and **Display**. The selected channel applies to both firmware and display updates; an optional custom manifest URL in that section overrides the firmware feed.
+Every device has its own update settings. In the editor, open the device's **Updates** sidebar and change the **Update settings** card; each change is saved automatically. Text fields save after you pause typing. The **Enable updates** switch, **Update channel**, and its optional custom manifest URL are grouped together; the remaining settings are grouped as **Release checks**, **Firmware** and **Display**. The selected channel applies to both firmware and display updates; a custom manifest URL overrides the firmware feed.
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
@@ -66,7 +67,7 @@ Some releases change behaviour or need extra steps. All breaking changes, the mi
 
 ### Themes replace color schemes
 
-The **Device Colors** sidebar is now the **Theme** sidebar, opened with **Choose theme** below **Add panel** on the device Preview. The Appearance section has been removed from device settings.
+The **Device Colors** sidebar is now the **Theme** editor, opened with the **Theme** button of **Manage this device** on the device's **Preview**. Choose the device's theme there; the Appearance section has been removed from device settings. Home and idle page assignments are in **Device Settings → Special pages**.
 
 When the integration loads the panel store, it does not migrate color schemes or per-device theme settings. Configure the device with `theme_id` and `theme_variant`, and add custom palettes to the shared theme library. Panel and item color settings are separate and unchanged. Use `theme_definition` for an included custom theme.
 

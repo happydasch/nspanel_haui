@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,12 +7,12 @@ import { updateStateLabel, updateSummary } from'../../custom_components/nspanel_
 
 function element(props = {}) {
   const FirmwarePopover = customElements.get('nspanel-firmware-popover');
-  return Object.assign(Object.create(FirmwarePopover.prototype), {
+  return Object.assign(document.createElement('nspanel-firmware-popover'), {
     open: true,
     deviceName: 'kitchen',
     entryId: 'entry1',
     deviceStatus: {
-      haui_version: '0.5.0',
+      integration_version: '0.5.0',
       device_info: { tft_version: '1.2.3', tft_required_version: '1.2.4' },
       update: { enabled: true, state: 'idle', tft_update_available: true },
     },

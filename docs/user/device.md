@@ -19,7 +19,7 @@ Swipe from a screen edge to navigate. Unless you change it, a swipe does this:
 | Up | About |
 | Down | Settings |
 
-You can change what a swipe does, turn it off, or add gestures of several swipes in a row in the **Gestures** card in the side area of the device's **Panels** view. See [Device Configuration → Gestures](configuration/device.md#gestures).
+You can change what a swipe does, turn it off, or add gestures of several swipes in a row using the **Gestures** option in **Manage this device** on the device's **Preview** view. See [Device Configuration → Gestures](configuration/device.md#gestures).
 
 ### Display State Dimmed, Off and On
 
@@ -98,7 +98,7 @@ A [schedule](configuration/device.md#schedule) entry with sound off makes the pa
 - Notifications are still collected and shown, but they do not wake the display.
 - The time window can cross midnight, for example 22:00–07:00, and can start or end at sunrise or sunset.
 
-You set this in the **Schedule** card in the side area of the device's **Panels** view.
+You set this in the **Schedule** option in **Manage this device** on the device's **Preview** view.
 
 ## Panels
 

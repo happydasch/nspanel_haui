@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,6 +28,8 @@ function listFor(displayModel, panels = [{ type: 'clock', key: 'clock_0', items:
   Object.setPrototypeOf(host, NSPanelEditor.prototype);
   host._store = host.store;
   host._panelTypes = [{ type_key: 'clock', label: 'Clock', page_id: 3 }];
+  host._collapsedPanelGroups = [];
+
   const state = host.store.getState();
   const device = { name: 'kitchen', panels, config: state.devices.byName.kitchen.config };
   return renderPanelList(host._panelListModel(device, state.devices.byName.kitchen.status));
@@ -79,6 +81,7 @@ test('the panel list builder hands the view a menu for user panels only', () => 
   Object.setPrototypeOf(host, NSPanelEditor.prototype);
   host._store = host.store;
   host._panelTypes = [{ type_key: 'clock', label: 'Clock', page_id: 3 }];
+  host._collapsedPanelGroups = [];
   const state = host.store.getState();
   const model = host._panelListModel(
     { name: 'kitchen', panels: [{ type: 'clock', key: 'clock_0', items: [{}, {}] }], config: {} },

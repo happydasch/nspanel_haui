@@ -450,7 +450,10 @@ class FirmwarePopover extends HauiDialog {
   _renderVersions({ status, info, update, requiredTft, updatesEnabled, installDisabled }) {
     return html`<dl class="haui-surface haui-firmware-versions">
       ${versionRow({
-        iconName: 'chip', label: t('Firmware'), version: status.haui_version,
+        iconName: 'info', label: t('Integration'), version: status.integration_version,
+      })}
+      ${versionRow({
+        iconName: 'chip', label: t('Firmware'), version: info.yaml_version,
         note: update.firmware_update_version
           ? t('Latest release: {version}').replace('{version}', update.firmware_update_version) : '',
         offered: update.firmware_update_available,
@@ -460,7 +463,7 @@ class FirmwarePopover extends HauiDialog {
           : null,
       })}
       ${versionRow({
-        iconName: 'monitor', label: t('Display'), version: info.tft_version,
+        iconName: 'monitor', label: t('Display (TFT)'), version: info.tft_version,
         note: requiredTft ? t('The firmware needs {version}').replace('{version}', requiredTft) : '',
         offered: update.tft_update_available,
         disabled: installDisabled,
@@ -532,7 +535,7 @@ class FirmwarePopover extends HauiDialog {
   /** The shared release channel used for firmware and display updates. */
   _renderUpdateChannel(settings, channel) {
     const manualUrl = Boolean(settings.firmware_manifest_url);
-    return html`<section class="haui-update-group">
+    return html`<div class="haui-update-channel">
       <h3 class="haui-update-group-title">${icon('download')}${t('Update channel')}</h3>
       <div class="haui-update-field">
         ${segmented({
@@ -560,6 +563,15 @@ class FirmwarePopover extends HauiDialog {
           <p class="haui-update-row-hint">${t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).')}</p>
         </div>
       </details>
+    </div>`;
+  }
+
+  /** Groups the master switch with the release source it enables. */
+  _renderUpdateSettings(settings, channel, enabled) {
+    return html`<section class="haui-update-group haui-update-settings-group">
+      ${this._renderMaster(settings)}
+      ${enabled ? this._renderUpdateChannel(settings, channel)
+        : html`<p class="haui-update-off-note">${t('Updates are disabled for this device.')}</p>`}
     </section>`;
   }
 
@@ -601,11 +613,10 @@ class FirmwarePopover extends HauiDialog {
           <p>${t('Controls release checks and firmware/display updates for this device.')}</p>
         </div>
       </header>
-      ${this._renderMaster(settings)}
-      ${enabled ? html`${this._renderUpdateChannel(settings, channel)}${
-        this._renderReleaseChecks(settings, interval)}${this._renderFirmwareSettings(settings)}${
-        this._renderDisplaySettings(settings)}`
-      : html`<p class="haui-update-off-note">${t('Updates are disabled for this device.')}</p>`}
+      ${this._renderUpdateSettings(settings, channel, enabled)}
+      ${enabled ? html`${this._renderReleaseChecks(settings, interval)}${
+        this._renderFirmwareSettings(settings)}${this._renderDisplaySettings(settings)}`
+      : nothing}
     </section>`;
   }
 

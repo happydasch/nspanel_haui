@@ -19,8 +19,8 @@ const DIAGNOSTICS_DEMO = {
   name: 'kitchen',
   status: {
     connected: true,
-    haui_version: '0.5.0',
-    haui_version_mismatch: false,
+    integration_version: '0.5.0',
+    integration_version_mismatch: false,
     update: { state: 'installing', version: '0.5.0' },
     device_info: {
       ip: '192.0.2.10', ssid: 'HomeNet', rssi: -54, connection_uptime: 11_520, display_state: 'on',
@@ -121,7 +121,7 @@ class UiPrimitivesPreview extends LitElement {
         <section class="gallery-card"><h2>Device details collapsed, diagnostics simple with issues</h2>
           ${deviceDetails({ ...DIAGNOSTICS_DEMO, detailsExpanded: false, status: {
             ...DIAGNOSTICS_DEMO.status,
-            haui_version_mismatch: true,
+            integration_version_mismatch: true,
             device_info: { ...DIAGNOSTICS_DEMO.status.device_info, tft_version: '0.4.9', tft_required_version: '0.5.0' },
           } })}
         </section>

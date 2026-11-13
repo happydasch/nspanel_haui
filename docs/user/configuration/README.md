@@ -7,7 +7,7 @@ description: How to configure NSPanel HAUI through the Home Assistant UI editor
 
 NSPanel HAUI is configured in an editor inside Home Assistant. You do not edit YAML. There are three things to configure:
 
-1. **[Device](device.md)** — settings of the panel itself: language, brightness and timeouts, buttons, sounds, colors.
+1. **[Device](device.md)** — settings of the panel itself: language, brightness and timeouts, buttons and sounds.
 2. **[Panels](panels.md)** — the screens the panel shows: type, title, key, navigation, PIN.
 3. **[Items](items.md)** — what a panel shows: the entities and how they look.
 
@@ -17,7 +17,7 @@ NSPanel HAUI is configured in an editor inside Home Assistant. You do not edit Y
 2. The dashboard lists your devices. Select a device to open it. The round back button returns to the dashboard.
 3. A device opens on its **Preview**. Switch to **Panels** to see and edit its panels.
 
-Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** and **Choose theme** open their sidebars; the cog beside the card's title opens **Settings**. While an update is offered, the Preview's card also offers **Install update**.
+Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view uses the full width for the panel list; configure the home and idle pages in **Device Settings → Special pages**.
 
 If the editor does not get past its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 
@@ -65,7 +65,7 @@ The **Panels** view lists the device's panels in three groups:
 | **Hidden** | Panels that are only opened from another panel |
 | **Popups** | Built-in popups you have changed on this device |
 
-Each row has a picture of the panel as the display shows it, with your entities and their current states. Markers show the home panel and the idle panel. The search field narrows the list by title, key or type.
+Each row has a picture of the panel as the display shows it, with your entities and their current states. Markers show the home panel and the idle panel. The search field narrows the list by title, key or type. Selecting a row opens its details alongside the list: the panel's type, key, group and item count, Home/Idle role, and **Edit**, **Duplicate** and **Delete** actions. Close the details card or select the row again to clear it and return to the overview.
 
 In this list you can:
 
@@ -121,11 +121,11 @@ See [Item Configuration](items.md) for all options.
 | **Notifications** | Sounds and quiet hours |
 | **Idle & Wake Behavior** | What the panel shows after waking up |
 
-See [Device Configuration](device.md) for every setting. The **Schedule**, **Gestures**, and **Home & idle panels** cards are in the side area of the device's **Panels** view.
+See [Device Configuration](device.md) for every setting. The **Schedule**, **Gestures**, and **Theme** buttons are in **Manage this device** in the device's **Preview** view. Set the home and idle panel assignments in **Device Settings → Special pages**.
 
 ## The Theme Sidebar
 
-Choose **Theme** below **Add panel** on the device's **Preview** to select a predefined or custom theme, edit its shared colors, or configure icon palettes. See [Themes](themes.md).
+In **Preview**, open **Manage this device** and choose **Theme** to open the Theme sidebar, where you select the device's theme and edit shared colors or icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. See [Themes](themes.md).
 
 ## The Live Preview
 

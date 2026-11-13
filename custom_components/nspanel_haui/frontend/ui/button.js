@@ -7,7 +7,7 @@ import { t } from '../localize.js';
  * `anchorKey` marks a control that owns an anchored popover.
  */
 export function button({
-  label, iconName, variant = 'outline', onClick, disabled = false, busy = false,
+  label, iconName = null, variant = 'outline', onClick, disabled = false, busy = false,
   type = 'button', className = '', title = '', anchorKey = null, id = null,
 }) {
   return html`<button type=${type} id=${id ?? nothing}

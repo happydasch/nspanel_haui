@@ -8,21 +8,35 @@ export function dropsAfter(event) {
   return Boolean(rect) && event.clientY > rect.top + rect.height / 2;
 }
 
+// A row's own controls keep their click; the rest of the row selects the panel.
+const OWN_CLICK = 'button, a, input, select, textarea, label, [role="menu"], [role="tooltip"], .haui-panel-handle';
+
 /**
  * One panel row: drag handle, thumbnail, title, key, item count and its own
  * actions. The row is not a button — the title opens the editor and every
- * action stays a separate named control.
+ * action stays a separate named control. With `onSelect` the row also selects
+ * itself on a click outside those controls (or on Enter and Space), and marks
+ * the selection with `aria-current`.
  *
  * @param {{ key?: string, group: string, title: unknown, typeLabel?: string, keyLabel?: string,
  *   itemCount?: number, thumbnail?: unknown, handle?: unknown, actions?: unknown,
- *   lockReason?: string, menu?: unknown, onEdit?: (() => void)|null,
- *   onDrop?: ((sourceKey: string, after: boolean) => void)|null }} options
+ *   lockReason?: string, menu?: unknown, selected?: boolean, onEdit?: (() => void)|null,
+ *   onSelect?: (() => void)|null, onDrop?: ((sourceKey: string, after: boolean) => void)|null }} options
  */
 export function panelRow({
   key = '', group, title, typeLabel = '', keyLabel = '', itemCount, thumbnail = nothing,
-  handle = nothing, actions = nothing, lockReason = '', menu = nothing,
-  onEdit = null, onDrop = null,
+  handle = nothing, actions = nothing, lockReason = '', menu = nothing, selected = false,
+  onEdit = null, onSelect = null, onDrop = null,
 }) {
+  const selectOnClick = onSelect ? (event) => {
+    if (/** @type {Element} */ (event.target).closest?.(OWN_CLICK)) return;
+    onSelect();
+  } : null;
+  const selectOnKey = onSelect ? (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    onSelect();
+  } : null;
   const countLabel = itemCount === undefined
     ? ''
     : itemCount === 1
@@ -48,8 +62,11 @@ export function panelRow({
   const leaveDrop = onDrop ? (event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) clearDrop(event.currentTarget);
   } : null;
-  return html`<div class="haui-panel-row"
+  return html`<div class=${`haui-panel-row${selected ? ' is-selected' : ''}`}
     data-panel-key=${key} data-panel-group=${group}
+    aria-current=${selected ? 'true' : nothing}
+    tabindex=${onSelect ? '0' : nothing}
+    @click=${selectOnClick ?? nothing} @keydown=${selectOnKey ?? nothing}
     @dragover=${allowDrop ?? nothing} @dragleave=${leaveDrop ?? nothing} @drop=${acceptDrop ?? nothing}>
     <span class="haui-panel-row-grip">${handle}</span>
     ${thumbnail}

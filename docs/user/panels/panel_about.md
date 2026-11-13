@@ -5,12 +5,11 @@ description: About panel — device and version information
 
 # Panel About
 
-The About panel shows information about the panel:
+The About panel shows the device IP address and three distinct versions:
 
-- the IP address
-- the version of the display file (TFT)
-- the version of the firmware
-- the version of the integration
+- **Display (TFT)** — the version of the file installed on the screen
+- **Firmware (YAML)** — the ESPHome build version reported by `yaml_version`
+- **Integration** — the Home Assistant integration version from `manifest.json`
 
 Swipe up from the bottom edge of the screen to open it.
 

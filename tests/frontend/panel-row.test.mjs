@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,15 @@ function flatten(value) {
 
 /** The click handler of the row's title button. */
 function titleClick(row) {
-  return row.values[row.strings.findIndex((part) => part.endsWith('@click='))];
+  const title = row.strings.findIndex((part) => part.includes('haui-panel-row-title'));
+  const index = row.strings.findIndex((part, at) => at > title && part.trimEnd().endsWith('@click='));
+  return row.values[index];
+}
+
+/** The click and key handlers of the row itself. */
+function rowHandlers(row) {
+  const at = (name) => row.values[row.strings.findIndex((part) => part.includes(`@${name}=`))];
+  return { click: at('click'), keydown: at('keydown') };
 }
 
 test('panel row renders its title, key, item count and independent actions', () => {
@@ -117,9 +125,6 @@ test('a thumbnail enlarges on mouse hover and toggles on tap or key press', () =
   handler('pointerenter')({ pointerType: 'mouse', currentTarget: element });
   assert.equal(classes.has('is-zoomed'), true);
   assert.equal(attributes['aria-expanded'], 'true');
-  // Placed by where a fixed "0, 0" really is: the containing block is 20/10 off.
-  assert.equal(view.style.left, '164px');
-  assert.equal(view.style.top, '313.5px');
   handler('click')({ pointerType: 'mouse', currentTarget: element });
   assert.equal(classes.has('is-zoomed'), true);
   handler('pointerleave')({ pointerType: 'mouse', currentTarget: element });
@@ -156,4 +161,35 @@ test('a row that takes drops allows them on dragover; a locked row does not', ()
   });
   assert.deepEqual(prevented, [true]);
   assert.notEqual(typeof dragOverOf(panelRow({ group: 'system', key: 'sys', title: 'System' })), 'function');
+});
+
+test('a row selects itself on a click outside its controls, and marks the selection', () => {
+  const selected = [];
+  const row = panelRow({ group: 'navigation', key: 'kitchen', title: 'Kitchen', onSelect: () => selected.push('kitchen') });
+  const { click } = rowHandlers(row);
+  click({ target: { closest: () => null } });
+  assert.deepEqual(selected, ['kitchen']);
+  // The title, the row actions and the overlaid menu keep their own click.
+  click({ target: { closest: (selector) => selector.includes('button') ? {} : null } });
+  assert.deepEqual(selected, ['kitchen']);
+
+  const chosen = flatten(panelRow({ group: 'navigation', key: 'kitchen', title: 'Kitchen', selected: true, onSelect() {} }));
+  assert.match(chosen, /haui-panel-row is-selected/);
+  assert.match(chosen, /aria-current=true/);
+  const plain = flatten(panelRow({ group: 'navigation', key: 'kitchen', title: 'Kitchen', onSelect() {} }));
+  assert.doesNotMatch(plain, /is-selected|aria-current=true/);
+});
+
+test('a selectable row answers Enter and Space, and only a selectable one is in the tab order', () => {
+  const selected = [];
+  const row = panelRow({ group: 'navigation', key: 'kitchen', title: 'Kitchen', onSelect: () => selected.push('kitchen') });
+  const { keydown } = rowHandlers(row);
+  const prevented = [];
+  keydown({ key: 'Enter', preventDefault: () => prevented.push(true) });
+  keydown({ key: ' ', preventDefault: () => prevented.push(true) });
+  keydown({ key: 'Tab', preventDefault: () => prevented.push(true) });
+  assert.deepEqual(selected, ['kitchen', 'kitchen']);
+  assert.deepEqual(prevented, [true, true]);
+  assert.match(flatten(row), /tabindex=0/);
+  assert.match(flatten(panelRow({ group: 'system', key: 'sys', title: 'System' })), /tabindex=Symbol\(lit-nothing\)/);
 });

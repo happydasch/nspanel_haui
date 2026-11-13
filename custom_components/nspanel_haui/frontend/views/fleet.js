@@ -120,7 +120,7 @@ export function renderFleetView(data) {
         <div class="haui-device-table" role="table" aria-label=${t('Device inventory')}>
           <div class="haui-device-row haui-device-row-head" role="row">
             <span role="columnheader">${t('Device')}</span><span role="columnheader">${t('IP address')}</span>
-            <span role="columnheader">${t('Firmware')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"></span>
+            <span role="columnheader">${t('YAML')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"></span>
           </div>
           ${data.devices.map((item) => deviceRow({
             ...item,

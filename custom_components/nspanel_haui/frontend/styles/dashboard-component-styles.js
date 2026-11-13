@@ -85,17 +85,9 @@ export const dashboardComponentStyles = css`
   .haui-field-error { color: var(--error-color, #b00020); font-size: 12px; }
   .haui-empty-state { display: grid; justify-items: center; gap: 8px; padding: 32px 20px; color: var(--secondary-text-color, #666); text-align: center; }
   .haui-empty-state h2, .haui-empty-state p { margin: 0; }
-  .haui-popover { position: fixed; z-index: 30; max-width: min(360px, calc(100vw - 24px)); padding: 12px; border: 1px solid var(--divider-color, #ddd); border-radius: 12px; background: var(--card-background-color, #fff); box-shadow: 0 8px 28px #0003; }
-  .haui-popover[role="menu"] { display: grid; gap: 2px; width: max-content; min-width: 236px; padding: 6px; }
+  .haui-popover { position: fixed; z-index: 30; box-sizing: border-box; max-width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 12px; border: 1px solid var(--divider-color, #ddd); border-radius: 12px; background: var(--card-background-color, #fff); box-shadow: 0 8px 28px #0003; }
+  .haui-popover[role="menu"] { display: grid; gap: 2px; width: max-content; min-width: min(236px, calc(100vw - 24px)); padding: 6px; }
   .haui-menu-separator { height: 1px; margin: 5px 4px; background: var(--divider-color, #ddd); }
-  @media (max-width: 600px) {
-    .haui-popover:not([data-popover-static]):not(.haui-notification-popover) {
-      inset: auto 0 0;
-      width: auto;
-      max-width: none;
-      border-radius: 12px 12px 0 0;
-    }
-  }
   .haui-menu-item { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 10px; padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; text-align: left; cursor: pointer; }
   .haui-menu-item:hover { background: var(--secondary-background-color, #eee); }
   .haui-menu-item.danger { color: var(--error-color, #b00020); }
@@ -106,6 +98,7 @@ export const dashboardComponentStyles = css`
     top: 64px;
     right: 20px;
     width: min(420px, calc(100vw - 32px));
+    max-width: min(420px, calc(100vw - 32px));
     max-height: min(70vh, 560px);
     overflow-y: auto;
     padding: 0;
@@ -136,15 +129,6 @@ export const dashboardComponentStyles = css`
   .haui-notification-content p { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .haui-notification-meta { display: flex; gap: 12px; color: var(--secondary-text-color); font-size: 12px; }
   .haui-notification-empty { margin: 0; padding: 20px 16px; color: var(--secondary-text-color); }
-  @media (max-width: 600px) {
-    .haui-notification-popover {
-      inset: auto 0 0;
-      width: auto;
-      max-width: none;
-      max-height: min(75vh, 640px);
-      border-radius: 12px 12px 0 0;
-    }
-  }
   /* ── Updates sidebar ────────────────────────────────────────────────
      Its body scrolls inside the sidebar's strip: a column of cards, the
      status lead first, then the installed versions, then the settings. */
@@ -216,6 +200,8 @@ export const dashboardComponentStyles = css`
   .haui-update-master { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--divider-color, #ddd); background: var(--haui-surface-soft); }
   .haui-update-master .native-toggle { flex: 0 0 auto; margin-top: 2px; }
   .haui-update-group { display: grid; gap: 12px; padding: 14px 18px 16px; }
+  .haui-update-settings-group { gap: 0; padding: 0; }
+  .haui-update-channel { display: grid; gap: 12px; padding: 14px 18px 16px; }
   .haui-update-group + .haui-update-group { border-top: 1px solid var(--divider-color, #ddd); }
   .haui-update-group-title { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--secondary-text-color); font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; --mdc-icon-size: 14px; }
   .haui-update-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }

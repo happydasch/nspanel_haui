@@ -143,6 +143,10 @@ pytest tests/
 # Run frontend editor tests (Node 22+, no npm dependencies)
 node --test 'tests/frontend/*.test.mjs'
 
+# Type-check the editor modules that opt in with // @ts-check (npm ci once per clone)
+npm ci
+npm run typecheck:frontend
+
 # Format Python code (agents must run this on changed Python files before finishing)
 ruff format custom_components/ scripts/ tests/
 
@@ -503,6 +507,8 @@ When modifying `config_flow.py`, check the corresponding tests in `tests/test_co
 
 Frontend editor modules are tested with Node's built-in runner in `tests/frontend/` (`*.test.mjs`), using the fake editor host and backend in `tests/frontend/fake-host.mjs`. Tests that import a module depending on Lit must import `tests/frontend/dom-shim.mjs` first.
 
+A frontend module is only type-checked when it starts with `// @ts-check` (`npm run typecheck:frontend`, `jsconfig.json`, `checkJs: false`), so an unmarked module compiles unchecked — mark new `store/`, `api/`, `views/` and data-carrying `ui/` modules. There is no JS formatter: keep the file's existing style (see *Code Style*).
+
 ### Config merging
 
 Device settings have one home: the panel store.
@@ -530,6 +536,94 @@ The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) in
 3. Commit the updated `haui/locale/*.json` files together with the code change that introduced the strings.
 
 `scripts/translations/merge_translations.py` is a secondary helper for merging a completed `scripts/translations/translate.json` batch back into `haui/locale/*.json` without clobbering existing entries — for external translation-service round trips, not needed for routine local development.
+
+## Frontend Rules
+
+The sidebar editor (`custom_components/nspanel_haui/frontend/`) is one static custom panel: no build step, no framework beyond the vendored Lit, no runtime dependency, and Home Assistant's own theme. `docs/develop/frontend.md` holds the architecture, the screens and the component inventory — read it before a UI change. The rules below are what a change must not break; they mirror how the shipped code already reads.
+
+### Where code goes
+
+| Directory | Owns | Rule |
+|-----------|------|------|
+| `app/` | `shell.js` (the element and its lifecycle), `router.js` | Wires collaborators; no data fetching, no formatting |
+| `store/` | `store.js` (one observable store), `controller.js` (Lit reactive controller) | Only store actions write shared state; one poller per scope |
+| `api/` | `client.js` (one namespaced client), `types.js` (`@typedef`s) | REST/WebSocket transport only; no rendering, no state |
+| `views/` | One render entry per screen region (`renderFleetView`, `renderDeviceView`, `renderPanelList`, `panelCatalog`, `notificationsView`) | Prepared data in, callbacks out; no transport, no store |
+| `ui/` | Reusable template components — the visual inventory in `docs/develop/frontend.md` | Data in, callbacks out; no transport, no store |
+| `dialogs/`, `previews/`, `virtual/`, the element-based views (`workspace.js`, `device-settings.js`, `panel-editor.js`) | Dialog surfaces, the hub-render replay, the Nextion simulator, surfaces that have not migrated to a render function | Use the client, never raw `fetch` |
+| `styles/` | Shared `css` fragments composed by `styles.js` | One module per surface; shared rules, not per-call-site one-offs |
+
+**A view or a component never reaches into the shell, the store or the API.** It gets prepared data and `on*` callbacks; the shell maps those to store actions. `ui/` and `views/` import nothing from `store/` or `api/` today — keep it that way, and add new shared state as a store field plus an action before wiring any component to it.
+
+**Every displayed value has a real source** — the store, a status poll, a hub render or an API response. Never show a fabricated fact the prototype invented (availability percentages, spark bars, per-device activity, a "mostly healthy" line, placeholder counts, made-up update or node fields); when the data is missing, show the explicit empty or unknown state. The hash route is the single source of truth for the screen: user navigation pushes history, normalizing an invalid route replaces it, and unsaved drafts stay out of the URL.
+
+**Custom elements are the exception, not the pattern.** Pure render functions are the default; define an element only for the editor shell, a dialog surface, the preview workspace, the panel editor, device settings or the simulator frame. Element names are `nspanel-*` (`tests/frontend/element-names.test.mjs` enforces the namespace), file names are kebab-case, one element per file.
+
+### Writing a component (`ui/`)
+
+- One exported function, camelCase, taking a single options object: `export function deviceRow({ name, device, status, onOpen, onMenu })`. Small primitives may take a positional `(text, tone, className)`.
+- Callbacks are `on<Thing>`, optional and invoked as `onThing?.(value)`: `onSelect`, `onClose`, `onDismiss`, `onClick`, `onReorderDevices`. Never mutate the argument object; compute and return.
+- Return an `html` template (from `lit-import.js`) or a pure helper value. Use `nothing` — not `''` — for "no attribute, no element".
+- Compose from the primitives instead of re-declaring markup: `button`/`iconButton`/`addButton`/`backButton`/`expandToggle`, `badge`/`chip`/`statusDot`, `surface`/`sectionHeading`, `segmented`, `sortHandle`, `emptyState`, `popover`/`menuItem`/`menuSeparator`, `icon`, `infoTile`, `sidebarFrame`/`modalSidebar`, `previewStage`. A missing variant is added to the primitive (with its test), not forked in the view.
+- Icons: `icon('name')` maps the short names in `ui/icon.js` to `mdi:*`. Add the short name to that table instead of inlining `mdi:` strings.
+- Class names are `haui-*`, block-then-part (`haui-panel-row`, `haui-panel-row-actions`); state classes are `is-*` (`is-dragging`, `is-drop-target`, `is-resizing`) or an existing modifier (`active`, `open`).
+- Every new `store/`, `api/` and `views/` module and every `ui/` module that carries real data starts with `// @ts-check` and JSDoc `@typedef`s. The type check only covers files that opt in, so an unmarked module is unchecked.
+- A new primitive needs a semantic assertion in `tests/frontend/ui-primitives.test.mjs` (use the real-DOM helpers in `tests/frontend/support/`) and keeps a demo in `tests/frontend/ui-primitives-preview.js` for manual review.
+
+### Text, states and accessibility
+
+- Every user-facing string goes through `t('literal')`; the extractor only finds string literals. Interpolate with `t('Install updates ({count})').replace('{count}', String(count))` — never a template literal, never concatenation.
+- No hardcoded English label, `title`, `aria-label`, toast or error text. Numbers, IPs, versions and entity ids are data, not text.
+- A control is a native `<button>` with a label. An icon-only control uses `iconButton({ label })` so the accessible name sits on the button, not the glyph; decorative icons keep the `icon()` `aria-hidden` default.
+- Colour is never the only cue: attach text to a tone (`badge`, `chip`) and give a `statusDot` its label. Transient failures are announced with `role="alert"`, not with a colour change.
+- Keep the keyboard path intact: `aria-expanded`/`aria-controls` on popover triggers, `aria-pressed` on segmented options, `trapTab` inside modal sidebars, focus restored to the trigger after close. Use native buttons, links, inputs and `<details>/<summary>` where they fit, and make a hover preview keyboard reachable too.
+- Empty, loading, stale and error are first-class states: `emptyState` when there is nothing to show, `?disabled=${…}` described by a title/label when an action is unavailable, explicit "unknown"/"not reported" text instead of a false value.
+
+### Styling
+
+The source of truth is `docs/develop/frontend.md` → *Visual foundations*: measured values from the prototype, not a second theme. Use what already exists before adding a value.
+
+- **Theme, not a palette.** Every colour is a Home Assistant variable with a fallback (`var(--primary-color, #03a9f4)`, `var(--card-background-color, #fff)`, `var(--divider-color, …)`, `var(--state-icon-color, …)`). The only HAUI-owned meanings are the `--haui-*` aliases in `styles/tokens.js` (good/warn/bad and their soft fills, `--haui-surface-soft`, `--haui-surface-strong`, `--haui-border-strong`, `--haui-screen`, `--haui-bezel`, `--haui-live-*`, `--haui-card-*`, `--haui-mono`, `--haui-shadow-card`). Add a token there instead of a literal in a rule.
+- **No new raw colour** in a style rule, and no copied colour ramps or `prefers-color-scheme` overrides. The only exceptions already in the tree are on-fill white/black (`color: #fff` on a primary fill, a `#0003` shadow), the screen/bezel tokens, and `#7cb342` for Wi-Fi "good".
+- **Type.** Home Assistant's body font and its size ladder (10/12/13/14/16/20/22/24px) with weights 400/500/600; reuse a step from the ladder rather than adding another size. Identifiers — node names, panel keys, IPs, firmware and TFT versions — use `var(--haui-mono)`. Prefer `--ha-font-size-s`, `--ha-font-weight-medium`, `--ha-font-family-code` where they fit.
+- **Spacing** on the 4/8/12/16/20/24/28/32/40 ladder (`--ha-space-*` where HA defines it). **Radius:** 8px controls and thumbs, 12px cards (`var(--haui-card-radius)`), pill (`999px`) for buttons/chips/toggles, `50%` for dots. **Elevation:** `--haui-shadow-card` for cards, a stronger shadow for a popover or sidebar. Don't add a fourth radius or a second card shadow.
+- **Icons** are Home Assistant `<ha-icon>` (MDI names through `icon()`), sized with `--mdc-icon-size`: 18px default, 14–16px compact. Never build an SVG `<use>` sprite; it cannot cross shadow roots.
+- **Motion** is short and purposeful: 120–150ms for hover/colour/fade, and the scrim/sidebar entrance keeps the 140/180ms (`haui-scrim-in`, `haui-sidebar-in`). Every animation and transition pairs with `@media (prefers-reduced-motion: reduce) { … animation: none; transition: none; }`, as the existing ones do.
+- **Focus** is an always-visible `outline: 2px solid var(--primary-color)` with `outline-offset: 2px`. Never suppress a focus ring, and never rely on hover alone: wrap hover-only affordances in `@media (hover: hover)` and give them a keyboard path.
+- **The responsive root is the `:host` container** (`editorContainerStyles` in `styles.js`, `container-name: haui-editor`) because a descendant container query cannot reach outside the shadow tree. Query it as `@container haui-editor (max-width: …)` on the ladder 1120 / 980 / 870 / 720 / 600 / 560px. A card that must react to its own width declares its own named container (`.haui-panel-info { container: haui-panel-info / inline-size; }`) and queries that name. `@media` is only for user preference (`prefers-reduced-motion`, `hover`) and the legacy full-screen phone rules.
+- **Layout lives in `styles/`.** Inline `style=` is only for a computed custom property or a value the stylesheet cannot know (sidebar width, preview scale, a palette swatch preview) — never for spacing or positioning that belongs in a fragment.
+- **Compose fragments in `styles.js`**: `editorStyles` for the shell, `dialogStyles` for dialog content, `haStyle`/`haStyleDialog`/`editorContainerStyles` for the HA-derived base. A new surface adds a `styles/` module and composes it there; a component never carries private `<style>` for shared rules.
+- **Two wrappers are fixed by the docs, not by a view.** A sidebar opens at 380px, resizes between 320px and the window minus 120px, shares one width persisted as `haui_sidebarWidth`, and becomes a full-screen page at ≤600px (`ui/sidebar.js`). The editor footer stays after the screen content on every state — loading, error and empty included — and keeps `renderFooter()` and its `.editor-footer` markup verbatim (`toolbar.js`); its version, Dev badge, GitHub and Documentation links are not moved into a menu. Do not re-implement either.
+
+### Overlays
+
+- One anchored popover implementation: `ui/popover.js`. A trigger carries `data-overlay-anchor=${overlayAnchor(kind, subject)}`; the shell places it, closes it on Escape/outside click and restores focus. Do not write a second positioned popover.
+- Sidebars use `modalSidebar`/`sidebarFrame` (`ui/sidebar.js`), which own width, scroll containment, Tab trapping and focus, and become a full-screen page at ≤600px.
+- Only one anchored popover is open at a time; a modal sidebar may carry one topmost popover. Escape closes the topmost layer first, then the sidebar, and returns from Device to Fleet only when no overlay is open. An outside click closes only the active popover. Closing restores focus to the trigger, and focus survives renders and saves.
+- Legacy dialogs build on `dialogs/haui-dialog.js` (`HauiDialog`: `hass`/`open` properties, `open`-gated rendering, `dialog-closed` events) and render HA's `ha-dialog`. Do not start a new dialog surface without both.
+- Overlay kinds are declared in `store/store.js` (`ANCHORED_OVERLAY_KINDS`, `SIDEBAR_OVERLAY_KINDS`, `DEVICE_OPTION_OVERLAY_KINDS`); a new overlay adds its kind there and opens through a store action, so one overlay replaces the previous instead of stacking by accident.
+
+### Home Assistant integration
+
+- Every REST and WebSocket call goes through `api/client.js` (`api.entries`, `api.panels`, `api.devices`, `api.status`, `api.notifications`, `api.updates`, `api.editor`, `api.preview`, `api.ha`, `api.yaml`). No `hass.fetchWithAuth`, `callWS`, `subscribeMessage` or `fetch` outside `api/`; the simulator sessions in `virtual/` are the one exception, as they own their subscriptions.
+- The shell owns `hass` and passes it down; the client takes a `getHass` callback so it never holds a stale object.
+- HA elements the editor renders but does not own (`ha-dialog`, `ha-dialog-footer`, `ha-card`, `ha-alert`) are listed in `ha-elements.js`, and the shell waits for them before rendering. Add any new HA element to that list.
+- Defaults duplicated from Python (`frontend/constants.js`: `DEVICE_CONFIG_DEFAULTS`, `LOCALE_OPTIONS`, `LOG_LEVEL_OPTIONS`, `DISPLAY_MODEL_OPTIONS`, `GESTURE_NAMES`, `GESTURE_ACTIONS`, `DEFAULT_FIRMWARE_MANIFEST_URL`, `FIRMWARE_UPDATE_CHANNELS`) carry a *Mirrors … in Python* comment naming the source (`haui/device_config.py`, …). Change both sides in the same commit.
+
+### Preview and card renders
+
+A card and a thumbnail are the hub's own render replayed (see *Preview renderer workflow*): the browser has no renderer and must not gain one. Do not add a second preview path, synthesise display output in JS, or key a render on live readings (uptime, RSSI). The preview context is explicit — `{ entryId, device, deviceConfig, panels, theme, deviceInfo, api }` — and `previews/previewer.js`/`previews/simulator-frame.js` depend on that object, not on the editor element. If a card looks wrong, the device does too: fix the page.
+
+### Verifying a frontend change
+
+```bash
+npm ci                                  # once per clone; includes happy-dom for real-DOM tests
+npm run typecheck:frontend              # modules marked // @ts-check
+node --test 'tests/frontend/*.test.mjs' # Node 22+
+pytest tests/                           # the card-render replay runs here too
+```
+
+Tests live in `tests/frontend/`. Import `support/browser.mjs` before browser-dependent modules, render through `support/render.mjs`, and query the resulting DOM with `support/queries.mjs`; `support/hass.mjs` and `fake-host.mjs` provide backend fixtures. See `docs/develop/frontend.md` → *Testing* for the decision table and assertion boundaries: test behavior and semantics, not presentation, copy, template internals, or private fields. New primitives need a semantic assertion in `ui-primitives.test.mjs` and a demo in `ui-primitives-preview.js`.
 
 ## SOLID Principles
 
@@ -715,6 +809,7 @@ self.controller["navigation"] = HAUINavigationController(self, ...)
 - **Naming:** `NSPanelHAUI` for the top-level app class, `HAUI` prefix for abstract/core classes; page classes use `SuffixPage` naming (e.g., `GridPage`, `ClimatePage`)
 - **Docstrings:** Google-style docstrings with `Args:`/`Returns:` sections
 - **Logging:** use `_LOGGER = logging.getLogger(__name__)` at module level; use `self.log()` and `self.debug_log()` in `HAUIBase` subclasses
+- **JavaScript:** there is no JS formatter or linter — match the surrounding file: 2-space indent, single quotes, semicolons, trailing commas in multi-line object literals and argument lists, `const`/`let` (never `var`), and `import … from '…'` with the `.js` extension. Lit templates and JSDoc `@typedef`s instead of TypeScript. See *Frontend rules*.
 
 ## Anti-patterns
 
@@ -729,6 +824,11 @@ self.controller["navigation"] = HAUINavigationController(self, ...)
 - **Don't pass non-literal expressions to `t()` or `host._t()`** - translation extraction tools parse source code for `t('literal string')`. If `t()` receives a variable, template literal, or conditional expression instead of a string literal, the string will never be found by extraction and won't be translated. For dynamic values, use the `.replace('{placeholder}', value)` pattern: `t('Hello {name}').replace('{name}', userName)`.
 - **Don't hardcode user-facing strings** - any string visible in the UI must go through `t()` (from `localize.js`) or `host._t()`. This includes `title` attributes on buttons, toast messages, status messages, and Error fallback strings.
 - **Don't put Python files in `frontend/`** - that directory is served as unauthenticated static files; keep only browser assets there. Python modules that register or serve the frontend live outside it (see `web/editor.py`).
+- **Don't build DOM by hand in the editor** - no `innerHTML`, `insertAdjacentHTML` or manual element creation for rendered content; return `html` templates from `ui/`/`views/` so Lit owns the DOM (the simulator's own display code in `frontend/virtual/` is the only place that renders display output).
+- **Don't fetch outside `api/`** - no `fetch`, `hass.fetchWithAuth`, `callWS` or `subscribeMessage` in views, components, dialogs or the shell; add a method to the namespaced client.
+- **Don't add a second copy of a shared UI idea** - no new popover, sidebar, dialog frame, button, chip or card style, and no new renderer for a panel preview. Extend the existing primitive in `ui/` (and its test) instead of forking it in one view.
+- **Don't style layout with viewport media queries or inline styles** - use the `@container haui-editor` ladder and the `styles/` fragments; `style=` is only for a computed CSS custom property or a value the stylesheet cannot know.
+- **Don't introduce a build step, bundler, framework or runtime dependency into `frontend/`** - no `node_modules` import, no CDN URL, no second Lit copy; the panel must load from a plain folder copy with no network access.
 
 ## Commit and Pull Request Guidelines
 
@@ -753,7 +853,7 @@ Example: `fix(esphome): include device name in discovery fallback`
 1. **Keep docs in sync** — after any code change, check the `docs/` directory for files related to what you changed and update them to reflect the new behavior, options, schemas, or defaults. Outdated docs are bugs.
 2. **Verify docs build** — after updating docs, install `requirements-docs.txt` and run `zensical build --strict` from the project root to catch broken links, missing files, or rendering errors. The build must succeed (CI runs the same command).
 3. Run `pytest tests/` — all tests must pass.
-4. Run `node --test 'tests/frontend/*.test.mjs'` when touching `frontend/` — all tests must pass.
+4. Run `npm ci` once per clone, then `node --test 'tests/frontend/*.test.mjs'` and `npm run typecheck:frontend` when touching `frontend/` — all tests must pass and marked modules must type-check. If a test needs editing only because markup or copy moved, remove the presentation assertion instead of changing it.
 5. Run `ruff format` on changed Python files, then `ruff format --check custom_components/ scripts/ tests/` — all Python files must be formatted.
 6. Run `ruff check custom_components/ scripts/` — no lint errors.
 7. Run `mypy` — no type errors in `haui/`.

@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,45 +8,59 @@ import { badge, statusDot } from '../../custom_components/nspanel_haui/frontend/
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { popover, menuItem } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
+import { render } from './support/render.mjs';
+import { byRole, byText } from './support/queries.mjs';
+import { assertAccessibleName, assertRole } from './support/a11y.mjs';
 
-const source = (template) => `${template.strings.join(' ')} ${template.values.map((value) => {
-  if (Array.isArray(value)) return value.map((nested) => nested?.strings ? source(nested) : String(nested ?? '')).join(' ');
-  return value?.strings ? source(value) : String(value ?? '');
-}).join(' ')}`;
+test('button primitives expose native disabled and accessible icon-only behavior', () => {
+  const root = render(button({ label: 'Save', busy: true }));
+  const save = byRole(root, 'button', { name: 'Save' });
+  assertAccessibleName(save, 'Save');
+  assert.equal(save.disabled, true);
+  assert.equal(save.getAttribute('aria-busy'), 'true');
 
-test('button primitives expose native disabled, busy, and accessible icon-only semantics', () => {
-  const primary = button({ label: 'Save', variant: 'primary', busy: true });
-  assert.match(source(primary), /<button/);
-  assert.match(source(primary), /aria-busy/);
-  assert.ok(primary.values.includes(true));
+  const activated = [];
+  const activeRoot = render(button({ label: 'Apply', onClick: () => activated.push('applied') }));
+  byRole(activeRoot, 'button', { name: 'Apply' }).dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(activated, ['applied']);
 
-  const iconOnly = iconButton({ label: 'Close panel', iconName: 'close', disabled: true });
-  assert.match(source(iconOnly), /aria-label/);
-  assert.ok(iconOnly.values.includes('Close panel'));
-  assert.ok(iconOnly.values.includes(true));
+  const closeRoot = render(iconButton({ label: 'Close panel', iconName: 'close', disabled: true }));
+  const close = byRole(closeRoot, 'button', { name: 'Close panel' });
+  assertAccessibleName(close, 'Close panel');
+  assert.equal(close.disabled, true);
 });
 
-test('badges and status dots render explicit tones and labels', () => {
-  assert.match(source(badge('Update', 'warning')), /haui-badge-warning/);
-  const dot = statusDot('offline', 'Disconnected');
-  assert.match(source(dot), /role="img"/);
-  assert.ok(dot.values.includes('Disconnected'));
+test('badges and status dots preserve visible status and accessible names', () => {
+  const root = render([badge('Update available', 'warning'), statusDot('offline', 'Disconnected')]);
+  assert.ok(byText(root, 'Update available'));
+  const dot = byRole(root, 'img', { name: 'Disconnected' });
+  assertRole(dot, 'img');
+  assertAccessibleName(dot, 'Disconnected');
 });
 
-test('segmented controls provide pressed state and disable unsupported options', () => {
-  const template = segmented({
+test('segmented controls report selection and invoke the chosen option', () => {
+  const selected = [];
+  const root = render(segmented({
     label: 'Workspace view',
     value: 'panels',
     options: [{ label: 'Preview', value: 'preview' }, { label: 'Panels', value: 'panels' }],
-    onSelect: () => {},
-  });
-  assert.match(source(template), /role="group"/);
-  assert.match(source(template), /aria-pressed/);
-  assert.ok(template.values.some((value) => Array.isArray(value)));
+    onSelect: (value) => selected.push(value),
+  }));
+  const group = byRole(root, 'group', { name: 'Workspace view' });
+  assert.ok(group);
+  const panels = byRole(group, 'button', { name: 'Panels' });
+  const preview = byRole(group, 'button', { name: 'Preview' });
+  assert.equal(panels.getAttribute('aria-pressed'), 'true');
+  assert.equal(preview.getAttribute('aria-pressed'), 'false');
+  preview.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(selected, ['preview']);
 });
 
-test('empty state and popover templates provide labels and menu roles', () => {
-  assert.match(source(emptyState({ title: 'No devices', message: 'Add a device to begin' })), /haui-empty-state/);
-  assert.match(source(popover({ open: true, id: 'menu', label: 'Device actions', content: 'Actions' })), /role/);
-  assert.match(source(menuItem({ label: 'Remove', danger: true })), /\bmenuitem\b/);
+test('empty states and menu items expose their content and semantic roles', () => {
+  const empty = render(emptyState({ title: 'No devices', message: 'Add a device to begin' }));
+  assert.ok(byText(empty, 'No devices'));
+  assert.ok(byText(empty, 'Add a device to begin'));
+
+  const menu = render([popover({ open: true, id: 'menu', label: 'Device actions', content: 'Actions' }), menuItem({ label: 'Remove', danger: true })]);
+  assert.ok(byRole(menu, 'menuitem', { name: 'Remove' }));
 });

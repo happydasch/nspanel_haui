@@ -26,6 +26,7 @@ import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.j
  * @property {string} hint
  * @property {string} emptyMessage
  * @property {boolean} dropEnabled
+ * @property {boolean} [collapsed]
  * @property {PanelListEntry[]} entries
  */
 
@@ -74,13 +75,20 @@ function renderEntry({ entry, open, onToggleMenu, onCloseMenu }) {
 /**
  * The Device workspace's four panel groups: navigation, hidden, popups, system.
  *
+ * `selectedKey` marks the selected row and `onSelect` reports a row the user
+ * picked; the caller decides what a selection means (the Panels view's side card
+ * describes it).
+ *
  * @param {{ groups: PanelListGroup[], portrait?: boolean, menuKey?: string|null, emptyMessage?: string,
+ *   selectedKey?: string|null,
  *   onToggleMenu?: (key: string) => void, onCloseMenu?: () => void,
+ *   onToggleGroup?: (groupId: string) => void, onSelect?: (key: string) => void,
  *   onDrop?: (move: {sourceKey: string, group: string, beforeKey: string|null}) => void }} model
  */
 export function renderPanelList({
-  groups = [], portrait = false, menuKey = null, emptyMessage = '',
-  onToggleMenu = () => {}, onCloseMenu = () => {}, onDrop = () => {},
+  groups = [], portrait = false, menuKey = null, emptyMessage = '', selectedKey = null,
+  onToggleMenu = () => {}, onCloseMenu = () => {}, onToggleGroup = () => {},
+  onSelect = () => {}, onDrop = () => {},
 }) {
   return html`<section class="haui-panel-groups" aria-label=${t('Panels')}>
     ${groups.length || !emptyMessage ? nothing : html`<p class="haui-panel-empty">${emptyMessage}</p>`}
@@ -96,10 +104,20 @@ export function renderPanelList({
         if (sourceKey) onDrop({ sourceKey, group: group.id, beforeKey: null });
       } : nothing}>
       <header class="haui-panel-group-heading">
-        <strong id=${`haui-panel-group-${group.id}`}>${group.title}</strong>
+        <div class="haui-panel-group-title">
+          ${iconButton({
+            label: group.collapsed ? t('Show more') : t('Show less'),
+            iconName: group.collapsed ? 'mdi:chevron-right' : 'mdi:chevron-down',
+            className: 'haui-panel-group-toggle',
+            expanded: group.collapsed !== true,
+            controls: `haui-panel-list-${group.id}`,
+            onClick: () => onToggleGroup(group.id),
+          })}
+          <strong id=${`haui-panel-group-${group.id}`}>${group.title}</strong>
+        </div>
         <span>${group.hint}</span>
       </header>
-      <div class="haui-panel-list">
+      <div class="haui-panel-list" id=${`haui-panel-list-${group.id}`} ?hidden=${group.collapsed === true}>
         ${group.entries.map((entry, position) => {
           const { menu, action } = renderEntry({
             entry, open: menuKey === entry.key, onToggleMenu, onCloseMenu,
@@ -110,6 +128,7 @@ export function renderPanelList({
             title: entry.title,
             typeLabel: entry.typeLabel,
             itemCount: entry.itemCount,
+            selected: selectedKey === entry.key,
             thumbnail: panelThumb({
               content: entry.preview,
               portrait,
@@ -126,6 +145,7 @@ export function renderPanelList({
             }) : nothing}${action}`,
             handle: sortHandleFor(entry),
             onEdit: entry.onEdit,
+            onSelect: () => onSelect(entry.key),
             onDrop: group.dropEnabled
               ? (sourceKey, after) => onDrop({
                 sourceKey,

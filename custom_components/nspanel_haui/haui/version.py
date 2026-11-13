@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 @lru_cache(maxsize=1)
-def get_version() -> str:
+def get_integration_version() -> str:
     """Return the integration version from manifest.json.
 
     Lazy-loaded so the file read happens at first call rather than
@@ -17,11 +17,13 @@ def get_version() -> str:
     return json.loads(_manifest_path.read_text())["version"]
 
 
-def firmware_version_mismatch(haui_version: str | None, yaml_version: str | None) -> bool | None:
-    """Return whether reported ESPHome firmware differs from this HAUI version.
+def integration_version_mismatch(
+    integration_version: str | None, firmware_version: str | None
+) -> bool | None:
+    """Return whether reported ESPHome firmware differs from this integration.
 
     ``None`` means one of the versions has not been reported yet.
     """
-    if not haui_version or not yaml_version:
+    if not integration_version or not firmware_version:
         return None
-    return haui_version != yaml_version
+    return integration_version != firmware_version

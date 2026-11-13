@@ -1,6 +1,7 @@
 // @ts-check
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
+import { segmented } from '../ui/segmented.js';
 
 // One object per type: a preview frame replays its render again whenever it is
 // handed a different panel object.
@@ -49,18 +50,22 @@ function byCategory(matches) {
  * popup the device does not extend yet, or a copy of a panel the hub already
  * has. All of them lead into the panel editor.
  *
- * The catalog is a stack of collapsible sections, each led by its heading row:
- * one per panel category (grouping first, then the remaining categories), then
- * *Extend a popup* and *Copy an existing panel*. Grouping starts open; the
- * other headings alone fit the sidebar. A search opens every section it looks
- * into. The copies are grouped by device inside their section.
+ * The catalog keeps search and preview-size controls together above its
+ * collapsible sections: one per panel category (grouping first, then the
+ * remaining categories), then *Extend a popup* and *Copy an existing panel*.
+ * The search is a bare Home Assistant style field (no visible label, the
+ * placeholder carries the name), and one line of intro text under it says
+ * what the sections offer. Grouping starts open; the other headings alone fit
+ * the sidebar. A search opens every section it looks into. The copies are
+ * grouped by device inside their section.
  *
  * A panel type shows the hub's render of a new, still empty panel of that type
  * on the device (`preview`), so the list tells the page layouts apart; a popup
  * shows the device's built-in one (`preview(entry, true)`, rendered by key).
  *
  * @param {{ panelTypes: any[], query?: string, onQuery: (query: string) => void,
- *   onSelect: (typeKey: string) => void,
+ *   onSelect: (typeKey: string) => void, compactPreviews?: boolean,
+ *   onPreviewSize?: (compact: boolean) => void,
  *   preview?: ((panel: { type: string, key: string }, byKey?: boolean) => unknown)|null,
  *   portrait?: boolean,
  *   popups?: Array<{ key: string, type: string, label?: string }>,
@@ -72,6 +77,7 @@ function byCategory(matches) {
 export function panelCatalog({
   panelTypes, query = '', onQuery, onSelect, templates = [], onSelectTemplate = () => {},
   popups = [], onSelectPopup = () => {}, preview = null, portrait = false,
+  compactPreviews = false, onPreviewSize,
 }) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const found = (text) => text.toLocaleLowerCase().includes(normalizedQuery);
@@ -114,12 +120,31 @@ export function panelCatalog({
   const list = (entries, render) => html`<div class="haui-panel-catalog-list" role="list">
     ${entries.map(render)}
   </div>`;
-  return html`<section class="haui-panel-catalog" aria-label=${t('Add panel')}>
-    <p class="haui-panel-catalog-hint">${t('Choose a panel type to configure.')}</p>
-    <label class="haui-panel-catalog-search">
-      <span>${t('Search panel types')}</span>
-      <input type="search" .value=${query} @input=${(event) => onQuery(event.currentTarget.value)}>
-    </label>
+  return html`<section class=${`haui-panel-catalog ${compactPreviews ? 'compact-previews' : ''}`.trim()}
+    aria-label=${t('Add panel')}>
+    <div class="haui-panel-catalog-controls">
+      <div class="haui-panel-catalog-controls-row">
+        <div class="haui-panel-catalog-search">
+          <span class="haui-panel-catalog-search-field">
+            <ha-icon icon="mdi:magnify" aria-hidden="true"></ha-icon>
+            <input type="search" aria-label=${t('Search panels')} placeholder=${t('Search panels')}
+              .value=${query} @input=${(event) => onQuery(event.currentTarget.value)}>
+          </span>
+        </div>
+        ${preview ? html`<div class="haui-panel-catalog-layout">
+          ${segmented({
+            label: t('Preview layout'),
+            value: compactPreviews ? 'compact' : 'large',
+            options: [
+              { value: 'large', label: t('Large'), icon: 'view-dashboard-outline' },
+              { value: 'compact', label: t('Compact'), icon: 'view-agenda-outline' },
+            ],
+            onSelect: (value) => onPreviewSize?.(value === 'compact'),
+          })}
+        </div>` : nothing}
+      </div>
+    </div>
+    <p class="config-section-intro">${t('Start from a panel type below, extend a built-in popup, or copy a panel this hub already has.')}</p>
     ${matches.length ? byCategory(matches).map((group) => section(
       group.key, group.icon, group.label, group.entries.length,
       list(group.entries, (panelType) => option(
@@ -128,7 +153,7 @@ export function panelCatalog({
         thumb(newPanel(panelType.type_key)),
       )),
     )) : copies.length || defaults.length ? nothing
-      : html`<p class="haui-panel-catalog-empty">${t('No panel types match this search.')}</p>`}
+      : html`<p class="haui-panel-catalog-empty">${t('No panels match this search.')}</p>`}
     ${defaults.length ? section('popups', 'mdi:card-outline', t('Extend a popup'), defaults.length, html`
       <p class="haui-panel-catalog-hint">${t('Start from a built-in popup; your changes are saved on top of it for this device.')}</p>
       ${list(defaults, (entry) => option(

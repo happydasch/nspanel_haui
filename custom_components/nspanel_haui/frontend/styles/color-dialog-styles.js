@@ -2,9 +2,10 @@
  * NSPanel HAUI - Theme color editor CSS.
  *
  * Reusable styles for the theme sidebar: live preview card
- * (.cp-pv-*), grouped swatch grid (.cp-group / .cp-item), and the footer
- * change counter.  Shared by dialogs/theme.js and available to any other
- * component that renders inline color swatches inside a section-based dialog.
+ * (.cp-pv-*), grouped swatch grid (.cp-group / .cp-item), the name editor and
+ * the footer change counter.  Shared by dialogs/theme.js and available to any
+ * other component that renders inline color swatches inside a section-based
+ * dialog.
  *
  * This module does NOT include the swatch itself (.cp-sw / .cp-sw.round) —
  * those live in color-picker-styles.js so they can be shared with form-fields.js.
@@ -161,7 +162,6 @@ export const colorDialogStyles = css`
     color: var(--secondary-text-color, #888);
   }
 
-  .cp-theme-actions,
   .cp-theme-name {
     display: flex;
     align-items: center;

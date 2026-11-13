@@ -95,7 +95,7 @@ Good to know:
 
 ### Schedule
 
-The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. Edit it in the **Schedule** card in the device's **Panels** view. Set the default brightness, dimming and display-off values there too: they apply outside every entry and are the fallback for entry fields left empty. The folded card shows the windows of the entries and how many there are, and each entry folds to its own summary row.
+The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. In the device's **Preview** view, open **Manage this device** and choose **Schedule**: its sidebar holds the whole schedule. Set the default brightness, dimming and display-off values there too: they apply outside every entry and are the fallback for entry fields left empty. The Schedule button's tooltip says how many entries there are, and each entry folds to its own summary row.
 
 Each entry has a time window and these settings:
 
@@ -111,7 +111,7 @@ Each entry has a time window and these settings:
 | `display_off` | **Screen off**: whether the display turns off during the entry. |
 | `timeout_display_off` | **Display-off timeout**: seconds without interaction until the display turns off, `0`–`3600`. |
 
-The entry's `sound` and `display_off` settings are always explicit. Its brightness, dimming timeout/duration and display-off timeout are optional: leave one empty and the matching default in the Schedule card applies. The editor shows those fallback values; for brightness fields, when no hub value is set it also shows the panel's own **Brightness Full** or **Brightness Dimmed** reading, so the schedule never invents a brightness the panel does not use.
+The entry's `sound` and `display_off` settings are always explicit. Its brightness, dimming timeout/duration and display-off timeout are optional: leave one empty and the matching default in the Schedule settings applies. The editor shows those fallback values; for brightness fields, when no hub value is set it also shows the panel's own **Brightness Full** or **Brightness Dimmed** reading, so the schedule never invents a brightness the panel does not use.
 
 ```yaml
 brightness: 80
@@ -135,8 +135,8 @@ schedule:
 
 Good to know:
 
-- Outside every entry, the Schedule card's **Notification sound** toggle controls whether notification sounds play; its brightness, dimming and display-off settings also apply. These are the same device settings available in [Display dimming & off](#display-dimming-off) and [Notifications](#notifications).
-- A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry, the Schedule card takes the panel's **Brightness Full** number as its default if no hub value is set; while either brightness default is empty, the card shows the panel's current reading.
+- Outside every entry, the Schedule settings' **Notification sound** toggle controls whether notification sounds play; its brightness, dimming and display-off settings also apply. These are the same device settings available in [Display dimming & off](#display-dimming-off) and [Notifications](#notifications).
+- A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry, the Schedule settings take the panel's **Brightness Full** number as their default if no hub value is set; while either brightness default is empty, the settings show the panel's current reading.
 - When entries overlap, the first one in the list wins.
 - Automatic page switching is not part of an entry. It always follows the normal settings.
 - `sunrise` and `sunset` are the times at Home Assistant's location. Where the sun does not rise or set on a day (polar day or night), an entry that uses it is not active that day and the log has a warning.
@@ -150,7 +150,7 @@ Good to know:
 | `use_auto_page` | on | Open the next idle panel after `timeout_page` seconds without interaction. This only changes the panel; it does not dim the display or turn it off. A touch leaves the idle panel again. |
 | `timeout_page` | `30` | Seconds until the next idle panel opens. `0` turns it off, the maximum is `3600`. |
 
-The idle panels themselves are set in the **Home & idle panels** card of the device's **Panels** view. The panel's firmware no longer has the **Use Auto-Page** switch and the **Timeout Page** number.
+The idle panels themselves are set in **Device Settings → Special pages**. The panel's firmware no longer has the **Use Auto-Page** switch and the **Timeout Page** number.
 
 ### Display Buttons
 
@@ -164,7 +164,7 @@ On a panel without a free place on the right of the header, the notifications bu
 
 ### Gestures
 
-`gestures` sets what swipes from a screen edge do. It is a list: each gesture is one or more swipes in order and the action they run. Configure it in the **Gestures** card in the side area of the device's **Panels** view. The card works like the [Schedule](#schedule) card: **Add gesture** adds an entry, each gesture folds to one row (its swipes and its action), and **Save** writes your changes to the device.
+`gestures` sets what swipes from a screen edge do. It is a list: each gesture is one or more swipes in order and the action they run. In the device's **Preview** view, open **Manage this device** and choose **Gestures**. The editor works like the [Schedule](#schedule) editor: **Add gesture** adds an entry, each gesture folds to one row (its swipes and its action), and **Save** writes your changes to the device.
 
 | Field | Description |
 |-------|-------------|
@@ -197,7 +197,7 @@ Before 0.5.0 the single swipes were fixed and `gesture_sequences` held the seque
 | Key | Default | Description |
 |-----|---------|-------------|
 | `sound_on_startup` | off | Play a short tone when the panel connects to Home Assistant after it started. A Wi-Fi reconnect stays silent. |
-| `sound_on_notification` | off | Play the sound of each notification. Also used for the Timer panel's alert; set the default in **Notifications** or in the Schedule card. |
+| `sound_on_notification` | off | Play the sound of each notification. Also used for the Timer panel's alert; set the default in **Notifications** or in **Manage this device → Schedule**. |
 | `persistent_sound_interval` | `5` | Seconds between repeats of the sound while a persistent notification waits. The popup itself opens again about every 60 seconds. |
 
 To silence the panel at certain times, add a [schedule](#schedule) entry with sound off.
@@ -210,7 +210,7 @@ To silence the panel at certain times, add a [schedule](#schedule) entry with so
 | `idle_panel` | The first panel in the idle sequence. Empty with no `idle_panel_extra`: no panel is opened automatically. |
 | `idle_panel_extra` | The remaining panels in the idle sequence. Each automatic page switch opens the next panel, cycling through the sequence. The editor shows both fields as one ordered **Idle panels** list. |
 
-You can set these in the **Home & idle panels** card of the device's **Panels** view.
+You can set these in **Device Settings → Special pages**.
 
 ### Hardware Buttons
 
@@ -229,7 +229,7 @@ You can set these in the **Home & idle panels** card of the device's **Panels** 
 
 ## Themes
 
-Choose **Theme** from the **Choose theme** button on the device Preview, or from the **Theme** section of the device settings sidebar. Themes define semantic page colors and the weather, alarm and climate state-icon palettes. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
+In the device's **Preview** view, open **Manage this device** and choose **Theme**: its sidebar selects the device's theme and edits semantic page colors and weather, alarm and climate state-icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
 
 See [Themes](themes.md) for predefined and custom themes, the icon variant, shared color editing and import/export.
 
@@ -260,7 +260,7 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. The card groups settings by concern: **Update channel** (stable or development releases for firmware and display, with an optional custom firmware manifest URL), **Release checks** (when the hub looks for releases), **Firmware** (auto-install) and **Display** (auto-install TFT). [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. The **Enable updates** switch, **Update channel** (stable or development releases for firmware and display) and optional custom firmware manifest URL are grouped together. **Release checks**, **Firmware** (auto-install) and **Display** (auto-install TFT) are separate groups. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|

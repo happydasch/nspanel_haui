@@ -19,7 +19,7 @@ from ..haui.device_config import DEVICE_CONFIG_FIELDS
 from ..haui.mapping.color import Theme
 from ..haui.mapping.const import ESPEvent, NotifEvent
 from ..haui.mapping.panel import PAGE_MAPPING
-from ..haui.version import firmware_version_mismatch, get_version
+from ..haui.version import get_integration_version, integration_version_mismatch
 from .adapter import HAAdapter
 
 
@@ -365,15 +365,15 @@ class NSPanelHAUI(HAAdapter):
             "current_panel": page.panel.get("key", "") if page and page.panel else "",
             "logs": self.get_status_logs()[-50:],
             # Panel Doctor: versions + health summary
-            "haui_version": get_version(),
+            "integration_version": get_integration_version(),
         }
 
         # Device info from the device config
         device_config = self.device_config.get("device", {}) if self.device_config else {}
         runtime_info = self.device.device_info if self.device else {}
 
-        result["haui_version_mismatch"] = firmware_version_mismatch(
-            result["haui_version"], runtime_info.get("yaml_version") or ""
+        result["integration_version_mismatch"] = integration_version_mismatch(
+            result["integration_version"], runtime_info.get("yaml_version") or ""
         )
 
         # TFT update state (manual installs from the editor)

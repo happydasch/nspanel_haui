@@ -7,6 +7,8 @@ description: Panel configuration — type, key, title, show_in_navigation, unloc
 
 A panel is one screen on the display. You add and edit panels in the **Panels** view of a device: select **Add panel** for a new one, or select a panel in the list to edit it.
 
+Selecting a panel in the list shows it in the side column, under the **Panels** card: how the display draws it, its type, key, group and item count, whether it is the home or idle panel, and its **Edit**, **Duplicate** and **Delete** actions. Select the preview to fold it to a thumbnail; the editor remembers that choice. Close the card or select the row again to clear the selection; the card then explains the groups and names the configured **Home panel** and **Idle panel** instead.
+
 Every panel has the standard fields below. Each panel type adds its own options, shown in the **Configuration** section of the editor and described on the type's page in the [Panels Overview](../panels/README.md).
 
 ## Standard Fields
@@ -87,7 +89,7 @@ Good to know:
 
 ## Home and Idle Panels
 
-Which panel is the home panel and which panels appear while idle are device settings, not settings of individual panels. Set them in the **Home & idle panels** card in the side area of the device's **Panels** view:
+Which panel is the home panel and which panels appear while idle are device settings, not settings of individual panels. Configure them in the **Special pages** section of **Device Settings** (open the device's Preview and select its Settings cog). The **Panels** view no longer has a side area; it uses the full width for panel management.
 
 | Setting | Key | Description |
 |---------|-----|-------------|

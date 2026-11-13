@@ -18,7 +18,7 @@ for _name, _attr in {
     setattr(_mod, _attr, None)
     sys.modules.setdefault(_name, _mod)
 
-from custom_components.nspanel_haui.haui.version import get_version  # noqa: E402
+from custom_components.nspanel_haui.haui.version import get_integration_version  # noqa: E402
 from custom_components.nspanel_haui.web import editor as editor_panel  # noqa: E402
 
 
@@ -87,6 +87,6 @@ def test_frontend_asset_version_changes_when_a_served_file_changes(monkeypatch, 
     asset.write_text("new frontend", encoding="utf-8")
     new_version = editor_panel._frontend_asset_version()
 
-    assert old_version.startswith(f"{get_version()}-")
-    assert new_version.startswith(f"{get_version()}-")
+    assert old_version.startswith(f"{get_integration_version()}-")
+    assert new_version.startswith(f"{get_integration_version()}-")
     assert new_version != old_version

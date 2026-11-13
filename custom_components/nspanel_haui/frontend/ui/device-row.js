@@ -15,6 +15,7 @@ export function deviceRow({ name, device, status, onOpen, onMenu, menuOpen = fal
   const { connected, tone, label: stateLabel } = deviceConnectionState(status);
   const info = status?.device_info || {};
   const updates = hasUpdateAvailable(status?.update);
+  const versionMismatch = status?.integration_version_mismatch === true;
   const displayName = device.friendlyName || name;
   const connLabel = connected ? `${stateLabel} · ${fmtRssi(info.rssi)}` : stateLabel;
   return html`<div class=${`haui-device-row ${dragging ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''}`} role="row"
@@ -27,7 +28,11 @@ export function deviceRow({ name, device, status, onOpen, onMenu, menuOpen = fal
       <div><button type="button" class="haui-device-row-name" @click=${onOpen}>${displayName}</button></div>
     </div>
     <span class="haui-device-row-ip" role="cell">${info.ip || t('Unknown')}</span>
-    <span class="haui-device-row-version" role="cell">${versionLabel(status?.haui_version)}</span>
+    <span class=${`haui-device-row-version ${versionMismatch ? 'has-mismatch' : ''}`} role="cell"
+      title=${versionMismatch ? t('Firmware version does not match the integration') : nothing}>
+      <span>${versionLabel(info.yaml_version)}</span>
+      ${versionMismatch ? badge(t('Mismatch'), 'danger', 'haui-device-row-mismatch') : nothing}
+    </span>
     <span class="haui-device-row-version" role="cell">${versionLabel(info.tft_version)}</span>
     <div class="haui-device-row-actions" role="cell">
       ${disabled ? badge(t('Disabled'), 'neutral') : ''}

@@ -1485,13 +1485,13 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
 
             def get_device_status(self):
                 return {
-                    "haui_version": "1.2.3",
-                    "haui_version_mismatch": True,
+                    "integration_version": "1.2.3",
+                    "integration_version_mismatch": True,
                     "device_info": {
                         "ip": "stale",
                         "ssid": "stale",
                         "rssi": 0,
-                        "yaml_version": "1.2.3",
+                        "yaml_version": "0.9.0",
                         "tft_version": "0.4.2",
                         "tft_required_version": "0.4.3",
                     },
@@ -1522,9 +1522,9 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
     )
     if active:
         assert running_app.worker_calls == 1
-        assert result["body"]["haui_version"] == "1.2.3"
-        assert result["body"]["haui_version_mismatch"] is True
-        assert result["body"]["device_info"]["yaml_version"] == "1.2.3"
+        assert result["body"]["integration_version"] == "1.2.3"
+        assert result["body"]["integration_version_mismatch"] is True
+        assert result["body"]["device_info"]["yaml_version"] == "0.9.0"
         # Running-device status carries the firmware-declared TFT requirement,
         # distinct from the installed TFT and the firmware ``yaml_version``.
         assert result["body"]["device_info"]["tft_version"] == "0.4.2"

@@ -63,7 +63,7 @@ export const fleetStyles = css`
   .haui-device-card { scroll-snap-align: start; min-width: 0; overflow: hidden; }
   .haui-device-card.is-dragging, .haui-device-row.is-dragging { opacity: .5; }
   .haui-device-card.is-drop-target, .haui-device-row.is-drop-target { outline: 2px dashed var(--primary-color); outline-offset: -2px; }
-  .haui-device-card-cover { position: relative; background: var(--haui-screen); padding: 12px 18px 0; }
+  .haui-device-card-cover { position: relative; background: var(--haui-screen); padding: 12px 18px 16px; }
   .haui-device-card-select { display: block; width: 100%; min-height: 176px; border: 0; padding: 0; background: transparent; cursor: pointer; }
   .haui-device-card-select nspanel-simulator-frame { display: block; overflow: hidden; border: 8px solid var(--haui-bezel); border-radius: 10px; box-sizing: border-box; }
   .haui-device-card-bezel { display: block; aspect-ratio: 450 / 320; border: 8px solid var(--haui-bezel); border-radius: 10px; background: #111; box-shadow: 0 4px 14px #0003; }
@@ -145,8 +145,8 @@ export const fleetStyles = css`
   /* The rows share the table's tracks (subgrid), so the values and actions take their widest
      cell's width in every row and the device name takes the rest. */
   .haui-device-table { display: grid; grid-template-columns: minmax(200px, 1fr) repeat(3, max-content) auto; column-gap: 28px; }
-  /* A dense data table: 46 px rows, 13 px cells, 10 px uppercase column labels. */
-  .haui-device-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; min-height: 46px; padding: 0 14px; border-top: 1px solid var(--divider-color); font-size: 13px; }
+  /* Roomy inventory rows keep device details easy to scan without making the table feel bulky. */
+  .haui-device-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; min-height: 56px; padding: 0 20px; border-top: 1px solid var(--divider-color); font-size: 13px; }
   .haui-device-row:not(.haui-device-row-head):hover { background: color-mix(in srgb, var(--primary-text-color) 4%, transparent); }
   .haui-device-row-head { min-height: 32px; background: color-mix(in srgb, var(--secondary-background-color) 60%, transparent); color: var(--secondary-text-color); font-size: 10px; font-weight: 600; letter-spacing: .075em; text-transform: uppercase; }
   .haui-device-row-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -156,6 +156,9 @@ export const fleetStyles = css`
   .haui-device-row-ip, .haui-device-row-version { overflow: hidden; color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: 11.5px; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-row-actions { display: flex; align-items: center; justify-content: end; gap: 2px; }
   .haui-device-row-actions .haui-badge { margin-inline-end: 6px; padding: 2px 7px; font-size: 10.5px; }
+  .haui-device-row-version.has-mismatch { display: grid; justify-items: start; gap: 2px; white-space: normal; }
+  .haui-device-row-version.has-mismatch > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-device-row-version .haui-device-row-mismatch { padding: 2px 6px; font-size: 10px; }
   .haui-event-list { align-self: start; }
   /* A plain Home Assistant text button. */
   .haui-event-list > header button { min-height: 30px; margin-inline-end: -8px; padding: 0 10px; border: 0; border-radius: 999px; color: var(--primary-color); background: transparent; font: inherit; font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500); cursor: pointer; }
@@ -187,12 +190,12 @@ export const fleetStyles = css`
   .haui-device-row .haui-row-action { width: 30px; height: 30px; --mdc-icon-size: 17px; }
   .haui-device-sort .haui-sort-handle { background: var(--card-background-color); }
   @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 14px; } .haui-fleet-lead span { display: none; } }
-  @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(4), .haui-device-row > :nth-child(4) { display: none; } }
+  @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } }
   @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } }
   @container haui-editor (max-width: 720px) {
     .haui-inventory-overview { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 14px 12px; }
     .haui-inventory-bar { padding: 0 14px 14px; }
   }
-  @container haui-editor (max-width: 720px) { .haui-dashboard-content { width: min(100% - 28px, 1440px); padding-top: 18px; } .haui-device-table { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; } .haui-device-row { padding: 6px 12px; } .haui-device-row-head > :not(:first-child), .haui-device-row > :nth-child(2), .haui-device-row > :nth-child(3), .haui-device-row > :nth-child(4) { display: none; } .haui-device-row-actions { grid-column: 2; } }
+  @container haui-editor (max-width: 720px) { .haui-dashboard-content { width: min(100% - 28px, 1440px); padding-top: 18px; } .haui-device-table { grid-template-columns: minmax(0, 1fr) repeat(2, max-content) auto; column-gap: 12px; } .haui-device-row { padding: 6px 12px; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } .haui-device-row-actions { grid-column: 4; } }
   @media (prefers-reduced-motion: reduce) { .haui-device-sort { transition: none; } }
 `;

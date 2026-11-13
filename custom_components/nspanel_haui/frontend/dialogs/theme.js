@@ -131,7 +131,6 @@ class ThemeSidebar extends HauiDialog {
     .haui-theme-loading { margin: 0; padding: 32px 16px; color: var(--secondary-text-color); text-align: center; }
     .haui-theme-section { margin: 0 0 20px; }
     .haui-theme-section-title { margin: 0 0 4px; font-size: 1.15em; font-weight: 600; }
-    .haui-theme-section-description { margin: 0 0 12px; color: var(--secondary-text-color); }
     .haui-theme-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px; }
     .haui-theme-options .cp-theme { margin: 0; }
     .haui-theme-options .cp-theme select { width: 100%; max-width: none; }
@@ -151,7 +150,7 @@ class ThemeSidebar extends HauiDialog {
     }
     .haui-theme-color-controls .cp-theme { margin: 0; }
     .haui-theme-color-controls .cp-theme select { width: 100%; max-width: none; }
-    .haui-theme-color-scope-note { margin: -4px 0 0; color: var(--secondary-text-color); font-size: 0.9em; line-height: 1.45; }
+    .haui-theme-color-controls > .config-section-intro { margin: 0; }
     .haui-theme-reset-row { margin: 0; }
     .haui-theme-reset-row .checkbox-row { align-items: flex-start; }
     .haui-theme-reset-row .checkbox-row label { line-height: 1.4; }
@@ -472,14 +471,15 @@ class ThemeSidebar extends HauiDialog {
     }
   }
 
-  _exportTheme(themeId) {
-    const theme = this._customThemes[themeId];
-    if (!theme) return;
-    downloadThemes({ [themeId]: theme }, `nspanel-haui-${themeId}.json`);
-  }
-
-  _exportThemes() {
-    downloadThemes(this._customThemes, "nspanel-haui-themes.json");
+  _exportSelectedTheme() {
+    const theme = this._themeData();
+    downloadThemes({
+      [this.themeId]: {
+        name: theme.name,
+        colors: { ...this._colors },
+        icons: JSON.parse(JSON.stringify(this._icons)),
+      },
+    }, `nspanel-haui-${this.themeId}.json`);
   }
 
   async _importThemes(e) {
@@ -614,7 +614,7 @@ class ThemeSidebar extends HauiDialog {
                   ? html`
                       <ha-icon-button
                         class="cp-reset"
-                        title="${t("Reset to default")}" 
+                        title="${t("Reset to default")}"
                         @click=${() => this._resetColor(key)}
                       >
                         <ha-icon icon="mdi:undo-variant"></ha-icon>
@@ -643,8 +643,7 @@ class ThemeSidebar extends HauiDialog {
         ${this._renderPreview()}
         <div class="dialog-body">
           <section class="haui-theme-section" aria-label=${t("Theme")}>
-            <h2 class="haui-theme-section-title">${t("Theme")}</h2>
-            <p class="haui-theme-section-description">
+            <p class="config-section-intro">
               ${t("Choose a predefined theme or create a custom theme for this device.")}
             </p>
             ${themeSelector({
@@ -655,13 +654,12 @@ class ThemeSidebar extends HauiDialog {
               builtinLabel: builtinThemeLabel,
               onSelect: (id) => this._applyTheme(id),
               actions: this._isBuiltin() ? [] : [
-                { label: t("Duplicate"), onClick: () => this._startNameAction("save-as") },
-                { label: t("Rename"), onClick: () => this._startNameAction("rename") },
-                { label: t("Delete"), onClick: () => this._deleteTheme() },
-                { label: t("Export"), onClick: () => this._exportTheme(this.themeId) },
+                { label: t("Duplicate"), iconName: "duplicate", onClick: () => this._startNameAction("save-as") },
+                { label: t("Rename"), iconName: "edit", onClick: () => this._startNameAction("rename") },
+                { label: t("Delete"), iconName: "delete", danger: true, onClick: () => this._deleteTheme() },
               ],
               onNew: () => this._startNameAction("save-as"),
-              onExportAll: () => this._exportThemes(),
+              onExport: () => this._exportSelectedTheme(),
               onImport: (event) => this._importThemes(event),
               notice: this._themeNotice,
               error: this._themeError,
@@ -703,7 +701,7 @@ class ThemeSidebar extends HauiDialog {
                 ? html`<p class="config-section-intro">${t("Built-in themes cannot be edited. Changing a color creates a custom theme.")}</p>`
                 : nothing}
               <div class="haui-theme-color-controls">
-                <p class="haui-theme-color-scope-note">
+                <p class="config-section-intro">
                   ${t("Changes update the selected theme and are shared by devices using it.")}
                 </p>
                 ${this._panelColorOverrideCount() > 0

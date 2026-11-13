@@ -1,196 +1,200 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
+import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
+import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
+import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
+import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
+import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
+import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
+import { DEVICE_CONFIG_DEFAULTS } from '../../custom_components/nspanel_haui/frontend/constants.js';
 
-import { panelManager } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+function templateText(template) {
+  return `${template?.strings?.join(' ') || ''} ${template?.values?.map((value) => {
+    if (Array.isArray(value)) return value.map((entry) => entry?.strings ? templateText(entry) : String(entry ?? '')).join(' ');
+    return value?.strings ? templateText(value) : String(value ?? '');
+  }).join(' ') || ''}`;
+}
 
-const config = {
-  schedule: [],
-  brightness: 100,
-  sound_on_notification: false,
-  timeout_dimming: 10,
-  duration_dimming: 2,
-  use_auto_display_off: true,
-  timeout_display_off: 120,
-};
-
-function findBinding(template, id, marker) {
-  if (Array.isArray(template)) {
-    for (const child of template) {
-      const binding = findBinding(child, id, marker);
-      if (binding !== undefined) return binding;
-    }
-    return undefined;
+function templatesMatching(template, marker, found = []) {
+  if (!template?.strings) return found;
+  if (template.strings.join('').includes(marker)) found.push(template);
+  for (const value of template.values) {
+    if (Array.isArray(value)) value.forEach((entry) => templatesMatching(entry, marker, found));
+    else templatesMatching(value, marker, found);
   }
+  return found;
+}
+
+/** The `placeholder=` value bound to the input with `id`. */
+function placeholderFor(template, id) {
   if (!template?.strings) return undefined;
-
-  for (let i = 0; i < template.strings.length; i++) {
-    if (!template.strings[i].includes(`id="${id}"`) &&
-      !(template.strings[i].includes('id=') && template.values[i] === id)) continue;
-    for (let j = i; j < template.strings.length; j++) {
-      if (template.strings[j].trimEnd().endsWith(marker)) return template.values[j];
+  const idBound = template.values.includes(id) || template.strings.some((part) => part.includes(`id="${id}"`));
+  const index = template.strings.findIndex((part) => part.includes('placeholder='));
+  if (idBound && index >= 0) return template.values[index];
+  for (const value of template.values) {
+    const entries = Array.isArray(value) ? value : [value];
+    for (const entry of entries) {
+      const found = placeholderFor(entry, id);
+      if (found !== undefined) return found;
     }
-  }
-  for (const child of template.values) {
-    const binding = findBinding(child, id, marker);
-    if (binding !== undefined) return binding;
   }
   return undefined;
 }
 
-function renderSchedule(onScheduleChange) {
-  return panelManager({
-    panels: [], config, expanded: ['schedule'], onScheduleChange,
-    onSetRole() {},
+function eventBinding(template, id, eventName) {  if (!template?.strings) return undefined;
+  const idBound = template.values.includes(id) || template.strings.some((part) => part.includes(`id="${id}"`));
+  const eventIndex = template.strings.findIndex((part) => part.trimEnd().endsWith(`${eventName}=`));
+  if (idBound && eventIndex >= 0) return template.values[eventIndex];
+  for (const value of template.values) {
+    const entries = Array.isArray(value) ? value : [value];
+    for (const entry of entries) {
+      const found = eventBinding(entry, id, eventName);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
+
+function previewModel(extra = {}) {
+  return {
+    mode: 'simulated', idle: false, showEntities: false,
+    ready: true, canInteract: true, ...extra,
+  };
+}
+
+function deviceView(preview, callbacks = {}) {
+  return renderDeviceView({
+    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen' }, status: { connected: true } }],
+    selectedName: 'kitchen', panelCount: 2, panelView: 'preview',
+    workspace: html`<p>Stage</p>`, sideContent: html`<p>Details</p>`,
+    preview,
+    onSelectDevice() {}, onSwitchView() {},
+    ...callbacks,
   });
 }
 
-test('schedule entries are collapsed by default and only a newly added one opens', async () => {
-  const { NSPanelEditor } = await import('../../custom_components/nspanel_haui/frontend/app/shell.js');
-  const existing = { start: '08:00', end: '09:00', sound: true, display_off: false };
-  const editor = Object.assign(Object.create(NSPanelEditor.prototype), {
-    _selectedDevice: 'kitchen', _deviceConfig: { ...config, schedule: [existing] }, _saving: false,
-  });
-  const render = () => panelManager({
-    panels: [], config: editor._deviceConfig, scheduleDraft: editor._scheduleDraft,
-    expanded: ['schedule'], onSetRole() {},
-    onScheduleChange: (draft) => editor._changeSchedule(draft),
-    onScheduleEntryToggle: (index, isOpen) => editor._onScheduleEntryToggle(index, isOpen),
-  });
-  const assertOpenStates = (view, states) => {
-    const entries = findScheduleEntries(view);
-    assert.equal(entries.length, states.length);
-    assert.deepEqual(entries.map((entry) => entry.values[0]), states);
-  };
-
-  assertOpenStates(render(), [false]);
-  const addButton = findBinding(render(), 'panel-schedule_add', '@click=');
-  assert.equal(typeof addButton, 'function');
-  addButton();
-  assertOpenStates(render(), [false, true]);
-
-  const addedEntry = findScheduleEntries(render())[1];
-  const onToggle = addedEntry.values.find((value) => typeof value === 'function');
-  onToggle({ target: { open: false } });
-  assertOpenStates(render(), [false, false]);
-
-  editor._devicePanels = () => [];
-  editor._savePanels = async (_panels, _message, savedConfig) => {
-    editor._deviceConfig = savedConfig;
-    return true;
-  };
-  editor.requestUpdate = () => {};
-  await editor._saveSchedule();
-  assertOpenStates(render(), [false, false]);
-  assert.equal('expandedEntryIndex' in editor._deviceConfig, false);
-});
-
-test('removing a schedule entry keeps every other entry folded as it was', () => {
-  const entries = ['08:00', '12:00', '18:00'].map((start) => ({ start, end: '20:00', sound: true }));
-  const changes = [];
-  const view = panelManager({
-    panels: [], config: { ...config, schedule: entries }, expanded: ['schedule'], onSetRole() {},
-    onScheduleChange: (draft) => changes.push(draft.schedule),
-  });
-  const removeButton = findTemplate(findScheduleEntries(view)[0], (template) => template.values.includes('Remove entry'));
-  const remove = removeButton.values.find((value) => typeof value === 'function');
-  // The rendered rows, by position: only the second one is open.
-  const rows = [{ open: false }, { open: true }, { open: false }];
-  const editorElement = {
-    querySelectorAll: (selector) => (selector === ':scope > details.haui-entry' ? rows : []),
-  };
-  remove({
-    preventDefault() {},
-    currentTarget: { closest: (selector) => (selector === '.haui-entry-list' ? editorElement : null) },
-  });
-
-  assert.deepEqual(changes, [[entries[1], entries[2]]]);
-  // Lit drops the last row; the open 12:00 entry now renders in the first one and stays open.
-  assert.deepEqual(rows.slice(0, 2).map((row) => row.open), [true, false]);
-});
-
-function findTemplate(template, predicate) {
-  if (Array.isArray(template)) return template.map((child) => findTemplate(child, predicate)).find(Boolean);
-  if (!template?.strings) return undefined;
-  if (predicate(template)) return template;
-  return template.values.map((child) => findTemplate(child, predicate)).find(Boolean);
+/** First template that renders a control carrying `marker` and `label`. */
+/** First template that renders a control carrying `marker` and `label`. */
+function controlWith(view, marker, label) {
+  return templatesMatching(view, marker).find((entry) => templateText(entry).includes(label));
 }
 
-function findScheduleEntries(template, found = []) {
-  if (Array.isArray(template)) {
-    template.forEach((child) => findScheduleEntries(child, found));
-    return found;
-  }
-  if (!template?.strings) return found;
-  if (template.strings[0].includes('<details class="haui-entry"')) found.push(template);
-  template.values.forEach((child) => findScheduleEntries(child, found));
-  return found;
+const click = (control) => control.values.find((value) => typeof value === 'function')();
+
+function controls(preview, callbacks = {}) {
+  return previewControls({
+    preview,
+    onMode: () => {},
+    onIdle: () => {},
+    ...callbacks,
+  });
 }
 
-test('schedule defaults expose every device setting overridden by an entry', () => {
-  const rendered = renderSchedule(() => {});
-
-  for (const id of [
-    'panel-schedule-base-brightness',
-    'panel-schedule-base-brightness_dim',
-    'panel-schedule-base-timeout_dimming',
-    'panel-schedule-base-duration_dimming',
-    'panel-schedule-base-timeout_display_off',
-  ]) {
-    assert.notEqual(findBinding(rendered, id, '.value='), undefined, `${id} is rendered`);
-  }
-  assert.equal(findBinding(rendered, 'panel-schedule-base-sound_on_notification', '?checked='), false);
-  assert.equal(findBinding(rendered, 'panel-schedule-base-use_auto_display_off', '?checked='), true);
-});
-
-test('schedule default fields update their device settings without dropping other values', () => {
-  const cases = [
-    ['panel-schedule-base-timeout_dimming', '@input=', { timeout_dimming: 25 }, { target: { value: '25' } }],
-    ['panel-schedule-base-duration_dimming', '@input=', { duration_dimming: 1.5 }, { target: { value: '1.5' } }],
-    ['panel-schedule-base-sound_on_notification', '@change=', { sound_on_notification: true }, { target: { checked: true } }],
-    ['panel-schedule-base-use_auto_display_off', '@change=', { use_auto_display_off: false }, { target: { checked: false } }],
-  ];
-
-  for (const [id, marker, expected, event] of cases) {
-    let draft;
-    const handler = findBinding(renderSchedule((value) => { draft = value; }), id, marker);
-    assert.equal(typeof handler, 'function', `${id} has an event handler`);
-    handler(event);
-    assert.deepEqual(draft, { ...config, ...expected });
-  }
-});
-test('saving schedule defaults persists them with the schedule', async () => {
-  const { NSPanelEditor } = await import('../../custom_components/nspanel_haui/frontend/app/shell.js');
-  const editor = Object.assign(Object.create(NSPanelEditor.prototype), {
-    _selectedDevice: 'kitchen',
-    _deviceConfig: config,
-    _saving: false,
-    _devicePanels: () => [],
-    requestUpdate() {},
-    async _savePanels(_panels, _message, deviceConfig) {
-      this.savedConfig = deviceConfig;
-      return true;
+test('the Schedule button shows its entry count without opening the editor', () => {
+  const folded = templateText(panelManager({
+    panels: [], config: {
+      brightness: 80,
+      schedule: [
+        { start: 'sunset', start_offset: -30, end: '22:00', sound: true, brightness: 40, display_off: false },
+        { start: '22:00', end: 'sunrise', sound: false, brightness: 5, display_off: true, timeout_display_off: 30 },
+      ],
     },
-  });
-  const draft = {
-    ...config,
-    schedule: [{ start: '22:00', end: '07:00', sound: true, brightness: 20, display_off: true }],
-    sound_on_notification: true,
-    timeout_dimming: 25,
-    duration_dimming: 1.5,
-    use_auto_display_off: false,
-    timeout_display_off: 60,
-  };
+  }));
+  assert.match(folded, /2 entries/);
+  assert.doesNotMatch(folded, /panel-schedule_0_start_time/, 'the entries stay folded');
 
-  editor._changeSchedule(draft);
-  await editor._saveSchedule();
-
-  assert.equal(editor.savedConfig.sound_on_notification, true);
-  assert.equal(editor.savedConfig.timeout_dimming, 25);
-  assert.equal(editor.savedConfig.duration_dimming, 1.5);
-  assert.equal(editor.savedConfig.use_auto_display_off, false);
-  assert.equal(editor.savedConfig.timeout_display_off, 60);
-  assert.deepEqual(editor.savedConfig.schedule, draft.schedule);
+  const empty = templateText(panelManager({
+    panels: [], config: { brightness: null, schedule: [] },
+  }));
+  assert.match(empty, /Nothing scheduled: the device settings apply all day\./);
+  assert.doesNotMatch(empty, /entries</);
 });
 
+test('the Schedule sidebar edits a draft and saves it explicitly', () => {
+  const edits = [];
+  const saves = [];
+  const config = {
+    brightness: 80,
+    schedule: [{
+      start: '22:00', end: '07:00', sound: true, brightness: 20,
+      display_off: true, timeout_display_off: 30,
+    }],
+  };
+  const view = deviceOptionPanel('schedule', {
+    panels: [], config, scheduleDraft: { ...config, device: 'kitchen' }, onScheduleChange: (draft) => edits.push(draft),
+    onScheduleSave: () => saves.push(true),
+  });
+  const text = templateText(view);
+  assert.match(text, /Set display behavior by time of day/);
+  assert.ok(text.indexOf('Set display behavior by time of day') < text.indexOf('panel-schedule-base-brightness'));
+  assert.doesNotMatch(text, /YAML configuration/);
+  assert.match(text, /panel-schedule-base-brightness/);
+  assert.match(text, /panel-schedule_0_start_time/);
+
+  const onInput = eventBinding(view, 'panel-schedule_0_start_time', '@input');
+  onInput({ target: { value: '21:30' } });
+  assert.equal(edits.at(-1).schedule[0].start, '21:30');
+  assert.equal(edits.at(-1).brightness, 80);
+
+  const save = controlWith(view, '<button', 'Save');
+  click(save);
+  assert.deepEqual(saves, [true]);
+});
+
+test('the schedule outside-brightness comes from the panel when the hub sets none', () => {
+  const edits = [];
+  const view = deviceOptionPanel('schedule', {
+    panels: [],
+    config: { brightness: null, brightness_dim: null, schedule: [] },
+    deviceBrightness: { full: 62, dimmed: 15 },
+    onScheduleChange: (draft) => edits.push(draft),
+  });
+
+  // The empty fields name the brightness the panel itself uses.
+  assert.equal(placeholderFor(view, 'panel-schedule-base-brightness'), 'Panel: 62');
+  assert.equal(placeholderFor(view, 'panel-schedule-base-brightness_dim'), 'Panel: 15');
+
+  // A new entry takes the panel's full brightness, not an invented 100.
+  eventBinding(view, 'panel-schedule_add', '@click')();
+  assert.equal(edits[0].brightness, 62);
+
+  // A hub setting wins over the panel reading.
+  eventBinding(deviceOptionPanel('schedule', {
+    panels: [], config: { brightness: 40, schedule: [] }, deviceBrightness: { full: 62 }, onScheduleChange: (draft) => edits.push(draft),
+  }), 'panel-schedule_add', '@click')();
+  assert.equal(edits.at(-1).brightness, 40);
+});
+
+test('an entry inherit hint names the panel brightness when the hub sets none', () => {
+  const view = deviceOptionPanel('schedule', {
+    panels: [],
+    config: {
+      brightness: null,
+      brightness_dim: null,
+      timeout_dimming: 10,
+      schedule: [{ start: '22:00', end: '07:00', sound: true, display_off: true, timeout_display_off: 30 }],
+    },
+    deviceBrightness: { full: 62, dimmed: 15 },
+  });
+
+  assert.equal(placeholderFor(view, 'panel-schedule_0_brightness'), 'Inherit (62)');
+  assert.equal(placeholderFor(view, 'panel-schedule_0_brightness_dim'), 'Inherit (15)');
+});
+
+test('adding the first inline Schedule entry sets the required outside brightness', () => {
+  const edits = [];
+  const view = deviceOptionPanel('schedule', {
+    panels: [], config: { brightness: null, schedule: [] },
+    onScheduleChange: (draft) => edits.push(draft),
+  });
+  eventBinding(view, 'panel-schedule_add', '@click')();
+  assert.equal(edits[0].brightness, 100);  assert.deepEqual(edits[0].schedule, [{
+    start: '22:00', start_offset: 0, end: '07:00', end_offset: 0,
+    sound: true, brightness: 20, brightness_dim: null, display_off: true,
+    timeout_dimming: null, timeout_display_off: 30, duration_dimming: null,
+  }]);
+});

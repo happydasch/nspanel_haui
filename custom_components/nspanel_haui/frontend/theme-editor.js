@@ -31,7 +31,7 @@ export function openThemeSidebar(host) {
   const storedConfig = host._panels.devices?.[host._selectedDevice]?.config || {};
   host._themeId = storedConfig.theme_id || "dark";
   host._themeVariant = storedConfig.theme_variant || "dark";
-  // The Theme sidebar opens from the device Preview.
+  // Open the theme editor from the Panels view's Theme card.
   host.store.actions.pushOverlay({ kind: 'theme', anchorKey: 'theme', subject: host._selectedDevice, draft: null });
   host.requestUpdate();
 }

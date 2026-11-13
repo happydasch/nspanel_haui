@@ -148,7 +148,7 @@ the firmware's `esphome/nspanel_haui/version.yaml`), commits those two files
 together with the regenerated screen overview (`docs/screens.html` and
 `docs/assets/screens/`) as `chore(release): development firmware <version>`, and
 tags that commit. The Marketplace downloads the *source archive of the tag*, and
-Home Assistant and the hub (`get_version()`) read the version from its
+Home Assistant and the hub (`get_integration_version()`) read the version from its
 manifest, so tagging the plain branch commit would ship a dev build that calls
 itself the stable version. That same versioned commit is pushed back onto the
 `dev` branch (its `[skip ci]` trailer keeps the bot push from starting CI), so

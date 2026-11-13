@@ -20,11 +20,12 @@ its known risks live in [docs/develop/release.md](docs/develop/release.md); day-
 belong in the issue tracker.
 
 **v0.5 is the current cycle.** So far it has delivered the Fleet/Device
-dashboard, a unified list of single- and multi-swipe gestures, device schedules
-with schedule-aware firmware dimming, and the shared theme library with a
-selector in both Preview and device settings. The editor strings are complete
-in English, German, French, Dutch and Polish. The schedule replaces Day/Night
-profiles and quiet hours; upgrade details are in the [release notes](.github/release-notes/v0.5.0.md).
+dashboard, contextual panel details, device-option sidebars, a unified list of
+single- and multi-swipe gestures, device schedules with schedule-aware firmware
+dimming, and the shared theme library with a selector in both Preview and device
+settings. The editor strings are complete in English, German, French, Dutch and
+Polish. The schedule replaces Day/Night profiles and quiet hours; upgrade details
+are in the [release notes](.github/release-notes/v0.5.0.md).
 The remaining 0.5 scope is multiple TFTs for normal- and high-speed updates,
 stronger update controls, notification grouping and history, and scoped
 device-settings endpoints. See [CHANGELOG.md](CHANGELOG.md) for the shipped work.

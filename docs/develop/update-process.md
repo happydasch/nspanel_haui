@@ -7,9 +7,11 @@ description: How the hub checks for and installs firmware and display (TFT) upda
 
 The hub updates each panel's **ESPHome firmware** (**HAUI Firmware**,
 `update.<device>_haui_firmware`) and **display TFT** (**HAUI Display**,
-`update.<device>_haui_display`); the integration itself comes from the
-Marketplace, see [Updating](../user/update.md). Settings live in the editor: **Device
-Manager** → the device's menu → **Settings** → **Updates**.
+`update.<device>_haui_display`). The integration itself comes from the
+Marketplace, see [Updating](../user/update.md). The integration version comes
+from `manifest.json`; the device-reported firmware version is `yaml_version`.
+They are separate values even when a release expects them to match. Settings live
+in the editor: **Device Manager** → the device's menu → **Settings** → **Updates**.
 
 ## Where updates come from
 
@@ -21,7 +23,7 @@ each display model. The hub reads one manifest per device:
 |---------|----------|
 | **Stable** (`stable`, default) | The latest stable GitHub release |
 | **Development** (`dev`) | The newest release in the GitHub release list, development builds included (see [Published development firmware](release.md#published-development-firmware)) |
-| **Custom manifest URL** | The URL set under **Update settings → Firmware** overrides the channel, for example to follow a [local test release](release.md#test-firmware-updates-with-a-local-release) |
+| **Custom manifest URL** | The URL set under **Update settings → Update channel** overrides the channel, for example to follow a [local test release](release.md#test-firmware-updates-with-a-local-release) |
 
 The display always gets the TFT the **installed** firmware needs: the firmware
 reports the TFT version it requires and the hub installs that version from the
@@ -422,7 +424,9 @@ no automatic compatible update is offered. Press **Install** on **Firmware** or
 
 **Check for updates** runs along the bottom edge of the status card, and the
 **Update settings** card below the versions holds this device's update
-preferences, grouped as **Release checks**, **Firmware** and **Display** ([Settings](#settings)).
+preferences. The **Enable updates** switch, **Update channel** and custom
+manifest URL are grouped together; **Release checks**, **Firmware** and
+**Display** form the remaining groups ([Settings](#settings)).
 Its edits stay unsaved (the card marks them) until **Save**; **Discard** restores
 the stored settings.
 

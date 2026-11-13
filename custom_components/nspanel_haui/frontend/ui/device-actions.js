@@ -11,13 +11,13 @@ import { hasUpdateAvailable } from '../device-status.js';
  * one; otherwise adding a panel does. Checking for updates belongs to the
  * Connection & device card.
  *
- * @param {{ status: any, onSettings: () => void, onFirmware: () => void, onAdd: () => void, onTheme: () => void }} data
+ * @param {{ status: any, onSettings: () => void, onFirmware: () => void, onAdd: () => void,
+ *   management?: unknown }} data
  */
-export function deviceActions({ status, onSettings, onFirmware, onAdd, onTheme }) {
+export function deviceActions({ status, onSettings, onFirmware, onAdd, management }) {
   const update = status?.update || {};
   const tool = iconButton({ label: t('Settings'), iconName: 'settings', onClick: onSettings });
   const addPanel = (variant) => button({ label: t('Add panel'), iconName: 'plus', variant, onClick: onAdd });
-  const themeButton = button({ label: t('Theme'), iconName: 'palette', variant: 'outline', onClick: onTheme });
   if (hasUpdateAvailable(update)) {
     return actionCard({
       iconName: 'update',
@@ -25,8 +25,9 @@ export function deviceActions({ status, onSettings, onFirmware, onAdd, onTheme }
       subtitle: updateOfferLabel(update),
       tool,
       primary: button({ label: t('Install update'), iconName: 'update', variant: 'primary', onClick: onFirmware }),
-      secondary: [addPanel(), themeButton],
+      secondary: [addPanel()],
       stacked: true,
+      management,
     });
   }
   return actionCard({
@@ -35,8 +36,7 @@ export function deviceActions({ status, onSettings, onFirmware, onAdd, onTheme }
     subtitle: t('Add a panel or change the settings.'),
     tool,
     primary: addPanel('primary'),
-    secondary: [themeButton],
     stacked: true,
-    inlineActions: true,
+    management,
   });
 }

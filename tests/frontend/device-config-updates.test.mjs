@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ import { DEFAULT_FIRMWARE_MANIFEST_URL, DEVICE_CONFIG_DEFAULTS } from '../../cus
 function dialog(fields) {
   // The view always gets a complete config; a test names only the fields it is about.
   const form = { gestures: DEVICE_CONFIG_DEFAULTS.gestures, ...fields };
-  const dlg = Object.create(customElements.get('nspanel-device-settings').prototype);
+  const dlg = document.createElement('nspanel-device-settings');
   Object.assign(dlg, { requestUpdate() {}, config: form, _deviceConfigForm: form, devicePanels: [], systemPanels: [], hass: null });
   return dlg;
 }
@@ -19,13 +19,13 @@ function dialog(fields) {
 function updatesSidebar(fields) {
   const update = { ...(fields.update || {}) };
   const FirmwarePopover = customElements.get('nspanel-firmware-popover');
-  return Object.assign(Object.create(FirmwarePopover.prototype), {
+  return Object.assign(document.createElement('nspanel-firmware-popover'), {
     open: true,
     deviceName: 'kitchen',
     entryId: 'entry1',
     config: { update },
     deviceStatus: {
-      haui_version: '0.5.0',
+      integration_version: '0.5.0',
       device_info: { tft_version: '1.2.3', tft_required_version: '1.2.3' },
       update: { enabled: true, state: 'idle' },
     },
@@ -114,6 +114,23 @@ function includesTemplateContent(value, content) {
   if (!value?.strings) return false;
   return value.strings.some((part) => part.includes(content)) ||
     value.values.some((item) => includesTemplateContent(item, content));
+}
+
+function findTemplateWithClass(value, className) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findTemplateWithClass(item, className);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!value?.strings) return null;
+  if (value.strings.some((part) => part.includes(className))) return value;
+  for (const item of value.values) {
+    const found = findTemplateWithClass(item, className);
+    if (found) return found;
+  }
+  return null;
 }
 
 function templateText(value) {
@@ -225,6 +242,11 @@ test('the update settings card groups every preference under its concern', () =>
   assert.equal(includesTemplateContent(rendered, 'Custom interval…'), true);
   assert.equal(includesTemplateContent(rendered, 'Update channel'), true);
   assert.equal(includesTemplateContent(rendered, 'both firmware and display updates'), true);
+  const settingsGroup = findTemplateWithClass(rendered, 'haui-update-settings-group');
+  assert.ok(settingsGroup);
+  assert.equal(includesTemplateContent(settingsGroup, 'Enable updates'), true);
+  assert.equal(includesTemplateContent(settingsGroup, 'Update channel'), true);
+  assert.equal(includesTemplateContent(settingsGroup, 'Custom manifest URL'), true);
   assert.equal(includesTemplateContent(rendered, 'Firmware'), true);
   assert.equal(includesTemplateContent(rendered, 'Display'), true);
   assert.ok(text.indexOf('Update channel') < text.indexOf('Release checks'));
@@ -316,7 +338,7 @@ test('automatic update settings saves serialize and keep the latest change', asy
       closeOverlay() {},
     },
   };
-  const editor = Object.assign(Object.create(NSPanelEditor.prototype), {
+  const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
     _selectedDevice: 'kitchen',
     _store: store,
     store,

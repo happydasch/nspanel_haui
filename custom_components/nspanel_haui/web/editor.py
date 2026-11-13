@@ -12,7 +12,7 @@ from homeassistant.components import panel_custom
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 
-from ..haui.version import get_version
+from ..haui.version import get_integration_version
 
 _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -30,7 +30,7 @@ def _frontend_asset_version() -> str:
         digest.update(b"\0")
         with asset.open("rb") as file:
             digest.update(file.read())
-    return f"{get_version()}-{digest.hexdigest()[:12]}"
+    return f"{get_integration_version()}-{digest.hexdigest()[:12]}"
 
 
 async def async_register_frontend(hass) -> None:

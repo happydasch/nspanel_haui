@@ -489,52 +489,6 @@ class DeviceUpdateCheckView(HomeAssistantView):
         )
 
 
-class UpdatePolicyView(HomeAssistantView):
-    """The hub's automatic update policy, which every device follows unless it overrides it."""
-
-    url = "/api/nspanel_haui/update_policy/{entry_id}"
-    name = "api:nspanel_haui:update_policy"
-    requires_auth = True
-
-    @api_errors
-    async def get(self, request, entry_id: str):
-        """Return the policy, its defaults filled in."""
-        from ..haui.config_models import validate_update_policy
-        from ..hub.storage import empty_store, panel_store
-
-        hass = request.app["hass"]
-        data = await panel_store(hass, entry_id).async_load() or empty_store()
-        policy = await hass.async_add_executor_job(
-            validate_update_policy, data.get("update_policy") or {}
-        )
-        return self.json({"policy": policy})
-
-    @require_admin
-    @api_errors
-    async def put(self, request, entry_id: str):
-        """Store the policy and apply it to every running device."""
-        from ..haui.config_models import validate_update_policy
-        from ..hub.storage import empty_store, panel_store
-        from .config import push_panels
-
-        hass = request.app["hass"]
-        body = await json_object(request)
-        submitted = body.get("policy")
-        if not isinstance(submitted, dict):
-            raise ApiError("Body must be {'policy': {...}}", 400)
-        try:
-            policy = await hass.async_add_executor_job(validate_update_policy, submitted)
-        except ValueError as exc:
-            raise ApiError(str(exc), 400) from exc
-        store = panel_store(hass, entry_id)
-        data = await store.async_load() or empty_store()
-        data["update_policy"] = policy
-        await store.async_save(data)
-        return self.json(
-            {"status": "ok", "policy": policy, **await push_panels(hass, entry_id, data)}
-        )
-
-
 class UpdateControlView(HomeAssistantView):
     """Act on a device's scheduled automatic firmware install: start now, defer or skip."""
 

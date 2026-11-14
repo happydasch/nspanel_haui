@@ -231,26 +231,6 @@ test('Fleet lists the newest events of every device first', () => {
   ]);
 });
 
-test('Fleet opens the hub update policy', () => {
-  const opened = [];
-  const view = renderFleetView({
-    devices: [{
-      name: 'kitchen',
-      device: { friendlyName: 'Kitchen', config: {}, panels: [] },
-      status: { connected: true, device_info: {}, update: {}, logs: [] },
-      updates: false,
-    }],
-    events: [], version: '0.5.0',
-    onOpenDevice() {}, onReorderDevices() {},
-    onUpdatePolicy: () => opened.push(true),
-  });
-
-  const policy = buttons(view).find((button) => /Update policy/.test(button.textContent));
-  policy.click();
-
-  assert.deepEqual(opened, [true]);
-});
-
 
 const ROLLOUT_DEVICES = [
   {

@@ -71,24 +71,3 @@ export function durationLabel(seconds) {
   const minutes = Math.round(seconds / 60);
   return minutes === 1 ? t('1 minute') : t('{count} minutes').replace('{count}', String(minutes));
 }
-
-/**
- * The automatic update policy in one line, e.g. `Firmware: automatic, after
- * 10 minutes · Display: automatic · 3 attempts, 1 hour apart`.
- * @param {{ firmware_auto_update: boolean, auto_install: boolean, install_delay: number,
- *   max_attempts: number, retry_interval: number }} policy
- */
-export function updatePolicySummary(policy) {
-  const firmware = !policy.firmware_auto_update
-    ? t('Firmware: by hand')
-    : policy.install_delay > 0
-      ? t('Firmware: automatic, after {wait}').replace('{wait}', durationLabel(policy.install_delay))
-      : t('Firmware: automatic');
-  const display = policy.auto_install ? t('Display: automatic') : t('Display: asks first');
-  const attempts = policy.max_attempts === 1
-    ? t('1 attempt')
-    : t('{count} attempts, {wait} apart')
-      .replace('{count}', String(policy.max_attempts))
-      .replace('{wait}', durationLabel(policy.retry_interval));
-  return [firmware, display, attempts].join(' · ');
-}

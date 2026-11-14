@@ -1951,56 +1951,6 @@ def test_panel_templates_are_served_in_the_language_asked_for(monkeypatch):
     assert asked == ["de"]
 
 
-def test_update_policy_get_answers_the_defaults_on_an_empty_store(monkeypatch):
-    hass = _Hass(_entry_with({"name": "kitchen"}))
-    _use_store(monkeypatch, hass, None)
-
-    result = asyncio.run(api.UpdatePolicyView().get(_Request(hass, admin=False), "entry1"))
-
-    assert result["status_code"] == 200
-    assert result["body"]["policy"]["max_attempts"] == 3
-    assert result["body"]["policy"]["install_delay"] == 600
-
-
-def test_update_policy_put_stores_it_and_reloads_every_device(monkeypatch):
-    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
-    saved = _use_store(
-        monkeypatch,
-        hass,
-        {"version": 1, "devices": {"kitchen": {"config": {}}, "office": {"config": {}}}},
-    )
-    kitchen = _WorkerApp()
-    office = _WorkerApp()
-    hass.data["nspanel_haui"]["entry1"] = {"kitchen": kitchen, "office": office}
-
-    result = asyncio.run(
-        api.UpdatePolicyView().put(
-            _Request(hass, admin=True, body={"policy": {"max_attempts": 5}}), "entry1"
-        )
-    )
-
-    assert result["status_code"] == 200
-    assert saved[0]["update_policy"]["max_attempts"] == 5
-    assert result["body"]["policy"]["max_attempts"] == 5
-    assert "reload_config" in kitchen.calls
-    assert "reload_config" in office.calls
-    assert kitchen.cfg["update"]["max_attempts"] == 5
-
-
-def test_update_policy_put_refuses_an_invalid_policy(monkeypatch):
-    hass = _Hass(_entry_with({"name": "kitchen"}))
-    saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
-
-    result = asyncio.run(
-        api.UpdatePolicyView().put(
-            _Request(hass, admin=True, body={"policy": {"max_attempts": 0}}), "entry1"
-        )
-    )
-
-    assert result["status_code"] == 400
-    assert saved == []
-
-
 class _ControlApp(_WorkerApp):
     """A running app whose update controller has a firmware install scheduled."""
 
@@ -2200,7 +2150,7 @@ def test_a_settings_save_keeps_the_skipped_firmware_version(monkeypatch, sent_up
     assert stored["update"]["skipped_firmware_version"] == "0.5.1"
 
 
-def test_a_settings_save_refuses_a_bad_device_policy(monkeypatch):
+def test_a_settings_save_refuses_a_bad_retry_interval(monkeypatch):
     hass = _Hass(_entry_with({"name": "kitchen"}))
     saved = _use_store(
         monkeypatch, hass, {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}}
@@ -2211,7 +2161,7 @@ def test_a_settings_save_refuses_a_bad_device_policy(monkeypatch):
             _Request(
                 hass,
                 admin=True,
-                body={"config": {"update": {"policy_override": True, "retry_interval": 0}}},
+                body={"config": {"update": {"retry_interval": 0}}},
             ),
             "entry1",
             "kitchen",

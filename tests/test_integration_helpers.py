@@ -169,6 +169,5 @@ def test_panel_store_uses_per_entry_key_and_fresh_empty_payloads(monkeypatch):
         "devices": {},
         "device_order": [],
         "themes": {},
-        "update_policy": {},
     }
     assert storage.empty_store() is not storage.empty_store()

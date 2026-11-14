@@ -399,41 +399,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       },
 
       /**
-       * The hub's automatic update policy.
-       * @param {string} entryId
-       * @returns {Promise<Record<string, any>>}
-       */
-      async policy(entryId) {
-        requireEntry(entryId);
-        const result = await request(
-          `/api/nspanel_haui/update_policy/${entryId}`,
-          undefined,
-          t('Failed to load the update policy'),
-        );
-        return result.policy;
-      },
-
-      /**
-       * Save the hub's automatic update policy; every device follows it unless it overrides it.
-       * @param {string} entryId
-       * @param {Record<string, any>} policy
-       * @returns {Promise<Record<string, any>>} the stored policy
-       */
-      async savePolicy(entryId, policy) {
-        requireEntry(entryId);
-        const result = await request(
-          `/api/nspanel_haui/update_policy/${entryId}`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ policy }),
-          },
-          t('Failed to save the update policy'),
-        );
-        return result.policy;
-      },
-
-      /**
        * @param {string} entryId
        * @param {string} device
        * @param {string} [version]

@@ -371,27 +371,6 @@ test('panel types load even when the starter templates do not', async () => {
   assert.deepEqual(store.getState().hub.panelTemplates, []);
 });
 
-test('the hub update policy loads and saves through the store', async () => {
-  const saved = [];
-  const store = seededStore({
-    client: {
-      panels: { load: async () => ({ devices: {} }) },
-      updates: {
-        policy: async () => ({ max_attempts: 3 }),
-        savePolicy: async (entryId, policy) => { saved.push([entryId, policy]); return policy; },
-      },
-    },
-  });
-
-  await store.actions.loadUpdatePolicy();
-  assert.deepEqual(store.getState().hub.updatePolicy, { max_attempts: 3 });
-
-  assert.equal(await store.actions.saveUpdatePolicy({ max_attempts: 5 }), true);
-  assert.deepEqual(store.getState().hub.updatePolicy, { max_attempts: 5 });
-  assert.equal(saved[0][1].max_attempts, 5);
-});
-
-
 test('a rollout starts and cancels through the store', async () => {
   const calls = [];
   const running = { id: 1, state: 'running', devices: [{ name: 'kitchen', kind: 'firmware', state: 'installing' }] };

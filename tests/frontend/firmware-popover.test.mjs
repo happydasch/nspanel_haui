@@ -109,29 +109,78 @@ test('the Updates sidebar shows update check errors', async () => {
     assert.equal(view._popoverError, 'offline');
 });
 
-const HUB_POLICY = {
-  firmware_auto_update: true, auto_install: true, install_delay: 600, max_attempts: 3, retry_interval: 3600,
-};
+function settingsSidebar(update) {
+  const sidebar = element({ config: { update } });
+  sidebar._saved = [];
+  sidebar._emit = (name, detail) => sidebar._saved.push([name, detail]);
+  sidebar.willUpdate(new Map([['config', undefined]]));
+  return sidebar;
+}
 
-test('a device that follows the hub shows the hub policy and an override switch', () => {
-  const view = flatten(element({ config: { update: { enabled: true } }, hubPolicy: HUB_POLICY }).render());
+function choose(root, label) {
+  [...root.querySelectorAll('.haui-segmented-option')].find((option) => option.textContent.trim() === label).click();
+}
 
-  assert.match(view, /Follows the hub policy/);
-  assert.match(view, /Firmware: automatic, after 10 minutes/);
-  assert.match(view, /Override the hub policy/);
-  assert.doesNotMatch(view, /update-firmware-auto/);
+test('the settings lead with the three decisions and fold the rest away', () => {
+  const root = render(settingsSidebar({ enabled: true }).render());
+  const advanced = root.querySelector('details.haui-update-advanced');
+
+  assert.equal(advanced.open, false);
+  for (const id of ['update-interval', 'update-enabled']) {
+    assert.equal(advanced.contains(root.querySelector(`#${id}`)), false, `${id} is a main setting`);
+  }
+  assert.ok(root.querySelector('[aria-label="Update channel"]'));
+  assert.ok(root.querySelector('[aria-label="When a new version is found"]'));
+  for (const id of ['update-firmware-manifest-url', 'update-check-on-connect', 'update-tft-auto',
+    'update-max-attempts', 'update-retry-interval']) {
+    assert.ok(advanced.querySelector(`#${id}`), `${id} is an advanced setting`);
+  }
 });
 
-test('a device that overrides the hub edits its own policy', () => {
-  const config = { update: { enabled: true, policy_override: true, max_attempts: 2 } };
-  const view = flatten(element({ config, hubPolicy: HUB_POLICY }).render());
+test('a new version waits for the user or installs automatically', () => {
+  const sidebar = settingsSidebar({ enabled: true });
+  const root = render(sidebar.render());
 
-  assert.doesNotMatch(view, /Follows the hub policy/);
-  assert.match(view, /update-firmware-auto/);
-  assert.match(view, /update-tft-auto/);
-  assert.match(view, /update-max-attempts/);
-  assert.match(view, /update-install-delay/);
-  assert.match(view, /update-retry-interval/);
+  assert.equal(root.querySelector('[aria-label="When a new version is found"] [aria-pressed="true"]').textContent.trim(),
+    'Wait for me');
+  assert.equal(root.querySelector('#update-install-delay'), null, 'no wait while nothing installs by itself');
+  choose(root, 'Install automatically');
+
+  assert.deepEqual(sidebar._saved, [['save-update-settings', { update: { enabled: true, firmware_auto_update: true } }]]);
+  assert.equal(render(sidebar.render()).querySelector('#update-install-delay option[selected]').value, '600');
+});
+
+test('the check interval is one list that can also turn checks off', () => {
+  const sidebar = settingsSidebar({ enabled: true, update_interval: 5400 });
+  const select = render(sidebar.render()).querySelector('#update-interval');
+
+  assert.equal(select.querySelector('option[selected]').value, '5400', 'a stored odd interval stays selectable');
+  select.value = '0';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+
+  assert.equal(sidebar._saved.at(-1)[1].update.update_interval, 0);
+  assert.equal(render(sidebar.render()).querySelector('#update-interval option[selected]').textContent.trim(), 'Never');
+});
+
+test('a manifest URL opens Advanced, where it overrides the channel', () => {
+  const root = render(settingsSidebar({ enabled: true, firmware_manifest_url: 'http://ha.local/m.json' }).render());
+
+  assert.equal(root.querySelector('details.haui-update-advanced').open, true);
+  assert.equal(root.querySelector('#update-firmware-manifest-url').value, 'http://ha.local/m.json');
+});
+
+test('the retry settings show only while something installs by itself', () => {
+  const byHand = render(settingsSidebar({ enabled: true, auto_install: false }).render());
+  assert.equal(byHand.querySelector('#update-max-attempts'), null);
+  assert.equal(byHand.querySelector('#update-retry-interval'), null);
+
+  const sidebar = settingsSidebar({ enabled: true, max_attempts: 3 });
+  const attempts = render(sidebar.render()).querySelector('#update-max-attempts');
+  attempts.value = '5';
+  attempts.dispatchEvent(new Event('input', { bubbles: true }));
+  sidebar._saveSettings();
+
+  assert.equal(sidebar._saved.at(-1)[1].update.max_attempts, 5);
 });
 
 test('the status card says when the next automatic attempt follows', () => {

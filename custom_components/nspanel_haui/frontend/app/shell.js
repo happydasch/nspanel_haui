@@ -16,7 +16,6 @@ import { createStore } from '../store/store.js';
 import { StoreController } from '../store/controller.js';
 import { createRouter } from './router.js';
 import { renderFleetView } from '../views/fleet.js';
-import { updatePolicyView } from '../views/update-policy.js';
 import { renderDeviceView } from '../views/device.js';
 import { modalSidebar } from '../ui/sidebar.js';
 import { railOverflows } from '../ui/device-rail.js';
@@ -131,8 +130,6 @@ class NSPanelEditor extends LitElement {
       _scanError: { type: String, state: true },
       _removeTarget: { type: String, state: true },
       _confirmBulkUpdate: { type: Boolean, state: true },
-      // The hub update policy's unsaved edits; null while it is as saved.
-      _policyDraft: { type: Object, state: true },
       _panelSearch: { type: String, state: true },
       _selectedPanelKey: { type: String, state: true },
       _panelPreviewCollapsed: { type: Boolean, state: true },
@@ -203,7 +200,6 @@ class NSPanelEditor extends LitElement {
     this._scanError = '';
     this._removeTarget = null;
     this._confirmBulkUpdate = false;
-    this._policyDraft = null;
     this._panelSearch = '';
     this._selectedPanelKey = null;
     this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
@@ -666,7 +662,6 @@ class NSPanelEditor extends LitElement {
     else if (kind === 'device-schedule') this._closeDeviceOption('schedule');
     else if (kind === 'device-gestures') this._closeDeviceOption('gestures');
     else if (kind === 'logs') this._closeLogs();
-    else if (kind === 'update-policy') this._closeUpdatePolicy();
   }
 
   /**
@@ -1067,7 +1062,6 @@ class NSPanelEditor extends LitElement {
     const hubVersion = versions.length === 1 ? versions[0] : versions.length > 1 ? t('Mixed versions') : t('Unknown');
     // Logs is Fleet's one sidebar: every device's lines, or one device's from its menu.
     const logs = state.ui.overlays.find((overlay) => overlay.kind === 'logs');
-    const policyOpen = state.ui.overlays.some((overlay) => overlay.kind === 'update-policy');
     return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderFleetView({
@@ -1096,7 +1090,6 @@ class NSPanelEditor extends LitElement {
         onScan: () => this._scanDevices(),
         onAddDevices: (found) => this._addDevices(found),
         onOpenLogs: () => this._openLogs(null),
-        onUpdatePolicy: () => this._openUpdatePolicy(),
         rollout: state.hub.rollout,
         onCancelRollout: (device) => this._store.actions.cancelRollout(device),
       })}
@@ -1113,17 +1106,6 @@ class NSPanelEditor extends LitElement {
         @dialog-closed=${() => { this._confirmBulkUpdate = false; }}
         @dialog-confirmed=${this._installOfferedUpdates}
       ></nspanel-dialog-confirm>
-      ${policyOpen && state.hub.updatePolicy ? modalSidebar({
-        label: t('Update policy'),
-        body: updatePolicyView({
-          policy: this._policyDraft || state.hub.updatePolicy,
-          dirty: this._policyDraft !== null,
-          saving: state.hub.saving,
-          onChange: (policy) => { this._policyDraft = policy; this.requestUpdate(); },
-          onSave: () => this._saveUpdatePolicy(),
-        }),
-        onClose: () => this._closeUpdatePolicy(),
-      }) : nothing}
       ${logs ? modalSidebar({
         label: logs.subject
           ? `${t('Logs')} · ${state.devices.byName[logs.subject]?.friendlyName || logs.subject}`
@@ -1218,18 +1200,6 @@ class NSPanelEditor extends LitElement {
         buildPreviewContext(this.entryId, name, device, status, this.api, state.hub.themes), panel, byKey ? -1 : 0),
       portrait: isPortraitModel(device.config.display_model),
     });
-    const firmware = () => html`<nspanel-firmware-popover
-      .hass=${this.hass} .api=${this.api} .open=${true}
-      .deviceStatus=${device.status} .deviceName=${name} .entryId=${this.entryId}
-      .config=${device.config}
-      .hubPolicy=${state.hub.updatePolicy}
-      @dialog-closed=${() => this._closeFirmware()}
-      @update-check=${() => this._store.actions.pollSelectedStatus()}
-      @save-update-settings=${(event) => this._saveUpdateSettings(event)}
-      @update-tft=${(event) => DeviceEvents.installTft(this, event)}
-      @update-firmware=${(event) => DeviceEvents.installFirmware(this, event)}
-      @update-control=${(event) => this._controlUpdate(name, event.detail)}
-    ></nspanel-firmware-popover>`;
     const theme = () => html`<nspanel-theme-sidebar
       .hass=${this.hass} .api=${this.api} .open=${true}
       .entryId=${this.entryId}
@@ -1264,7 +1234,7 @@ class NSPanelEditor extends LitElement {
       layer('device-schedule', () => deviceOptionPanel('schedule', managerOptions))}${
       layer('device-gestures', () => deviceOptionPanel('gestures', managerOptions))}${
       layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
-      layer('firmware', firmware)}${layer('theme', theme)}${
+      layer('firmware', () => this._renderFirmware(name))}${layer('theme', theme)}${
       layer('logs', () => this._renderLogs(status?.logs || []))}` : null;
     const leadContent = route.panelView === 'panels'
       ? panelActions({
@@ -1395,7 +1365,6 @@ class NSPanelEditor extends LitElement {
       firmware: () => t('Updates'),
       theme: () => t('Theme'),
       logs: () => t('Logs'),
-      'update-policy': () => t('Update policy'),
     };
     const label = kind ? labels[kind] : undefined;
     if (!label) throw new Error(`Unknown sidebar kind: ${kind}`);
@@ -1914,11 +1883,26 @@ class NSPanelEditor extends LitElement {
 
   /* ── updates sidebar ──────────────────────────────────────────────── */
 
+  /** The Updates sidebar's body: the device's updates and its update settings. @param {string} name */
+  _renderFirmware(name) {
+    const state = this._store.getState();
+    const device = state.devices.byName[name];
+    return html`<nspanel-firmware-popover
+      .hass=${this.hass} .api=${this.api} .open=${true}
+      .deviceStatus=${device.status} .deviceName=${name} .entryId=${this.entryId}
+      .config=${device.config}
+      @dialog-closed=${() => this._closeFirmware()}
+      @update-check=${() => this._store.actions.pollSelectedStatus()}
+      @save-update-settings=${(event) => this._saveUpdateSettings(event)}
+      @update-tft=${(event) => DeviceEvents.installTft(this, event)}
+      @update-firmware=${(event) => DeviceEvents.installFirmware(this, event)}
+      @update-control=${(event) => this._controlUpdate(name, event.detail)}
+    ></nspanel-firmware-popover>`;
+  }
+
   /** Open the Updates sidebar on the device's screen. @param {string} deviceName */
   _openFirmware(deviceName) {
     this._captureSidebarFocus();
-    // The Updates sidebar names the hub policy a device follows.
-    void this._store.actions.loadUpdatePolicy();
     this._store.actions.pushOverlay({ kind: 'firmware', anchorKey: 'firmware', subject: deviceName, draft: null });
   }
 
@@ -1932,25 +1916,6 @@ class NSPanelEditor extends LitElement {
     if (await this._store.actions.controlUpdate(name, detail.action, detail.seconds)) {
       await this._store.actions.pollSelectedStatus();
     }
-  }
-
-  /** Open the hub's automatic update policy from Fleet. */
-  _openUpdatePolicy() {
-    this._captureSidebarFocus();
-    this._policyDraft = null;
-    void this._store.actions.loadUpdatePolicy();
-    this._store.actions.pushOverlay({ kind: 'update-policy', anchorKey: 'update-policy', subject: null, draft: null });
-  }
-
-  _closeUpdatePolicy() {
-    this._policyDraft = null;
-    this._store.actions.closeOverlay('update-policy', 'update-policy');
-    this._restoreSidebarFocus();
-  }
-
-  async _saveUpdatePolicy() {
-    if (!this._policyDraft) return;
-    if (await this._store.actions.saveUpdatePolicy(this._policyDraft)) this._closeUpdatePolicy();
   }
 
   async _saveUpdateSettings(event) {

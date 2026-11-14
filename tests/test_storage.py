@@ -29,7 +29,6 @@ def test_empty_store_has_an_empty_device_order() -> None:
         "device_order": [],
         "devices": {},
         "themes": {},
-        "update_policy": {},
     }
 
 

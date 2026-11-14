@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.helpers.storage import Store
 
 from ..haui.device_config import DEVICE_CONFIG, find_store_device
-from ..haui.mapping.const import GESTURES, UPDATE_POLICY_FIELDS
+from ..haui.mapping.const import GESTURES
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -34,12 +34,8 @@ DEVICE_CONFIG_KEY_RENAMES: dict[str, str] = {
 
 
 def migrate_device_config_keys(device_config: dict) -> bool:
-    """Rename legacy device-config keys in place and convert the old gesture settings.
-
-    A device that stored its own automatic update policy before the hub-wide
-    policy existed keeps it: it is marked ``update.policy_override``.
-    """
-    modified = migrate_update_policy_override(device_config)
+    """Rename legacy device-config keys in place and convert the old gesture settings."""
+    modified = False
     for old_key, new_key in DEVICE_CONFIG_KEY_RENAMES.items():
         if old_key not in device_config:
             continue
@@ -50,19 +46,45 @@ def migrate_device_config_keys(device_config: dict) -> bool:
     return migrate_gesture_settings(device_config) or modified
 
 
-def migrate_update_policy_override(device_config: dict) -> bool:
-    """Mark a device that stored its own update policy as overriding the hub's.
+# The automatic-install settings the hub-wide update policy of the 0.5.0
+# development builds held for every device.
+_HUB_POLICY_FIELDS = (
+    "firmware_auto_update",
+    "auto_install",
+    "install_delay",
+    "max_attempts",
+    "retry_interval",
+)
 
-    Runs once: a device whose ``update`` block already says ``policy_override``
-    (either way) is left alone.
+
+def migrate_hub_update_policy(store_data: dict) -> bool:
+    """Give every device the update settings it ran with under the hub-wide policy.
+
+    The 0.5.0 development builds kept one automatic update policy for the hub
+    (store key ``update_policy``), which a device followed unless its
+    ``update.policy_override`` was on. Update settings belong to each device
+    again: a device that followed the hub takes the hub's values, a device that
+    overrode it (or stored its own before the policy existed) keeps its own.
     """
-    update = device_config.get("update")
-    if not isinstance(update, dict) or "policy_override" in update:
-        return False
-    if not any(field in update for field in UPDATE_POLICY_FIELDS):
-        return False
-    update["policy_override"] = True
-    return True
+    modified = "update_policy" in store_data
+    hub_policy = store_data.pop("update_policy", None) or {}
+    for dev_data in store_data.get("devices", {}).values():
+        config = dev_data.get("config") if isinstance(dev_data, dict) else None
+        if not isinstance(config, dict):
+            continue
+        stored = config.get("update")
+        update = dict(stored) if isinstance(stored, dict) else {}
+        own = update.pop("policy_override", None)
+        if own is None:
+            own = any(field in update for field in _HUB_POLICY_FIELDS)
+        if not own:
+            for field in _HUB_POLICY_FIELDS:
+                update.pop(field, None)
+            update.update(hub_policy)
+        if update != (stored or {}):
+            config["update"] = update
+            modified = True
+    return modified
 
 
 def migrate_gesture_settings(device_config: dict) -> bool:
@@ -141,7 +163,7 @@ def panel_store(hass: Any, entry_id: str) -> Store:
 
 def empty_store() -> dict:
     """Return a fresh panel store payload for an entry with no saved panels."""
-    return {"version": 1, "device_order": [], "devices": {}, "themes": {}, "update_policy": {}}
+    return {"version": 1, "device_order": [], "devices": {}, "themes": {}}
 
 
 def normalize_device_order(store_data: dict) -> bool:
@@ -262,7 +284,7 @@ class PanelStorage:
         # Migrate legacy device-config keys in place (also without a config
         # entry: the store holds the same shape either way).  One-time, then
         # idempotent — see DEVICE_CONFIG_KEY_RENAMES.
-        modified = root_modified
+        modified = migrate_hub_update_policy(result) or root_modified
         for dev_name, dev_data in result.get("devices", {}).items():
             if not isinstance(dev_data, dict):
                 continue

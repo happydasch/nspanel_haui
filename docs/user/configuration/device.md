@@ -260,21 +260,20 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. The **Enable updates** switch, **Update channel** (stable or development releases for firmware and display) and optional custom firmware manifest URL are grouped together, then **Release checks** and **Automatic updates**. How a device installs updates by itself is the hub's **update policy** (the dashboard's **Update policy** button) unless **Override the hub policy for this device** is on; the policy keys below then come from the device itself. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. Under the **Enable updates** switch it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and what happens **When a new version is found**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `enabled` | on | Master switch. When off, the hub does not check for updates and installs nothing, the update entities are unavailable and manual installs are refused. An install that is already running finishes. |
 | `check_on_connect` | on | Check for a new release after the panel connects. |
-| `update_interval` | `3600` | Seconds between regular checks. The editor offers common intervals from 15 minutes to one week, plus a custom seconds value. `0`, or turning off **Enable periodic update checks**, turns them off. |
+| `update_interval` | `3600` | Seconds between regular checks. The editor offers intervals from 15 minutes to one week. `0` (**Never**) turns them off. |
 | `firmware_update_channel` | `stable` | Selects the stable or development release channel for both firmware and display updates. |
 | `firmware_manifest_url` | empty | Optional firmware manifest URL that overrides the channel's firmware release, e.g. a [local test release](../../develop/release.md#test-firmware-updates-with-a-local-release); the display continues to follow the matching TFT. |
-| `policy_override` | off | Use this device's own policy keys instead of the hub's update policy. |
-| `firmware_auto_update` | off | Policy. Install new firmware without asking. The display file follows after the restart. |
-| `install_delay` | `600` | Policy. Seconds an automatic firmware install waits before it starts (0 to 86400); `0` starts it right away. |
-| `auto_install` | on | Policy. Install the display file (TFT) without asking. When off, the panel asks first. |
-| `max_attempts` | `3` | Policy. Failed automatic attempts at one version before the automatic install stops (1 to 10). |
-| `retry_interval` | `3600` | Policy. Seconds a failed automatic install waits before it tries again (300 to 604800). |
+| `firmware_auto_update` | off | **Install automatically**: install new firmware without asking. The display file follows after the restart. |
+| `install_delay` | `600` | Seconds an automatic firmware install waits before it starts (0 to 86400); `0` starts it right away. |
+| `auto_install` | on | Install the display file (TFT) without asking. When off, the panel asks first. |
+| `max_attempts` | `3` | Failed automatic attempts at one version before the automatic install stops (1 to 10). |
+| `retry_interval` | `3600` | Seconds a failed automatic install waits before it tries again (300 to 604800). |
 | `skipped_firmware_version` | empty | A firmware version that is never installed automatically; set by **Skip this version**. A manual install, or a newer version, is not affected. |
 
 Good to know:

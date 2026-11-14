@@ -51,7 +51,7 @@ export function isAnchoredOverlayKind(kind) {
  */
 export const SIDEBAR_OVERLAY_KINDS = Object.freeze([
   'device-settings', 'device-schedule', 'device-gestures',
-  'panel-catalog', 'panel-editor', 'firmware', 'theme', 'logs', 'update-policy',
+  'panel-catalog', 'panel-editor', 'firmware', 'theme', 'logs',
 ]);
 
 /** @param {string|null|undefined} kind */
@@ -85,7 +85,7 @@ export function isDeviceOptionOverlayKind(kind) {
  * @typedef {{ kind: string, anchorKey: string|null, subject: string|null, draft: any }} Overlay
  *
  * @typedef {Object} StoreState
- * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, fieldErrors: Array<{ panel: string, field: string, kind: string, message: string }>, statusError: string|null, panelTypes: PanelTypeDescriptor[], panelTemplates: PanelTemplate[], updatePolicy: Record<string, any>|null, rollout: Record<string, any>|null, systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
+ * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, fieldErrors: Array<{ panel: string, field: string, kind: string, message: string }>, statusError: string|null, panelTypes: PanelTypeDescriptor[], panelTemplates: PanelTemplate[], rollout: Record<string, any>|null, systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
  * @property {DevicesState} devices
  * @property {Notification[]} notifications
  * @property {{ route: Route, overlays: Overlay[], toast: { message: string, type: string }|null, dialogs: Object<string, any>, menus: Object<string, any>, preview: { mode: 'simulated'|'live', idle: boolean, showEntities: boolean } }} ui
@@ -185,8 +185,6 @@ function createInitialState(storage) {
       panelTypes: [],
       // The starter templates of the Add panel catalog.
       panelTemplates: [],
-      // The hub's automatic update policy; null until loaded.
-      updatePolicy: null,
       // Fleet's one-at-a-time update rollout; null until read.
       rollout: null,
       systemPanels: [],
@@ -709,39 +707,6 @@ export function createStore({ client, storage, onToast }) {
         return true;
       } catch (error) {
         showToast(/** @type {Error} */ (error).message || t('Failed to change the scheduled update'), 'error');
-        return false;
-      }
-    },
-
-    /** Load the hub's automatic update policy. */
-    async loadUpdatePolicy() {
-      const entryId = state.hub.entryId;
-      if (!entryId) return;
-      try {
-        const updatePolicy = await client.updates.policy(entryId);
-        commit((current) => ({ ...current, hub: { ...current.hub, updatePolicy } }));
-      } catch (error) {
-        showToast(/** @type {Error} */ (error).message || t('Failed to load the update policy'), 'error');
-      }
-    },
-
-    /**
-     * Save the hub's automatic update policy.
-     * @param {Record<string, any>} policy
-     * @returns {Promise<boolean>} whether the hub accepted it
-     */
-    async saveUpdatePolicy(policy) {
-      const entryId = state.hub.entryId;
-      if (!entryId || state.hub.saving) return false;
-      commit((current) => ({ ...current, hub: { ...current.hub, saving: true } }));
-      try {
-        const updatePolicy = await client.updates.savePolicy(entryId, policy);
-        commit((current) => ({ ...current, hub: { ...current.hub, saving: false, updatePolicy } }));
-        showToast(t('Update policy saved'), 'success');
-        return true;
-      } catch (error) {
-        commit((current) => ({ ...current, hub: { ...current.hub, saving: false } }));
-        showToast(/** @type {Error} */ (error).message || t('Failed to save the update policy'), 'error');
         return false;
       }
     },

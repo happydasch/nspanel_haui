@@ -147,23 +147,6 @@ test('starter templates are requested in the editor language', async () => {
   assert.deepEqual(urls, ['/api/nspanel_haui/panel_templates?language=de']);
 });
 
-test('the update policy is read and saved on its route', async () => {
-  const calls = [];
-  const api = createApiClient(() => makeHass({
-    fetchWithAuth: async (url, options = {}) => {
-      calls.push([options.method || 'GET', url, options.body || null]);
-      return jsonResponse({ policy: { max_attempts: 4 } });
-    },
-  }));
-
-  assert.deepEqual(await api.updates.policy('entry1'), { max_attempts: 4 });
-  assert.deepEqual(await api.updates.savePolicy('entry1', { max_attempts: 4 }), { max_attempts: 4 });
-  assert.deepEqual(calls, [
-    ['GET', '/api/nspanel_haui/update_policy/entry1', null],
-    ['PUT', '/api/nspanel_haui/update_policy/entry1', JSON.stringify({ policy: { max_attempts: 4 } })],
-  ]);
-});
-
 test('rollout and update control use their routes', async () => {
   const calls = [];
   const api = createApiClient(() => makeHass({

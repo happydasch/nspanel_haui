@@ -51,7 +51,8 @@ export const fleetStyles = css`
   .haui-carousel-arrow { position: absolute; z-index: 1; top: 90px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-round); color: var(--primary-text-color); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); --mdc-icon-size: 18px; line-height: 1; cursor: pointer; transition: opacity 150ms ease; }
   .haui-carousel-arrow.is-left { left: -4px; }
   .haui-carousel-arrow.is-right { right: -4px; }
-  .haui-device-card { scroll-snap-align: start; min-width: 0; overflow: hidden; }
+  /* The scroll extents keep the first and the last card at their edge; every card between them snaps to the centre. */
+  .haui-device-card { scroll-snap-align: center; min-width: 0; overflow: hidden; }
   .haui-device-card.is-dragging, .haui-device-row.is-dragging { opacity: .5; }
   .haui-device-card.is-drop-target, .haui-device-row.is-drop-target { outline: 2px dashed var(--primary-color); outline-offset: -2px; }
   .haui-device-card-cover { position: relative; background: var(--haui-screen); padding: 12px 16px 16px; }
@@ -171,7 +172,7 @@ export const fleetStyles = css`
   .haui-sort-handle { display: inline-flex; align-items: center; padding: 4px; border-radius: var(--haui-radius-control); color: var(--secondary-text-color); cursor: grab; --mdc-icon-size: 18px; }
   .haui-device-row .haui-row-action { width: 30px; height: 30px; --mdc-icon-size: 17px; }
   .haui-device-sort .haui-sort-handle { background: var(--card-background-color); }
-  @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 12px; } .haui-fleet-lead span { display: none; } }
+  @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 12px; } .haui-fleet-lead > span, .haui-fleet-inventory-heading { display: none; } }
   @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } }
   @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } }
   @container haui-editor (max-width: 720px) {
@@ -179,6 +180,7 @@ export const fleetStyles = css`
     .haui-inventory-bar { padding: 0 12px 12px; }
   }
   @container haui-editor (max-width: 720px) { .haui-dashboard-content { width: min(100% - 28px, 1440px); padding-top: 16px; } .haui-device-table { grid-template-columns: minmax(0, 1fr) repeat(2, max-content) auto; column-gap: 12px; } .haui-device-row { padding: 4px 12px; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } .haui-device-row-actions { grid-column: 4; } }
+  @container haui-editor (max-width: 560px) { .haui-device-table { grid-template-columns: minmax(0, 1fr) max-content auto; } .haui-device-row-head > :nth-child(4), .haui-device-row > :nth-child(4) { display: none; } .haui-device-row-actions { grid-column: 3; } }
   @media (prefers-reduced-motion: reduce) { .haui-device-sort { transition: none; } }
   .haui-rollout { margin-bottom: 16px; }
   .haui-rollout-summary { margin: 0 0 8px; font-size: var(--haui-text-caption); color: var(--secondary-text-color); }

@@ -2,29 +2,35 @@
  * NSPanel HAUI - the firmware/display update surface.
  *
  * The Updates sidebar's body; it owns every update concern: version rows, the
- * check action and the install picker (release / URL / local file). The sidebar
- * frame carries the title and the close control. Device facts and diagnostics
- * live in the Device side stack.
+ * check action, the install picker (release / URL / local file) and the
+ * device's update settings. The sidebar frame carries the title and the close
+ * control. Device facts and diagnostics live in the Device side stack.
  */
 import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 import { hasUpdateAvailable } from '../device-status.js';
 import {
-  DEFAULT_FIRMWARE_MANIFEST_URL, FIRMWARE_UPDATE_CHANNELS, UPDATE_POLICY_DEFAULTS,
+  DEFAULT_FIRMWARE_MANIFEST_URL, DEVICE_CONFIG_DEFAULTS, FIRMWARE_UPDATE_CHANNELS,
 } from '../constants.js';
 import { renderField, renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { badge } from '../ui/badge.js';
 import { button } from '../ui/button.js';
 import { segmented } from '../ui/segmented.js';
-import { relativeTime, updateOfferLabel, updatePolicySummary, versionLabel } from '../ui/format.js';
-import { updatePolicyFields } from '../views/update-policy.js';
+import { durationLabel, relativeTime, updateOfferLabel, versionLabel } from '../ui/format.js';
 import { updateProgress } from '../ui/update-progress.js';
 import { icon } from '../ui/icon.js';
 import { sectionHeading } from '../ui/surface.js';
-const UPDATE_INTERVAL_PRESETS = [900, 1800, 3600, 7200, 21600, 43200, 86400, 604800];
+/** How often the hub can look for a new version, in seconds; 0 never does. */
+const UPDATE_INTERVAL_CHOICES = [0, 900, 1800, 3600, 7200, 21600, 43200, 86400, 604800];
+/** The waits offered before an automatic firmware install, in seconds. */
+const INSTALL_DELAY_CHOICES = [0, 300, 600, 1800, 3600];
+/** The waits offered between two automatic attempts, in seconds. */
+const RETRY_INTERVAL_CHOICES = [900, 3600, 21600, 86400];
+
 function updateIntervalLabel(value) {
   switch (value) {
+    case 0: return t('Never');
     case 900: return t('Every 15 minutes');
     case 1800: return t('Every 30 minutes');
     case 3600: return t('Every hour');
@@ -33,10 +39,9 @@ function updateIntervalLabel(value) {
     case 43200: return t('Every 12 hours');
     case 86400: return t('Every day');
     case 604800: return t('Every week');
-    default: throw new Error(`Unknown update interval preset: ${value}`);
+    default: return t('Every {duration}').replace('{duration}', durationLabel(value));
   }
 }
-
 
 
 /**
@@ -128,8 +133,8 @@ function versionRow({ iconName, label, version, note, offered, skipped = false, 
   </div>`;
 }
 
-/** Read a stored update option while preserving the UI's display defaults. */
-function settingValue(settings, key, fallback) {
+/** Read a stored update option; one the device never stored takes its default. */
+function settingValue(settings, key, fallback = DEVICE_CONFIG_DEFAULTS.update[key]) {
   return settings?.[key] ?? fallback;
 }
 
@@ -146,15 +151,28 @@ function setSetting(host, key, value, debounce = false) {
  * `checked` stands in for the stored value where a control maps onto it (an
  * interval of 0 reads as "periodic checks off").
  */
-function updateRow(host, { id, key, settings, label, hint = '', fallback = true, checked, mapValue }) {
+function updateRow(host, { id, key, settings, label, hint = '' }) {
   return html`<div class="haui-update-row">
     <div class="haui-update-row-copy">
       <label class="haui-update-row-label" for=${id}>${label}</label>
       ${hint ? html`<p class="haui-update-row-hint">${hint}</p>` : nothing}
     </div>
-    ${renderToggle(id, checked ?? Boolean(settingValue(settings, key, fallback)),
-      (next) => setSetting(host, key, mapValue ? mapValue(next) : next))}
+    ${renderToggle(id, Boolean(settingValue(settings, key)), (next) => setSetting(host, key, next))}
   </div>`;
+}
+
+/**
+ * A setting counted in seconds, as a list of choices; a stored value outside
+ * them stays selectable.
+ * @param {any} host
+ * @param {{ id: string, key: string, settings: Record<string, any>, choices: number[],
+ *   label: (seconds: number) => string }} options
+ */
+function secondsSelect(host, { id, key, settings, choices, label }) {
+  const value = Number(settingValue(settings, key));
+  const values = choices.includes(value) ? choices : [...choices, value].sort((a, b) => a - b);
+  return renderSelect(id, value, values.map((seconds) => ({ value: seconds, label: label(seconds) })),
+    (next) => setSetting(host, key, Number(next)));
 }
 
 class FirmwarePopover extends HauiDialog {
@@ -165,10 +183,7 @@ class FirmwarePopover extends HauiDialog {
       entryId: { type: String },
       api: { type: Object },
       config: { type: Object },
-      // The hub's automatic update policy, which the device follows unless it overrides it.
-      hubPolicy: { type: Object },
       _settingsDraft: { type: Object, state: true },
-      _customIntervalSelected: { type: Boolean, state: true },
       _picker: { type: Object, state: true },
       _popoverError: { type: String, state: true },
       _actionBusy: { type: Boolean, state: true },
@@ -182,7 +197,6 @@ class FirmwarePopover extends HauiDialog {
     this.entryId = null;
     this.config = null;
     this._settingsDraft = null;
-    this._customIntervalSelected = false;
     this._settingsInitial = null;
     this._settingsDevice = null;
     this._settingsSaveTimer = null;
@@ -205,7 +219,6 @@ class FirmwarePopover extends HauiDialog {
     const previous = this._settingsInitial || {};
     const draft = this._settingsDraft || previous;
     const deviceChanged = this.deviceName !== this._settingsDevice;
-    if (deviceChanged) this._customIntervalSelected = false;
     const rebased = { ...stored };
     if (!deviceChanged) {
       for (const key of new Set([...Object.keys(previous), ...Object.keys(draft)])) {
@@ -492,147 +505,111 @@ class FirmwarePopover extends HauiDialog {
         <label class="haui-update-row-label" for="update-enabled">${t('Enable updates')}</label>
         <p class="haui-update-row-hint">${t('When off, checks, update entities, and manual firmware/display installs are disabled. An update already in progress will finish.')}</p>
       </div>
-      ${renderToggle('update-enabled', Boolean(settingValue(settings, 'enabled', true)),
+      ${renderToggle('update-enabled', Boolean(settingValue(settings, 'enabled')),
         (checked) => setSetting(this, 'enabled', checked))}
     </div>`;
   }
 
-  /** When the hub checks for releases, and how often. */
-  _renderReleaseChecks(settings, interval) {
+  /** What an update needs decided: where versions come from, how often to look, what to do with a find. */
+  _renderDecisions(settings) {
+    const automatic = Boolean(settingValue(settings, 'firmware_auto_update'));
     return html`<section class="haui-update-group">
-      ${sectionHeading({ title: t('Release checks'), leading: icon('refresh'), className: 'haui-update-group-title' })}
-      ${interval > 0 ? renderField({
-        id: 'update-interval',
-        label: t('Check every'),
-        className: 'haui-update-field',
-        control: html`${renderSelect('update-interval', this._customIntervalSelected
-          || !UPDATE_INTERVAL_PRESETS.includes(interval)
-          ? 'custom' : String(interval), [
-          ...UPDATE_INTERVAL_PRESETS.map((value) => ({ value, label: updateIntervalLabel(value) })),
-          { value: 'custom', label: t('Custom interval…') },
-        ], (value) => {
-          if (value === 'custom') {
-            this._customIntervalSelected = true;
-            this.requestUpdate();
-            return;
-          }
-          this._customIntervalSelected = false;
-          setSetting(this, 'update_interval', Number(value));
-        })}
-        ${this._customIntervalSelected || !UPDATE_INTERVAL_PRESETS.includes(interval)
-          ? renderField({
-            id: 'update-custom-interval',
-            label: t('Custom interval (seconds)'),
-            className: 'haui-update-field-control',
-            control: renderNumberInput('update-custom-interval', interval, (raw) => {
-              const value = parseInt(raw, 10);
-              setSetting(this, 'update_interval', Number.isNaN(value) || value < 1 ? 1 : value, true);
-            }, { min: 1, max: 604800 }),
-          }) : nothing}`,
-        extra: html`<p class="haui-update-row-hint">${t('Choose how often to check for a newer release.')}</p>`,
-      }) : nothing}
-      ${updateRow(this, {
-        id: 'update-check-on-connect', key: 'check_on_connect', settings,
-        label: t('Check for updates on connect'),
-        hint: t('Run a release check after the device connects to Home Assistant.'),
-      })}
-      ${updateRow(this, {
-        id: 'update-periodic-checks', key: 'update_interval', settings,
-        label: t('Enable periodic update checks'),
-        checked: interval > 0,
-        mapValue: (checked) => {
-          if (!checked) this._customIntervalSelected = false;
-          return checked ? (interval > 0 ? interval : 3600) : 0;
-        },
-      })}
-    </section>`;
-  }
-
-  /** The shared release channel used for firmware and display updates. */
-  _renderUpdateChannel(settings, channel) {
-    const manualUrl = Boolean(settings.firmware_manifest_url);
-    return html`<div class="haui-update-channel">
-      ${sectionHeading({ title: t('Update channel'), leading: icon('download'), className: 'haui-update-group-title' })}
       <div class="haui-update-field">
+        <span class="haui-update-row-label">${t('Update channel')}</span>
         ${segmented({
           label: t('Update channel'),
           options: FIRMWARE_UPDATE_CHANNELS.map((value) => ({
             value, label: value === 'dev' ? t('Development') : t('Stable'),
           })),
-          value: channel,
+          value: String(settingValue(settings, 'firmware_update_channel')),
           onSelect: (value) => setSetting(this, 'firmware_update_channel', value),
         })}
-        <p class="haui-update-row-hint">${t('Choose stable releases or published development builds. This channel applies to both firmware and display updates.')}</p>
+        <p class="haui-update-row-hint">${settings.firmware_manifest_url
+          ? t('The custom manifest URL under Advanced overrides the channel for firmware.')
+          : t('Stable releases, or published development builds, for firmware and display.')}</p>
       </div>
-      <details class="haui-update-advanced" ?open=${manualUrl}>
-        <summary>${t('Custom manifest URL')}${manualUrl ? badge(t('Set'), 'warning', 'haui-update-set') : nothing}</summary>
-        ${renderField({
-          id: 'update-firmware-manifest-url',
-          label: t('Firmware manifest URL'),
-          className: 'haui-update-field',
-          control: html`<input id="update-firmware-manifest-url" class="haui-input" type="url"
-            placeholder=${channel === 'dev' ? '' : DEFAULT_FIRMWARE_MANIFEST_URL}
-            .value=${String(settingValue(settings, 'firmware_manifest_url', ''))}
-            @input=${(event) => setSetting(this, 'firmware_manifest_url', event.target.value.trim() || undefined, true)} />`,
-          extra: html`<p class="haui-update-row-hint">${t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).')}</p>`,
+      ${renderField({
+        id: 'update-interval',
+        label: t('Check for a new version'),
+        className: 'haui-update-field',
+        control: secondsSelect(this, {
+          id: 'update-interval', key: 'update_interval', settings,
+          choices: UPDATE_INTERVAL_CHOICES, label: updateIntervalLabel,
+        }),
+      })}
+      <div class="haui-update-field">
+        <span class="haui-update-row-label">${t('When a new version is found')}</span>
+        ${segmented({
+          label: t('When a new version is found'),
+          options: [{ value: false, label: t('Wait for me') }, { value: true, label: t('Install automatically') }],
+          value: automatic,
+          onSelect: (value) => setSetting(this, 'firmware_auto_update', value),
         })}
-      </details>
-    </div>`;
-  }
-
-  /** Groups the master switch with the release source it enables. */
-  _renderUpdateSettings(settings, channel, enabled) {
-    return html`<section class="haui-update-group haui-update-settings-group">
-      ${this._renderMaster(settings)}
-      ${enabled ? this._renderUpdateChannel(settings, channel)
-        : html`<p class="haui-update-off-note">${t('Updates are disabled for this device.')}</p>`}
-    </section>`;
-  }
-
-  /**
-   * How the device installs updates by itself: by the hub's policy, or by its
-   * own when it overrides the hub.
-   */
-  _renderAutomaticUpdates(settings) {
-    const hub = { ...UPDATE_POLICY_DEFAULTS, ...(this.hubPolicy || {}) };
-    const own = /** @type {typeof hub} */ (Object.fromEntries(Object.keys(UPDATE_POLICY_DEFAULTS)
-      .map((key) => [key, settingValue(settings, key, hub[key])])));
-    const override = Boolean(settingValue(settings, 'policy_override', false));
-    return html`<section class="haui-update-group">
-      ${sectionHeading({ title: t('Automatic updates'), leading: icon('autorenew'), className: 'haui-update-group-title' })}
-      <div class="haui-update-row">
-        <div class="haui-update-row-copy">
-          <label class="haui-update-row-label" for="update-policy-override">${t('Override the hub policy for this device')}</label>
-          <p class="haui-update-row-hint">${t('Off: this device installs updates the way the update policy on Fleet says.')}</p>
-        </div>
-        ${renderToggle('update-policy-override', override, (next) => this._setPolicyOverride(next, own))}
+        <p class="haui-update-row-hint">${automatic
+          ? t('A newer firmware installs by itself; the display file it needs follows after the restart.')
+          : t('A newer firmware waits until you press Install.')}</p>
       </div>
-      ${override
-        ? html`<div class="haui-update-policy-fields">${updatePolicyFields({
-          policy: own, idPrefix: 'update', onChange: (policy) => this._setOwnPolicy(policy),
-        })}</div>`
-        : html`<p class="haui-update-off-note">${t('Follows the hub policy: {summary}')
-          .replace('{summary}', updatePolicySummary(hub))}</p>`}
     </section>`;
   }
 
-  /**
-   * Switch the hub override; turning it on keeps the values shown, so the
-   * device goes on as it did until one is changed.
-   */
-  _setPolicyOverride(override, shown) {
-    this._settingsDraft = {
-      ...(this._settingsDraft || this.config?.update || {}),
-      policy_override: override,
-      ...(override ? shown : {}),
-    };
-    this._saveSettings();
-  }
-
-  /** @param {Record<string, any>} policy - the device's own policy */
-  _setOwnPolicy(policy) {
-    this._settingsDraft = { ...(this._settingsDraft || this.config?.update || {}), ...policy };
-    this._scheduleSettingsSave();
+  /** The settings most devices leave alone, folded away until a manifest URL is set. */
+  _renderAdvanced(settings) {
+    const automatic = Boolean(settingValue(settings, 'firmware_auto_update'));
+    return html`<section class="haui-update-group">
+      <details class="haui-update-advanced" ?open=${Boolean(settings.firmware_manifest_url)}>
+        <summary>${t('Advanced')}</summary>
+        <div class="haui-update-advanced-body">
+          ${renderField({
+            id: 'update-firmware-manifest-url',
+            label: t('Custom manifest URL'),
+            className: 'haui-update-field',
+            control: html`<input id="update-firmware-manifest-url" class="haui-input" type="url"
+              placeholder=${settingValue(settings, 'firmware_update_channel') === 'dev' ? '' : DEFAULT_FIRMWARE_MANIFEST_URL}
+              .value=${String(settingValue(settings, 'firmware_manifest_url', ''))}
+              @input=${(event) => setSetting(this, 'firmware_manifest_url', event.target.value.trim() || undefined, true)} />`,
+            extra: html`<p class="haui-update-row-hint">${t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).')}</p>`,
+          })}
+          ${updateRow(this, {
+            id: 'update-check-on-connect', key: 'check_on_connect', settings,
+            label: t('Check for updates on connect'),
+            hint: t('Run a release check after the device connects to Home Assistant.'),
+          })}
+          ${automatic ? renderField({
+            id: 'update-install-delay',
+            label: t('Wait before an automatic firmware install'),
+            className: 'haui-update-field',
+            control: secondsSelect(this, {
+              id: 'update-install-delay', key: 'install_delay', settings, choices: INSTALL_DELAY_CHOICES,
+              label: (seconds) => (seconds === 0 ? t('Start right away') : durationLabel(seconds)),
+            }),
+            extra: html`<p class="haui-update-row-hint">${t('Time to install it now, put it off or skip the version in Updates.')}</p>`,
+          }) : nothing}
+          ${updateRow(this, {
+            id: 'update-tft-auto', key: 'auto_install', settings,
+            label: t('Install display updates automatically'),
+            hint: t('A firmware update restarts the device, which then needs a matching display file. When off, the display asks before it installs it.'),
+          })}
+          ${automatic || settingValue(settings, 'auto_install') ? html`${renderField({
+            id: 'update-max-attempts',
+            label: t('Failed attempts before it stops'),
+            className: 'haui-update-field',
+            control: renderNumberInput('update-max-attempts', settingValue(settings, 'max_attempts'), (raw) => {
+              const attempts = parseInt(raw, 10);
+              if (attempts >= 1 && attempts <= 10) setSetting(this, 'max_attempts', attempts, true);
+            }, { min: 1, max: 10 }),
+            extra: html`<p class="haui-update-row-hint">${t('After this many failed automatic attempts at one version, the install waits for you or a newer version.')}</p>`,
+          })}${renderField({
+            id: 'update-retry-interval',
+            label: t('Wait between attempts'),
+            className: 'haui-update-field',
+            control: secondsSelect(this, {
+              id: 'update-retry-interval', key: 'retry_interval', settings,
+              choices: RETRY_INTERVAL_CHOICES, label: durationLabel,
+            }),
+          })}` : nothing}
+        </div>
+      </details>
+    </section>`;
   }
 
   /**
@@ -682,20 +659,17 @@ class FirmwarePopover extends HauiDialog {
   _renderSettings() {
     if (!this.config) return nothing;
     const settings = this._settingsDraft || this.config.update || {};
-    const enabled = Boolean(settingValue(settings, 'enabled', true));
-    const interval = Number(settingValue(settings, 'update_interval', 3600));
-    const channel = String(settingValue(settings, 'firmware_update_channel', 'stable'));
     return html`<section class="haui-surface haui-firmware-settings" aria-label=${t('Update settings')}>
       ${sectionHeading({
         title: t('Update settings'),
-        subtitle: t('Controls release checks and firmware/display updates for this device.'),
+        subtitle: t('How this device finds and installs updates.'),
         leading: html`<span class="haui-firmware-settings-icon">${icon('tune-variant')}</span>`,
         className: 'haui-update-header',
       })}
-      ${this._renderUpdateSettings(settings, channel, enabled)}
-      ${enabled ? html`${this._renderReleaseChecks(settings, interval)}${
-        this._renderAutomaticUpdates(settings)}`
-      : nothing}
+      ${this._renderMaster(settings)}
+      ${settingValue(settings, 'enabled')
+        ? html`${this._renderDecisions(settings)}${this._renderAdvanced(settings)}`
+        : html`<p class="haui-update-off-note">${t('Updates are disabled for this device.')}</p>`}
     </section>`;
   }
 

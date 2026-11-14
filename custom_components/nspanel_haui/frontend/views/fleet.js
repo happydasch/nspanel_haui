@@ -30,7 +30,6 @@ export function carouselEdgesFrom(carousel) {
  *   discovered?: any[], scanning?: boolean, scanError?: string, statusError?: string|null, onScan?: () => void,
  *   onAddDevices?: (devices: any[]) => void,
  *   installable?: number, onInstallUpdates?: () => void,
- *   onUpdatePolicy?: () => void,
  *   rollout?: any, onCancelRollout?: (device: string|null) => void,
  *   onOpenLogs?: () => void }} data
  */
@@ -114,18 +113,13 @@ export function renderFleetView(data) {
               className: 'haui-section-heading haui-fleet-inventory-heading',
               titleId: 'haui-inventory-heading',
             }),
-            action: html`${data.onUpdatePolicy ? button({
-              label: t('Update policy'),
-              iconName: 'tune-variant',
-              className: 'haui-inventory-policy',
-              onClick: data.onUpdatePolicy,
-            }) : nothing}${data.onInstallUpdates && data.installable ? button({
+            action: data.onInstallUpdates && data.installable ? button({
               label: t('Install updates ({count})').replace('{count}', String(data.installable)),
               iconName: 'download',
               variant: 'primary',
               className: 'haui-inventory-update',
               onClick: data.onInstallUpdates,
-            }) : nothing}`,
+            }) : nothing,
             pending: data.statusPending === true,
           })}
         </div>

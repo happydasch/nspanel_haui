@@ -22,7 +22,6 @@ __all__ = [
     "validate_config_model",
     "validate_device_config",
     "validate_panels",
-    "validate_update_policy",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -240,49 +239,39 @@ def validate_device_config(config: dict) -> BaseModel:
     """
     model = _get_device_config_model()
     validated = model(**config)
-    # A device that overrides the hub's update policy keeps its own policy
-    # fields in its ``update`` block: they take the hub policy's ranges.
     update = config.get("update")
     if isinstance(update, dict):
-        from .mapping.const import UPDATE_POLICY_FIELDS
-
-        validate_update_policy({key: update[key] for key in UPDATE_POLICY_FIELDS if key in update})
+        _validate_automatic_installs(update)
     return validated
 
 
-_UPDATE_POLICY_MODEL: type | None = None
+_AUTOMATIC_INSTALLS_MODEL: type | None = None
 
 
-def validate_update_policy(policy: dict) -> dict:
-    """Validate the hub's automatic update policy and fill in its defaults.
+def _validate_automatic_installs(update: dict) -> None:
+    """Check the automatic-install settings of a device's ``update`` block.
 
     Args:
-        policy: The stored or submitted policy; fields left out take
-            ``UPDATE_POLICY_DEFAULTS``.
-
-    Returns:
-        The complete policy.
+        update: The device's stored or submitted ``update`` block; its other
+            keys are not checked here.
 
     Raises:
-        ValueError: An unknown field, or a value out of its range.
+        ValueError: A value of the wrong type or out of its range.
     """
-    global _UPDATE_POLICY_MODEL  # noqa: PLW0603
+    global _AUTOMATIC_INSTALLS_MODEL  # noqa: PLW0603
 
-    from .mapping.const import UPDATE_POLICY_DEFAULTS
+    if _AUTOMATIC_INSTALLS_MODEL is None:
+        from pydantic import BaseModel, Field
 
-    if _UPDATE_POLICY_MODEL is None:
-        from pydantic import BaseModel, ConfigDict, Field
+        class _AutomaticInstalls(BaseModel):
+            firmware_auto_update: bool = False
+            auto_install: bool = True
+            install_delay: int = Field(0, ge=0, le=86400)
+            max_attempts: int = Field(1, ge=1, le=10)
+            retry_interval: int = Field(300, ge=300, le=604800)
 
-        class _UpdatePolicy(BaseModel):
-            model_config = ConfigDict(extra="forbid")
-            firmware_auto_update: bool = UPDATE_POLICY_DEFAULTS["firmware_auto_update"]
-            auto_install: bool = UPDATE_POLICY_DEFAULTS["auto_install"]
-            install_delay: int = Field(UPDATE_POLICY_DEFAULTS["install_delay"], ge=0, le=86400)
-            max_attempts: int = Field(UPDATE_POLICY_DEFAULTS["max_attempts"], ge=1, le=10)
-            retry_interval: int = Field(UPDATE_POLICY_DEFAULTS["retry_interval"], ge=300, le=604800)
-
-        _UPDATE_POLICY_MODEL = _UpdatePolicy
-    return _UPDATE_POLICY_MODEL(**policy).model_dump()
+        _AUTOMATIC_INSTALLS_MODEL = _AutomaticInstalls
+    _AUTOMATIC_INSTALLS_MODEL(**update)
 
 
 class PanelValidationError(ValueError):

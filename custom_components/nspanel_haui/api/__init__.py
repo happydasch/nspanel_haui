@@ -41,7 +41,6 @@ from .updates import (
     RolloutDeviceView,
     RolloutView,
     UpdateControlView,
-    UpdatePolicyView,
 )
 
 VIEWS = (
@@ -65,7 +64,6 @@ VIEWS = (
     DeviceUpdateFirmwareView,
     DeviceFirmwareReleasesView,
     DeviceUpdateCheckView,
-    UpdatePolicyView,
     UpdateControlView,
     RolloutView,
     RolloutDeviceView,

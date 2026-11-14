@@ -176,40 +176,6 @@ test('the master update toggle hides subordinate settings and preserves them', (
   assert.equal(dlg._settingsDraft.update_interval, 7200);
 });
 
-test('periodic update toggle maps disabled to zero and enables an interval', () => {
-  const dlg = updatesSidebar({ update: { update_interval: 5400 } });
-
-  eventHandler(dlg, 'update-periodic-checks', '@change')({ target: { checked: false } });
-  assert.equal(dlg._settingsDraft.update_interval, 0);
-  // With periodic checks off, the interval selector is hidden.
-  assert.equal(field(dlg, 'update-interval').value, undefined);
-  assert.equal(
-    includesTemplateContent(dlg.render(), 'Choose how often to check for a newer release.'),
-    false,
-  );
-
-  eventHandler(dlg, 'update-periodic-checks', '@change')({ target: { checked: true } });
-  assert.equal(dlg._settingsDraft.update_interval, 3600);
-  assert.equal(field(dlg, 'update-interval').value, '3600');
-
-  eventHandler(dlg, 'update-interval', '@change')({ target: { value: '21600' } });
-  assert.equal(dlg._settingsDraft.update_interval, 21600);
-  assert.equal(field(dlg, 'update-interval').value, '21600');
-  assert.equal(field(dlg, 'update-custom-interval').value, undefined);
-});
-
-test('a custom update interval can be selected and edited in seconds', () => {
-  const dlg = updatesSidebar({ update: { update_interval: 3600 } });
-
-  eventHandler(dlg, 'update-interval', '@change')({ target: { value: 'custom' } });
-  assert.equal(field(dlg, 'update-interval').value, 'custom');
-  assert.equal(field(dlg, 'update-custom-interval').value, '3600');
-
-  field(dlg, 'update-custom-interval').onInput({ target: { value: '5400' } });
-  assert.equal(dlg._settingsDraft.update_interval, 5400);
-  clearTimeout(dlg._settingsSaveTimer);
-});
-
 test('the firmware update channel selects the dev manifest and stores the channel', () => {
   const dlg = updatesSidebar({ update: { firmware_auto_update: true } });
 
@@ -217,8 +183,6 @@ test('the firmware update channel selects the dev manifest and stores the channe
   assert.equal(field(dlg, 'update-firmware-manifest-url').placeholder, DEFAULT_FIRMWARE_MANIFEST_URL);
 
   const options = segmentedHandlers(dlg);
-  assert.equal(options.length, 2, 'stable and development, in that order');
-
   options[1]();
   assert.equal(dlg._settingsDraft.firmware_update_channel, 'dev');
   // The dev channel has no fixed manifest URL to show.
@@ -229,34 +193,6 @@ test('the firmware update channel selects the dev manifest and stores the channe
   segmentedHandlers(dlg)[0]();
   assert.equal(dlg._settingsDraft.firmware_update_channel, 'stable');
   assert.equal(field(dlg, 'update-firmware-manifest-url').placeholder, DEFAULT_FIRMWARE_MANIFEST_URL);
-});
-
-test('the update settings card groups every preference under its concern', () => {
-  const sidebar = updatesSidebar({ update: { enabled: true } });
-  const rendered = sidebar.render();
-  const text = templateText(rendered);
-
-  assert.equal(includesTemplateContent(rendered, 'Release checks'), true);
-  assert.equal(includesTemplateContent(rendered, 'Every 15 minutes'), true);
-  assert.equal(includesTemplateContent(rendered, 'Every hour'), true);
-  assert.equal(includesTemplateContent(rendered, 'Custom interval…'), true);
-  assert.equal(includesTemplateContent(rendered, 'Update channel'), true);
-  assert.equal(includesTemplateContent(rendered, 'both firmware and display updates'), true);
-  const settingsGroup = findTemplateWithClass(rendered, 'haui-update-settings-group');
-  assert.ok(settingsGroup);
-  assert.equal(includesTemplateContent(settingsGroup, 'Enable updates'), true);
-  assert.equal(includesTemplateContent(settingsGroup, 'Update channel'), true);
-  assert.equal(includesTemplateContent(settingsGroup, 'Custom manifest URL'), true);
-  assert.equal(includesTemplateContent(rendered, 'Firmware'), true);
-  assert.equal(includesTemplateContent(rendered, 'Display'), true);
-  assert.ok(text.indexOf('Update channel') < text.indexOf('Release checks'));
-  assert.ok(text.indexOf('Update channel') < text.indexOf('Custom manifest URL'));
-  // The manifest URL is an override, folded away until a URL is set.
-  assert.equal(field(sidebar, 'update-firmware-manifest-url').value, '');
-  assert.equal(
-    includesTemplateContent(updatesSidebar({ update: { firmware_manifest_url: 'http://ha.local/m.json' } }).render(), 'Set'),
-    true,
-  );
 });
 
 test('a status poll keeps unsaved update settings until a save lands', () => {

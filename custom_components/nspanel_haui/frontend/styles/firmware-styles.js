@@ -61,7 +61,7 @@ export const firmwareStyles = css`  /* ── Updates sidebar ──────
     overflow-wrap: anywhere;
   }
 
-  /* Update settings: a heading, a master strip, then one group per concern. */
+  /* Update settings: a heading, a master strip, the decisions, then the folded rest. */
   .haui-firmware-settings-icon { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); color: var(--primary-color, #03a9f4); --mdc-icon-size: 20px; }
   .haui-update-header { align-items: flex-start; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
   .haui-update-header .haui-surface-heading-copy { min-width: 0; }
@@ -70,38 +70,26 @@ export const firmwareStyles = css`  /* ── Updates sidebar ──────
   .haui-update-master { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); background: var(--haui-surface-soft); }
   .haui-update-master .haui-switch { flex: 0 0 auto; margin-top: 4px; }
   .haui-update-group { display: grid; gap: 12px; padding: 12px 16px 16px; }
-  .haui-update-settings-group { gap: 0; padding: 0; }
-  .haui-update-channel { display: grid; gap: 12px; padding: 12px 16px 16px; }
   .haui-update-group + .haui-update-group { border-top: 1px solid var(--divider-color, #e0e0e0); }
-  .haui-update-group-title { justify-content: flex-start; gap: 8px; padding: 0; border-bottom: 0; color: var(--secondary-text-color); --mdc-icon-size: 14px; }
-  .haui-update-group-title h2 { font-size: var(--haui-text-caption); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
   .haui-update-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .haui-update-row-copy { min-width: 0; }
   .haui-update-row-label { display: block; font-size: var(--haui-text-body); font-weight: 500; line-height: 1.35; }
   .haui-update-row-hint { margin: 4px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.45; }
   .haui-update-row > .haui-switch { flex: 0 0 auto; margin-top: 4px; }
   .haui-update-field { display: grid; gap: 4px; }
-  .haui-update-field.haui-field,
-  .haui-update-field-control.haui-field { margin-bottom: 0; }
+  .haui-update-field.haui-field { margin-bottom: 0; }
   .haui-update-field label { font-size: var(--haui-text-body); font-weight: 500; line-height: 1.35; }
-  .haui-update-field-control { display: flex; align-items: center; gap: 8px; }
-  .haui-update-field-control.haui-field > label { margin: 0; }
-  .haui-update-field-control .haui-input { width: 96px; }
-  .haui-update-field-control span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-update-field > .haui-segmented { justify-self: start; }
-  /* The manifest URL is an override: folded away until one is set. */
-  .haui-update-advanced { padding-top: 12px; border-top: 1px dashed var(--divider-color, #e0e0e0); }
+  /* What most devices leave alone: folded away until a manifest URL is set. */
   .haui-update-advanced > summary { display: flex; align-items: center; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 500; cursor: pointer; list-style: none; }
   .haui-update-advanced > summary::-webkit-details-marker { display: none; }
   .haui-update-advanced > summary::before { content: ""; width: 0; height: 0; flex: 0 0 auto; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 5px solid currentColor; transition: transform 140ms ease; }
   .haui-update-advanced[open] > summary { color: var(--primary-text-color); }
   .haui-update-advanced[open] > summary::before { transform: rotate(90deg); }
-  .haui-update-set { font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-  .haui-update-advanced > .haui-update-field { margin-top: 8px; }
+  .haui-update-advanced-body { display: grid; gap: 12px; padding-top: 12px; }
   .haui-update-off-note { margin: 0; padding: 12px 16px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-update-retry { margin: 0; padding: 8px 16px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-update-retry.is-stopped { color: var(--error-color, #db4437); }
-  .haui-update-policy-fields { display: grid; gap: 12px; padding: 12px 16px; }
   .haui-update-scheduled { display: grid; gap: 8px; padding: 12px 16px; }
   .haui-update-scheduled p { margin: 0; font-size: var(--haui-text-body); }
   .haui-update-scheduled-actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -53,7 +53,7 @@ def _build_config_dict(
         find_store_device,
     )
     from .haui.mapping.color import BUILTIN_THEMES
-    from .haui.mapping.const import DEFAULT_CONFIG, UPDATE_POLICY_DEFAULTS, UPDATE_POLICY_FIELDS
+    from .haui.mapping.const import DEFAULT_CONFIG
     from .hub.storage import migrate_device_config_keys
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
@@ -99,12 +99,6 @@ def _build_config_dict(
             update_cfg = store_dev["config"].get("update")
             if isinstance(update_cfg, dict):
                 cfg["update"] = deep_merge(cfg["update"], update_cfg)
-
-    # A device follows the hub's automatic update policy unless it overrides it.
-    if not cfg["update"].get("policy_override"):
-        hub_policy = (panels or {}).get("update_policy") or {}
-        for field in UPDATE_POLICY_FIELDS:
-            cfg["update"][field] = hub_policy.get(field, UPDATE_POLICY_DEFAULTS[field])
 
     populate_devices_from_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
 

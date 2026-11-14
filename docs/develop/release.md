@@ -173,6 +173,16 @@ that is actually newer than the one installed. Both must be a valid PEP 440
 version with no `-` separator: for an unparseable pair it falls back to plain
 string inequality and keeps offering the installed build as an update forever.
 
+Dev tags deliberately carry no `v` prefix (`0.5.0.dev67`, not `v0.5.0.dev67`):
+`v*` tags belong to stable releases. Any `v*` tag push starts `release.yml`,
+which publishes a regular release that GitHub marks *latest*, the one every
+panel's **HAUI Firmware** entity follows by default. The workflow's own tag push
+uses `GITHUB_TOKEN` and starts no workflow, but a dev tag re-created by hand
+would. The bare tag also stays byte-identical to the manifest version, and the
+prerelease cleanup only matches `X.Y.Z.devN` tags, so it can never delete a
+stable release. The Marketplace is indifferent: AwesomeVersion ignores a
+leading `v`, so `v0.5.0` still sorts above `0.5.0.dev67`.
+
 There is no fixed dev manifest URL. The hub's **dev** update channel reads the
 GitHub release list (the same cached list its release check uses, refreshed at
 most hourly or on a manual check) and follows the `firmware-manifest.json` of the

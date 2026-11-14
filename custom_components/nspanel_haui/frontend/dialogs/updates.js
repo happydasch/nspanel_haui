@@ -147,17 +147,14 @@ function setSetting(host, key, value, debounce = false) {
 }
 
 /**
- * One update preference: what it does on the left, its switch on the right.
- * `checked` stands in for the stored value where a control maps onto it (an
- * interval of 0 reads as "periodic checks off").
+ * One update preference: what it does on the left, its switch on the right,
+ * and its hint as a field hint that floats under the row on hover or focus.
  */
 function updateRow(host, { id, key, settings, label, hint = '' }) {
-  return html`<div class="haui-update-row">
-    <div class="haui-update-row-copy">
-      <label class="haui-update-row-label" for=${id}>${label}</label>
-      ${hint ? html`<p class="haui-update-row-hint">${hint}</p>` : nothing}
-    </div>
+  return html`<div class="haui-field haui-update-field haui-update-choice">
+    <label for=${id}>${label}</label>
     ${renderToggle(id, Boolean(settingValue(settings, key)), (next) => setSetting(host, key, next))}
+    ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
   </div>`;
 }
 
@@ -513,8 +510,8 @@ class UpdatesSidebar extends HauiDialog {
   _renderDecisions(settings) {
     const automatic = Boolean(settingValue(settings, 'firmware_auto_update'));
     return html`<section class="haui-update-group">
-      <div class="haui-update-choice">
-        <span class="haui-update-row-label">${t('Update channel')}</span>
+      <div class="haui-field haui-update-field haui-update-choice">
+        <span class="haui-update-choice-label">${t('Update channel')}</span>
         ${segmented({
           label: t('Update channel'),
           options: FIRMWARE_UPDATE_CHANNELS.map((value) => ({
@@ -523,21 +520,21 @@ class UpdatesSidebar extends HauiDialog {
           value: String(settingValue(settings, 'firmware_update_channel')),
           onSelect: (value) => setSetting(this, 'firmware_update_channel', value),
         })}
-        <p class="haui-update-row-hint">${settings.firmware_manifest_url
-          ? t('The custom manifest URL under Advanced overrides the channel for firmware.')
-          : t('Stable releases, or published development builds, for firmware and display.')}</p>
+        ${settings.firmware_manifest_url
+          ? html`<div class="haui-field-hint is-persistent">${t('The custom manifest URL under Advanced overrides the channel for firmware.')}</div>`
+          : html`<div class="haui-field-hint">${t('Stable releases, or published development builds, for firmware and display.')}</div>`}
       </div>
-      <div class="haui-update-choice">
-        <span class="haui-update-row-label">${t('When a new version is found')}</span>
+      <div class="haui-field haui-update-field haui-update-choice">
+        <span class="haui-update-choice-label">${t('When a new version is found')}</span>
         ${segmented({
           label: t('When a new version is found'),
           options: [{ value: false, label: t('Manual') }, { value: true, label: t('Auto') }],
           value: automatic,
           onSelect: (value) => setSetting(this, 'firmware_auto_update', value),
         })}
-        <p class="haui-update-row-hint">${automatic
+        <div class="haui-field-hint">${automatic
           ? t('A newer firmware installs by itself; the display file it needs follows after the restart.')
-          : t('A newer firmware waits until you press Install.')}</p>
+          : t('A newer firmware waits until you press Install.')}</div>
       </div>
       ${renderField({
         id: 'update-interval',
@@ -566,7 +563,7 @@ class UpdatesSidebar extends HauiDialog {
               placeholder=${settingValue(settings, 'firmware_update_channel') === 'dev' ? '' : DEFAULT_FIRMWARE_MANIFEST_URL}
               .value=${String(settingValue(settings, 'firmware_manifest_url', ''))}
               @input=${(event) => setSetting(this, 'firmware_manifest_url', event.target.value.trim() || undefined, true)} />`,
-            extra: html`<p class="haui-update-row-hint">${t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).')}</p>`,
+            hint: t('The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).'),
           })}
           ${updateRow(this, {
             id: 'update-check-on-connect', key: 'check_on_connect', settings,
@@ -581,7 +578,7 @@ class UpdatesSidebar extends HauiDialog {
               id: 'update-install-delay', key: 'install_delay', settings, choices: INSTALL_DELAY_CHOICES,
               label: (seconds) => (seconds === 0 ? t('Start right away') : durationLabel(seconds)),
             }),
-            extra: html`<p class="haui-update-row-hint">${t('Time to install it now, put it off or skip the version in Updates.')}</p>`,
+            hint: t('Time to install it now, put it off or skip the version in Updates.'),
           }) : nothing}
           ${updateRow(this, {
             id: 'update-tft-auto', key: 'auto_install', settings,
@@ -596,7 +593,7 @@ class UpdatesSidebar extends HauiDialog {
               const attempts = parseInt(raw, 10);
               if (attempts >= 1 && attempts <= 10) setSetting(this, 'max_attempts', attempts, true);
             }, { min: 1, max: 10 }),
-            extra: html`<p class="haui-update-row-hint">${t('After this many failed automatic attempts at one version, the install waits for you or a newer version.')}</p>`,
+            hint: t('After this many failed automatic attempts at one version, the install waits for you or a newer version.'),
           })}${renderField({
             id: 'update-retry-interval',
             label: t('Wait between attempts'),

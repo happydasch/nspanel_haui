@@ -70,17 +70,19 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-header .haui-switch { flex: 0 0 auto; }
   .haui-update-group { display: grid; gap: 12px; padding: 12px 16px 16px; }
   .haui-update-group + .haui-update-group { border-top: 1px solid var(--divider-color, #e0e0e0); }
-  .haui-update-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .haui-update-row-copy { min-width: 0; }
-  .haui-update-row-label { display: block; font-size: var(--haui-text-body); font-weight: 500; line-height: 1.35; }
-  .haui-update-row-hint { margin: 4px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.45; }
-  .haui-update-row > .haui-switch { flex: 0 0 auto; margin-top: 4px; }
   .haui-update-field { display: grid; gap: 4px; }
   .haui-update-field.haui-field { margin-bottom: 0; }
-  .haui-update-field label { font-size: var(--haui-text-body); font-weight: 500; line-height: 1.35; }
-  /* A two-way choice: label and toggle share a row, the hint runs below both. */
-  .haui-update-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; }
-  .haui-update-choice > .haui-update-row-hint { grid-column: 1 / -1; margin: 0; }
+  .haui-update-field label, .haui-update-choice-label { font-size: var(--haui-text-body); font-weight: 500; line-height: 1.35; }
+  /* A choice or a switch: label and control share a row, the hint runs below both. */
+  .haui-update-choice { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; }
+  .haui-update-choice > label { margin: 0; }
+  .haui-update-choice > .haui-field-hint { grid-column: 1 / -1; margin: 0; }
+  /* Out of the grid's flow a floating hint would sit at the field's top; keep it under the field.
+     The settings card lets it hang over its bottom edge instead of clipping it. */
+  @media (hover: hover) {
+    .haui-update-field > .haui-field-hint:not(.is-persistent) { top: 100%; margin-top: 4px; }
+  }
+  .haui-surface.haui-update-settings { overflow: visible; }
   /* What most devices leave alone: folded away until a manifest URL is set. */
   .haui-update-advanced > summary { display: flex; align-items: center; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 500; cursor: pointer; list-style: none; }
   .haui-update-advanced > summary::-webkit-details-marker { display: none; }

@@ -57,12 +57,12 @@ Requires Home Assistant 2026.11 or later.
    open the sidebar editor to add panels.
    ([Configuration guide](https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html))
 
+## Editor
+
 <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor.png" alt="Editor workflow: open the Home Assistant editor, select a device, edit panels and use the live preview" width="100%">
 
 Open **NSPanel HAUI** in the Home Assistant sidebar (administrators only) to build and manage your
 interface—no YAML required. Panel design, preview and device management are all in one editor.
-
-## Editor
 
 The editor follows your Home Assistant theme. Each screen below is shown in the light and the dark theme.
 

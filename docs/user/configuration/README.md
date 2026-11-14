@@ -17,7 +17,7 @@ NSPanel HAUI is configured in an editor inside Home Assistant. You do not edit Y
 2. The dashboard lists your devices. Select a device to open it. The round back button returns to the dashboard.
 3. A device opens on its **Preview**. Switch to **Panels** to see and edit its panels.
 
-Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view uses the full width for the panel list; configure the home and idle pages in **Device Settings → Home & idle**.
+Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view lists the panels and describes the selected one in the side column; configure the home and idle pages in **Device Settings → Home & idle**.
 
 If the editor does not get past its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 

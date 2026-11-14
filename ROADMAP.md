@@ -5,67 +5,50 @@ shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
 2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, and v0.4.7 on 2026-11-11**, each
 tagged from a green `master` commit and published by the release workflow.
 
-The 0.4.x hardware acceptance and OTA risk checks are closed, and **v0.4.7
-closed the consolidation cycle**: one CI pipeline, development builds dispatched
-by hand, and the editor's data foundation — one observable store, one typed API
-client, the v0.5 architecture in [the frontend docs](docs/develop/frontend.md) and the
-visual target `design/dashboard-prototype.html`. The 0.4.5 live panel preview
-(contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
-[#86](https://github.com/happydasch/nspanel_haui/pull/86)) remains the
-production preview; v0.4.6 was the Marketplace minimum-version hotfix.
-
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
 its known risks live in [docs/develop/release.md](docs/develop/release.md); day-to-day tasks
 belong in the issue tracker.
 
-**v0.5 is the current cycle.** So far it has delivered the Fleet/Device
-dashboard, contextual panel details, device-option sidebars, a unified list of
-single- and multi-swipe gestures, device schedules with schedule-aware firmware
-dimming, and the shared theme library with a selector in both Preview and device
-settings. The editor strings are complete in English, German, French, Dutch and
-Polish. The schedule replaces Day/Night profiles and quiet hours; upgrade details
-are in the [release notes](.github/release-notes/v0.5.0.md).
-The remaining 0.5 scope is multiple TFTs for normal- and high-speed updates,
-stronger update controls, and the panel/device/accessibility polish below. See
-[CHANGELOG.md](CHANGELOG.md) for the shipped work.
-**v0.6** adds Display Repair Mode, an inspection and cleanup of the Nextion
-scripts and Home Assistant hub settings; multi-hub support remains subject to a
-needs decision.
+**v0.5.0 is next.** Its scope is complete on `dev`: the Fleet/Device dashboard,
+the shared theme library with per-panel themes, device schedules in place of the
+Day/Night profiles and quiet hours, one list of swipe gestures, starter templates
+and option checks in the panel editor, per-device update settings with delayed,
+retried and one-at-a-time installs, and Slovak, contributed in
+[#94](https://github.com/happydasch/nspanel_haui/pull/94). The
+[CHANGELOG](CHANGELOG.md) lists every change and the
+[release notes](.github/release-notes/v0.5.0.md) the upgrade steps; only the
+release gates below remain. **v0.5.x** follows with high-speed TFTs and the
+remaining device and editor polish. **v0.6** adds Display Repair Mode, an
+inspection and cleanup of the Nextion scripts and Home Assistant hub settings;
+multi-hub support remains subject to a needs decision.
 
 ---
 
-## v0.5 — Frontend cycle, multiple TFTs & update control (current focus)
+## v0.5.0 — Release gates
 
-The Fleet/Device dashboard and panel workspace described in
-[the frontend architecture](docs/develop/frontend.md) are in place: the shell,
-device inventory, device settings and panel editor with its preview. The
-remaining work below builds on that structure, one view per change, on the same
-static, no-build serving contract.
+0.5.0 updates the integration, the editor and the ESPHome firmware; the TFT files
+are unchanged. Before the `release/0.5.0` PR into `master`:
 
-### Carried over from v0.4.7
-
-- **Remove the vendored Nextion patch.** `esphome/nextion_patch/` stays pinned to
-  ESPHome 2026.10.0 because no released version contains the numeric-response
-  fix ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) or the TFT
-  upload buffer option
-  ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), and the TFT
-  upload retry fix is not upstream yet. Once a released ESPHome 2026.11 (or
-  later) contains every fix listed in `esphome/nextion_patch/README.md`, bump
-  `min_version` and `requirements-esphome.txt` together, delete the directory
-  and its `external_components` blocks, and re-validate the firmware config and
-  a compile.
-- **Verify the release-check recovery path.** The 2026-11-09 GitHub Actions
-  outage failed runs before their jobs started; the documented recovery (check
+- **Updates on real panels.** Install firmware and display updates from the
+  Updates sidebar and with **Install updates** on Fleet, and check the step
+  timings behind the progress estimate and a two-device rollout (one device at a
+  time, stop at the first failure, cancel a queued device).
+- **Release-check recovery path.** The 2026-11-09 GitHub Actions outage failed
+  runs before their jobs started; the documented recovery (check
   githubstatus.com, close and reopen the PR or push a new head commit, then
   re-run the failed workflow) has not been exercised end to end. Prove it once
-  on a dev-cycle PR before relying on it for a release
+  on a dev-cycle PR before relying on it for the release
   ([release process](docs/develop/release.md#guardrails-and-known-gaps)).
-- **Screen overview cadence.** The development build regenerates
+- **Current screen overview.** A development build regenerates
   `docs/screens.html` and `docs/assets/screens/` and commits them with its
-  version. A release that ships without a preceding dev build must run
+  version. If a panel changed after the last development build, run
   `python -m scripts.preview_gallery.gen_preview_gallery --docs` during release
-  prep so the published screen overview matches the shipped panels.
+  prep so the published overview matches the shipped panels.
+
+---
+
+## v0.5.x — After 0.5.0
 
 ### Multiple TFTs
 
@@ -92,44 +75,35 @@ the universal image; a mismatched panel recovers without user action; the
 high-speed variant is ~8–10× faster; flashed panels keep auto-updating on the
 unchanged normal-speed assets; no UART buffer overflows under the update burst.
 
-### Stable, controllable updates in the frontend
+### First render with predefined palettes
 
-The per-device Updates sidebar has a single status, grouped update settings
-with draft/save, a release channel and optional manifest override, and manual
-installs. One hub-wide update policy (with a per-device override) sets automatic
-installs, a waiting period and a retry limit; a scheduled firmware install can be
-started now, put off or skipped; Fleet installs every device one at a time on the
-hub; and a running install shows its step and an estimate. Still open: verify the
-step timings and a two-device rollout on real panels.
+Predefine the theme palettes in the TFT so the first render needs fewer color
+commands, without flashing the default palette or showing a partially themed
+page; editor cards must continue to match the device render. It needs a new TFT,
+so it can ship with the high-speed variants.
 
 ### Device operations
 
-The Fleet dashboard lists, scans, adds, enables and removes devices, and the
-Device screen carries status, diagnostics, settings and updates. Still open on
-that surface: moving (not just copying) panels across devices and keeping each
-device's version and action state correct across stale or failed updates.
+- Move (not just copy) panels across devices.
+- Keep each device's version and action state correct across stale or failed
+  updates.
 
-### Remaining editor polish
+### Accessibility
 
-The Add panel catalog has starter templates, and panel options are checked
-against their type in the editor and on the hub. Still open: the rest of the
-accessibility pass (contrast, screen-reader review of the dashboard, a keyboard
-way to reorder devices, which only drag today).
+The rest of the editor's accessibility pass: contrast, a screen-reader review of
+the dashboard, and a keyboard way to reorder devices, which only drag today.
 
-### Frontend polish & themes (current cycle)
+### Remove the vendored Nextion patch
 
-The data/API foundation landed in v0.4.7; the dashboard and scoped settings, panel
-and device-order endpoints are in place. What remains of the editor work:
-
-- **Device themes and first render** — the device-level theme selector and
-  pre-page theme painting shipped in 0.4.5, and the shared theme library in 0.5.
-  The remaining optimisation is to predefine palettes in the TFT so the first
-  render needs fewer color commands, without flashing the default palette or
-  showing a partially themed page; editor cards must continue to match the
-  device render.
-- **Panel editors** — starter templates and field-level checks of type-specific
-  options are in place, alongside default-type creation, popup extension, copying
-  an existing panel, unsaved previews, inline rename, duplicate and reorder.
+`esphome/nextion_patch/` stays pinned to ESPHome 2026.10.0 because no released
+version contains the numeric-response fix
+([esphome#17744](https://github.com/esphome/esphome/pull/17744)) or the TFT
+upload buffer option ([esphome#21435](https://github.com/esphome/esphome/pull/21435)),
+and the TFT upload retry fix is not upstream yet. Once a released ESPHome
+contains every fix listed in `esphome/nextion_patch/README.md`, bump
+`min_version` and `requirements-esphome.txt` together, delete the directory and
+its `external_components` blocks, and re-validate the firmware config and a
+compile.
 
 ---
 

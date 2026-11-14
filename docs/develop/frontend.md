@@ -370,13 +370,15 @@ separate accessibility contract.
   Element-local styles are reserved for layout specific to that element.
 - `frontend/app/router.js` parses/serializes the Fleet and Device hashes and binds history to the store.
 - Fleet: scroll-snap carousel of real home-panel covers with arrows that disable at the scroll extents, a
-  summary that waits for the first status payload, the inventory (`Firmware`/`TFT` columns), latest events,
-  and one anchored device-actions menu shared by cards and rows.
+  summary that waits for the first status payload, the inventory (`Firmware`/`TFT` columns), and a
+  scrollable latest-events timeline of dated entries from the previous 24 hours (repeated messages are
+  grouped), plus one anchored device-actions menu shared by cards and rows.
 - Device: a head with the back button to Fleet, the device name and the device rail (shown with more
   than one device; its chips collapse into a dropdown while they do not fit beside the title, measured
   by the shell with `ui/device-rail.js:railOverflows`), a workspace header with the Preview/Panels segmented control plus the Live
   and Idle controls, the panel workspace, and the
-  context side stack.
+  context side stack. At 600px or less, the segmented control shows icons only while Live and Idle
+  show text only.
 - Panel list: three groups (Navigation, Hidden, and Popups — extended popups only) with band headers, rows carrying a
   hub-rendered thumbnail, Home/Idle markers, item counts and one anchored actions menu. Hovering a
   thumbnail with the mouse, or tapping or pressing it, enlarges that same render beside it
@@ -449,9 +451,12 @@ separate accessibility contract.
   of `.haui-device-layout`; keyboard focus still follows the markup: lead card, side stack, then
   workspace), and at 560px or wider its actions sit beside its heading.
 - Side stack: a column of `surface` cards. In the Preview view: Connection & device, Diagnostics and
-  Backup (YAML import and export). Each collapses as a whole on a click anywhere on the heading outside its controls, or on its chevron
-  (the keyboard control), remembered per browser (`haui_deviceDetailsExpanded`,
-  `haui_diagnosticsExpanded`, `haui_panelCardsExpanded`). The Connection &
+  Backup (YAML import and export). Only one side-area card can be expanded at a time: opening a
+  collapsed card closes the currently expanded one; clicking the expanded card collapses it. The
+  selection is remembered per browser (`haui_deviceDetailsExpanded`, `haui_diagnosticsExpanded`,
+  `haui_panelCardsExpanded`), and older saved preferences with multiple expanded cards are normalized
+  to one on load. Each card collapses as a whole on a click anywhere on the heading outside its controls, or on its chevron
+  (the keyboard control). The Connection &
   device heading also carries the connection state as one icon (Wi-Fi strength in shape and colour
   while connected, crossed out while not; its dot shows the connection state) whose card opens on hover, focus or tap with the state, uptime or last
   seen, signal, SSID, IP, last connection and the stale note. Collapsed, the card shows its heading

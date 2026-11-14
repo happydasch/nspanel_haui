@@ -136,10 +136,17 @@ export const deviceLayoutStyles = css`
     /* The device switch already names the selected device. */
     .haui-device-head:has(.haui-device-switch) h1 { display: none; }
     .haui-device-workspace .haui-workspace-header { gap: 8px; padding: 8px 12px; }
-    /* Only the view toggle: the catalog's layout toggle is icon-only. */
-    .haui-workspace-header .haui-segmented-option > ha-icon { display: none; }
+    /* Keep the view toggle icon-only and its names available to screen readers. */
+    .haui-workspace-header .haui-segmented-option > span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .haui-workspace-header .haui-segmented-option > .haui-badge-count { display: none; }
     .haui-device-workspace .haui-preview-controls { gap: 4px; }
-    .haui-device-workspace .haui-preview-controls .haui-preview-tool { box-sizing: border-box; width: 32px; height: 32px; justify-content: center; padding: 0; }
-    .haui-device-workspace .haui-preview-controls .haui-preview-tool > span { display: none; }
+    .haui-device-workspace .haui-preview-controls .haui-preview-tool > ha-icon { display: none; }
   }
 `;

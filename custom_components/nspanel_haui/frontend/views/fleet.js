@@ -4,7 +4,7 @@ import { t } from '../localize.js';
 import { deviceCard } from '../ui/device-card.js';
 import { deviceRow } from '../ui/device-row.js';
 import { fleetBar, fleetSummary } from '../ui/fleet-summary.js';
-import { eventList, latestEvents } from '../ui/event-list.js';
+import { eventList, eventsInLast24Hours, latestEvents } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
 import { button, iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
@@ -100,7 +100,7 @@ export function renderFleetView(data) {
         }))),
     })
     : nothing;
-  const latest = latestEvents(data.events);
+  const latest = latestEvents(eventsInLast24Hours(data.events));
   const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
         <div class="haui-inventory-overview">
           ${fleetSummary({

@@ -208,6 +208,19 @@ class NSPanelEditor extends LitElement {
     this._detailsExpanded = readStorage(DETAILS_EXPANDED_KEY, '1') === '1';
     this._diagnosticsExpanded = readStorage(DIAGNOSTICS_EXPANDED_KEY, '0') === '1';
     this._panelCardsExpanded = readStorage(PANEL_CARDS_EXPANDED_KEY, '').split(',').filter(Boolean);
+    // Earlier versions allowed multiple side cards to stay expanded. Prefer Diagnostics, then
+    // Backup, then Connection & device when normalizing those saved browser preferences.
+    if (this._diagnosticsExpanded) {
+      this._detailsExpanded = false;
+      this._panelCardsExpanded = [];
+    } else if (this._panelCardsExpanded.includes('yaml')) {
+      this._detailsExpanded = false;
+      this._diagnosticsExpanded = false;
+      this._panelCardsExpanded = ['yaml'];
+    } else if (this._detailsExpanded) {
+      this._diagnosticsExpanded = false;
+      this._panelCardsExpanded = [];
+    }
     this._themeVariant = "dark";
     this._builtinThemes = {};
     this._customThemes = {};
@@ -1459,25 +1472,44 @@ class NSPanelEditor extends LitElement {
     }
   }
 
-  /** Collapse or expand the Connection & device card; remembered per browser. */
+  /** Toggle the Connection & device card, closing the other side areas when it opens. */
   _toggleDetails() {
     this._detailsExpanded = !this._detailsExpanded;
+    if (this._detailsExpanded) {
+      this._diagnosticsExpanded = false;
+      this._panelCardsExpanded = [];
+    }
     writeStorage(DETAILS_EXPANDED_KEY, this._detailsExpanded ? '1' : '0');
+    writeStorage(DIAGNOSTICS_EXPANDED_KEY, this._diagnosticsExpanded ? '1' : '0');
+    writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
   }
 
-  /** Switch the Diagnostics card between its simple and expanded state; remembered per browser. */
+  /** Toggle Diagnostics, closing the other side areas when it opens. */
   _toggleDiagnostics() {
     this._diagnosticsExpanded = !this._diagnosticsExpanded;
+    if (this._diagnosticsExpanded) {
+      this._detailsExpanded = false;
+      this._panelCardsExpanded = [];
+    }
+    writeStorage(DETAILS_EXPANDED_KEY, this._detailsExpanded ? '1' : '0');
     writeStorage(DIAGNOSTICS_EXPANDED_KEY, this._diagnosticsExpanded ? '1' : '0');
+    writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
   }
 
-  /** Collapse or expand a device side-stack card; remembered per browser. @param {string} card */
+  /** Toggle a device side-stack card, closing other side areas when it opens. @param {string} card */
   _togglePanelCard(card) {
-    const expanded = this._panelCardsExpanded;
-    this._panelCardsExpanded = expanded.includes(card)
-      ? expanded.filter((entry) => entry !== card) : [...expanded, card];
+    const expanded = this._panelCardsExpanded.includes(card);
+    this._panelCardsExpanded = expanded
+      ? this._panelCardsExpanded.filter((entry) => entry !== card)
+      : [card];
+    if (!expanded) {
+      this._detailsExpanded = false;
+      this._diagnosticsExpanded = false;
+    }
+    writeStorage(DETAILS_EXPANDED_KEY, this._detailsExpanded ? '1' : '0');
+    writeStorage(DIAGNOSTICS_EXPANDED_KEY, this._diagnosticsExpanded ? '1' : '0');
     writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
-    if (card === 'theme' && !expanded.includes(card) && this._themesError) {
+    if (card === 'theme' && !expanded && this._themesError) {
       this._loadThemeLibrary(this.entryId, true);
     }
   }

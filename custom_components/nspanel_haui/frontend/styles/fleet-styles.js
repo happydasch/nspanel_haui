@@ -161,7 +161,7 @@ export const fleetStyles = css`
   .haui-event-list > header .haui-event-logs { min-height: 30px; margin-inline-end: -8px; padding: 0 8px; border: 0; border-radius: var(--haui-radius-pill); color: var(--primary-color); background: transparent; font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500); }
   .haui-event-list > header .haui-event-logs:hover:not(:disabled) { background: color-mix(in srgb, var(--primary-color) 8%, transparent); }
   /* The events as a timeline: a rail through the level dots, so the eye follows time down. */
-  .haui-event-list ol { display: grid; margin: 0; padding: 4px 12px 8px; list-style: none; }
+  .haui-event-list ol { display: grid; max-height: 480px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px 12px 8px; list-style: none; scrollbar-width: thin; }
   .haui-event-list li { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: start; gap: 8px; padding: 8px 0; border-top: 0; }
   .haui-event-list li::before { content: ''; position: absolute; top: 0; bottom: 0; left: 9px; width: 1px; background: color-mix(in srgb, var(--primary-text-color) 12%, transparent); }
   .haui-event-list li:first-child::before { top: 18px; }

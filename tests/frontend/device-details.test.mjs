@@ -12,6 +12,48 @@ import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
 import { DEVICE_CONFIG_DEFAULTS } from '../../custom_components/nspanel_haui/frontend/constants.js';
+import '../../custom_components/nspanel_haui/frontend/app/shell.js';
+
+test('device side areas close other expanded cards when opened', () => {
+  const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
+    _detailsExpanded: true,
+    _diagnosticsExpanded: false,
+    _panelCardsExpanded: [],
+    _themesError: '',
+  });
+  const root = document.createElement('div');
+  const renderSideAreas = () => render(deviceDetails({
+    name: 'kitchen',
+    status: { connected: true, integration_version: '0.5.0', device_info: {} },
+    onLogs() {},
+    onUpdates() {},
+    detailsExpanded: editor._detailsExpanded,
+    onToggleDetails: () => editor._toggleDetails(),
+    diagnosticsExpanded: editor._diagnosticsExpanded,
+    onToggleDiagnostics: () => editor._toggleDiagnostics(),
+    yamlExpanded: editor._panelCardsExpanded.includes('yaml'),
+    onToggleYaml: () => editor._togglePanelCard('yaml'),
+    onYamlImport() {},
+    onYamlExport() {},
+  }), root);
+  const expandedAreas = () => [...root.querySelectorAll('section.haui-surface')]
+    .map((section) => section.querySelector('.haui-expand-toggle')?.getAttribute('aria-expanded') === 'true');
+
+  renderSideAreas();
+  assert.deepEqual(expandedAreas(), [true, false, false]);
+
+  root.querySelector('.haui-diagnostics-card .haui-expand-toggle').click();
+  renderSideAreas();
+  assert.deepEqual(expandedAreas(), [false, true, false]);
+
+  root.querySelector('.haui-yaml-card .haui-expand-toggle').click();
+  renderSideAreas();
+  assert.deepEqual(expandedAreas(), [false, false, true]);
+
+  root.querySelector('.haui-device-details .haui-expand-toggle').click();
+  renderSideAreas();
+  assert.deepEqual(expandedAreas(), [true, false, false]);
+});
 
 function templateText(template) {
   return `${template?.strings?.join(' ') || ''} ${template?.values?.map((value) => {

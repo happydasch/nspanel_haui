@@ -14,6 +14,10 @@ function buttons(template) {
   return [...render(template).querySelectorAll('button')];
 }
 
+function eventLine(level, message, ageMs = 0) {
+  return `[${new Date(Date.now() - ageMs).toISOString()}] ${level} ${message}`;
+}
+
 test('Fleet uses real device status and versions in the summary, inventory and events', () => {
   const view = renderFleetView({
     devices: [{
@@ -30,7 +34,7 @@ test('Fleet uses real device status and versions in the summary, inventory and e
       updates: true,
       onSelect() {},
     }],
-    events: [{ deviceName: 'Kitchen', line: '[2026-01-01T12:00:00Z] WARNING Connection recovered' }],
+    events: [{ deviceName: 'Kitchen', line: eventLine('WARNING', 'Connection recovered') }],
     version: '0.5.0',
     onOpenDevice() {},
 
@@ -102,8 +106,8 @@ test('Fleet renders inventory and latest-event content', () => {
   const view = renderFleetView({
     devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: { connected: true } }],
     events: [
-      { deviceName: 'Kitchen', line: '[2026-01-01T12:00:00Z] WARNING Slow heartbeat' },
-      { deviceName: 'Office', line: '[2026-01-01T12:01:00Z] INFO Started' },
+      { deviceName: 'Kitchen', line: eventLine('WARNING', 'Slow heartbeat') },
+      { deviceName: 'Office', line: eventLine('INFO', 'Started', 60_000) },
     ],
     version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
   });
@@ -224,7 +228,8 @@ test('an open device menu renders its actions for that device', () => {
 });
 
 test('Fleet lists the newest events of every device first', () => {
-  const line = (minute, message) => `[2026-01-01T12:${String(minute).padStart(2, '0')}:00+01:00] INFO ${message}`;
+  const start = Date.now() - 60 * 60 * 1000;
+  const line = (minute, message) => `[${new Date(start + minute * 60_000).toISOString()}] INFO ${message}`;
   const view = renderFleetView({
     devices: [{
       name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] },
@@ -241,7 +246,32 @@ test('Fleet lists the newest events of every device first', () => {
   const shown = [...text.matchAll(/hall newest|kitchen \d|no timestamp/g)].map((match) => match[0]);
   assert.deepEqual(shown, [
     'hall newest', 'kitchen 8', 'kitchen 7', 'kitchen 6', 'kitchen 5', 'kitchen 4', 'kitchen 3', 'kitchen 2',
+    'kitchen 1', 'kitchen 0',
   ]);
+});
+
+test('Fleet shows all distinct events from the last 24 hours and omits older or undated logs', () => {
+  const events = Array.from({ length: 12 }, (_, index) => ({
+    deviceName: 'Kitchen',
+    line: eventLine('INFO', `event ${index}`, index * 60_000),
+  }));
+  events.push(
+    { deviceName: 'Kitchen', line: eventLine('INFO', 'older than a day', 24 * 60 * 60 * 1000 + 1) },
+    { deviceName: 'Kitchen', line: eventLine('INFO', 'future event', -60_000) },
+    { deviceName: 'Kitchen', line: 'undated event' },
+  );
+  const root = render(renderFleetView({
+    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: { connected: true } }],
+    events, version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
+  }));
+  const list = root.querySelector('.haui-event-list ol');
+
+  assert.ok(list);
+  assert.equal(list.getAttribute('tabindex'), '0');
+  assert.equal(list.querySelectorAll(':scope > li').length, 12);
+  assert.match(root.querySelector('.haui-event-list').textContent, /Last 24 hours/);
+  assert.match(list.textContent, /event 0/);
+  assert.doesNotMatch(list.textContent, /older than a day|future event|undated event/);
 });
 
 

@@ -1,0 +1,184 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI ({count} appareil(s) détecté(s))",
+    "step": {
+      "user": {
+        "title": "Ajouter un hub NSPanel HAUI"
+      },
+      "confirm": {
+        "title": "Appareils NSPanel HAUI détectés",
+        "description": "{count} appareil(s) ESPHome exécutant le firmware HAUI trouvé(s) : {names}. Les ajouter à un nouveau hub NSPanel HAUI ?"
+      }
+    },
+    "abort": {
+      "already_configured": "Un hub portant ce nom est déjà configuré",
+      "already_in_progress": "Une configuration de hub est déjà en cours",
+      "single_instance_allowed": "Un seul hub NSPanel HAUI est pris en charge",
+      "no_devices_found": "Aucun appareil NSPanel HAUI n'a été détecté. Installez d'abord le firmware HAUI sur un appareil ESPHome."
+    }
+  },
+  "issues": {
+    "device_start_failed": {
+      "title": "Échec du démarrage de l'appareil : {device}",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Recharger le hub",
+            "description": "NSPanel HAUI n'a pas pu démarrer l'appareil {device}.\n\nL'erreur était : `{error}`.\n\nUtilisez la correction pour réessayer de démarrer l'appareil, ou consultez les journaux pour plus de détails. Recharger la configuration du hub NSPanel HAUI réessaie de démarrer l'appareil {device}."
+          }
+        },
+        "flow_title": "Réessayer de démarrer l'appareil {device}"
+      }
+    },
+    "hub_idle": {
+      "title": "Le hub NSPanel HAUI n'a aucun appareil activé",
+      "description": "Le hub {hub} n'a aucun appareil activé.\n\nActivez au moins un appareil dans l'éditeur NSPanel HAUI, ou ajoutez un nouvel appareil ESPHome exécutant le firmware HAUI. Les nouveaux appareils HAUI peuvent être ajoutés automatiquement au hub."
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Ouvrir le panneau",
+      "description": "Naviguer vers un panneau spécifique. Si le réveil est activé, l'écran s'allume d'abord.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel cible. S'il est omis, s'applique à tous les appareils."
+        },
+        "panel": {
+          "name": "Panneau",
+          "description": "Clé ou UUID du panneau vers lequel naviguer (par ex. « alarm », « grid_0 »)."
+        },
+        "wakeup": {
+          "name": "Réveiller d'abord",
+          "description": "Allumer l'écran avant d'ouvrir le panneau."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Fermer le panneau",
+      "description": "Fermer le panneau actuel et revenir au panneau précédent ou d'accueil.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel cible. S'il est omis, s'applique à tous les appareils."
+        }
+      }
+    },
+    "wakeup": {
+      "name": "Réveiller",
+      "description": "Allumer l'écran et naviguer vers le panneau de réveil ou d'accueil.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel cible. S'il est omis, s'applique à tous les appareils."
+        }
+      }
+    },
+    "idle": {
+      "name": "Veille",
+      "description": "Passer immédiatement en veille en ouvrant la page de veille configurée (idle_panel), comme si le délai de la page avait expiré.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel cible. S'il est omis, s'applique à tous les appareils."
+        }
+      }
+    },
+    "send_notification": {
+      "name": "Envoyer une notification",
+      "description": "Afficher une notification sur le panneau avec un titre, un message, une icône, une couleur d'icône et un son.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel cible. S'il est omis, s'applique à tous les appareils."
+        },
+        "title": {
+          "name": "Titre",
+          "description": "Titre de la notification affiché sur le panneau."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Texte du corps de la notification."
+        },
+        "icon": {
+          "name": "Icône",
+          "description": "Icône Material Design affichée avec la notification (par ex. « mdi:bell »)."
+        },
+        "icon_color": {
+          "name": "Couleur de l'icône",
+          "description": "Couleur de l'icône sous la forme #rrggbb, un nombre RGB565, [r, g, b] ou une chaîne d'entier. Laissez vide pour utiliser la couleur de texte du thème."
+        },
+        "sound": {
+          "name": "Son",
+          "description": "Son joué pour la notification. « none » la garde silencieuse."
+        },
+        "timeout": {
+          "name": "Délai d'expiration",
+          "description": "Secondes avant la fermeture automatique. 0 la conserve jusqu'à sa fermeture."
+        },
+        "persistent": {
+          "name": "Persistante",
+          "description": "Ouvrir immédiatement et répéter le son de la notification jusqu'à sa fermeture sur le panneau."
+        },
+        "force_show": {
+          "name": "Forcer l'affichage",
+          "description": "Ouvrir immédiatement la notification même si un autre panneau est affiché."
+        },
+        "text_size": {
+          "name": "Taille du texte",
+          "description": "Taille du texte du corps de la fenêtre contextuelle : « auto » (la plus grande police qui fait tenir tout le message sur une page) ou une taille de police 1-3."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Réinitialiser la dernière interaction",
+      "description": "Réinitialiser le minuteur de veille du panneau comme si l'utilisateur venait de le toucher.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel cible. S'il est omis, s'applique à tous les appareils."
+        },
+        "offset": {
+          "name": "Décalage",
+          "description": "Décalage en secondes appliqué au point de réinitialisation."
+        }
+      }
+    },
+    "update_tft": {
+      "name": "Mettre à jour le TFT",
+      "description": "Installer la version TFT requise par le firmware du panneau, une autre version (y compris plus ancienne), ou le fichier TFT d'une URL.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel dont l'écran doit être mis à jour."
+        },
+        "version": {
+          "name": "Version",
+          "description": "Version GitHub facultative à installer au lieu de celle requise par le firmware, par ex. une version plus ancienne. Ne peut pas être combinée avec l'URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "URL http(s) facultative d'un fichier .tft à installer au lieu de la version GitHub requise par le firmware. Ne peut pas être combinée avec la version."
+        }
+      }
+    },
+    "update_firmware": {
+      "name": "Mettre à jour le firmware",
+      "description": "Installer la mise à jour du firmware proposée par Home Assistant pour le panneau, une autre version GitHub (y compris plus ancienne), ou l'image OTA du firmware d'une URL.",
+      "fields": {
+        "device": {
+          "name": "Appareil",
+          "description": "Appareil NSPanel dont le firmware doit être installé."
+        },
+        "version": {
+          "name": "Version",
+          "description": "Version GitHub facultative à installer au lieu de la mise à jour proposée, par ex. une version plus ancienne. Ne peut pas être combinée avec l'URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "URL http(s) facultative d'une image OTA de firmware (firmware.ota.bin, pas l'image d'usine). Ne peut pas être combinée avec la version."
+        }
+      }
+    }
+  }
+}

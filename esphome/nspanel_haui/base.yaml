@@ -72,7 +72,7 @@ http_request:
 # are suspended first (see ``suspend_activities``).
 # Native OTA is encrypted with the api key (a bare ``encryption:`` inherits
 # ``api_encryption_key``) instead of a password, which costs flash and RAM.
-# Panels still on a password build: docs/esphome.md, "Encrypted native OTA".
+# Panels still on a password build: docs/develop/esphome.md, "Encrypted native OTA".
 ota:
   - platform: esphome
     encryption:
@@ -115,4 +115,4 @@ captive_portal:
 #       username: admin
 #       password: !secret web_password
 #
-# See docs/esphome.md → "Web server (optional)".
+# See docs/develop/esphome.md → "Web server (optional)".

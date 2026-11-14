@@ -8,7 +8,7 @@
  * its content inline, so the editor waits until they are defined.
  */
 
-export const HA_ELEMENTS = ['ha-dialog', 'ha-dialog-footer', 'ha-card', 'ha-alert'];
+const HA_ELEMENTS = ['ha-dialog', 'ha-dialog-footer', 'ha-card', 'ha-alert'];
 
 /** How long to wait before telling the user which elements are missing. */
 export const HA_ELEMENTS_TIMEOUT_MS = 10000;

@@ -10,13 +10,15 @@
 import { getLanguage, t } from '../localize.js';
 
 /** @typedef {import('./types.js').Hass} Hass */
-/** @typedef {import('./types.js').PanelStore} PanelStore */
+/** @typedef {import('./types.js').PanelStore} PanelStore *//** @typedef {import('./types.js').PanelConfig} PanelConfig */
+
 /** @typedef {import('./types.js').PanelTypeDescriptor} PanelTypeDescriptor */
+/** @typedef {import('./types.js').PanelTemplate} PanelTemplate */
 /** @typedef {import('./types.js').DeviceStatus} DeviceStatus */
 /** @typedef {import('./types.js').Notification} Notification */
 /** @typedef {import('./types.js').TftReleases} TftReleases */
 /** @typedef {import('./types.js').FirmwareReleases} FirmwareReleases */
-/** @typedef {import('./types.js').ColorSchemesResponse} ColorSchemesResponse */
+/** @typedef {import('./types.js').ThemesResponse} ThemesResponse */
 /** @typedef {import('./types.js').PanelRender} PanelRender */
 /** @typedef {import('./types.js').UpdateResult} UpdateResult */
 
@@ -75,7 +77,9 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
     }
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
-      throw new Error(error.message || failMessage);
+      // A refused panel save names the fields that break a rule; the editor marks them.
+      throw Object.assign(new Error(error.message || failMessage),
+        Array.isArray(error.errors) ? { errors: error.errors } : {});
     }
     return response;
   }
@@ -134,24 +138,73 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
       /**
        * @param {string} entryId
-       * @param {PanelStore} store
+       * @param {string} name
+       * @param {PanelConfig[]} panels
        * @returns {Promise<Object>}
        */
-      async save(entryId, store) {
+      async saveDevice(entryId, name, panels) {
         requireEntry(entryId);
         return request(
-          `/api/nspanel_haui/panels/${entryId}`,
+          `/api/nspanel_haui/panels/${entryId}/${encodeURIComponent(name)}`,
           {
-            method: 'POST',
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(store),
+            body: JSON.stringify({ panels }),
           },
-          t('Save failed'),
+          t('Failed to save panels'),
         );
       },
     },
 
     devices: {
+      /**
+       * @param {string} entryId
+       * @param {string} name
+       */
+      settings(entryId, name) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/devices/${entryId}/${encodeURIComponent(name)}`,
+          undefined,
+          t('Failed to load device settings'),
+        );
+      },
+
+      /**
+       * @param {string} entryId
+       * @param {string} name
+       * @param {Object} config
+       */
+      saveSettings(entryId, name, config) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/devices/${entryId}/${encodeURIComponent(name)}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ config }),
+          },
+          t('Failed to save device settings'),
+        );
+      },
+
+      /**
+       * @param {string} entryId
+       * @param {string[]} deviceOrder
+       */
+      reorder(entryId, deviceOrder) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/device_order/${entryId}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_order: deviceOrder }),
+          },
+          t('Failed to save the device order'),
+        );
+      },
+
       /** @param {string} entryId */
       scan(entryId) {
         requireEntry(entryId);
@@ -206,23 +259,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
             body: JSON.stringify({ device }),
           },
           t('Failed to refresh display'),
-        );
-      },
-
-      /**
-       * @param {string} entryId
-       * @param {string} device
-       */
-      resetInteraction(entryId, device) {
-        requireEntry(entryId);
-        return request(
-          `/api/nspanel_haui/reset_interaction/${entryId}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device }),
-          },
-          t('Failed to reset interaction timer'),
         );
       },
     },
@@ -300,6 +336,68 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
     },
 
     updates: {
+      /**
+       * The hub's update rollout (idle when none ran since Home Assistant started).
+       * @param {string} entryId
+       * @returns {Promise<Record<string, any>>}
+       */
+      async rollout(entryId) {
+        requireEntry(entryId);
+        const result = await request(`/api/nspanel_haui/rollout/${entryId}`, undefined, t('Fetch failed'));
+        return result.rollout;
+      },
+
+      /**
+       * Install the offered updates one device at a time on the hub.
+       * @param {string} entryId
+       * @returns {Promise<Record<string, any>>} the rollout
+       */
+      async startRollout(entryId) {
+        requireEntry(entryId);
+        const result = await request(
+          `/api/nspanel_haui/rollout/${entryId}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
+          t('Failed to start the update rollout'),
+        );
+        return result.rollout;
+      },
+
+      /**
+       * Cancel one queued device of the rollout, or every queued device.
+       * @param {string} entryId
+       * @param {string} [device]
+       * @returns {Promise<Record<string, any>>} the rollout
+       */
+      async cancelRollout(entryId, device) {
+        requireEntry(entryId);
+        const path = device ? `${entryId}/${encodeURIComponent(device)}` : entryId;
+        const result = await request(
+          `/api/nspanel_haui/rollout/${path}`,
+          { method: 'DELETE' },
+          t('Failed to cancel the update rollout'),
+        );
+        return result.rollout;
+      },
+
+      /**
+       * Start, defer or skip a device's scheduled automatic firmware install.
+       * @param {string} entryId
+       * @param {string} device
+       * @param {'install_now'|'defer'|'skip'} action
+       * @param {number} [seconds] - for defer: 3600 or 86400
+       */
+      control(entryId, device, action, seconds) {
+        requireEntry(entryId);
+        /** @type {Record<string, unknown>} */
+        const body = { device, action };
+        if (seconds !== undefined) body.seconds = seconds;
+        return request(
+          `/api/nspanel_haui/update_control/${entryId}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+          t('Failed to change the scheduled update'),
+        );
+      },
+
       /**
        * @param {string} entryId
        * @param {string} device
@@ -415,18 +513,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
           t('Failed to check for updates'),
         );
       },
-
-      /**
-       * The prebuilt firmware download of the latest stable release.
-       * @returns {Promise<{ url: string|null, version: string|null }>}
-       */
-      firmwareDownload() {
-        return request(
-          '/api/nspanel_haui/firmware',
-          { method: 'GET' },
-          t('Failed to load the firmware link'),
-        );
-      },
     },
 
     editor: {
@@ -454,6 +540,19 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
         );
       },
 
+      /**
+       * The starter templates of the Add panel catalog.
+       * @param {string} lang
+       * @returns {Promise<PanelTemplate[]>}
+       */
+      panelTemplates(lang) {
+        return request(
+          `/api/nspanel_haui/panel_templates?language=${encodeURIComponent(lang)}`,
+          undefined,
+          t('Failed to load panel templates'),
+        );
+      },
+
       /** @returns {Promise<Object<string, number>>} */
       colorDefaults() {
         return request(
@@ -465,31 +564,31 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
       /**
        * @param {string} entryId
-       * @returns {Promise<ColorSchemesResponse>}
+       * @returns {Promise<ThemesResponse>}
        */
-      colorSchemes(entryId) {
+      themes(entryId) {
         requireEntry(entryId);
         return request(
-          `/api/nspanel_haui/color_schemes/${entryId}`,
+          `/api/nspanel_haui/themes/${entryId}`,
           undefined,
-          t('Unable to load color schemes.'),
+          t('Unable to load themes.'),
         );
       },
 
       /**
        * @param {string} entryId
-       * @param {{ version: number, schemes: Object<string, import('./types.js').ColorScheme> }} body
+       * @param {{ version: number, themes: Object<string, import('./types.js').Theme> }} body
        */
-      saveColorSchemes(entryId, body) {
+      saveThemes(entryId, body) {
         requireEntry(entryId);
         return request(
-          `/api/nspanel_haui/color_schemes/${entryId}`,
+          `/api/nspanel_haui/themes/${entryId}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           },
-          t('Unable to save color schemes. Check for duplicate names or schemes in use.'),
+          t('Unable to save themes. Check for duplicate names or themes in use.'),
         );
       },
 
@@ -511,7 +610,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       /**
        * @param {string} entryId
        * @param {string} device
-       * @param {{ panel: Object } | { key: string }} target
+       * @param {({ panel: Object } | { key: string }) & { kwargs?: Object }} target
        * @returns {Promise<PanelRender>}
        */
       render(entryId, device, target) {

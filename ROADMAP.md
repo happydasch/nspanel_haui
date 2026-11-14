@@ -5,101 +5,50 @@ shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
 2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, and v0.4.7 on 2026-11-11**, each
 tagged from a green `master` commit and published by the release workflow.
 
-The 0.4.x hardware acceptance and OTA risk checks are closed, and **v0.4.7
-closed the consolidation cycle**: one CI pipeline, development builds dispatched
-by hand, and the editor's data foundation — one observable store, one typed API
-client, the v0.5 architecture in [the frontend docs](docs/frontend.md) and the
-visual target `design/dashboard-prototype.html`. The 0.4.5 live panel preview
-(contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
-[#86](https://github.com/happydasch/nspanel_haui/pull/86)) remains the
-production preview; v0.4.6 was the Marketplace minimum-version hotfix.
-
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
-its known risks live in [docs/release.md](docs/release.md); day-to-day tasks
+its known risks live in [docs/develop/release.md](docs/develop/release.md); day-to-day tasks
 belong in the issue tracker.
 
-**v0.5 is the current cycle**, starting with the frontend phases in
-[the frontend architecture](docs/frontend.md) and carrying the three pillars —
-the Device Manager and Device Info merge, multiple TFTs for normal- and
-high-speed updates, and stable, controllable updates — together with unified
-profiles, default gestures in the editor, language and regional formats in one
-place, the general editor rework, a notifications center and device settings.
-**v0.6** adds Display Repair Mode, an inspection and cleanup of the Nextion
-scripts and Home Assistant hub settings; multi-hub support remains subject to a
-needs decision.
+**v0.5.0 is next.** Its scope is complete on `dev`: the Fleet/Device dashboard,
+the shared theme library with per-panel themes, device schedules in place of the
+Day/Night profiles and quiet hours, one list of swipe gestures, starter templates
+and option checks in the panel editor, per-device update settings with delayed,
+retried and one-at-a-time installs, and Slovak, contributed in
+[#94](https://github.com/happydasch/nspanel_haui/pull/94). The
+[CHANGELOG](CHANGELOG.md) lists every change and the
+[release notes](.github/release-notes/v0.5.0.md) the upgrade steps; only the
+release gates below remain. **v0.5.x** follows with high-speed TFTs and the
+remaining device and editor polish. **v0.6** adds Display Repair Mode, an
+inspection and cleanup of the Nextion scripts and Home Assistant hub settings;
+multi-hub support remains subject to a needs decision.
 
 ---
 
-## v0.5 — Frontend cycle, multiple TFTs & update control (current focus)
+## v0.5.0 — Release gates
 
-The frontend work follows the phases in
-[the frontend architecture](docs/frontend.md): the shell (device carousel, fleet
-summary, device inventory, recent activity), then the panel workspace and panel
-editor split view, device settings, the notification center, and finally
-responsive and accessibility polish. The pillar work below ships alongside those
-phases, one view per change, on the same static, no-build serving contract.
+0.5.0 updates the integration, the editor and the ESPHome firmware; the TFT files
+are unchanged. Before the `release/0.5.0` PR into `master`:
 
-### Carried over from v0.4.7
-
-- **Remove the vendored Nextion patch.** `esphome/nextion_patch/` stays pinned to
-  ESPHome 2026.10.0 because no released version contains the numeric-response
-  fix ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) or the TFT
-  upload buffer option
-  ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), and the TFT
-  upload retry fix is not upstream yet. Once a released ESPHome 2026.11 (or
-  later) contains every fix listed in `esphome/nextion_patch/README.md`, bump
-  `min_version` and `requirements-esphome.txt` together, delete the directory
-  and its `external_components` blocks, and re-validate the firmware config and
-  a compile.
-- **Verify the release-check recovery path.** The 2026-11-09 GitHub Actions
-  outage failed runs before their jobs started; the documented recovery (check
+- **Updates on real panels.** Install firmware and display updates from the
+  Updates sidebar and with **Install updates** on Fleet, and check the step
+  timings behind the progress estimate and a two-device rollout (one device at a
+  time, stop at the first failure, cancel a queued device).
+- **Release-check recovery path.** The 2026-11-09 GitHub Actions outage failed
+  runs before their jobs started; the documented recovery (check
   githubstatus.com, close and reopen the PR or push a new head commit, then
   re-run the failed workflow) has not been exercised end to end. Prove it once
-  on a dev-cycle PR before relying on it for a release
-  ([release process](docs/release.md#guardrails-and-known-gaps)).
-- **Screen overview cadence.** The development build regenerates
+  on a dev-cycle PR before relying on it for the release
+  ([release process](docs/develop/release.md#guardrails-and-known-gaps)).
+- **Current screen overview.** A development build regenerates
   `docs/screens.html` and `docs/assets/screens/` and commits them with its
-  version. A release that ships without a preceding dev build must run
+  version. If a panel changed after the last development build, run
   `python -m scripts.preview_gallery.gen_preview_gallery --docs` during release
-  prep so the published screen overview matches the shipped panels.
+  prep so the published overview matches the shipped panels.
 
-**Device Manager and Device Info merge.** Collapse the two device surfaces into
-one: the Device Manager owns the device list, selection, connection and version
-status, WiFi/IP/RSSI, update state and the per-device actions, with Device
-Settings opening from the same place. Remove the separate Device Info dialog and
-the duplicated status/version rendering; polling stays scoped to the selected
-device and behaviour is otherwise unchanged.
+---
 
-**Unified profiles (Day/Night and quiet hours).** Merge the separate Day/Night
-Profiles and Quiet Hours settings into one general **Profiles** area: create any
-number of named profiles, each holding the settings a profile owns today
-(brightness, dim/page/display-off timeouts, idle page, do-not-disturb and sound
-behaviour), and give each one a schedule that activates it — a fixed local clock
-window or sunrise/sunset with offsets. Day, Night and quiet hours become
-predefined profiles under the same model, with saved settings migrated onto
-them. One profile is active at a time, applied on startup, reconnect, settings
-save and schedule boundaries; the live auto-dimming and auto-display-off
-switches stay independent.
-
-**Default gestures in the editor.** Make the built-in single-swipe actions first
-class and visible instead of hardcoded: left/right step through the navigation
-panels, up opens About and down opens Settings, and the Gestures section shows
-these defaults per device with each swipe overridable (open a panel, run an
-action or disable it). `gesture_sequences` stay as the multi-swipe shortcuts on
-top; an unset override falls back to the built-in binding and saving applies
-without a restart.
-
-**Language and regional formats in one place.** Fold the separate Time & Date
-section into the Language section, so one area holds the display language and
-its regional overrides — time and date formats plus the locale-aware date
-pattern — together with the other language-driven settings. Behaviour is
-unchanged: an empty override keeps the language's locale-based layout.
-
-**Acceptance:** one device dialog with no duplicated status rendering; one
-Profiles area whose named, scheduled profiles cover Day/Night and quiet hours
-without losing saved settings; the default swipe actions shown and overridable in
-the editor; the language and regional format settings in one section.
+## v0.5.x — After 0.5.0
 
 ### Multiple TFTs
 
@@ -126,91 +75,42 @@ the universal image; a mismatched panel recovers without user action; the
 high-speed variant is ~8–10× faster; flashed panels keep auto-updating on the
 unchanged normal-speed assets; no UART buffer overflows under the update burst.
 
-### Stable, controllable updates in the frontend
+### First render with predefined palettes
 
-- **Automatic updates** work per device and in one global policy for TFT and
-  firmware, and expose a visible retry policy that stops after failure.
-- **Control** — explicit per-device and bulk update actions, clear progress and
-  status, and a way to defer or cancel an update.
-- **Status surface** — one place in the editor showing firmware and TFT versions
-  plus update state per device.
+Predefine the theme palettes in the TFT so the first render needs fewer color
+commands, without flashing the default palette or showing a partially themed
+page; editor cards must continue to match the device render. It needs a new TFT,
+so it can ship with the high-speed variants.
 
-### Device Manager removal
+### Device operations
 
-The Device Manager and Device Info merge lands in this cycle, giving one
-per-device surface. v0.5 builds the remaining operations on it: bulk firmware/TFT
-updates, moving panels across devices (reordering works today), and per-device
-version and action state that stays correct across stale or failed updates. Device
-Manager will be reimplemented and not be a Dialog.
+- Move (not just copy) panels across devices.
+- Keep each device's version and action state correct across stale or failed
+  updates.
 
-### Remaining editor polish
+### Accessibility
 
-Folded into the general frontend rework below, after the update work: panel-list
-improvements (drag-reorder, inline rename, duplicate — reorder works through the
-row menu today), edit-panel sidebar cleanup, a "create from template" flow, inline
-form validation feedback, keyboard-navigable modals, and an accessibility pass
-(labels, ARIA, contrast). The preview renderers were unified in 0.4.5: every card
-is the hub's own render.
+The rest of the editor's accessibility pass: contrast, a screen-reader review of
+the dashboard, and a keyboard way to reorder devices, which only drag today.
 
-### Component cleanup & colour overrides
+### Remove the vendored Nextion patch
 
-`color_overrides` reach only the colours the hub sends as commands: a widget the
-hub never colours keeps the HMI's compiled palette value on the device. Since
-0.4.5 the editor's panel cards replay the hub's own render, so they show exactly
-that — recolouring layout colours in the browser would show a panel the device
-never draws. The HMI audit and the pre-page theme painting shipped in 0.4.5; one
-fix remains:
-
-- Replace the simulator frame's hardcoded `#000` card background
-  (`.pg-sim` in `frontend/previews/simulator-frame.js`) with the device theme.
-
-### Frontend rework, notifications & device settings (current cycle)
-
-The data/API foundation landed in v0.4.7 and the Device Manager merge is part of
-this cycle. Each phase ships on its own.
-
-- **General frontend rework** — the panel and device requirements are known now,
-  so rebuild the editor as one coherent app instead of layering patches on the
-  original screen set: a shell over one observable store and view modules,
-  dialogs and forms on the vendored Lit components, a responsive layout with
-  keyboard-navigable modals, and an editor/preview split view. This supersedes
-  the incremental patchwork the editor-polish items above describe, which land
-  here instead. The static, unauthenticated, no-build-step serving contract
-  stays — that is how `web/editor.py` serves `frontend/` — so the rework is
-  structural, not a framework or bundler swap.
-- **Notifications** — add grouping and priority ordering to the controller plus a
-  read-only queue/history API and a Notification Center in the editor. The
-  service, `notify.*` and ESPHome entry points keep working, and the "never
-  auto-dismiss" and critical force-show rules stay unchanged.
-- **Device settings** — expose the existing per-device settings (speed,
-  orientation, brightness, idle behaviour, notification defaults, update policy)
-  through scoped read/update endpoints and a settings tab, stored per device and
-  defaulted on load. The Device Manager section above gains that tab; its bulk
-  actions and per-device state stay as planned there.
-- **Device color schemes and first render** — the device-level scheme selector
-  and pre-page theme painting shipped in 0.4.5. The remaining optimisation is to
-  predefine palettes in the TFT so the first render needs fewer color commands,
-  without flashing the default palette or showing a partially themed page;
-  editor cards must continue to match the device render.
-- **Panel editors** — split-view preview built on the hub's card render
-  (`nspanel_haui/virtual_panel/render`, which already draws unsaved edits),
-  "create from template", inline rename/duplicate/reorder and field-level
-  validation, replacing the generic toast with per-field feedback.
-
-**Phasing:** the data/API foundation shipped in v0.4.7 with no UI change. The
-visible work starts with the shell — device carousel, fleet summary, device
-inventory and recent activity, absorbing the Device Manager and Device Info
-merge — then the panel workspace and panel editor split view, then device
-settings (profiles, gestures and the language/regional merge land there), then
-the notification center, then responsive and accessibility polish. Each phase
-ships on its own at behaviour parity with the current editor.
+`esphome/nextion_patch/` stays pinned to ESPHome 2026.10.0 because no released
+version contains the numeric-response fix
+([esphome#17744](https://github.com/esphome/esphome/pull/17744)) or the TFT
+upload buffer option ([esphome#21435](https://github.com/esphome/esphome/pull/21435)),
+and the TFT upload retry fix is not upstream yet. Once a released ESPHome
+contains every fix listed in `esphome/nextion_patch/README.md`, bump
+`min_version` and `requirements-esphome.txt` together, delete the directory and
+its `external_components` blocks, and re-validate the firmware config and a
+compile.
 
 ---
 
 ## Release tooling
 
 Open items from the release-process review (runbook and known risks in
-[docs/release.md](docs/release.md)):
+[docs/develop/release.md](docs/develop/release.md)):
 
 - Scripted HMI patching for release-only edits — `tftVersion` scripting landed
   with the version-bump tooling (0.4.x); Send Component ID and other in-place
@@ -233,7 +133,7 @@ a fresh normal TFT install — no Nextion Editor session required.
   normal TFT is corrupt.
 - A **Repair display** action in the editor that installs the repair TFT and then
   reinstalls the normal TFT for the device's model and speed — reachable from the
-  Device Manager even in a failed update state.
+  device's **Updates** sidebar even in a failed update state.
 - A documented recovery entry point (serial/OTA, boot handshake) and a verified
   return path to the normal TFT on real hardware.
 
@@ -258,7 +158,7 @@ do and clean up what it does today.
   preparation that removes first-render commands.
 - **Cleanup** — remove dead or duplicated scripts and automations that the hub or
   firmware already drives, align landscape and portrait, and keep the "logic in
-  the Hub App" rule from [Nextion Editor](docs/nextion-editor.md#hard-rules) except
+  the Hub App" rule from [Nextion Editor](docs/develop/nextion-editor.md#hard-rules) except
   where the inventory shows a reason to move it.
 
 **Acceptance:** a documented inventory of every HMI script on both display models,
@@ -309,6 +209,11 @@ behaving unchanged on hardware after the cleanup.
 - **Byte-level TFT update progress** — needs firmware-side events.
 - **Full update-pipeline integration test** — unit and endpoint tests exist; the
   end-to-end test is still open.
+- **Notification history** — keep past notifications, with a read-only API and a
+  view in the editor; nothing exists in code yet. Moved out of 0.5.
+- **Notification grouping and priority ordering** — mainly backend work in the
+  notification controller. Moved out of 0.5; the read/dismiss queue API and the
+  editor's queue center already shipped.
 
 ---
 

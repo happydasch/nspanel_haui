@@ -2,7 +2,7 @@
  * NSPanel HAUI - Shared color utility functions.
  *
  * Canonical implementation of color conversion between hex, RGB565, and CSS formats.
- * Extracted from form-fields.js, dialogs/colors.js, and previews/utils.js to eliminate
+ * Extracted from form-fields.js, dialogs/theme.js, and previews/utils.js to eliminate
  * three near-duplicate implementations of the same conversion logic.
  */
 

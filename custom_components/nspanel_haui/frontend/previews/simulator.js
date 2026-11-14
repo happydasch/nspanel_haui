@@ -5,7 +5,7 @@
  * Panel-specific preview generation lives in `previewer.js`.
  */
 import { html } from '../lit-import.js';
-import { renderDisplay } from '../virtual/nextion-view.js';
+import { color, renderDisplay } from '../virtual/nextion-view.js';
 
 export { loadIconMap, loadLayout, pictureUrlFor } from '../virtual/assets.js';
 
@@ -17,15 +17,18 @@ export function noopScheduler() {
 /** Render a simulated display scaled to the card dimensions. */
 export function renderSimulatorScreen(display, opts = {}) {
   if (!display || !display.page) {
-    return html`<div class="pg-sim pg-sim-empty"></div>`;
+    return html`<div class="haui-preview-sim haui-preview-sim-empty"></div>`;
   }
   const layout = display.layout;
   const width = layout.visible_width;
   const height = layout.height;
   const scale = opts.scale != null && opts.scale > 0 ? opts.scale : 1;
+  // The card behind the scaled screen takes the page's own solid colour (the
+  // device theme the hub painted), so no black edge shows around a themed page.
+  const page = display.component(0)?.attrs;
   return html`
-    <div class="pg-sim" style="width:${width * scale}px;aspect-ratio:${width}/${height};">
-      <div class="pg-sim-scaler" style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0;">
+    <div class="haui-preview-sim" style="--vp-preview-width:${width * scale}px;--vp-preview-aspect-ratio:${width}/${height};${page?.sta === 1 && page.bco !== undefined ? `--vp-preview-background:${color(page.bco)};` : ''}">
+      <div class="haui-preview-sim-scaler" style="--vp-preview-source-width:${width}px;--vp-preview-source-height:${height}px;--vp-preview-scale:${scale};">
         ${renderDisplay(display, opts)}
       </div>
     </div>`;

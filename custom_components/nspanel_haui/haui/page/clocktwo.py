@@ -242,6 +242,7 @@ class ClockTwoPage(HAUIPage):
         page_id=8,
         label=_("Clock Two"),
         description=_("Word-clock display in multiple languages."),
+        category="backgrounds",
         options=[
             background_option(),
             PageOption(
@@ -281,21 +282,21 @@ class ClockTwoPage(HAUIPage):
                 key="off_color",
                 kind="color",
                 label=_("Off-letter color"),
-                description=_("Leave empty to use the color scheme."),
+                description=_("Leave empty to use the selected theme."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="letter_color",
                 kind="color",
                 label=_("Active letter color"),
-                description=_("Leave empty to use the color scheme."),
+                description=_("Leave empty to use the selected theme."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="special_color",
                 kind="color",
                 label=_("Special letter color"),
-                description=_("Leave empty to use the color scheme."),
+                description=_("Leave empty to use the selected theme."),
                 section=_("Colors"),
             ),
             PageOption(
@@ -332,21 +333,21 @@ class ClockTwoPage(HAUIPage):
     def read_options(self, panel: HAUIPanel) -> None:
         """Read the word clock's options; each panel shown on the page reads them anew."""
         set_background_mode(self, panel)
-        self._off_color = panel.get("off_color", None)
+        self._off_color = self.option(panel, "off_color")
         if self._off_color in (None, ""):
             self._off_color = self.get_color("component_background")
-        self._letter_color = panel.get("letter_color", None)
+        self._letter_color = self.option(panel, "letter_color")
         if self._letter_color in (None, ""):
             self._letter_color = self.get_color("component_text")
         if self._light_background and self._letter_color == 65535:
             self._letter_color = self.get_color("component_text")
-        self._special_color = panel.get("special_color", None)
+        self._special_color = self.option(panel, "special_color")
         if self._special_color in (None, ""):
             self._special_color = self.get_color("component_accent")
-        self._clock_language = panel.get("clock_language", "en")
-        self._show_ampm = panel.get("show_ampm", False)
-        self._show_intro_text = panel.get("show_intro_text", True)
-        self._show_intro_text_full_hour = panel.get("show_intro_text_full_hour", False)
+        self._clock_language = self.option(panel, "clock_language")
+        self._show_ampm = self.option(panel, "show_ampm")
+        self._show_intro_text = self.option(panel, "show_intro_text")
+        self._show_intro_text_full_hour = self.option(panel, "show_intro_text_full_hour")
 
     def start_panel(self, panel: HAUIPanel) -> None:
         self.read_options(panel)
@@ -354,7 +355,7 @@ class ClockTwoPage(HAUIPage):
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # notification
-        self._show_notifications = panel.get("show_notifications", True)
+        self._show_notifications = self.option(panel, "show_notifications")
         self.set_function_component(
             self.COMPONENTS.t_notif,
             self.COMPONENTS.t_notif.name,

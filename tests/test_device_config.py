@@ -7,19 +7,15 @@ from typing import Any
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# The device_config module has no HA dependencies, so we can import it
-# directly.  Tests use the repository-root custom_components package so the
-# package is available as ``nspanel_haui``.
-# ---------------------------------------------------------------------------
-from custom_components.nspanel_haui.haui.device_config import (  # noqa: E402
+from custom_components.nspanel_haui.haui.config_models import validate_device_config
+from custom_components.nspanel_haui.haui.device_config import (
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
-    LOCALE_OPTIONS,
     apply_panel_store,
     find_store_device,
     merge_store_fields,
     populate_devices_from_store,
+    tft_filename_for_model,
     validate_config,
 )
 
@@ -28,69 +24,68 @@ from custom_components.nspanel_haui.haui.device_config import (  # noqa: E402
 # ============================================================================
 
 
-def test_device_config_has_all_required_keys() -> None:
-    """Every key needed at runtime is present in DEVICE_CONFIG."""
-    required = {
-        "name",
-        "panels",
-        "esphome_device_id",
-        "enabled",
-        "locale",
-        "button_left_entity",
-        "button_right_entity",
-        "home_panel",
-        "idle_panel",
-        "show_home_button",
-        "show_idle_button",
-        "show_notifications_button",
-        "page_settle_delay",
-        "log_level",
-        "reset_interaction_on_button",
-        "snapshot_max_age_seconds",
-        "auto_navigate_home_timeout",
-        "use_relay_left",
-        "use_relay_right",
-        "use_auto_dimming",
-        "use_auto_page",
-        "use_auto_display_off",
-        "timeout_dimming",
-        "timeout_page",
-        "timeout_display_off",
-        "day_night_schedule_mode",
-        "day_night_start",
-        "day_night_end",
-        "day_night_sunset_offset",
-        "day_night_sunrise_offset",
-        "day_night_profiles_initialized",
-        "day_brightness_full",
-        "day_brightness_dimmed",
-        "day_duration_dim",
-        "night_timeout_dimming",
-        "night_duration_dim",
-        "night_use_auto_page",
-        "night_timeout_page",
-        "night_idle_panel",
-        "night_timeout_display_off",
-        "night_brightness_full",
-        "night_brightness_dimmed",
-        "sound_on_startup",
-        "color_scheme",
-        "color_scheme_id",
-        "color_overrides",
-        "sound_on_notification",
-        "persistent_sound_interval",
-        "use_do_not_disturb",
-        "quiet_hours_start",
-        "quiet_hours_end",
-        "display_model",
-        "gesture_sequences",
-        "stale_data_seconds",
-        "time_format",
-        "date_format",
-        "date_format_locale",
-        "idle_panel_extra",
-    }
-    assert set(DEVICE_CONFIG.keys()) == required
+def test_gestures_default_to_the_built_in_navigation() -> None:
+    """Out of the box a swipe steps through the panels, or opens About or Settings."""
+    assert DEVICE_CONFIG["gestures"] == [
+        {"swipes": ["swipe_left"], "action": "next_panel", "timeframe": 3},
+        {"swipes": ["swipe_right"], "action": "prev_panel", "timeframe": 3},
+        {"swipes": ["swipe_up"], "action": "sys_about", "timeframe": 3},
+        {"swipes": ["swipe_down"], "action": "sys_settings", "timeframe": 3},
+    ]
+    model = validate_device_config({})
+    assert [gesture.model_dump() for gesture in model.gestures] == DEVICE_CONFIG["gestures"]
+
+
+def test_gestures_accept_an_unfinished_entry() -> None:
+    """A draft with an entry just added, before its swipes and action are chosen, saves.
+
+    An entry without swipes or without an action does nothing; it must not
+    block the save of the device settings (the whole config is pushed at once).
+    """
+    model = validate_device_config(
+        {
+            **_device_config_base(),
+            "gestures": [
+                {"swipes": ["swipe_left", "swipe_right"], "action": "", "timeframe": 3},
+                {"swipes": [], "action": "lights", "timeframe": 3},
+            ],
+        }
+    )
+
+    assert [entry.action for entry in model.gestures] == ["", "lights"]
+
+
+def test_gestures_reject_unknown_swipes_and_fields() -> None:
+    """A misspelled swipe or field is refused instead of silently never matching."""
+    with pytest.raises(ValueError, match="swipe_diagonal"):
+        validate_device_config(
+            {
+                **_device_config_base(),
+                "gestures": [{"swipes": ["swipe_diagonal"], "action": "lights", "timeframe": 3}],
+            }
+        )
+    with pytest.raises(ValueError, match="open"):
+        validate_device_config(
+            {
+                **_device_config_base(),
+                "gestures": [
+                    {"swipes": ["swipe_up"], "action": "", "timeframe": 3, "open": "lights"}
+                ],
+            }
+        )
+
+
+def test_a_gesture_time_limit_is_one_to_sixty_seconds() -> None:
+    for timeframe in (0, 61):
+        with pytest.raises(ValueError, match="timeframe"):
+            validate_device_config(
+                {
+                    **_device_config_base(),
+                    "gestures": [
+                        {"swipes": ["swipe_up"], "action": "lights", "timeframe": timeframe}
+                    ],
+                }
+            )
 
 
 def test_device_config_fields_match_template() -> None:
@@ -108,17 +103,22 @@ def test_device_config_fields_excludes_identity() -> None:
 
 
 # ============================================================================
-# LOCALE_OPTIONS
+# display models
 # ============================================================================
 
 
-def test_locale_options_format() -> None:
-    """Each entry is a (code, label) tuple."""
-    assert len(LOCALE_OPTIONS) >= 4
-    for code, label in LOCALE_OPTIONS:
-        assert isinstance(code, str)
-        assert isinstance(label, str)
-        assert "_" in code  # e.g. "en_US"
+@pytest.mark.parametrize(
+    ("display_model", "filename"),
+    [
+        ("eu", "nspanel_haui.tft"),
+        ("us", "nspanel_haui_portrait.tft"),
+        (None, "nspanel_haui.tft"),
+        ("bogus", "nspanel_haui.tft"),
+    ],
+)
+def test_each_display_model_names_its_tft(display_model: str | None, filename: str) -> None:
+    """An unknown or missing model keeps updating with the landscape TFT."""
+    assert tft_filename_for_model(display_model) == filename
 
 
 # ============================================================================
@@ -313,14 +313,8 @@ def test_device_config_model_rejects_out_of_range_timeouts() -> None:
         ("timeout_dimming", 36001),
         ("timeout_page", -1),
         ("timeout_display_off", 9999),
-        ("night_timeout_dimming", 3601),
-        ("night_timeout_page", -1),
-        ("night_timeout_display_off", 3601),
-        ("night_brightness_full", 101),
-        ("night_brightness_dimmed", -1),
-        ("day_night_sunset_offset", 721),
-        ("day_night_sunrise_offset", -721),
-        ("day_night_schedule_mode", "lunar"),
+        ("brightness", 101),
+        ("brightness", -1),
         ("auto_navigate_home_timeout", -5),
         ("stale_data_seconds", -1),
         ("snapshot_max_age_seconds", -2),
@@ -350,18 +344,99 @@ def test_device_config_model_accepts_valid_timer_values() -> None:
     assert model.auto_navigate_home_timeout == 86400
 
 
-def test_device_config_model_rejects_dimmed_brightness_above_full() -> None:
+_SCHEDULE_ENTRY = {
+    "start": "22:00",
+    "end": "sunrise",
+    "sound": False,
+    "brightness": 20,
+    "display_off": True,
+    "timeout_display_off": 30,
+}
+
+
+def test_device_config_model_accepts_a_schedule() -> None:
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    model = validate_device_config(
+        {**_device_config_base(), "brightness": 80, "schedule": [_SCHEDULE_ENTRY]}
+    )
+
+    # The runtime config is this dump: its entries keep the stored keys.
+    assert model.model_dump(exclude_unset=True)["schedule"] == [_SCHEDULE_ENTRY]
+
+
+def test_device_config_model_accepts_sun_offsets() -> None:
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    entry = {**_SCHEDULE_ENTRY, "start": "sunrise", "start_offset": -60, "end_offset": 60}
+    model = validate_device_config({**_device_config_base(), "brightness": 80, "schedule": [entry]})
+
+    # The same sun event is a window when its two offsets differ.
+    assert model.model_dump(exclude_unset=True)["schedule"] == [entry]
+
+
+def test_device_config_model_accepts_the_dimming_settings_of_an_entry() -> None:
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    entry = {
+        **_SCHEDULE_ENTRY,
+        "brightness_dim": 5,
+        "timeout_dimming": 5,
+        "duration_dimming": 1.5,
+    }
+    model = validate_device_config({**_device_config_base(), "brightness": 80, "schedule": [entry]})
+
+    assert model.model_dump(exclude_unset=True)["schedule"] == [entry]
+
+
+def test_device_config_model_accepts_an_entry_that_inherits_every_value() -> None:
+    """An entry may leave the numeric settings out: the device settings apply."""
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    entry = {"start": "22:00", "end": "07:00", "sound": True, "display_off": True}
+    model = validate_device_config({**_device_config_base(), "brightness": 80, "schedule": [entry]})
+
+    assert model.model_dump(exclude_unset=True)["schedule"] == [entry]
+
+
+def test_device_config_model_rejects_invalid_schedule_entries() -> None:
     import pytest
 
     from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
-    base = _device_config_base()
-    for full_key, dimmed_key in (
-        ("day_brightness_full", "day_brightness_dimmed"),
-        ("night_brightness_full", "night_brightness_dimmed"),
+    base = {**_device_config_base(), "brightness": 80}
+    for bad in (
+        {"start": "25:00"},
+        {"end": "noon"},
+        {"start": "sunrise", "end": "sunrise"},
+        {"start": "sunrise", "start_offset": 30, "end": "sunrise", "end_offset": 30},
+        {"start_offset": 721},
+        {"end_offset": -721},
+        {"start": "07:00", "end": "07:00"},
+        {"brightness": 101},
+        {"brightness_dim": 101},
+        {"timeout_dimming": 3601},
+        {"timeout_display_off": 3601},
+        {"duration_dimming": 6},
+        {"sound": None},
+        {"night_idle_panel": "clock"},
     ):
         with pytest.raises(Exception):  # noqa: B017
-            validate_device_config({**base, full_key: 20, dimmed_key: 21})
+            validate_device_config({**base, "schedule": [{**_SCHEDULE_ENTRY, **bad}]})
+    incomplete = {k: v for k, v in _SCHEDULE_ENTRY.items() if k != "display_off"}
+    with pytest.raises(Exception):  # noqa: B017
+        validate_device_config({**base, "schedule": [incomplete]})
+
+
+def test_device_config_model_requires_brightness_for_a_schedule() -> None:
+    import pytest
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    with pytest.raises(Exception, match="brightness"):
+        validate_device_config(
+            {**_device_config_base(), "brightness": None, "schedule": [_SCHEDULE_ENTRY]}
+        )
 
 
 def test_device_config_model_accepts_valid_log_levels() -> None:

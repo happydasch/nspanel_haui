@@ -1,24 +1,7 @@
 /**
- * NSPanel HAUI - device polling and connection state helpers.
- *
- * The status pollers live in the store; these wrappers keep the shared helpers
- * and the existing call sites working.
- *
- * Device Info dialog and Logs dialog are separate custom elements:
- *   - nspanel-dialog-device-info  (in dialogs/device-info.js)
- *   - nspanel-dialog-logs         (in dialogs/logs.js)
+ * NSPanel HAUI - device version and Wi-Fi signal helpers.
  */
 import { t } from './localize.js';
-
-/* ── status polling ──────────────────────────────────────────────────────── */
-
-export function startStatusPolling(host, options = {}) {
-  host.store.actions.startSelectedStatusPolling(options);
-}
-
-export function stopStatusPolling(host) {
-  host.store.actions.stopSelectedStatusPolling();
-}
 
 /**
  * Whether PEP 440 version ``a`` is older than ``b``.
@@ -103,13 +86,8 @@ function rssiLevel(rssi) {
 }
 
 export function rssiStrengthClass(rssi) {
-  const classes = ["wifi-unknown", "wifi-weak", "wifi-fair", "wifi-good", "wifi-excellent"];
+  const classes = ["haui-wifi-unknown", "haui-wifi-weak", "haui-wifi-fair", "haui-wifi-good", "haui-wifi-excellent"];
   return classes[rssiLevel(rssi)];
-}
-
-export function rssiIcon(rssi) {
-  const level = rssiLevel(rssi);
-  return level ? `mdi:wifi-strength-${level}` : "mdi:wifi";
 }
 
 export function rssiBarCount(rssi) {
@@ -119,33 +97,4 @@ export function rssiBarCount(rssi) {
 export function fmtRssi(rssi) {
   const value = rssiValue(rssi);
   return value == null ? t('Unknown') : `${value} dBm`;
-}
-
-/* ── connection state helpers ──────────────────────────────────────────── */
-
-/**
- * Map (connected, connState) to a CSS dot class for the connection indicator.
- * @param {boolean|undefined} connected
- * @param {string} [connState="unknown"]
- * @returns {string} CSS class name
- */
-export function getConnectionStateClass(connected, connState) {
-  if (connected === true) return "dot-connected";
-  if (connState === "handshaking") return "dot-handshaking";
-  if (connState === "disconnected") return "dot-disconnected";
-  return "dot-unknown";
-}
-
-/**
- * Map (connected, connState) to a human-readable label.
- * @param {function} t - translation function
- * @param {boolean|undefined} connected
- * @param {string} [connState="unknown"]
- * @returns {string} translated label
- */
-export function getConnectionStateLabel(t, connected, connState) {
-  if (connected === true) return t('Connected');
-  if (connState === "handshaking") return t('Handshaking\u2026');
-  if (connState === "disconnected") return t('Disconnected');
-  return t('Unknown');
 }

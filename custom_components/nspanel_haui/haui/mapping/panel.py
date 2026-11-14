@@ -24,7 +24,7 @@ from ..page.vacuum import VacuumPage
 from ..page.weather import WeatherPage
 from ..utils.text import get_translation
 from .const import HUB_DRIVEN_PANELS
-from .descriptor import PageDescriptor, PageOption
+from .descriptor import PANEL_CATEGORIES, PageDescriptor, PageOption, page_category
 
 # ── Page class registry ──────────────────────────────────────────────────
 
@@ -219,6 +219,9 @@ def _serialize_option(o: PageOption, language: str) -> dict:
         "section": get_translation(o.section, language) if o.section else None,
         "max_items": o.max_items,
         "allow_template": o.allow_template,
+        "required": o.required,
+        "min": o.min,
+        "max": o.max,
         "choices": [
             {"value": k, "label": get_translation(lbl, language)} for k, lbl in (o.choices or [])
         ],
@@ -229,17 +232,25 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
     """Return serialized descriptors for user-visible (non-system, non-popup) panel types.
 
     When ``language`` is provided, string fields (label, description, option labels,
-    etc.) are translated before being returned.
+    etc.) are translated before being returned. Each entry carries the
+    ``category`` it is listed under in the editor's *Add panel* catalog, and the
+    list is ordered by category (``PANEL_CATEGORIES`` order), then label.
     """
     result: list[dict] = []
     for type_key, (_, cls) in PANEL_MAPPING.items():
         d = getattr(cls, "DESCRIPTOR", None)
         if d is not None and type_key == d.type_key and not d.is_system:
+            category = page_category(d.category)
             result.append(
                 {
                     "type_key": d.type_key,
                     "label": get_translation(d.label, language),
                     "description": get_translation(d.description, language),
+                    "category": {
+                        "key": category.key,
+                        "label": get_translation(category.label, language),
+                        "icon": category.icon,
+                    },
                     "icon": d.icon,
                     "has_header": d.has_header,
                     "can_show_popup": d.can_show_popup,
@@ -249,7 +260,8 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
                     "options": [_serialize_option(o, language) for o in d.options],
                 }
             )
-    return sorted(result, key=lambda x: x["label"])
+    order = {c.key: index for index, c in enumerate(PANEL_CATEGORIES)}
+    return sorted(result, key=lambda x: (order[x["category"]["key"]], x["label"]))
 
 
 def get_system_panel_entries(language: str = "en") -> list[dict]:

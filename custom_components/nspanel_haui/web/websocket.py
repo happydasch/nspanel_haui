@@ -16,6 +16,8 @@ has commands of its own (``preview/live_panel.py``).
 - ``nspanel_haui/virtual_panel/home`` starts the sandbox over for an opening
   preview or one switching back from Live: it drops the simulated states,
   leaves the idle page, restarts the inactivity clock and opens the home panel.
+- ``nspanel_haui/virtual_panel/open`` opens one of the device's panels by key,
+  as its idle page when ``idle`` is set (the editor's Current page tile).
 - ``nspanel_haui/virtual_panel/idle`` toggles the idle page: it opens it, or
   wakes back to the panel it covered (or home) when it already shows.
 - ``nspanel_haui/virtual_panel/reset_sandbox`` drops simulated entity states.
@@ -292,6 +294,28 @@ async def ws_home(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "nspanel_haui/virtual_panel/open",
+        vol.Required("session_id"): str,
+        vol.Required("key"): str,
+        vol.Optional("idle", default=False): bool,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_open(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
+    host = _get_host(hass, connection, msg)
+    if host is None:
+        return
+    try:
+        await host.async_show_panel(msg["key"], idle=msg["idle"])
+    except ValueError as exc:
+        connection.send_error(msg["id"], "invalid_panel", str(exc))
+        return
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "nspanel_haui/virtual_panel/idle",
         vol.Required("session_id"): str,
     }
@@ -361,6 +385,7 @@ def async_register_websocket_commands(hass: Any) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_event)
     websocket_api.async_register_command(hass, ws_home)
+    websocket_api.async_register_command(hass, ws_open)
     websocket_api.async_register_command(hass, ws_idle)
     websocket_api.async_register_command(hass, ws_reset_sandbox)
     websocket_api.async_register_command(hass, ws_render)

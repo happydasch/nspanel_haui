@@ -5,113 +5,33 @@ display commands and service calls, so assertions are on what reaches the
 display and Home Assistant.
 """
 
-import pytest
+from support.page_app import Entity, PageApp
 
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, Theme
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
-
-
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
-    def __init__(self):
-        self.cmds = []
-
-    def send_cmd(self, command, value):
-        self.cmds.extend(value if isinstance(value, list) else [value])
-
-    def has_notifications(self):
-        return False
-
-
-class _Device:
-    is_portrait = False
-
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "alarm"]
-
-
-class _App:
-    def __init__(self, entities):
-        self.entities = entities
-        self.color_theme = ColorTheme({})
-        controller = _Controller()
-        self.controller = {"esphome": controller, "notification": controller}
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
-    def listen_state(self, cb, entity_id, attribute=None):
-        return f"{entity_id}:{attribute}"
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
-
+from custom_components.nspanel_haui.haui.page.unlock import UnlockPage
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
 ENTITY_ID = "alarm_control_panel.home"
 ARM_HOME_AND_AWAY = 1 | 2
 
 
 def test_alarm_state_icon_uses_light_fixed_palette():
-    app = _App({})
-    app.color_theme = ColorTheme({}, "light")
+    app = PageApp({})
+    app.theme = Theme("light")
     page = AlarmPage(app, {"page_id": 17})
 
     assert page._alarm_color("armed_home") == ALARM_COLORS_LIGHT["armed"]
 
 
 def _alarm():
-    return _Entity("disarmed", {"friendly_name": "Home", "supported_features": ARM_HOME_AND_AWAY})
+    return Entity("disarmed", {"friendly_name": "Home", "supported_features": ARM_HOME_AND_AWAY})
 
 
 def _show(panel_cfg, kwargs=None):
     entity = _alarm()
-    app = _App({ENTITY_ID: entity})
+    app = PageApp({ENTITY_ID: entity})
     panel = HAUIPanel(app, {"type": "alarm", **panel_cfg})
     if kwargs is not None:
         panel.apply_kwargs(kwargs)
@@ -165,8 +85,8 @@ ARM_HOME_AWAY_NIGHT = 1 | 2 | 4
 
 
 def _show_with(panel_cfg, state="disarmed", features=ARM_HOME_AWAY_NIGHT):
-    entity = _Entity(state, {"friendly_name": "Home", "supported_features": features})
-    app = _App({ENTITY_ID: entity})
+    entity = Entity(state, {"friendly_name": "Home", "supported_features": features})
+    app = PageApp({ENTITY_ID: entity})
     panel = HAUIPanel(app, {"type": "alarm", "item": {"item": ENTITY_ID}, **panel_cfg})
     page = AlarmPage(app, {"page_id": 17})
     page.set_panel(panel)
@@ -202,6 +122,31 @@ def test_action_icon_is_left_out_when_the_label_does_not_fit():
     assert 'b2Fnc.txt="Désarmer"' in app.cmds
 
 
+_KEYPAD = [c.name for c in AlarmPage.COMPONENTS.values() if c.name.startswith("bKey")]
+
+
+def test_keypad_takes_the_theme_colors_and_its_default_font():
+    app, _page, _entity = _show_with({})
+    theme = Theme()
+
+    assert len(_KEYPAD) == 12
+    for name in _KEYPAD:
+        assert f"{name}.font=2" in app.cmds
+        assert f"{name}.bco={theme.get('background')}" in app.cmds
+        assert f"{name}.pco={theme.get('component_text')}" in app.cmds
+
+
+def test_keypad_options_set_its_font_and_colors():
+    app, _page, _entity = _show_with(
+        {"keypad_font": 5, "keypad_bg_color": "#ff0000", "keypad_text_color": 12345}
+    )
+
+    for name in _KEYPAD:
+        assert f"{name}.font=5" in app.cmds
+        assert f"{name}.bco={parse_color_value('#ff0000')}" in app.cmds
+        assert f"{name}.pco=12345" in app.cmds
+
+
 def test_disarm_button_colors_apply_only_to_disarm():
     app, page, _entity = _show_with(
         {"disarm_button_color": 65535, "disarm_button_back_color": 3334}, state="armed_away"
@@ -218,3 +163,51 @@ def test_arm_button_colors_keep_theme_when_unset():
     assert [c for c in app.cmds if c.startswith("b1Fnc.")] == [
         c for c in themed_app.cmds if c.startswith("b1Fnc.")
     ]
+
+
+class _Navigation:
+    page = None
+    panel = None
+    closed = 0
+
+    def close_panel(self):
+        self.closed += 1
+
+
+def test_unlock_popup_keypad_enters_the_code_without_an_alarm_item():
+    """The unlock popup has no alarm entity; its keypad must still take the code."""
+    app = PageApp({})
+    navigation = app.controller["navigation"] = _Navigation()
+    locked = HAUIPanel(app, {"type": "grid", "key": "locked", "unlock_code": "12"})
+    locked.set_state("locked", True)
+    panel = HAUIPanel(app, {"type": "popup_unlock", "key": "popup_unlock"})
+    panel.apply_kwargs({"unlock_panel": locked})
+    page = UnlockPage(app, {"page_id": 17})
+    page.set_panel(panel)
+
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_1)
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_2)
+    page.callback_unlock(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    assert locked.get_state("locked") is False
+    assert navigation.closed == 1
+
+
+def test_the_unlock_popup_opens_without_the_code_of_the_last_unlock():
+    app = PageApp({})
+    app.controller["navigation"] = _Navigation()
+    locked = HAUIPanel(app, {"type": "grid", "key": "locked", "unlock_code": "12"})
+    panel = HAUIPanel(app, {"type": "popup_unlock", "key": "popup_unlock"})
+    panel.apply_kwargs({"unlock_panel": locked})
+    page = UnlockPage(app, {"page_id": 17})
+    page.set_panel(panel)
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_1)
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_2)
+    page.callback_unlock(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    locked.set_state("locked", True)
+    page.set_panel(panel)
+    page.callback_unlock(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    assert locked.get_state("locked") is True
+    assert app.controller["navigation"].closed == 1

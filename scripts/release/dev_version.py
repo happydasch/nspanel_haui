@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive and write the dependency-free development firmware version."""
+"""Derive and write the development firmware and display TFT versions."""
 
 from __future__ import annotations
 
@@ -9,16 +9,17 @@ import re
 import sys
 from pathlib import Path
 
+from scripts.bump_tft_version import shipped_tft_version
+
 _STABLE_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-_DEV_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?")
-_PUBLISHED_DEV_RE = re.compile(r"\d+\.\d+\.\d+\.dev\d+")
+_DEV_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)\.dev\d+")
 
 
 def version_kind(version: str) -> str | None:
     """Classify a supported release version as stable, dev, or invalid."""
-    if re.fullmatch(r"\d+\.\d+\.\d+", version):
+    if _STABLE_RE.fullmatch(version):
         return "stable"
-    if re.fullmatch(r"\d+\.\d+\.\d+\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?", version):
+    if _DEV_RE.fullmatch(version):
         return "dev"
     return None
 
@@ -44,13 +45,13 @@ def derive_dev_version(current_version: str, run_number: str | int) -> str:
         )
 
     version = f"{base}.dev{run_number}"
-    if not _PUBLISHED_DEV_RE.fullmatch(version):
+    if not _DEV_RE.fullmatch(version):
         raise ValueError(f"{version!r} is not a publishable PEP 440 development version")
     return version
 
 
-def write_dev_version(root: Path, run_number: str | int, sha: str, env_file: Path) -> str:
-    """Update the integration/firmware version files and GitHub env outputs."""
+def write_dev_version(root: Path, run_number: str | int, env_file: Path) -> str:
+    """Update the integration/firmware version files and the GitHub env."""
     manifest_file = root / "custom_components/nspanel_haui/manifest.json"
     version_file = root / "esphome/nspanel_haui/version.yaml"
     manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
@@ -78,8 +79,29 @@ def write_dev_version(root: Path, run_number: str | int, sha: str, env_file: Pat
     manifest_file.write_text(manifest_source, encoding="utf-8")
     with env_file.open("a", encoding="utf-8") as env:
         env.write(f"DEV_VERSION={version}\n")
-        env.write(f"DEV_SHA={sha[:7]}\n")
     return version
+
+
+def write_tft_version(root: Path, version: str, env_file: Path) -> None:
+    """Write the display TFT version the build ships to version.yaml and the env.
+
+    A dev release ships the committed TFTs under the ``system.tftVersion`` both
+    HMIs carry (``shipped_tft_version`` also checks each TFT embeds it), and the
+    firmware requires exactly that TFT (``tft_version``, compiled in as
+    ``tft_required_version``), so a dev panel installs it once its display
+    reports an older one.
+    """
+    version_file = root / "esphome/nspanel_haui/version.yaml"
+    source, count = re.subn(
+        r"(?m)^(  tft_version: )'[^']+'$",
+        rf"\g<1>'{version}'",
+        version_file.read_text(encoding="utf-8"),
+    )
+    if count != 1:
+        raise ValueError(f"Expected one tft_version in {version_file}, found {count}")
+    version_file.write_text(source, encoding="utf-8")
+    with env_file.open("a", encoding="utf-8") as env:
+        env.write(f"TFT_VERSION={version}\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -91,11 +113,16 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(__file__).resolve().parents[2]
     try:
         env_file = Path(os.environ["GITHUB_ENV"])
-        version = write_dev_version(root, args[0], os.environ["GITHUB_SHA"], env_file)
+        sha = os.environ["GITHUB_SHA"]
+        version = write_dev_version(root, args[0], env_file)
+        tft_version = shipped_tft_version()
+        write_tft_version(root, tft_version, env_file)
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+            output.write(f"version={version}\nsha={sha[:7]}\n")
     except (KeyError, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print(f"Building {version} from {os.environ['GITHUB_SHA']}")
+    print(f"Building {version} from {sha}, shipping display TFT {tft_version}")
     return 0
 
 

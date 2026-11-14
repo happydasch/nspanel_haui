@@ -33,6 +33,15 @@ class ESPEvent(StrEnum):
 # Touch gestures the display reports (the values of ``ESPEvent.GESTURE``).
 GESTURES: tuple[str, ...] = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
 
+
+class GestureAction(StrEnum):
+    """Values of a gesture's ``action`` that are not a panel key."""
+
+    NONE = ""
+    NEXT_PANEL = "next_panel"
+    PREV_PANEL = "prev_panel"
+
+
 # The firmware's automatic display switches, which the device settings own:
 # the key a popup suspends one by (``HAUIPage._save_auto_state``) and the
 # ESPHome entity name of the switch.  Automatic page switching has no firmware
@@ -220,6 +229,7 @@ ALL_CMD: frozenset[str] = frozenset(
 PANEL_CONFIG: dict[str, Any] = {
     "type": None,  # panel type
     "title": "",  # user-facing display name
+    "theme_id": "",  # empty follows the device theme
     "show_in_navigation": True,  # whether this panel appears in navigation
     # long press anywhere goes back (pages without header buttons, see
     # HAUIPage._check_long_press_back)
@@ -231,6 +241,7 @@ PANEL_CONFIG: dict[str, Any] = {
 }
 
 # default config
+
 DEFAULT_CONFIG: dict[str, Any] = {
     # common settings
     "time_format": "%H:%M",
@@ -273,6 +284,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # newest dev prerelease); an explicit URL always wins.
         "firmware_update_channel": FirmwareUpdateChannel.STABLE,
         "firmware_manifest_url": FIRMWARE_MANIFEST_URL,
+        # Seconds an automatic firmware install waits, scheduled, before it
+        # starts; the editor can install it now, defer it or skip its version.
+        "install_delay": 600,
+        # Failed automatic attempts per version before the automatic install
+        # stops, and the seconds between two attempts.
+        "max_attempts": 3,
+        "retry_interval": 3600,
+        # Firmware version the user skipped: never installed automatically.
+        "skipped_firmware_version": "",
     },
     # gesture related settings
     "gesture": {},

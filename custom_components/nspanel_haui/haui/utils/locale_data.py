@@ -13,6 +13,14 @@ Replaces babel.dates.format_date with hardcoded CLDR-based data.
 #   {YEAR}  = full year (4-digit)
 
 LOCALE_PATTERNS = {
+    "sk_SK": {
+        "full": "{DOW} {DAY}. {MON} {YEAR}",
+        "long": "{DAY}. {MON} {YEAR}",
+        "medium": "{DAY}. {MONA} {YEAR}",
+        "short": "{DAY}. {MONA} {YEAR}",
+        "E": "{DOWA}",
+        "EEEE": "{DOW}",
+    },
     "en_US": {
         "full": "{DOW}, {MON} {DAY}, {YEAR}",
         "long": "{MON} {DAY}, {YEAR}",
@@ -58,6 +66,10 @@ LOCALE_PATTERNS = {
 # Day names indexed by Python weekday (0=Monday, 6=Sunday)
 # Each entry: (full_names_list, abbreviated_names_list)
 DAY_NAMES = {
+    "sk_SK": (
+        ["pondelok", "utorok", "streda", "štvrtok", "piatok", "sobota", "nedeľa"],
+        ["po", "ut", "st", "št", "pi", "so", "ne"],
+    ),
     "en_US": (
         ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -84,6 +96,24 @@ DAY_NAMES = {
 # Each entry: (full_names_list, abbreviated_names_list)
 # Polish full months use genitive case (used in date format context like "15 stycznia 2025")
 MONTH_NAMES = {
+    "sk_SK": (
+        # Genitive forms for dates, e.g. "12. novembra 2026".
+        [
+            "januára",
+            "februára",
+            "marca",
+            "apríla",
+            "mája",
+            "júna",
+            "júla",
+            "augusta",
+            "septembra",
+            "októbra",
+            "novembra",
+            "decembra",
+        ],
+        ["jan", "feb", "mar", "apr", "máj", "jún", "júl", "aug", "sep", "okt", "nov", "dec"],
+    ),
     "en_US": (
         [
             "January",

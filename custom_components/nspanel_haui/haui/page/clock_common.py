@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ..mapping.background import BACKGROUNDS, background_color_scheme
+from ..mapping.background import BACKGROUNDS, background_variant
 from ..mapping.descriptor import PageOption, _
 
 LIGHT_BACKGROUND_TEXT_COLOR = 10565  # RGB565 #282828
@@ -35,7 +35,7 @@ def background_option() -> PageOption:
         default="dark",
         allow_template=True,
         label=_("Background"),
-        description=_("Choose a background image, or use the selected color scheme."),
+        description=_("Choose a background image, or use the selected theme."),
         choices=BACKGROUND_CHOICES.copy(),
         section=_("Appearance"),
     )
@@ -43,28 +43,28 @@ def background_option() -> PageOption:
 
 def light_background_selected(page: Any, panel: HAUIPanel) -> bool:
     """Whether a static page background uses the light contrast palette."""
-    background = page.render_template(panel.get("background", "dark"), False)
-    return background != "scheme" and background_color_scheme(background) == "light"
+    background = page.render_template(page.option(panel, "background"), False)
+    return background != "scheme" and background_variant(background) == "light"
 
 
 def set_background_mode(page: Any, panel: HAUIPanel) -> None:
-    """Resolve whether this page uses its selected scheme or a static background palette."""
-    background = page.render_template(panel.get("background", "dark"), False)
-    page._use_color_scheme = background == "scheme"
+    """Resolve whether this page uses its selected theme or a static background palette."""
+    background = page.render_template(page.option(panel, "background"), False)
+    page._use_theme_background = background == "scheme"
     page._background_variant = (
-        page.app.color_theme.background_variant()
-        if page._use_color_scheme
-        else background_color_scheme(background)
+        panel.theme.background_variant()
+        if page._use_theme_background
+        else background_variant(background)
     )
     page._light_background = page._background_variant == "light"
 
 
 def readable_background_text_color(
-    key: str, light: bool, scheme_color: int = LIGHT_BACKGROUND_TEXT_COLOR
+    key: str, light: bool, theme_color: int = LIGHT_BACKGROUND_TEXT_COLOR
 ) -> int | None:
-    """Return the selected scheme's readable text color for a light background."""
+    """Return the selected theme's readable text color for a light background."""
     if light and key in {"header_text", "component_text", "text"}:
-        return scheme_color
+        return theme_color
     return None
 
 
@@ -73,7 +73,7 @@ def readable_foreground_color(
     light: bool,
     text_color: int = LIGHT_BACKGROUND_TEXT_COLOR,
 ) -> int:
-    """Replace pure white foregrounds on a light background with the scheme text role."""
+    """Replace pure white foregrounds on a light background with the theme text role."""
     if light and color == 65535:
         return text_color
     return color
@@ -85,11 +85,11 @@ if TYPE_CHECKING:
 
 def background_commands(page: Any, panel: HAUIPanel) -> list[str]:
     """Set the system picture id first, before the target page's Preinitialize reads it."""
-    background = page.render_template(panel.get("background", "dark"), False)
+    background = page.render_template(page.option(panel, "background"), False)
     if background == "scheme":
         # Picture 0 is the HMI's layout-helper grid, not a blank background.
         # The TFT's solid dark/light fills are picture IDs 1 and 2.
-        picture_id = page.app.color_theme.background_picture_id()
+        picture_id = panel.theme.background_picture_id()
     elif background in BACKGROUNDS:
         picture_id = BACKGROUNDS[background]
     else:

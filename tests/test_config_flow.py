@@ -1,4 +1,4 @@
-"""Tests for NSPanel HAUI config flow helpers and options-to-config conversion."""
+"""Tests for the config flow, ESPHome device discovery and the per-device config build."""
 
 from __future__ import annotations
 
@@ -9,6 +9,8 @@ import sys
 import types
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Stub out homeassistant before importing config_flow so tests run without HA.
@@ -173,14 +175,14 @@ def _patch_device_registry(entries: list):
 
 
 # ---------------------------------------------------------------------------
-# _build_config_dict  -  three-layer model (data, options, panels)
+# _build_config_dict  -  identity from the entry, settings and panels from the store
 # ---------------------------------------------------------------------------
 
 
-class TestOptionsToConfigDict:
-    """Tests for _build_config_dict with the simplified three-layer model.
+class TestBuildConfigDict:
+    """Tests for _build_config_dict.
 
-    Panels come from the third ``panels`` argument (PanelStorage), not options.
+    Settings and panels come from the second ``panels`` argument (PanelStorage).
     """
 
     def test_name_always_set_from_argument(self):
@@ -188,8 +190,8 @@ class TestOptionsToConfigDict:
         result = _build_config_dict({"name": "living_room"})
         assert result["device"]["name"] == "living_room"
 
-    def test_panels_from_third_argument(self):
-        """Panels come from the ``panels`` (3rd) argument, not options."""
+    def test_panels_come_from_the_store(self):
+        """Panels come from the ``panels`` argument, the panel store."""
         panels = {
             "devices": {
                 "test": {
@@ -507,27 +509,22 @@ class TestResolveHaDeviceId:
 
 
 # ---------------------------------------------------------------------------
-# Tests for MQTT discovery & ESPHome matching (config flow v3)
+# ESPHome device discovery
 # ---------------------------------------------------------------------------
 
 
-class TestNormalizeDeviceName:
-    """Tests for _normalize_device_name."""
-
-    def test_lowercases(self):
-        assert _normalize_device_name("Panel-Living") == "panel living"
-
-    def test_replaces_underscores(self):
-        assert _normalize_device_name("panel_living_room") == "panel living room"
-
-    def test_replaces_hyphens(self):
-        assert _normalize_device_name("panel-living-room") == "panel living room"
-
-    def test_strips_whitespace(self):
-        assert _normalize_device_name("  panel living  ") == "panel living"
-
-    def test_mixed_chars(self):
-        assert _normalize_device_name("Panel_Living-Room") == "panel living room"
+@pytest.mark.parametrize(
+    ("name", "normalized"),
+    [
+        ("Panel-Living", "panel living"),
+        ("panel_living_room", "panel living room"),
+        ("panel-living-room", "panel living room"),
+        ("  panel living  ", "panel living"),
+        ("Panel_Living-Room", "panel living room"),
+    ],
+)
+def test_device_names_are_compared_lowercase_with_spaces(name, normalized):
+    assert _normalize_device_name(name) == normalized
 
 
 class TestDiscoverEspHomeDevices:
@@ -651,9 +648,15 @@ class TestDiscoverEspHomeDevices:
         hass.config_entries.async_entries = MagicMock(return_value=[entry1])
         hass.services.async_services = MagicMock(return_value={"esphome": {}})
 
-        with _patch_device_registry(entries=[dev_entry]):
+        # Discovery looks once more after 5 s; the test does not wait for it.
+        retry_delay = AsyncMock()
+        with (
+            _patch_device_registry(entries=[dev_entry]),
+            patch("custom_components.nspanel_haui.hub.esphome_helpers.asyncio.sleep", retry_delay),
+        ):
             result = asyncio.run(discover_esphome_devices(hass))
         assert result == []
+        retry_delay.assert_awaited_once_with(5)
 
 
 class TestConfigFlowUserStep:

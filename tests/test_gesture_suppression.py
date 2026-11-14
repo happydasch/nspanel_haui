@@ -7,7 +7,8 @@ value, not be swallowed by gesture navigation.
 The touch poller turns a slider drag into a ``swipe_*`` gesture.  Slider
 components are marked as "drag" controls so their release defers the value
 read briefly (flushed on TOUCH_END or a fallback timer, whichever first)
-and the spurious swipe gesture is suppressed (no panel navigation).
+and the spurious swipe gesture is suppressed (no panel navigation; the
+gesture controller's side is in ``test_gesture.py``).
 """
 
 import time
@@ -19,8 +20,7 @@ from custom_components.nspanel_haui.haui.abstract.mixins.touch_input_mixin impor
     TouchInputMixin,
     _PendingReadRequest,
 )
-from custom_components.nspanel_haui.haui.device import HAUIDevice
-from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse, SysPanelKey
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
 
 # --- marking sliders as drag components -----------------------------------
 
@@ -38,86 +38,6 @@ def test_mark_drag_component_direct():
     host.mark_drag_component(volume)
 
     assert volume.id in host._drag_components
-
-
-# --- device gesture suppression -------------------------------------------
-
-
-class DummyNavigation:
-    def __init__(self, page):
-        self.page = page
-        self.next_calls = 0
-        self.prev_calls = 0
-        self.opened = []
-
-    def open_next_panel(self):
-        self.next_calls += 1
-
-    def open_prev_panel(self):
-        self.prev_calls += 1
-
-    def open_panel(self, panel_id, **kwargs):
-        self.opened.append((panel_id, kwargs))
-
-    # device timer resets touch these on interaction; no-op for the test
-    def _start_idle_timer(self):
-        pass
-
-    def _start_nav_home_timer(self):
-        pass
-
-
-class DummyPage:
-    def __init__(self, suppressed):
-        self.panel = object()
-        self._suppressed = suppressed
-
-    def is_gesture_suppressed(self):
-        return self._suppressed
-
-
-class DummyApp:
-    def __init__(self, page):
-        self.controller = {"navigation": DummyNavigation(page)}
-        self.device = type("MockDevice", (), {"get": lambda s, k, d=0: d})()
-
-    def log(self, *a, **k):
-        pass
-
-
-def _device_with_page(suppressed):
-    app = DummyApp(DummyPage(suppressed))
-    device = HAUIDevice(app, {"name": "nspanel_haui"})
-    return device, app.controller["navigation"]
-
-
-def test_swipe_navigates_when_not_suppressed():
-    device, nav = _device_with_page(suppressed=False)
-
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_left"))
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_right"))
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_up"))
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_down"))
-
-    assert nav.next_calls == 1
-    assert nav.prev_calls == 1
-    assert nav.opened == [
-        (SysPanelKey.SYS_ABOUT, {}),
-        (SysPanelKey.SYS_SETTINGS, {}),
-    ]
-
-
-def test_swipe_ignored_during_slider_drag():
-    device, nav = _device_with_page(suppressed=True)
-
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_left"))
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_right"))
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_up"))
-    device.process_event(HAUIEvent(ESPEvent.GESTURE, "swipe_down"))
-
-    assert nav.next_calls == 0
-    assert nav.prev_calls == 0
-    assert nav.opened == []
 
 
 # --- deferring the slider value read to TOUCH_END -------------------------
@@ -147,25 +67,8 @@ class FakePageApp:
 
 
 def _bare_page(page_id=1):
-    """A HAUIPage with just the attributes the event paths touch."""
-    page = HAUIPage.__new__(HAUIPage)
-    page.app = FakePageApp()
-    page.page_id = page_id
-    page._callbacks = []
-    page._callback_map = {}
-    page._fnc_id_by_component = {}
-    page._drag_components = set()
-    page._pending_drag_callback = None
-    page._drag_flush_timer = None
-    page._suppress_gesture = False
-    page._suppress_gesture_timer = None
-    page._queued_callback = None
-    page._buffer_timer = None
-    page._fnc_items = {}
-    page._read_callbacks = {}
-    page._pending_read_request = None
-    page._touch_started_at = None
-    page.panel = None
+    """A real HAUIPage on a fake app that records what it sends to the panel."""
+    page = HAUIPage(FakePageApp(), {"page_id": page_id})
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 

@@ -141,7 +141,7 @@ class NotifyPage(CommonNotifyPage):
         self.set_title(self._title)
 
         if self._icon:
-            icon_color = panel.get("icon_color", None)
+            icon_color = self.option(panel, "icon_color")
             if icon_color is None or icon_color == "":
                 icon_color = self.get_color("component_text")
             self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)

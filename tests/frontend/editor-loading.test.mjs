@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,6 +32,7 @@ function backend({ entries, panelTypes, translations = {} } = {}) {
           const path = url.split('?')[0];
           requests.push(path);
           if (path === '/api/nspanel_haui/panel_types') return panelTypes ? panelTypes(url) : never;
+          if (path === '/api/nspanel_haui/panel_templates') return jsonResponse([]);
           const lang = path.match(/translations\/(\w+)/)?.[1];
           if (lang) return jsonResponse(translations[lang] ?? {});
           throw new Error(`unexpected ${url}`);
@@ -43,7 +44,7 @@ function backend({ entries, panelTypes, translations = {} } = {}) {
 
 /** The editor element without Lit's constructor, which needs a real DOM. */
 function editor() {
-  const ed = Object.create(NSPanelEditor.prototype);
+  const ed = document.createElement('nspanel-haui-editor');
   Object.assign(ed, {
     entryId: null,
     _loading: true,
@@ -68,6 +69,27 @@ function pushHass(ed, hass) {
   ed.hass = hass;
   ed.updated(new Map([['hass', undefined]]));
 }
+
+test('a newer copy of the entry reloads the page instead of defining the editor again', async () => {
+  // HA imports the entry again from a new URL after a restart that changed the frontend.
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  let reloads = 0;
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true, value: { reload: () => { reloads += 1; } },
+  });
+  try {
+    let loaded = false;
+    import('../../custom_components/nspanel_haui/frontend/haui-editor.js?digest=newer')
+      .then(() => { loaded = true; });
+    await settle();
+    assert.equal(reloads, 1);
+    assert.equal(loaded, false);
+    assert.equal(customElements.get('nspanel-haui-editor'), NSPanelEditor);
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'location', original);
+    else delete globalThis.location;
+  }
+});
 
 test('loads still pending are not requested again on each hass update', async (t) => {
   // The backend never answers; the client's request timeout would keep the

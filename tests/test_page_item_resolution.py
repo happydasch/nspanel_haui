@@ -5,6 +5,7 @@ import types
 import pytest
 
 from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 
 
 class _Panel:
@@ -17,7 +18,8 @@ class _Panel:
 
 def _page():
     page = HAUIPage.__new__(HAUIPage)
-    page.app = types.SimpleNamespace(log=lambda *a, **k: None)
+    page.app = types.SimpleNamespace(log=lambda *a, **k: None, theme=Theme("dark"))
+    page.panel = None
     return page
 
 

@@ -15,10 +15,12 @@ import { pathToFileURL } from 'node:url';
 
 const TABS = 4;
 const STDERR_LIMIT = 8 * 1024;
-const STARTUP_TIMEOUT_MS = 15000;
+// A cold start on a slow hosted runner took longer than 15 s once while
+// Chrome was still making progress; a hung Chrome still fails here.
+const STARTUP_TIMEOUT_MS = 60000;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
-class DevTools {
+export class DevTools {
   constructor(url) {
     this.socket = new WebSocket(url);
     this.nextId = 0;
@@ -111,10 +113,15 @@ async function main() {
   const browser = spawn(chrome, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
     '--no-default-browser-check', `--user-data-dir=${profile}`, '--remote-debugging-port=0',
+    // Hosted Linux runners may not allow Chrome to start its namespace sandbox.
+    ...(process.env.CI ? ['--no-sandbox'] : []),
     // The tabs run side by side: background tabs must not have their timers
     // and rendering throttled, or a card waits for its turn to be drawn.
     '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
+    // A startup failure prints the tail of Chrome's stderr. Without Chrome's own
+    // log, one that hangs before DevTools starts leaves it empty.
+    '--enable-logging=stderr', '--v=1',
     'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '';

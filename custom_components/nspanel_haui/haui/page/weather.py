@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from functools import partial
 from typing import Any
 
 import dateutil.parser as dp
@@ -35,6 +36,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         page_id=6,
         label=_("Weather"),
         description=_("Weather display with time, date and forecast."),
+        category="backgrounds",
         options=[
             background_option(),
             *CARD_OPTIONS,
@@ -172,6 +174,8 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
 
         self._show_notifications = True
         self._previous_forecast = None
+        # identifies the forecast request whose answer may be drawn
+        self._forecast_request: object | None = None
         self._forecast_type = ""
         self._show_weather = True
         self._show_temp = True
@@ -200,9 +204,9 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # Weather entity - role-based creation from explicit config keys
-        weather_entity_id = self._extract_entity_id(panel.get("item", None))
+        weather_entity_id = self._extract_entity_id(self.option(panel, "item"))
         if weather_entity_id:
-            self._weather_item = HAUIItem(self.app, {"item": weather_entity_id})
+            self._weather_item = self._make_item({"item": weather_entity_id})
             self._temp_unit = self._weather_item.get_item_attr("temperature_unit", "°C")
             self.add_item_listener(weather_entity_id, self.callback_weather, "temperature")
             self.add_item_listener(weather_entity_id, self.callback_weather, "pressure")
@@ -214,16 +218,16 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self.listen_items(self._info_items, self.render_info_panels)
 
         # setting: show_weather
-        self._show_weather = panel.get("show_weather", True)
+        self._show_weather = self.option(panel, "show_weather")
         self.set_function_component(
             self.COMPONENTS.t_main_icon,
             self.COMPONENTS.t_main_icon.name,
             visible=self._show_weather,
         )
         # setting: weather_icons
-        self._weather_icons_mode = panel.get("weather_icons", "color")
+        self._weather_icons_mode = self.option(panel, "weather_icons")
         # setting: show_temp
-        self._show_temp = panel.get("show_temp", True)
+        self._show_temp = self.option(panel, "show_temp")
         self.set_function_component(
             self.COMPONENTS.t_main_text, self.COMPONENTS.t_main_text.name, visible=self._show_temp
         )
@@ -231,15 +235,15 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
             self.COMPONENTS.t_sub_text, self.COMPONENTS.t_sub_text.name, visible=self._show_temp
         )
         # setting: show_home_temp
-        self._show_home_temp = panel.get("show_home_temp", False)
+        self._show_home_temp = self.option(panel, "show_home_temp")
         # setting: forecast
-        self._forecast_type = panel.get("forecast_type", "")
+        self._forecast_type = self.option(panel, "forecast_type")
         if self._forecast_type:
             self._render_forecast()
         # cycle cards in the time area; tTime sends no touch events, so they only cycle
         self._start_cards(panel, has_weather=bool(weather_entity_id))
         # notification (reuses t_main_icon widget — no dedicated notif component)
-        self._show_notifications = panel.get("show_notifications", True)
+        self._show_notifications = self.option(panel, "show_notifications")
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # main weather entity first: the temperature cards read its unit
@@ -253,6 +257,8 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
+        # A forecast still on its way belongs to this panel.
+        self._forecast_request = None
         self._stop_cards()
         release_ticks(self)
         # Unregister the shared blinker callback so a closed page is not refreshed.
@@ -295,45 +301,58 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         if not weather_id:
             self.log("Weather forecast skipped: no entity ID", level="DEBUG")
             return
-        forecast = None
-        try:
-            result = self.app.call_service(
+        # A weather integration may answer get_forecasts from the network, so
+        # the call runs off the worker; only the newest answer is drawn.
+        self._forecast_request = request = object()
+        self.app.submit_off_worker(
+            partial(
+                self.app.call_service,
                 "weather/get_forecasts",
                 return_response=True,
                 target={"entity_id": weather_id},
                 service_data={"type": self._forecast_type},
+            ),
+            on_done=partial(self._apply_forecast, request, weather_id, self._forecast_type),
+        )
+
+    def _apply_forecast(
+        self,
+        request: object,
+        weather_id: str,
+        forecast_type: str,
+        result: Any,
+        error: BaseException | None,
+    ) -> None:
+        if request is not self._forecast_request:
+            return
+        forecast = self._previous_forecast
+        if error is not None:
+            self.log(
+                f"Weather forecast service call failed for '{forecast_type}'",
+                level="WARNING",
+                exc_info=error,
             )
-            if result is None:
+        elif result is None:
+            self.log(
+                f"Weather forecast service returned no result for '{forecast_type}'",
+                level="WARNING",
+            )
+        else:
+            try:
+                forecast = result["result"]["response"][weather_id]["forecast"]
+            except (KeyError, IndexError, TypeError, AttributeError) as exc:
                 self.log(
-                    f"Weather forecast service returned no result for '{self._forecast_type}'",
+                    f"Weather forecast extract failed for '{forecast_type}': {exc}",
                     level="WARNING",
                 )
-                forecast = self._previous_forecast
-            else:
-                forecast = result["result"]["response"][weather_id]["forecast"]
-        except (KeyError, IndexError, TypeError, AttributeError) as exc:
-            self.log(
-                f"Weather forecast extract failed for '{self._forecast_type}': {exc}",
-                level="WARNING",
-            )
-            forecast = self._previous_forecast
-        except Exception:
-            self.log(
-                f"Weather forecast service call failed for '{self._forecast_type}'",
-                level="WARNING",
-                exc_info=True,
-            )
-            forecast = self._previous_forecast
-        if forecast is None:
-            for idx in range(self.NUM_FORECAST):
-                self.clear_forecast(idx)
-            return
-        for i in range(0, self.NUM_FORECAST):
-            if i < len(forecast):
-                self.update_forecast(i, forecast[i])
-            else:
-                self.clear_forecast(i)
-        self._previous_forecast = forecast
+        with self.rec_cmd:
+            for i in range(self.NUM_FORECAST):
+                if forecast is not None and i < len(forecast):
+                    self.update_forecast(i, forecast[i])
+                else:
+                    self.clear_forecast(i)
+        if forecast is not None:
+            self._previous_forecast = forecast
 
     def update_main_weather(self) -> None:
         if self._weather_item is None:
@@ -342,7 +361,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         # set up main weather details
         icon = self._weather_item.get_icon()
         color = readable_foreground_color(
-            self._weather_item.get_color(scheme="light" if self._light_background else "dark"),
+            self._weather_item.get_color(variant="light" if self._light_background else "dark"),
             self._light_background,
             self.get_color("text"),
         )
@@ -425,10 +444,10 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         icon = WEATHER_MAPPING.get(condition, "")
         icon = get_icon(icon) or ""
 
-        scheme = "light" if self._light_background else "dark"
-        color = self.get_icon_color("weather", condition.replace("-", "_"), scheme)
+        variant = "light" if self._light_background else "dark"
+        color = self.get_icon_color("weather", condition.replace("-", "_"), variant)
         if color is None:
-            color = self.get_icon_color("weather", "default", scheme)
+            color = self.get_icon_color("weather", "default", variant)
         if color is None:
             raise KeyError("weather icon palette has no default color")
         if self._weather_icons_mode == "monochrome":
@@ -455,7 +474,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         info_val = getattr(self.COMPONENTS, f"d{idx}_val")
         self._set_component_text_color(
             info_icon,
-            haui_item.get_color(scheme="light" if self._light_background else "dark"),
+            haui_item.get_color(variant="light" if self._light_background else "dark"),
         )
         self._set_component_text_color(info_val, self.get_color("component_text"))
         self.set_component_text(info_icon, haui_item.get_icon())

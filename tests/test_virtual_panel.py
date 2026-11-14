@@ -19,12 +19,16 @@ import pytest
 import custom_components.nspanel_haui as nspanel_haui
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent
+from custom_components.nspanel_haui.haui.mapping.icons import ICO_PASSWORD
+from custom_components.nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
+from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
 from custom_components.nspanel_haui.web.preview.virtual_panel import (
     InertUpdateController,
     VirtualPanelHost,
 )
 
 GRID_PAGE_ID = 9
+UNLOCK_PAGE_ID = 17
 G1_POWER = 12
 
 
@@ -564,6 +568,34 @@ def test_a_long_press_on_a_clock_goes_back_home(env):
     _run(env, sess.async_stop())
 
 
+def test_the_unlock_popup_takes_the_code_and_opens_the_locked_panel(env):
+    clock = {"type": "clock", "key": "clock_0", "unlock_code": "1234"}
+    messages: list[dict] = []
+    sess = _open(env, _config([clock]), messages.append)
+    _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+    _wait(lambda: sess.app.controller["navigation"].page.started)
+
+    sess.send_event(ESPEvent.GESTURE, "swipe_left")
+    _wait(lambda: {"type": "page", "page": UNLOCK_PAGE_ID} in messages)
+    _wait(lambda: sess.app.controller["navigation"].page.started)
+
+    def tap(component):
+        sess.send_event(ESPEvent.COMPONENT, f"{UNLOCK_PAGE_ID},{component.id},1")
+        sess.send_event(ESPEvent.COMPONENT, f"{UNLOCK_PAGE_ID},{component.id},0")
+
+    keys = AlarmPage.COMPONENTS
+    code = (keys.btn_key_1, keys.btn_key_2, keys.btn_key_3, keys.btn_key_4)
+    for digits, component in enumerate(code, start=1):
+        tap(component)
+        # a release is buffered (tap or swipe), and the next one would replace it
+        entered = f'tTitle.txt="{ICO_PASSWORD * digits}"'
+        _wait(lambda entered=entered: entered in _commands(messages))
+    tap(keys.b1_fnc)
+
+    _wait(lambda: {"type": "page", "page": 7} in messages)
+    _run(env, sess.async_stop())
+
+
 def test_the_browser_is_told_when_the_idle_page_starts_and_ends(env):
     grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
     clock = {"type": "clock", "key": "clock_0", "show_in_navigation": False}
@@ -805,6 +837,74 @@ def test_show_home_leaves_the_idle_page_for_the_home_panel(env):
         _run(env, host.async_stop())
 
 
+def test_show_panel_opens_the_devices_panel_and_leaves_the_idle_page(env):
+    clock = {"type": "clock", "key": "clock_0", "show_in_navigation": False}
+    light = {"type": "light", "key": "light_0", "item": "light.lamp"}
+    messages: list[dict] = []
+    host = _open(env, _config([clock, light], idle_panel="clock_0"), messages.append)
+    navigation = host.app.controller["navigation"]
+
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+        host.show_idle()
+        _wait(lambda: navigation.panel.get("key") == "clock_0")
+        _run(env, host.app.async_run_on_worker(lambda: setattr(navigation, "_activity_ts", 0)))
+
+        _run(env, host.async_show_panel("light_0"))
+
+        assert navigation.panel.get("key") == "light_0"
+        assert not navigation.idle_panel_active
+        # A fresh inactivity clock: the idle page is not due right away again.
+        assert time.monotonic() - navigation._activity_ts < 60
+    finally:
+        _run(env, host.async_stop())
+
+
+def test_show_panel_opens_the_idle_page_the_device_shows(env):
+    clock = {"type": "clock", "key": "clock_0", "show_in_navigation": False}
+    messages: list[dict] = []
+    host = _open(env, _config([clock], idle_panel="clock_0"), messages.append)
+    navigation = host.app.controller["navigation"]
+
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+
+        _run(env, host.async_show_panel("clock_0", idle=True))
+
+        assert navigation.panel.get("key") == "clock_0"
+        assert navigation.idle_panel_active
+        _wait(lambda: {"type": "idle", "active": True} in messages)
+    finally:
+        _run(env, host.async_stop())
+
+
+def test_show_panel_opens_a_popup_with_its_sample_context(env):
+    messages: list[dict] = []
+    host = _open(env, _config(), messages.append)
+    navigation = host.app.controller["navigation"]
+
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+
+        _run(env, host.async_show_panel("popup_notify"))
+
+        assert navigation.panel.get("key") == "popup_notify"
+        assert navigation.panel_kwargs["notification"].startswith("Example notification")
+    finally:
+        _run(env, host.async_stop())
+
+
+def test_show_panel_refuses_a_key_the_device_cannot_open(session, env):
+    navigation = session.app.controller["navigation"]
+
+    with pytest.raises(ValueError, match="Unknown panel key"):
+        _run(env, session.async_show_panel("missing"))
+    with pytest.raises(ValueError, match="Not an idle panel"):
+        _run(env, session.async_show_panel("grid_0", idle=True))
+
+    assert navigation.panel.get("key") == "grid_0"
+
+
 def test_back_from_live_the_sandbox_starts_over(env):
     # Live drives the device's own app: the virtual app gets no touches while
     # it is shown, so its idle page comes due in the background.
@@ -868,6 +968,50 @@ def test_a_card_render_changes_no_state(session, env):
     assert not session.app.sandbox.is_simulated("light.lamp")
 
 
+def test_a_slow_weather_forecast_does_not_block_the_virtual_app_worker(session, env):
+    env._states["weather.home"] = _State("rainy", {"temperature": 14.6})
+    started = threading.Event()
+    release = asyncio.Event()
+
+    async def slow_forecast(domain, service, service_data=None, target=None, **kwargs):
+        started.set()
+        await release.wait()
+        return {
+            "weather.home": {
+                "forecast": [
+                    {
+                        "datetime": "2026-11-12T12:00:00+00:00",
+                        "temperature": 22,
+                        "templow": 11,
+                        "condition": "sunny",
+                    }
+                ]
+            }
+        }
+
+    env.services.async_call = slow_forecast
+    card = {
+        "type": "weather",
+        "key": "weather_card",
+        "item": {"item": "weather.home"},
+        "forecast_type": "daily",
+    }
+    render = asyncio.run_coroutine_threadsafe(session.async_render(card), env.loop)
+
+    try:
+        assert started.wait(timeout=2)
+        worker_task = asyncio.run_coroutine_threadsafe(
+            session.app.async_run_on_worker(lambda: "worker responsive"), env.loop
+        )
+        assert worker_task.result(timeout=1) == "worker responsive"
+    finally:
+        env.loop.call_soon_threadsafe(release.set)
+
+    result = render.result(timeout=5)
+    assert result["page"] == 6
+    assert 'f1Val.txt="22°C"' in result["commands"]
+
+
 def test_an_entity_popup_card_opens_for_an_entity_of_its_domain(session, env):
     result = _run(env, session.async_render({"type": "popup_light", "key": "popup_light"}))
 
@@ -880,6 +1024,15 @@ def test_an_edited_entity_popup_card_still_opens_for_an_entity_of_its_domain(ses
     result = _run(env, session.async_render({"type": "light", "key": "popup_light"}))
 
     assert result["page"] == 13
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
+def test_an_edited_entity_popup_with_an_empty_item_still_opens_for_an_entity(session, env):
+    # A saved popup override keeps the editor's empty single-item field.
+    card = {"type": "light", "key": "popup_light", "item": {"item": None}}
+
+    result = _run(env, session.async_render(card))
+
     assert 'tTitle.txt="Lamp"' in result["commands"]
 
 
@@ -940,6 +1093,70 @@ def test_a_popup_card_shows_its_descriptor_sample(session, env):
     result = _run(env, session.async_render({"type": "notify", "key": "popup_notify"}))
 
     assert any("Example notification" in command for command in result["commands"])
+
+
+def test_add_panel_previews_include_a_sample_entity(session, env):
+    result = _run(env, session.async_render({"type": "light", "key": ""}))
+
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
+def test_add_panel_list_previews_include_sample_entities(session, env):
+    result = _run(env, session.async_render({"type": "grid", "key": ""}))
+
+    assert any("Lamp" in command for command in result["commands"])
+
+
+def test_every_add_panel_preview_renders_with_sample_data(session, env):
+    env._states.clear()
+
+    expected_text = {
+        "alarm": "Disarmed",
+        "climate": "Living Room",
+        "clock": "18°C",
+        "cover": "Blind",
+        "grid": "Lamp",
+        "light": "Lamp",
+        "media": "Morning Coffee",
+        "row": "Lamp",
+        "vacuum": "Robot Vacuum",
+    }
+    for descriptor in get_user_panel_type_descriptors():
+        panel_type = descriptor["type_key"]
+        result = _run(
+            env,
+            session.async_render({"type": panel_type, "key": ""}, settle=0.1),
+        )
+        assert result["page"] == descriptor["page_id"], panel_type
+        assert result["commands"], panel_type
+        if panel_type in expected_text:
+            assert any(expected_text[panel_type] in command for command in result["commands"])
+
+
+def test_add_weather_preview_includes_a_sample_forecast(session, env):
+    env._states.clear()
+    result = _run(env, session.async_render({"type": "weather", "key": ""}))
+
+    assert 'f1Val.txt="24°C"' in result["commands"]
+
+
+def test_add_qr_preview_includes_example_network_details(session, env):
+    result = _run(env, session.async_render({"type": "qr", "key": ""}))
+
+    assert any("WIFI:S:NSPanel;T:WPA;P:12345678;;" in command for command in result["commands"])
+
+
+def test_add_timer_preview_shows_example_time(session, env):
+    result = _run(env, session.async_render({"type": "timer", "key": ""}))
+
+    assert 'tMin.txt="12"' in result["commands"]
+    assert 'tSec.txt="34"' in result["commands"]
+
+
+def test_saved_panel_previews_do_not_fill_in_missing_entities(session, env):
+    result = _run(env, session.async_render({"type": "light", "key": "my_light"}))
+
+    assert 'tTitle.txt="Light"' in result["commands"]
 
 
 def test_a_system_panel_renders_with_its_configured_defaults(session, env):

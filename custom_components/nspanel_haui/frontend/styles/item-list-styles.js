@@ -8,133 +8,133 @@ import { css } from '../lit-import.js';
 
 export const itemListStyles = css`
   /* ── item list ───────────────────── */
-  .item-list {
+  .haui-item-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-  }
-  .item-list-empty {
-    padding: 12px;
-    text-align: center;
-    font-size: 0.85em;
-    color: var(--secondary-text-color, #666);
-    border: 1px dashed var(--divider-color, #e0e0e0);
-    border-radius: 6px;
+    gap: 4px;
   }
 
   /* ── item list row ───────────────── */
-  .item-list-row {
+  .haui-item-list-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: 4px;
+    padding: 4px 4px 4px 4px;
     border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: 8px;
+    border-radius: var(--haui-radius-control);
     background: var(--card-background-color, #fff);
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 150ms, box-shadow 150ms;
   }
-  .item-list-row:hover {
+  .haui-item-list-row:hover {
     border-color: var(--primary-color, #03a9f4);
-    box-shadow: 0 1px 4px rgba(3, 169, 244, 0.1);
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
+  }
+  .haui-item-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 4px;
+    border: 0;
+    border-radius: var(--haui-radius-control);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+  .haui-item-row-main:hover { background: var(--secondary-background-color, #f5f5f5); }
+  .haui-item-row-edit {
+    flex-shrink: 0;
+    --mdc-icon-size: 16px;
+    color: var(--secondary-text-color, #666);
+    opacity: 0.7;
+  }
+  .haui-item-row-main:hover .haui-item-row-edit { opacity: 1; }
+
+  .haui-item-service-data {
+    min-height: 80px;
+    font-family: var(--haui-mono);
+    font-size: var(--haui-text-label);
   }
 
-  .item-row-icon {
+  .haui-item-row-icon {
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 34px;
     height: 34px;
-    border-radius: 8px;
-    background: var(--secondary-background-color, #f0f0f0);
-    color: var(--primary-color, #03a9f4);
+    border-radius: var(--haui-radius-control);
+    background: var(--haui-item-row-icon-background, var(--secondary-background-color, #f5f5f5));
+    color: var(--haui-item-row-icon-color, var(--primary-color, #03a9f4));
     --mdc-icon-size: 20px;
     position: relative;
   }
 
-  .item-row-text {
+  .haui-item-row-text {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
-  .item-row-primary {
+  .haui-item-row-primary {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 1em;
+    gap: 4px;
+    font-size: var(--haui-text-body);
     font-weight: 500;
   }
-  .item-row-name {
+  .haui-item-row-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .item-row-chip {
+  .haui-item-row-chip {
     flex-shrink: 0;
-    font-size: 0.7em;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 2px 7px;
-    border-radius: 10px;
-    background: var(--secondary-background-color, #eee);
+    border-radius: var(--haui-radius-control);
     color: var(--secondary-text-color, #666);
   }
-  .item-row-secondary {
-    font-size: 0.82em;
+  .haui-item-row-secondary {
+    font-size: var(--haui-text-caption);
     color: var(--secondary-text-color, #666);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-family: var(--code-font-family, monospace);
+    font-family: var(--haui-mono);
     opacity: 0.9;
   }
-  .item-row-actions {
+  .haui-item-list-row[draggable="true"] { cursor: grab; }
+  .haui-item-list-row.is-dragging { opacity: .5; }
+  .haui-item-list-row.is-drop-before { box-shadow: inset 0 2px 0 var(--primary-color, #03a9f4); }
+  .haui-item-list-row.is-drop-after { box-shadow: inset 0 -2px 0 var(--primary-color, #03a9f4); }
+  .haui-item-row-grip {
     flex-shrink: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0;
+    color: var(--secondary-text-color, #666);
+    opacity: 0.7;
+    --mdc-icon-size: 18px;
   }
-  .item-row-actions ha-icon-button {
-    --mdc-icon-button-size: 32px;
+  .haui-item-list-row:hover .haui-item-row-grip { opacity: 1; }
+  .haui-item-row-remove {
+    flex-shrink: 0;
+    --mdc-icon-button-size: 34px;
     --mdc-icon-size: 18px;
     color: var(--secondary-text-color, #666);
-    transition: color 0.12s;
   }
-  .item-row-actions ha-icon-button:hover {
-    color: var(--primary-text-color, #212121);
-  }
-  .item-row-actions ha-icon-button[disabled] {
-    opacity: 0.3;
-    pointer-events: none;
-  }
+  .haui-item-row-remove:hover { color: var(--error-color, #db4437); }
 
-  .add-item-btn {
-    background: transparent;
-    color: var(--primary-color, #03a9f4);
-    border: 1px dashed var(--divider-color, #e0e0e0);
-    padding: 8px 16px;
-    border-radius: 8px;
+  /* ── advanced fold (details/summary) ── */
+  .haui-collapsible-title {
+    list-style: none;
     cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 500;
-    width: 100%;
-    margin-top: 8px;
-    transition: background 0.15s, border-color 0.15s;
-    font-family: inherit;
-  }
-  .add-item-btn:hover {
-    background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, transparent);
-    border-color: var(--primary-color, #03a9f4);
-    border-style: solid;
-  }
-
-  /* ── collapsible toggle ──────────── */
-  .collapsible-title {
-    cursor: pointer;
-    font-size: 0.85em;
+    font-size: var(--haui-text-caption);
     color: var(--primary-color, #03a9f4);
     display: flex;
     align-items: center;
@@ -142,73 +142,67 @@ export const itemListStyles = css`
     user-select: none;
     text-transform: uppercase;
     padding: 4px 0;
+    border-radius: var(--haui-radius-control);
   }
-  .collapsible-title .collapsible-icon {
-    transition: transform 0.2s;
+  .haui-collapsible-title::-webkit-details-marker { display: none; }
+  .haui-collapsible-title:focus-visible {
+    outline: var(--haui-focus-ring);
+    outline-offset: var(--haui-focus-offset);
+  }
+  .haui-collapsible-title .haui-collapsible-icon {
+    transition: transform 150ms;
     --mdc-icon-size: 18px;
     flex-shrink: 0;
   }
-  .collapsible-title .collapsible-icon.is-open {
+  .haui-item-advanced[open] > .haui-collapsible-title .haui-collapsible-icon {
     transform: rotate(90deg);
   }
-  .item-advanced-section {
-    display: none;
+  .haui-item-advanced-section {
     padding-left: 12px;
     border-left: 2px solid var(--divider-color, #e0e0e0);
     margin-top: 8px;
     margin-bottom: 8px;
   }
-  .item-advanced-section.open {
-    display: block;
-  }
-
-  /* ── color popover ────────────────── */
-  .color-popover {
-    display: none;
-    position: absolute;
-    z-index: 100;
-    margin-top: 4px;
-    padding: 8px;
-    background: var(--card-background-color, #fff);
-    border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: 10px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  }
-  .color-popover.open {
-    display: block;
-  }
-  .item-edit-inline .form-group {
+  .haui-item-edit-inline .haui-field {
     position: relative;
   }
 
   /* ── inline item edit form ───────── */
-  .item-edit-inline {
-    padding: 14px;
+  .haui-item-edit-inline {
+    padding: 12px;
     border: 1px solid var(--primary-color, #03a9f4);
-    border-radius: 8px;
+    border-radius: var(--haui-radius-control);
     background: var(--card-background-color, #fff);
     margin: 8px 0;
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent);
   }
-  .item-edit-inline .item-edit-actions {
+  .haui-item-edit-inline .haui-item-edit-actions {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
-    margin-top: 14px;
+    margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--divider-color, #e0e0e0);
   }
 
   /* ── list items editor ───────────── */
-  .list-items {
+  .haui-item-list-items {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
   }
-  .item-list-limit {
-    font-size: 0.82em;
-    color: var(--secondary-text-color, #999);
+  .haui-item-list-limit {
+    font-size: var(--haui-text-caption);
+    color: var(--secondary-text-color, #666);
     text-align: center;
     padding: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :host *, :host *::before, :host *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
   }
 `;

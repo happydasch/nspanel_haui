@@ -52,8 +52,9 @@ def _build_config_dict(
         deep_merge,
         find_store_device,
     )
-    from .haui.mapping.color import BUILTIN_COLOR_SCHEMES
+    from .haui.mapping.color import BUILTIN_THEMES
     from .haui.mapping.const import DEFAULT_CONFIG
+    from .hub.storage import migrate_device_config_keys
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
 
@@ -74,7 +75,11 @@ def _build_config_dict(
             filtered = [{"name": device_name}]
         cfg["devices"] = filtered
 
-    store_devices = panels.get("devices", {}) if panels else {}
+    store_devices = copy.deepcopy(panels.get("devices", {})) if panels else {}
+    for store_dev in store_devices.values():
+        store_config = store_dev.get("config") if isinstance(store_dev, dict) else None
+        if isinstance(store_config, dict):
+            migrate_device_config_keys(store_config)
     if store_devices:
         apply_panel_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
 
@@ -104,47 +109,39 @@ def _build_config_dict(
         if all_panels:
             cfg["panels"] = all_panels
 
-    # Older light-palette presets saved a white background override but no
-    # explicit icon scheme. Migrate those to light; all other backgrounds use dark.
+    # Drop retired per-device color overrides while preserving the old
+    # light-preset selection for devices that have not saved a theme yet.
     for dev in cfg.get("devices", []):
-        if "color_scheme" not in dev:
-            color_overrides = dev.get("color_overrides", {})
-            dev["color_scheme"] = (
-                "light"
-                if isinstance(color_overrides, dict) and color_overrides.get("background") == 65535
-                else "dark"
-            )
-        if "color_scheme_id" not in dev:
-            legacy_scheme = dev.get("color_scheme")
-            dev["color_scheme_id"] = (
-                legacy_scheme
-                if legacy_scheme in ("dark", "light")
-                else "light"
-                if isinstance(dev.get("color_overrides"), dict)
-                and dev["color_overrides"].get("background") == 65535
-                else "dark"
-            )
+        migrate_device_config_keys(dev)
 
     # Ensure every device entry has all DEVICE_CONFIG keys
     for dev in cfg.get("devices", []):
         for key, val in DEVICE_CONFIG.items():
             if key not in dev:
                 dev[key] = copy.deepcopy(val)
-    saved_schemes = panels.get("color_schemes", {}) if panels else {}
-    all_schemes = {**saved_schemes, **BUILTIN_COLOR_SCHEMES}
+    saved_themes = panels.get("themes", {}) if panels else {}
+    all_themes = {**saved_themes, **BUILTIN_THEMES}
+    cfg["themes"] = all_themes
     for dev in cfg.get("devices", []):
-        scheme_id = dev["color_scheme_id"]
-        scheme = all_schemes.get(scheme_id)
-        if not isinstance(scheme, dict):
+        theme_id = dev["theme_id"]
+        if theme_id not in all_themes:
             _LOGGER.warning(
-                "Unknown color scheme %r for device %s; using built-in dark scheme",
-                scheme_id,
+                "Unknown color theme %r for device %s; using built-in dark theme",
+                theme_id,
                 dev.get("name", ""),
             )
-            scheme_id = "dark"
-            dev["color_scheme_id"] = scheme_id
-            scheme = BUILTIN_COLOR_SCHEMES[scheme_id]
-        dev["resolved_color_scheme"] = copy.deepcopy(scheme)
+            dev["theme_id"] = "dark"
+    if cfg.get("devices"):
+        cfg["device"]["theme_id"] = cfg["devices"][0]["theme_id"]
+    for panel in cfg.get("panels", []):
+        theme_id = panel.get("theme_id", "")
+        if theme_id and theme_id not in all_themes:
+            _LOGGER.warning(
+                "Unknown color theme %r for panel %s; using built-in dark theme",
+                theme_id,
+                panel.get("key", panel.get("title", "")),
+            )
+            panel["theme_id"] = "dark"
 
     # Filter out disabled devices - runs after store merge and defaults fill
     # so store overrides of "enabled" are respected.
@@ -224,40 +221,6 @@ async def _create_app(
     app._last_panel_update = (
         panels.get("devices", {}).get(dev_name, {}).get("last_panel_update") if panels else None
     )
-    from .hub.storage import empty_store, panel_store
-
-    async def _persist_day_profile(values: dict[str, Any]) -> None:
-        from .haui.device_config import find_store_device
-
-        store = panel_store(hass, entry.entry_id)
-        store_data = await store.async_load() or empty_store()
-        store_device = find_store_device(store_data.get("devices", {}), dev_name)
-        if store_device is None:
-            return
-        store_config = store_device.setdefault("config", {})
-        if any(store_config.get(key) != value for key, value in values.items()):
-            store_config.update(values)
-            await store.async_save(store_data)
-
-    def _schedule_day_profile_persist(values: dict[str, Any]) -> None:
-        import asyncio
-
-        future = asyncio.run_coroutine_threadsafe(_persist_day_profile(values), hass.loop)
-
-        def _log_failure(done: Any) -> None:
-            if done.cancelled():
-                return
-            error = done.exception()
-            if error is not None:
-                _LOGGER.error(
-                    "Failed to persist adopted Day profile for '%s'",
-                    dev_name,
-                    exc_info=error,
-                )
-
-        future.add_done_callback(_log_failure)
-
-    app.persist_day_profile = _schedule_day_profile_persist
     await app.async_run_on_worker(app.initialize)
 
     # Link the ESPHome device to our integration so it shows in the hub page
@@ -308,7 +271,7 @@ def _create_device_start_failed_issue(
         _device_issue_id(device_name),
         is_fixable=True,
         is_persistent=False,
-        learn_more_url="https://happydasch.github.io/nspanel_haui/troubleshooting/",
+        learn_more_url="https://happydasch.github.io/nspanel_haui/user/troubleshooting.html",
         severity=ir.IssueSeverity.ERROR,
         translation_key="device_start_failed",
         translation_placeholders={
@@ -578,11 +541,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
+    from .hub.rollout import async_stop_rollout
     from .web.preview.live_panel import async_stop_viewers
     from .web.websocket import async_stop_hosts
 
     await async_stop_viewers(hass, entry.entry_id)
     await async_stop_hosts(hass, entry.entry_id)
+    await async_stop_rollout(hass, entry.entry_id)
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
 
     if apps is None:

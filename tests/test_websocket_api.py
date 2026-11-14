@@ -69,6 +69,7 @@ class _FakeHost:
         self.idle_count = 0
         self.home_count = 0
         self.reset_count = 0
+        self.opened = []
         self.followed = None
         self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
         _FakeHost.instances.append(self)
@@ -112,6 +113,11 @@ class _FakeHost:
 
     def show_idle(self):
         self.idle_count += 1
+
+    async def async_show_panel(self, key, *, idle=False):
+        if key == "missing":
+            raise ValueError(f"Unknown panel key: {key!r}")
+        self.opened.append((key, idle))
 
     def reset_sandbox(self):
         self.reset_count += 1
@@ -198,6 +204,7 @@ def test_all_commands_are_registered(ws):
         "nspanel_haui/virtual_panel/subscribe",
         "nspanel_haui/virtual_panel/event",
         "nspanel_haui/virtual_panel/home",
+        "nspanel_haui/virtual_panel/open",
         "nspanel_haui/virtual_panel/idle",
         "nspanel_haui/virtual_panel/reset_sandbox",
         "nspanel_haui/virtual_panel/render",
@@ -408,6 +415,22 @@ def test_home_opens_the_home_panel_for_the_preview_session(ws):
     _run(body)
     assert _FakeHost.instances[0].home_count == 1
     assert conn.results == [1, 2]
+
+
+def test_open_shows_a_panel_of_the_device_and_reports_an_unknown_key(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _subscribe(ws, hass, conn)
+        [sid] = _FakeHost.instances[0].viewers
+        await ws.ws_open(hass, conn, {"id": 2, "session_id": sid, "key": "sleep", "idle": True})
+        await ws.ws_open(hass, conn, {"id": 3, "session_id": sid, "key": "missing", "idle": False})
+        await ws.ws_open(hass, conn, {"id": 4, "session_id": "gone", "key": "sleep", "idle": False})
+
+    _run(body)
+    assert _FakeHost.instances[0].opened == [("sleep", True)]
+    assert conn.results == [1, 2]
+    assert conn.errors == [(3, "invalid_panel"), (4, "not_found")]
 
 
 def test_idle_opens_the_idle_page_for_the_preview_session(ws):

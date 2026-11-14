@@ -8,6 +8,7 @@ executor, so code that dispatches there runs callbacks concurrently.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import sys
 import threading
@@ -385,6 +386,7 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
     adapter, loop, helpers = env
     from custom_components.nspanel_haui.haui.controller import release_source
     from custom_components.nspanel_haui.haui.controller.update import HAUIUpdateController
+    from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
     seen: dict = {}
 
@@ -405,7 +407,7 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
         submit_off_worker=adapter.submit_off_worker,
         device=types.SimpleNamespace(device_info={"firmware_variant": "universal"}),
     )
-    ctrl.config = {}
+    ctrl.config = dict(DEFAULT_CONFIG["update"])
     ctrl._async_catalog_id = 0
     ctrl._lifecycle_generation = 0
     ctrl.log = lambda *a, **kw: None
@@ -489,26 +491,52 @@ def test_listen_state_with_attribute_all_reports_state_pair(env):
     assert calls == [("light.desk", "all", "old", "on", {})]
 
 
-def test_solar_profile_state_rejects_locations_without_solar_events(env, monkeypatch):
-    from datetime import UTC, datetime
-
-    adapter, _, _ = env
-    const_module = types.ModuleType("homeassistant.const")
-    const_module.SUN_EVENT_SUNRISE = "sunrise"
-    const_module.SUN_EVENT_SUNSET = "sunset"
-    monkeypatch.setitem(sys.modules, "homeassistant.const", const_module)
+def _stub_sun(monkeypatch, sunrise):
+    """Stub HA's sun helper and local-time conversion (UTC+2)."""
+    from datetime import timedelta, timezone
 
     sun_module = types.ModuleType("homeassistant.helpers.sun")
-    sun_module.get_astral_event_date = lambda hass, event, date: None
+    sun_module.calls = []
+
+    def get_astral_event_date(hass, event, date):
+        sun_module.calls.append((event, date))
+        return sunrise
+
+    sun_module.get_astral_event_date = get_astral_event_date
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.sun", sun_module)
 
+    local = timezone(timedelta(hours=2))
     util_module = sys.modules.get("homeassistant.util") or types.ModuleType("homeassistant.util")
-    util_module.dt = types.SimpleNamespace(now=lambda: datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+    monkeypatch.setattr(
+        util_module,
+        "dt",
+        types.SimpleNamespace(as_local=lambda point: point.astimezone(local)),
+        raising=False,
+    )
     monkeypatch.setitem(sys.modules, "homeassistant.util", util_module)
     monkeypatch.setattr(sys.modules["homeassistant"], "util", util_module, raising=False)
+    return sun_module
 
-    with pytest.raises(ValueError, match="cannot calculate both sunrise and sunset"):
-        adapter.get_solar_profile_state(0, 0)
+
+def test_sun_time_is_the_local_time_of_the_event_on_that_day(env, monkeypatch):
+    from datetime import UTC, date, datetime
+
+    adapter, _, _ = env
+    sun_module = _stub_sun(monkeypatch, datetime(2026, 6, 21, 3, 12, tzinfo=UTC))
+
+    point = adapter.get_sun_time("sunrise", date(2026, 6, 21))
+
+    assert sun_module.calls == [("sunrise", date(2026, 6, 21))]
+    assert (point.hour, point.minute) == (5, 12)
+
+
+def test_sun_time_is_none_where_the_sun_does_not_rise(env, monkeypatch):
+    from datetime import date
+
+    adapter, _, _ = env
+    _stub_sun(monkeypatch, None)
+
+    assert adapter.get_sun_time("sunrise", date(2026, 6, 21)) is None
 
 
 class _ThresholdDevice:
@@ -548,6 +576,18 @@ def test_log_threshold_info_drops_debug_before_device_config(env, monkeypatch):
     status = adapter.get_status_logs()
     assert len(status) == 1
     assert status[0].endswith("INFO lifecycle")
+
+
+def test_status_log_lines_carry_a_full_timestamp_and_level(env, monkeypatch):
+    """The editor sorts and dates these lines: a time of day alone cannot be parsed."""
+    adapter, loop, helpers = env
+    _capture_logger(monkeypatch)
+
+    adapter.log("link lost", level="ERROR")
+
+    stamp, level, message = adapter.get_status_logs()[0].split(" ", 2)
+    assert datetime.datetime.fromisoformat(stamp.strip("[]")).tzinfo is not None
+    assert (level, message) == ("ERROR", "link lost")
 
 
 def test_log_threshold_info_filters_debug_for_the_device(env, monkeypatch):

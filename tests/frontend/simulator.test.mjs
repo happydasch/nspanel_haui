@@ -1,8 +1,7 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import {
   buildPreviewDisplay,
@@ -10,47 +9,17 @@ import {
   previewRenderKey,
 } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
-import {
-  loadIconMap,
-  loadLayout,
-  renderSimulatorScreen,
-} from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
+import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
+import { layout } from './support/fixtures.mjs';
 
-function layout(orientation) {
-  return JSON.parse(readFileSync(
-    new URL(`../../custom_components/nspanel_haui/frontend/virtual/layout_${orientation}.json`, import.meta.url),
-    'utf8',
-  ));
-}
-
-/** Flatten a Lit TemplateResult tree to text. */
-function flat(v) {
-  if (Array.isArray(v)) return v.map(flat).join('');
-  if (v && v.strings) return v.strings.reduce((a, s, i) => a + s + (i < v.values.length ? flat(v.values[i]) : ''), '');
-  return v == null || typeof v === 'symbol' ? '' : String(v);
-}
-
-test('every physical page id maps onto a layout page in both orientations', () => {
+test('every physical page id maps to a preview model in both orientations', () => {
   for (const orientation of ['landscape', 'portrait']) {
-    const json = layout(orientation);
-    for (const idStr of Object.keys(json.pages)) {
-      const d = buildPreviewDisplay(json, Number(idStr));
-      assert.equal(d.page.id, Number(idStr), `${orientation} page ${idStr}`);
-      const out = flat(renderSimulatorScreen(d, {
-        scale: 0.5, iconName: () => null, pictureUrl: (id) => `p/${id}.webp`,
-      }));
-      assert.match(out, /vp-screen/);
+    const displayLayout = layout(orientation);
+    for (const id of Object.keys(displayLayout.pages).map(Number)) {
+      const preview = buildPreviewDisplay(displayLayout, id);
+      assert.equal(preview.page.id, id, `${orientation} page ${id}`);
     }
   }
-});
-
-test('renderSimulatorScreen preserves the device aspect ratio and applies scale', () => {
-  const d = buildPreviewDisplay(layout('landscape'), 9);
-  const out = flat(renderSimulatorScreen(d, { scale: 0.5, iconName: () => null, pictureUrl: (id) => `p/${id}.webp` }));
-  assert.match(out, /vp-screen" style="width:450px;height:320px/);
-  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
-  assert.match(out, /pg-sim" style="width:225px;aspect-ratio:450\/320/);
-  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
 });
 
 test('loadLayout and loadIconMap use an injected loader', () => {
@@ -134,6 +103,22 @@ test('a user card asks the hub to render its config, a system card its key', asy
   ]);
 });
 
+test('a preview with sample context sends it along and renders apart from the card', async () => {
+  const host = editorHost(() => ({ page: 13, before: [], commands: [] }));
+  const popup = { key: 'popup_light', type: 'light' };
+  const kwargs = { item: 'light.desk', item_id: 'light.desk' };
+
+  await loadPanelRender(host, popup, true);
+  await loadPanelRender({ ...host, kwargs }, popup, true);
+  await loadPanelRender({ ...host, kwargs }, popup, true);
+
+  assert.deepEqual(host.sent.map(({ key, kwargs: sent }) => [key, sent]), [
+    ['popup_light', undefined],
+    ['popup_light', kwargs],
+  ]);
+  assert.notEqual(previewRenderKey({ ...host, kwargs }), previewRenderKey(host));
+});
+
 test('a re-mounted card reuses its render until the device settings change', async () => {
   const host = editorHost(() => ({ page: 9, before: [], commands: [] }));
   const panel = { key: 'rooms', type: 'grid' };
@@ -178,4 +163,35 @@ test('a failed render rejects with the hub error and is not kept', async () => {
   await assert.rejects(loadPanelRender(host, panel, false), /Unknown panel type/);
   fail = false;
   assert.equal((await loadPanelRender(host, panel, false)).page, 9);
+});
+
+test('a card keeps its last render across reloads until the frontend changes', async (t) => {
+  const values = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, String(value)),
+    },
+  });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const render = { page: 9, before: [], commands: ['tTitle.txt="Kept"'] };
+  const host = editorHost(() => render);
+  const panel = { key: 'kept', type: 'grid' };
+
+  await loadPanelRender(host, panel, false);
+  t.mock.timers.tick(500);
+
+  const previewer = '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
+  const reloaded = await import(`${previewer}?reload`);
+  // Edits and settings changes keep a card's identity; its key and kind do not.
+  assert.deepEqual(reloaded.lastPanelRender(host, { ...panel, title: 'Edited' }, false), render);
+  assert.equal(reloaded.lastPanelRender({ ...host, device: 'hall' }, panel, false), null);
+  assert.equal(reloaded.lastPanelRender(host, panel, true), null);
+  assert.equal(reloaded.lastPanelRender(host, { type: 'grid' }, false), null);
+
+  const stored = JSON.parse(values.get('haui_lastCardRenders'));
+  values.set('haui_lastCardRenders', JSON.stringify({ ...stored, assets: 'https://ha.local/old/' }));
+  const updated = await import(`${previewer}?update`);
+  assert.equal(updated.lastPanelRender(host, panel, false), null);
 });

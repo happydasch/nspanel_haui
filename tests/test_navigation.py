@@ -346,22 +346,17 @@ def test_check_inactivity_skips_invalid_page_timeouts(timeout_page):
     assert any(level == "WARNING" and "timeout_page" in message for message, level in nav.app.logs)
 
 
-@pytest.mark.parametrize(("is_night", "use_auto_page"), [(False, None), (True, 1)])
-def test_check_inactivity_skips_invalid_active_profile_flags(is_night, use_auto_page):
-    prefix = "night_" if is_night else ""
-    nav = _make_idle_nav(**{f"{prefix}use_auto_page": use_auto_page, f"{prefix}timeout_page": 10})
-    nav._idle_profile_night = is_night
+@pytest.mark.parametrize("use_auto_page", [None, 1])
+def test_check_inactivity_skips_an_invalid_auto_page_flag(use_auto_page):
+    nav = _make_idle_nav(use_auto_page=use_auto_page, timeout_page=10)
 
     nav._check_inactivity({})
 
     assert nav.calls["open_idle"] == []
-    assert any(
-        level == "WARNING" and f"{prefix}use_auto_page" in message
-        for message, level in nav.app.logs
-    )
+    assert any(level == "WARNING" and "use_auto_page" in message for message, level in nav.app.logs)
 
 
-def test_check_inactivity_logs_missing_active_profile_values():
+def test_check_inactivity_logs_missing_auto_page_values():
     nav = _make_idle_nav()
     del nav.app.device._cfg["use_auto_page"]
     del nav.app.device._cfg["timeout_page"]
@@ -396,22 +391,55 @@ def test_a_shorter_timeout_applies_on_the_next_tick():
     assert nav.calls["open_idle"] == [{"autostart": True}]
 
 
+# --- idle status for the editor's diagnostics -------------------------------
+
+
+def test_idle_status_counts_down_to_the_idle_page():
+    nav = _make_idle_nav(timeout_page=30)
+    nav._activity_ts = time.monotonic() - 10
+    assert nav.idle_status() == {"state": "pending", "idle_in": 20}
+    nav._activity_ts = time.monotonic() - 45
+    assert nav.idle_status() == {"state": "pending", "idle_in": 0}
+
+
+def _idle_status_case(case):
+    nav = _make_idle_nav()
+    if case == "active":
+        nav._idle_panel_active = True
+    elif case == "suspended":
+        nav._idle_panel_suspended = True
+    elif case == "offline":
+        nav.app.device.connected = False
+    elif case == "held":
+        nav.page = FakePage(page_id=3, started=True, suspended=(AUTO_PAGE_HOLD,))
+    elif case == "no idle page":
+        nav._idle_panels = []
+    elif case == "auto page off":
+        nav.app.device._cfg["use_auto_page"] = False
+    return nav.idle_status()
+
+
+@pytest.mark.parametrize(
+    ("case", "state"),
+    [
+        ("active", "active"),
+        ("suspended", "suspended"),
+        # The check does not run for a disconnected device: no countdown at 0.
+        ("offline", "offline"),
+        ("held", "held"),
+        ("no idle page", "off"),
+        ("auto page off", "off"),
+    ],
+)
+def test_idle_status_without_a_countdown(case, state):
+    assert _idle_status_case(case) == {"state": state, "idle_in": None}
+
+
 def test_recording_interaction_restarts_the_timeout():
     nav = _make_idle_nav()
     nav.reset_activity()
     assert time.monotonic() - nav._activity_ts < 1
     _assert_no_idle_opened(nav)
-
-
-def test_the_night_profile_selects_its_own_idle_settings():
-    nav = _make_idle_nav(
-        use_auto_page=False,
-        night_use_auto_page=True,
-        night_timeout_page=10,
-    )
-    nav._idle_profile_night = True
-    nav._check_inactivity({})
-    assert nav.calls["open_idle"] == [{"autostart": True}]
 
 
 def test_repeated_checks_do_not_advance_the_carousel():
@@ -459,86 +487,16 @@ def test_check_inactivity_restarts_the_timeout_after_a_reconnect():
     assert opened == [{"autostart": True}]
 
 
-def test_an_empty_night_idle_key_disables_the_idle_page_with_a_warning():
-    app = FakeApp(
-        FakeDevice(
-            night_idle_panel="",
-            idle_panel="day_idle",
-            night_use_auto_page=True,
-        )
-    )
-    app.device_config = FakeDeviceConfig({"day_idle": DummyPanel("day-idle")})
+def test_an_unresolved_idle_key_is_logged():
+    app = FakeApp(FakeDevice(use_auto_page=True, idle_panel="missing_panel", idle_panel_extra=""))
+    app.device_config = FakeDeviceConfig({"other": DummyPanel("other", key="other")})
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
 
-    nav.set_idle_profile(True)
+    nav._resolve_idle_panels()
 
     assert nav._idle_panels == []
-    assert any(level == "WARNING" and "night_idle_panel" in message for message, level in app.logs)
-
-
-def test_an_empty_day_idle_key_does_not_inherit_the_night_page():
-    app = FakeApp(
-        FakeDevice(
-            use_auto_page=True,
-            idle_panel="",
-            idle_panel_extra="",
-            night_idle_panel="night_idle",
-        )
-    )
-    app.device_config = FakeDeviceConfig({"night_idle": DummyPanel("night-idle", key="night_idle")})
-    nav = HAUINavigationController(app, {})
-    app.controller["navigation"] = nav
-
-    nav.set_idle_profile(False)
-
-    assert nav._idle_panels == []
-    assert any(
-        level == "WARNING" and "idle_panel is empty" in message for message, level in app.logs
-    )
-
-
-def test_an_unresolved_day_idle_key_is_logged_without_falling_back_to_night():
-    app = FakeApp(
-        FakeDevice(
-            use_auto_page=True,
-            idle_panel="missing_day_panel",
-            idle_panel_extra="",
-            night_use_auto_page=True,
-            night_idle_panel="night_idle",
-        )
-    )
-    app.device_config = FakeDeviceConfig({"night_idle": DummyPanel("night-idle", key="night_idle")})
-    nav = HAUINavigationController(app, {})
-    app.controller["navigation"] = nav
-
-    nav.set_idle_profile(False)
-
-    assert nav._idle_panels == []
-    assert any(level == "WARNING" and "missing_day_panel" in message for message, level in app.logs)
-    assert not any("not inherited" in message for message, _ in app.logs)
-
-
-def test_an_unresolved_night_idle_key_is_not_reported_as_empty():
-    app = FakeApp(
-        FakeDevice(
-            use_auto_page=True,
-            idle_panel="day_idle",
-            night_use_auto_page=True,
-            night_idle_panel="missing_night_panel",
-        )
-    )
-    app.device_config = FakeDeviceConfig({"day_idle": DummyPanel("day-idle", key="day_idle")})
-    nav = HAUINavigationController(app, {})
-    app.controller["navigation"] = nav
-
-    nav.set_idle_profile(True)
-
-    assert nav._idle_panels == []
-    assert any(
-        level == "WARNING" and "missing_night_panel" in message for message, level in app.logs
-    )
-    assert not any("not inherited" in message for message, _ in app.logs)
+    assert any(level == "WARNING" and "missing_panel" in message for message, level in app.logs)
 
 
 # --- auto-navigate-home from the same clock --------------------------------
@@ -809,6 +767,27 @@ def test_open_panel_different_page_waits_for_event():
 
     assert nav.calls["display_panel"] == []
     assert nav._page_timeout is not None  # run_in returns "handle"
+
+
+def test_opening_a_panel_fires_the_page_changed_event():
+    """Automations follow the shown panel through ``nspanel_haui.page_changed``."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=5)
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=5),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl("p1")
+
+    ((event_type, data),) = nav.app.fire_event_calls
+    assert event_type == "nspanel_haui.page_changed"
+    assert (data["device"], data["action"], data["panel"], data["type"]) == (
+        "Fake Panel",
+        "opened",
+        "test",
+        "grid",
+    )
 
 
 def test_page_timeout_callback_forces_goto_and_displays():
@@ -1084,6 +1063,38 @@ def test_open_idle_panel_enters_idle_session_and_snapshots_once():
     assert nav._idle_panel_idx == 2  # carousel still advances
 
 
+def test_open_idle_panel_by_key_opens_that_panel_and_continues_after_it():
+    """The editor's preview opens the idle panel the device shows, not the next one."""
+    device = FakeDevice()
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._idle_panels = [DummyPanel("a", "sleep_a"), DummyPanel("b", "sleep_b")]
+    nav.create_snapshot = lambda: None
+    opened: list = []
+    nav.open_panel = lambda pid, **kw: opened.append(pid)
+
+    nav.open_idle_panel(key="sleep_b")
+    nav.open_idle_panel()
+
+    assert opened == ["b", "a"]
+    assert nav._idle_panel_active is True
+
+
+def test_open_idle_panel_by_key_refuses_a_panel_outside_the_carousel():
+    device = FakeDevice()
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._idle_panels = [DummyPanel("a", "sleep_a")]
+    nav.open_panel = lambda pid, **kw: None
+
+    with pytest.raises(ValueError, match="Not an idle panel"):
+        nav.open_idle_panel(key="grid_0")
+
+    assert nav._idle_panel_active is False
+
+
 def test_open_idle_panel_arms_wake_touch_when_display_dark():
     device = FakeDevice()
     device.device_info["display_state"] = "off"
@@ -1171,3 +1182,89 @@ def test_page_ack_clears_page_change_timestamp() -> None:
     nav.process_event(HAUIEvent(ESPEvent.PAGE, "1"))
 
     assert nav._page_change_ts == 0.0
+
+
+def test_touch_recovery_cancels_the_pending_page_timeout() -> None:
+    """The recovery replaces the page-ack timeout, which must not fire on top of it."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=5)
+    nav.page = FakePage(page_id=5, started=False)
+    nav.panel = panel
+    nav._page_timeout = "page-ack-timer"
+    nav._page_change_ts = time.monotonic() - 2.0
+
+    nav.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+
+    assert nav.calls["goto_page"] == [{"page_id": 5, "force": True}]
+    assert "page-ack-timer" in nav.app.cancel_calls
+
+
+def test_a_reload_keeps_the_shown_carousel_panel_as_the_idle_panel() -> None:
+    """A save rebuilds every panel; the idle session must still know the idle page shown."""
+    device = FakeDevice(use_auto_page=True, idle_panel=["sleep_a", "sleep_b"], idle_panel_extra="")
+    app = FakeApp(device)
+    app.device_config = FakeDeviceConfig(
+        {"sleep_a": DummyPanel("a", "sleep_a"), "sleep_b": DummyPanel("b", "sleep_b")}
+    )
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._resolve_idle_panels()
+    nav.create_snapshot = lambda: None
+    nav.open_panel = lambda pid, **kw: None
+    nav.open_idle_panel()
+    nav.open_idle_panel()  # the carousel moved on to sleep_b
+
+    rebuilt_b = DummyPanel("b2", "sleep_b")
+    app.device_config = FakeDeviceConfig(
+        {"sleep_a": DummyPanel("a2", "sleep_a"), "sleep_b": rebuilt_b}
+    )
+    nav._resolve_idle_panels()
+    nav._track_idle_session(rebuilt_b)
+
+    assert nav._idle_panel is rebuilt_b
+    assert nav.idle_panel_active is True
+
+
+# --- idle page carousel ------------------------------------------------------
+
+
+def _carousel_nav(keys, **device_cfg):
+    """A nav whose config holds one panel per key; ``nav.opened`` lists the panels it opens."""
+    app = FakeApp(FakeDevice(use_auto_page=True, **device_cfg))
+    app.device_config = FakeDeviceConfig({key: DummyPanel(f"id-{key}", key) for key in keys})
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._resolve_idle_panels()
+    nav.create_snapshot = lambda: None
+    nav.opened = []
+    nav.open_panel = lambda panel_id, **kw: nav.opened.append(panel_id)
+    return nav
+
+
+def test_the_carousel_cycles_the_idle_panel_and_its_extras_without_repeats():
+    nav = _carousel_nav(
+        ["clock", "clocktwo", "weather", "grid"],
+        idle_panel="clock",
+        idle_panel_extra="weather, clocktwo, weather",
+    )
+
+    for _ in range(4):
+        nav.open_idle_panel()
+
+    assert nav.opened == ["id-clock", "id-weather", "id-clocktwo", "id-clock"]
+
+
+def test_a_changed_carousel_starts_over_and_an_unchanged_one_continues():
+    nav = _carousel_nav(
+        ["clock", "clocktwo", "weather"], idle_panel="clock", idle_panel_extra="clocktwo"
+    )
+    nav.open_idle_panel()
+
+    nav._resolve_idle_panels()  # a save that leaves the carousel as it is
+    nav.open_idle_panel()
+    assert nav.opened == ["id-clock", "id-clocktwo"]
+
+    nav.app.device._cfg["idle_panel_extra"] = "weather"
+    nav._resolve_idle_panels()
+    nav.open_idle_panel()
+    assert nav.opened == ["id-clock", "id-clocktwo", "id-clock"]

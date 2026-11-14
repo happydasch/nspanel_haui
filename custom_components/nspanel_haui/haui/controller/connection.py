@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import time
+from collections import deque
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
@@ -13,7 +15,13 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPRequest, ESPResponse, ServerRequest, ServerResponse
-from ..version import get_version
+from ..version import get_integration_version
+
+# How far back the connection health looks, and when a device heartbeat counts
+# as late: more than this many heartbeat intervals after the previous one.
+HEALTH_WINDOW = 86_400.0
+LATE_HEARTBEAT_FACTOR = 1.5
+RECENT_DROPS = 5
 
 
 class ConnectionState(StrEnum):
@@ -76,6 +84,12 @@ class HAUIConnectionController(HAUIBase):
         # Human-readable reason for the last disconnect (heartbeat timeout,
         # handshake timeout, app stopped, ...).  None while connected.
         self._last_disconnect_reason: str | None = None
+        # Connection health for the editor: drops of an established connection
+        # as (wall time, reason) and late device heartbeats as (wall time, gap).
+        # Bounded so a flapping device cannot grow them without limit.
+        self._drops: deque[tuple[float, str]] = deque(maxlen=200)
+        self._late_heartbeats: deque[tuple[float, float]] = deque(maxlen=1000)
+        self._last_heartbeat: float | None = None
 
         # Callback
         self._connection_callback = connection_callback
@@ -117,13 +131,16 @@ class HAUIConnectionController(HAUIBase):
         Args:
             new_state: Target state.
             reason: Optional human-readable reason for the transition, stored
-                as ``last_disconnect_reason`` when leaving CONNECTED/HANDSHAKING.
+                as ``last_disconnect_reason`` when leaving CONNECTED/HANDSHAKING
+                and recorded as a drop when leaving CONNECTED.
         """
         if new_state == self._state:
             return
         old = self._state
         self._state = new_state
         self.log(f"Connection state: {old.value} → {new_state.value}")
+        if old == ConnectionState.CONNECTED:
+            self._drops.append((time.time(), reason or "lost connection"))
 
         if new_state == ConnectionState.CONNECTED:
             self._last_disconnect_reason = None
@@ -132,7 +149,7 @@ class HAUIConnectionController(HAUIBase):
             self._last_disconnect_reason = reason or "lost connection"
             self._on_entering_disconnected(old)
         elif new_state == ConnectionState.HANDSHAKING:
-            self._on_entering_handshaking()
+            self._on_entering_handshaking(old)
 
     # ------------------------------------------------------------------
     # State-transition side-effects
@@ -142,6 +159,10 @@ class HAUIConnectionController(HAUIBase):
         """Run side-effects when transitioning to CONNECTED."""
         self._update_last_time()
         self._last_connection_time = time.time()
+        # Gaps are measured within one connection. A device that reconnects
+        # without the hub timing out first (a reboot) sends no heartbeats while
+        # it is handshaking; that outage is a drop, not a late heartbeat.
+        self._last_heartbeat = None
 
         self._stop_handshake_timer()
         self.send_esphome(ServerResponse.HUB_CONNECTION_INITIALIZED, "", True)
@@ -162,14 +183,21 @@ class HAUIConnectionController(HAUIBase):
         if self._disconnected_since is None:
             self._disconnected_since = time.monotonic()
 
-    def _on_entering_handshaking(self) -> None:
+    def _on_entering_handshaking(self, old: ConnectionState) -> None:
         """Run side-effects when transitioning to HANDSHAKING.
 
         Start a timer so a stalled handshake (e.g. service calls failing
         silently) does not leave us in HANDSHAKING forever.
         The device retries req_connection every ~10 s, so 15 s gives
         one full retry cycle.
+
+        From CONNECTED the device rebooted or gave up on the hub without the
+        hub timing out first: the connection is reported lost now, as a
+        heartbeat timeout would, so the reconnect that follows (or the
+        handshake timeout) is reported like any other.
         """
+        if old == ConnectionState.CONNECTED:
+            self._connection_callback(False)
         self._start_handshake_timer()
 
     # ------------------------------------------------------------------
@@ -184,10 +212,12 @@ class HAUIConnectionController(HAUIBase):
                 (e.g. "livesign" or "req_connection").
         """
         self.log(f"Initiating handshake ({context})")
-        self._set_state(ConnectionState.HANDSHAKING)
+        # From CONNECTED this is a drop: the device rebooted or gave up on the
+        # hub's heartbeats and asks for a new connection.
+        self._set_state(ConnectionState.HANDSHAKING, reason="device reconnected")
         self.send_esphome(
             ServerResponse.HUB_CONNECTION_RESPONSE,
-            {"version": get_version()},
+            {"version": get_integration_version()},
             True,
         )
 
@@ -404,11 +434,46 @@ class HAUIConnectionController(HAUIBase):
         timestamp stays fresh.
         """
         self._update_last_time()
+        self._record_heartbeat()
         # Bidirectional heartbeat: respond so the device's hub_heartbeat
         # timestamp stays fresh.  The periodic loop-side timer is the
         # primary sender; this event-driven reply is a fallback for a lost
         # timer (and re-anchors the device right after a jittery interval).
         self._send_hub_heartbeat({})
+
+    def _record_heartbeat(self) -> None:
+        """Note a device heartbeat that came late, measured from the previous one."""
+        now = time.monotonic()
+        if self._state != ConnectionState.CONNECTED:
+            self._last_heartbeat = None
+            return
+        if self._last_heartbeat is not None:
+            gap = now - self._last_heartbeat
+            if gap > self._heartbeat_interval * LATE_HEARTBEAT_FACTOR:
+                self._late_heartbeats.append((time.time(), gap))
+        self._last_heartbeat = now
+
+    def health(self) -> dict[str, Any]:
+        """Drops and late heartbeats of the last 24 hours, for the editor's diagnostics.
+
+        The history lives in memory: it starts empty when the hub starts.
+        """
+        cutoff = time.time() - HEALTH_WINDOW
+        drops = [drop for drop in self._drops if drop[0] >= cutoff]
+        gaps = [gap for stamp, gap in self._late_heartbeats if stamp >= cutoff]
+        return {
+            "drops_24h": len(drops),
+            "recent_drops": [
+                {
+                    "time": datetime.datetime.fromtimestamp(stamp, tz=datetime.UTC).isoformat(),
+                    "reason": reason,
+                }
+                for stamp, reason in reversed(drops[-RECENT_DROPS:])
+            ],
+            "late_heartbeats_24h": len(gaps),
+            "longest_heartbeat_gap": round(max(gaps), 1) if gaps else None,
+            "heartbeat_interval": self._heartbeat_interval,
+        }
 
     def _handle_req_connection(self, event: HAUIEvent) -> None:
         """Handle handshake step 1: device requests connection."""

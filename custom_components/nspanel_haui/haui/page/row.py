@@ -46,6 +46,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
         page_id=10,
         label=_("Row"),
         description=_("Row of entities with cover/action controls."),
+        category="grouping",
         options=[
             PageOption(
                 key="items",
@@ -445,7 +446,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             True when ``stale_data_seconds`` is configured and the item's
             entity has not updated within that window.
         """
-        max_age = self.app.device.get("stale_data_seconds", 0)
+        max_age = self.app.device.get("stale_data_seconds")
         try:
             max_age = int(max_age)
         except TypeError, ValueError:

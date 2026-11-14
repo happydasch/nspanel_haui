@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,14 +7,12 @@ import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { renderEntityPicker } from '../../custom_components/nspanel_haui/frontend/haui-entity.js';
 
 const DIALOGS = [
-  'nspanel-dialog-edit-panel',
+  'nspanel-panel-editor',
   'nspanel-dialog-confirm',
-  'nspanel-dialog-device-config',
-  'nspanel-dialog-device-info',
-  'nspanel-dialog-logs',
-  'nspanel-dialog-device-manager',
-  'nspanel-dialog-colors',
-  'nspanel-dialog-live-preview',
+  'nspanel-device-settings',
+  'nspanel-updates-sidebar',
+  'nspanel-logs-sidebar',
+  'nspanel-theme-sidebar',
 ];
 
 function shouldUpdate(tag, open, changed) {

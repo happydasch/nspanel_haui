@@ -21,11 +21,13 @@ class LightPage(HAUIPage):
         page_id=13,
         label=_("Light"),
         description=_("Single light with brightness, color temperature and effects."),
+        category="entities",
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="light",
+                required=True,
                 description=_("Light entity to control brightness, color and temperature."),
                 section=_("Light"),
             ),
@@ -78,6 +80,7 @@ class LightPage(HAUIPage):
         self._show_kelvin = True
         self._light_functions: list[dict[str, Any]] = []
         self._current_light_function: str | None = None
+        self._displayed_light_function: str | None = None
         self._touch_track = False
         self._touch_color: tuple[int, int, int] | None = None
 
@@ -113,7 +116,7 @@ class LightPage(HAUIPage):
             }
         )
         # if kelvin should be used instead of mired
-        self._show_kelvin = panel.get("show_kelvin", self._show_kelvin)
+        self._show_kelvin = self.option(panel, "show_kelvin")
         item = self._resolve_panel_item(panel)
         self.set_light_item(item)
         # set title
@@ -406,6 +409,8 @@ class LightPage(HAUIPage):
                 btn = getattr(self.COMPONENTS, f"btn_light_fnc_{idx}")
                 self.hide_component(btn)
         # function components
+        if self._displayed_light_function == "color" and to_show != self.COMPONENTS.pic_color_rect:
+            self.send_cmd(f"ref {self.COMPONENTS.pic_color_rect[0]}")
         for x in [
             self.COMPONENTS.h_brightness,
             self.COMPONENTS.pic_color_rect,
@@ -415,6 +420,9 @@ class LightPage(HAUIPage):
                 self.show_component(x)
             else:
                 self.hide_component(x)
+        self._displayed_light_function = (
+            fnc["name"] if fnc is not None and to_show is not None else None
+        )
         if to_show in (self.COMPONENTS.h_brightness, self.COMPONENTS.h_color_temp):
             self.set_slider_color(slider=to_show, show_toggle=False)
         if fnc is not None:

@@ -5,110 +5,25 @@ display commands, state listeners and service calls, so assertions are on what
 reaches the display and Home Assistant.
 """
 
-import pytest
+from support.page_app import Entity, PageApp
 
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import VacuumFeatures
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
 from custom_components.nspanel_haui.haui.page.vacuum import VacuumPage
 from custom_components.nspanel_haui.haui.utils.icon import get_icon
-
-
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
-    def __init__(self):
-        self.cmds = []
-
-    def send_cmd(self, command, value):
-        self.cmds.extend(value if isinstance(value, list) else [value])
-
-    def has_notifications(self):
-        return False
-
-
-class _Device:
-    is_portrait = False
-
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "vacuum"]
-
-
-class _App:
-    def __init__(self, entities):
-        self.entities = entities
-        self.color_theme = ColorTheme({})
-        self.listeners = []
-        controller = _Controller()
-        self.controller = {"esphome": controller, "notification": controller}
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
-    def listen_state(self, cb, entity_id, attribute=None):
-        self.listeners.append((entity_id, attribute))
-        return f"{entity_id}:{attribute}"
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
-
 
 BASE_FEATURES = VacuumFeatures.START | VacuumFeatures.RETURN_HOME | VacuumFeatures.STATE
 
 
 def _vacuum(state="docked", features=BASE_FEATURES):
-    return _Entity(state, {"friendly_name": "Robo", "supported_features": features})
+    return Entity(state, {"friendly_name": "Robo", "supported_features": features})
 
 
 def _show(vacuum, battery=None, **panel_cfg):
-    entities = {"vacuum.robo": vacuum, "switch.mop": _Entity("off", {"friendly_name": "Mop"})}
+    entities = {"vacuum.robo": vacuum, "switch.mop": Entity("off", {"friendly_name": "Mop"})}
     if battery is not None:
         entities["sensor.battery"] = battery
-    app = _App(entities)
+    app = PageApp(entities)
     cfg = {"type": "vacuum", "item": {"item": "vacuum.robo"}}
     cfg.update(panel_cfg)
     panel = HAUIPanel(app, cfg)
@@ -154,7 +69,7 @@ def test_editor_panel_controls_configured_item_and_keeps_all_secondary_items():
 
 def test_popup_controls_item_passed_by_id():
     vacuum = _vacuum()
-    app = _App({"vacuum.robo": vacuum})
+    app = PageApp({"vacuum.robo": vacuum})
     panel = HAUIPanel(app, {"type": "vacuum"})
     panel.apply_kwargs({"item": "vacuum.robo", "item_id": "vacuum.robo"})
     page = VacuumPage(app, {"page_id": 15})
@@ -217,7 +132,7 @@ def _battery(level, icon=None):
     attributes = {"friendly_name": "Battery"}
     if icon:
         attributes["icon"] = icon
-    return _Entity(level, attributes)
+    return Entity(level, attributes)
 
 
 def test_battery_sensor_level_picks_the_header_icon():
@@ -277,3 +192,19 @@ def test_secondary_item_button_opens_the_items_popup_like_grid():
     page.callback_function_component("bEntity1", "item")
 
     assert [item.get_item_id() for item in executed] == ["switch.mop"]
+
+
+def _last_vis(cmds, name):
+    return [cmd for cmd in cmds if cmd.startswith(f"vis {name},")][-1]
+
+
+def test_vacuum_controls_come_back_when_the_vacuum_is_available_again():
+    vacuum = _vacuum(state="docked")
+    app, page = _show(vacuum)
+
+    for state in ("unavailable", "docked"):
+        vacuum.state = state
+        page.callback_vacuum_entity("vacuum.robo", "state", None, state, {})
+
+    for name in ("bAction", "bHome"):
+        assert _last_vis(app.cmds, name) == f"vis {name},1"

@@ -117,9 +117,14 @@ class TouchInputMixin:
     def _clear_component_callbacks(self) -> None:
         """Drops the press, release, drag and read registrations of the current panel.
 
-        The in-flight read goes too: its response belongs to the previous panel
-        and must not reach the next one's handler for the same component.
+        The in-flight read goes too, and so do a release still waiting out the
+        tap-or-swipe window and a slider release waiting for its read: they
+        belong to the previous panel and must not reach the next one's handler
+        for the same component.
         """
+        self._drop_buffered_release()
+        self._cancel_drag_flush_timer()
+        self._pending_drag_callback = None
         self._callback_map.clear()
         self._callbacks.clear()
         self._drag_components.clear()

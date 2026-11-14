@@ -1,0 +1,161 @@
+// @ts-check
+import { html, nothing } from '../lit-import.js';
+import { rgb565ToHex } from '../color-utils.js';
+import { t } from '../localize.js';
+import { button, iconButton } from './button.js';
+import { icon } from './icon.js';
+
+/** Theme colors a tile's miniature panel draws with: [CSS property, theme color key]. */
+const THUMB_COLORS = [
+  ['--vp-theme-thumb-header', 'header_background'],
+  ['--vp-theme-thumb-header-text', 'header_text'],
+  ['--vp-theme-thumb-background', 'background'],
+  ['--vp-theme-thumb-component', 'component_background'],
+  ['--vp-theme-thumb-active', 'component_active'],
+  ['--vp-theme-thumb-entity', 'entity_on'],
+];
+
+/** @param {Record<string, number>} colors */
+function thumbStyle(colors) {
+  return THUMB_COLORS.map(([prop, key]) => `${prop}:${rgb565ToHex(colors[key])}`).join(';');
+}
+
+/**
+ * One selector for the whole theme library: predefined and custom themes as
+ * tiles in one radio group, each with a miniature panel in its colors, named
+ * by `label` for assistive technology only (the sidebar shows no visible
+ * label), and the library controls (new theme, export selected, import, plus
+ * the selected theme's own actions) in one row underneath. Used by the Theme
+ * sidebar.
+ *
+ * @param {{
+ *   builtins?: Record<string, any>,
+ *   custom?: Record<string, any>,
+ *   selectedId: string,
+ *   label?: string,
+ *   builtinLabel: (id: string) => string,
+ *   onSelect: (id: string) => void,
+ *   actions?: { label: string, iconName: string, onClick: () => void, danger?: boolean }[],
+ *   onNew: () => void,
+ *   onExport: () => void,
+ *   onImport: (event: Event) => void,
+ *   notice?: string,
+ *   error?: string,
+ *   nameAction?: string,
+ *   themeName?: string,
+ *   onNameInput?: (value: string) => void,
+ *   onSaveName?: () => void,
+ *   onCancelName?: () => void,
+ * }} options
+ */
+export function themeSelector({
+  builtins = {},
+  custom = {},
+  selectedId,
+  label = t("Theme"),
+  builtinLabel,
+  onSelect,
+  actions = [],
+  onNew,
+  onExport,
+  onImport,
+  notice = "",
+  error = "",
+  nameAction = "",
+  themeName = "",
+  onNameInput,
+  onSaveName,
+  onCancelName,
+}) {
+  const customIds = Object.keys(custom);
+  /* The file input sits in the action row, so Import opens the picker next to it. */
+  const openFilePicker = (event) => {
+    event.currentTarget
+      .closest(".haui-theme-selector-actions")
+      ?.querySelector("input[type=file]")
+      ?.click();
+  };
+  const tile = (id, name, theme) => {
+    const selected = id === selectedId;
+    return html`
+      <label class="haui-theme-option ${selected ? "is-selected" : ""}">
+        <input
+          type="radio"
+          name="haui-theme"
+          .value=${id}
+          .checked=${selected}
+          @change=${() => onSelect(id)}
+        />
+        <span class="haui-theme-option-thumb" style=${thumbStyle(theme.colors)} aria-hidden="true">
+          <span class="haui-theme-option-thumb-header"><i></i></span>
+          <span class="haui-theme-option-thumb-body">
+            <i class="haui-theme-option-thumb-pill"></i>
+            <i class="haui-theme-option-thumb-pill is-active"></i>
+            <i class="haui-theme-option-thumb-dot"></i>
+          </span>
+        </span>
+        <span class="haui-theme-option-name">
+          <span>${name}</span>
+          ${selected ? icon("check", "haui-theme-option-check") : nothing}
+        </span>
+      </label>
+    `;
+  };
+  return html`
+    <div class="haui-theme-selector">
+      <div class="haui-theme-picker" role="radiogroup" aria-label=${label}>
+        <p class="haui-eyebrow haui-theme-picker-heading">${t("Predefined themes")}</p>
+        <div class="haui-theme-picker-grid">
+          ${Object.keys(builtins).map((id) => tile(id, builtinLabel(id), builtins[id]))}
+        </div>
+        ${customIds.length
+          ? html`
+              <p class="haui-eyebrow haui-theme-picker-heading">${t("Custom themes")}</p>
+              <div class="haui-theme-picker-grid">
+                ${customIds.map((id) => tile(id, custom[id].name, custom[id]))}
+              </div>
+            `
+          : nothing}
+      </div>
+      <div class="haui-theme-selector-actions">
+        ${button({ label: t("New"), variant: "quiet", onClick: onNew, className: "haui-theme-selector-action" })}
+        ${button({ label: t("Export"), variant: "quiet", onClick: onExport, className: "haui-theme-selector-action" })}
+        ${button({
+          label: t("Import"),
+          variant: "quiet",
+          onClick: openFilePicker,
+          className: "haui-theme-selector-action",
+        })}
+        ${actions.length
+          ? html`<span class="haui-theme-selector-divider" aria-hidden="true"></span>
+              ${actions.map(({ label: actionLabel, iconName, onClick, danger }) =>
+                iconButton({
+                  label: actionLabel,
+                  iconName,
+                  onClick,
+                  className: `haui-row-action${danger ? " is-danger" : ""}`,
+                }))}`
+          : nothing}
+        <input type="file" accept="application/json,.json" hidden @change=${onImport} />
+      </div>
+      ${notice ? html`<p class="haui-config-section-intro" role="status">${notice}</p>` : nothing}
+      ${nameAction
+        ? html`
+            <div class="haui-theme-name">
+              <input
+                type="text"
+                maxlength="64"
+                class="haui-input"
+                .value=${themeName}
+                @input=${(event) => onNameInput?.(event.target.value)}
+                aria-label=${t("Color theme name")}
+              />
+              <ha-button size="s" variant="brand" @click=${onSaveName}>${t("Save")}</ha-button>
+              <ha-button size="s" variant="neutral" appearance="plain" @click=${onCancelName}>${t("Cancel")}</ha-button>
+            </div>
+          `
+        : nothing}
+      ${error ? html`<p class="haui-theme-error" role="alert">${error}</p>` : nothing}
+    </div>
+  `;
+}

@@ -5,94 +5,11 @@ display commands and service calls, so assertions are on what reaches the
 display and Home Assistant.
 """
 
-import pytest
+from support.page_app import Entity, PageApp
 
-from custom_components.nspanel_haui.haui.abstract import haui_entity
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import CoverFeatures
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
 from custom_components.nspanel_haui.haui.page.cover import CoverPage
-
-
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
-    def __init__(self):
-        self.cmds = []
-
-    def send_cmd(self, command, value):
-        self.cmds.extend(value if isinstance(value, list) else [value])
-
-    def has_notifications(self):
-        return False
-
-
-class _Device:
-    is_portrait = False
-
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "cover"]
-
-
-class _App:
-    def __init__(self, entities):
-        self.entities = entities
-        self.color_theme = ColorTheme({})
-        controller = _Controller()
-        self.controller = {"esphome": controller, "notification": controller}
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
-    def listen_state(self, cb, entity_id, attribute=None):
-        return f"{entity_id}:{attribute}"
-
-
-class _SyncThread:
-    """Runs service calls inline so tests can assert on them immediately."""
-
-    def __init__(self, target, args=(), kwargs=None, daemon=None):
-        self._target, self._args, self._kwargs = target, args, kwargs or {}
-
-    def start(self):
-        self._target(*self._args, **self._kwargs)
-
-
-@pytest.fixture(autouse=True)
-def _sync_service_calls(monkeypatch):
-    monkeypatch.setattr(haui_entity.threading, "Thread", _SyncThread)
-
 
 OPEN_CLOSE_STOP = CoverFeatures.OPEN | CoverFeatures.CLOSE | CoverFeatures.STOP
 
@@ -100,11 +17,11 @@ OPEN_CLOSE_STOP = CoverFeatures.OPEN | CoverFeatures.CLOSE | CoverFeatures.STOP
 def _cover(state="open", **attrs):
     attributes = {"friendly_name": "Garage Door", "supported_features": OPEN_CLOSE_STOP}
     attributes.update(attrs)
-    return _Entity(state, attributes)
+    return Entity(state, attributes)
 
 
 def _show(entity):
-    app = _App({"cover.garage": entity})
+    app = PageApp({"cover.garage": entity})
     panel = HAUIPanel(app, {"type": "cover", "item": {"item": "cover.garage"}})
     page = CoverPage(app, {"page_id": 18})
     page.set_panel(panel)
@@ -113,7 +30,7 @@ def _show(entity):
 
 def test_no_selected_item_hides_cover_controls_and_service_actions():
     entity = _cover()
-    app = _App({"cover.garage": entity})
+    app = PageApp({"cover.garage": entity})
     panel = HAUIPanel(app, {"type": "cover"})
     page = CoverPage(app, {"page_id": 18})
     page.set_panel(panel)
@@ -138,7 +55,7 @@ def test_editor_panel_controls_configured_item():
 
 def test_popup_controls_item_passed_by_id():
     entity = _cover()
-    app = _App({"cover.garage": entity})
+    app = PageApp({"cover.garage": entity})
     panel = HAUIPanel(app, {"type": "cover"})
     panel.apply_kwargs({"item": "cover.garage", "item_id": "cover.garage"})
     page = CoverPage(app, {"page_id": 18})
@@ -185,3 +102,20 @@ def test_cover_with_position_shows_percentage():
     assert "hVertPos.val=42" in app.cmds
     assert "tsw bUp,1" in app.cmds
     assert "tsw bDown,1" in app.cmds
+
+
+def _last_vis(cmds, name):
+    return [cmd for cmd in cmds if cmd.startswith(f"vis {name},")][-1]
+
+
+def test_cover_controls_come_back_when_the_cover_is_available_again():
+    features = OPEN_CLOSE_STOP | CoverFeatures.SET_POSITION
+    entity = _cover(state="open", current_position=100, supported_features=features)
+    app, page = _show(entity)
+
+    for state in ("unavailable", "open"):
+        entity.state = state
+        page.callback_cover_entity("cover.garage", "state", None, state, {})
+
+    for name in ("bUp", "bStop", "bDown", "hVertPos"):
+        assert _last_vis(app.cmds, name) == f"vis {name},1"

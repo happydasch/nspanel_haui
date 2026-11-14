@@ -16,8 +16,8 @@
 - [ ] Docs in `docs/` updated for behaviour, options or defaults that changed
 - [ ] `zensical build --strict` passes
 - [ ] `pytest tests/` passes
-- [ ] `node --test 'tests/frontend/*.test.mjs'` passes (frontend changes only)
-- [ ] `ruff check custom_components/` is clean
+- [ ] `npm ci` (once per clone), then `node --test 'tests/frontend/*.test.mjs'` and `npm run typecheck:frontend` pass (frontend changes only)
+- [ ] `ruff format --check custom_components/ scripts/ tests/` and `ruff check custom_components/ scripts/` are clean
 - [ ] `mypy` is clean
-- [ ] Breaking changes documented in `docs/update.md` and the CHANGELOG "Breaking changes" section
+- [ ] Breaking changes documented in `docs/user/update.md` and the CHANGELOG "Breaking changes" section
 - [ ] Screenshot or short recording attached for display/frontend changes

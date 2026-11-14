@@ -82,6 +82,10 @@ class UnlockPage(AlarmPage):
 
     # misc
 
+    def _keypad_enabled(self) -> bool:
+        # The keypad enters the panel's unlock code; there is no alarm entity.
+        return True
+
     def update_components(self) -> None:
         # show either password stars or title
         if len(self._input):

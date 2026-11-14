@@ -23,35 +23,28 @@ inputs:
 runs:
   using: composite
   steps:
+    # The pip cache is keyed by its one requirements file: a key shared by the
+    # dev, docs and esphome jobs is saved by whichever job ends first, so the
+    # others would download their packages on every run.
     - name: Set up Python ${{ inputs.python }}
       if: inputs.python != ''
       uses: actions/setup-python@v6
       with:
         python-version: ${{ inputs.python }}
-        cache: pip
-        cache-dependency-path: requirements-*.txt
+        cache: ${{ inputs.requirements != '' && 'pip' || '' }}
+        cache-dependency-path: requirements-${{ inputs.requirements }}.txt
 
     - name: Install the ${{ inputs.requirements }} dependencies
       if: inputs.requirements != ''
       shell: bash
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install -r "requirements-${{ inputs.requirements }}.txt"
+      run: python -m pip install -r "requirements-${{ inputs.requirements }}.txt"
 
     - name: Set up Node ${{ inputs.node }}
-      if: inputs.node != '' && inputs.npm != 'true'
+      if: inputs.node != ''
       uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node }}
-
-    # setup-node only knows the npm cache when it is told about the lock file,
-    # so the caching variant is a separate step.
-    - name: Set up Node ${{ inputs.node }} with the npm cache
-      if: inputs.node != '' && inputs.npm == 'true'
-      uses: actions/setup-node@v7
-      with:
-        node-version: ${{ inputs.node }}
-        cache: npm
+        cache: ${{ inputs.npm == 'true' && 'npm' || '' }}
         cache-dependency-path: package-lock.json
 
     - name: Install the frontend tooling

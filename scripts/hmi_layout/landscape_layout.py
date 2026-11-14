@@ -218,7 +218,8 @@ LAYOUT: dict[str, dict[str, Rect]] = {
     },
 }
 
-# Slider cursors plus the page-background colour of every solid widget (theme.py).
+# Slider cursors, the clock's touch setting and the page-background colour of
+# every solid widget (theme.py).
 ATTRS: dict[str, dict[str, dict[str, int]]] = with_theme(
     {
         "settings": {"hBrght": _H_SLIDER, "hBrghtDim": _H_SLIDER},
@@ -226,6 +227,10 @@ ATTRS: dict[str, dict[str, dict[str, int]]] = with_theme(
         "cover": {"hVertPos": _V_SLIDER},
         "media": {"hVolume": _H_SLIDER},
         "row": {f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
+        # Send Component ID 2 (on press): tapping the time advances the clock's
+        # cards, which broke once in 0.4 when the setting was lost. The portrait
+        # HMI copies it from this project (portrait_layout.SIBLING_HMI).
+        "clock": {"tTime": {"sendkey": 2}},
     }
 )
 

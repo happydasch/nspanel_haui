@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
+    from ..mapping.color import Theme
 
 from ..utils.icon import parse_icon
 from ..utils.text import get_state_translation, get_translation
@@ -94,9 +95,14 @@ class HAUIConfigAccess:
             raise KeyError(f"Config key '{key}' is None")
         return value
 
-    def get_icon_color(self, domain: str, key: str, scheme: str | None = None) -> int | None:
-        """Return a fixed domain icon color for the selected or supplied scheme."""
-        return self.app.color_theme.get_icon_color(domain, key, scheme)
+    @property
+    def theme(self) -> Theme:
+        """Return the selected theme for this runtime object."""
+        return self.app.theme
+
+    def get_icon_color(self, domain: str, key: str, variant: str | None = None) -> int | None:
+        """Return a fixed domain icon color for the selected or supplied variant."""
+        return self.theme.get_icon_color(domain, key, variant)
 
     def log(self, msg: str, **kwargs: Any) -> None:
         """Logs a message.
@@ -184,10 +190,7 @@ class HAUIConfigAccess:
         return self.started
 
     def get_color(self, key: str) -> int:
-        """Return an RGB565 color value for the given theme key.
-
-        Respects the device's ``color_overrides``; a key without an override
-        has its built-in ``COLORS`` default.
+        """Return an RGB565 color value from the selected theme.
 
         Args:
             key: A key from the ``COLORS`` dict (e.g. ``"background"``).
@@ -195,7 +198,7 @@ class HAUIConfigAccess:
         Returns:
             RGB565 integer color value.
         """
-        return self.app.color_theme.get(key)
+        return self.theme.get(key)
 
     def render_template(self, template: str, parse_icons: bool = True) -> str:
         """Returns a rendered home assistant template string.

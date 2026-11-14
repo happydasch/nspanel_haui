@@ -12,7 +12,7 @@ from homeassistant.components import panel_custom
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 
-from ..haui.version import get_version
+from ..haui.version import get_integration_version
 
 _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -30,7 +30,7 @@ def _frontend_asset_version() -> str:
         digest.update(b"\0")
         with asset.open("rb") as file:
             digest.update(file.read())
-    return f"{get_version()}-{digest.hexdigest()[:12]}"
+    return f"{get_integration_version()}-{digest.hexdigest()[:12]}"
 
 
 async def async_register_frontend(hass) -> None:
@@ -40,6 +40,8 @@ async def async_register_frontend(hass) -> None:
 
     # The content digest changes the URL even for frontend fixes between releases,
     # so an open browser cannot keep an older module against a newer backend.
+    # That also makes every URL immutable: the browser may cache the ~90 modules
+    # instead of revalidating each of them on every visit.
     version = await hass.async_add_executor_job(_frontend_asset_version)
     static_url_path = f"{STATIC_URL_PREFIX}/{version}"
 
@@ -48,7 +50,7 @@ async def async_register_frontend(hass) -> None:
             StaticPathConfig(
                 static_url_path,
                 str(FRONTEND_DIR),
-                False,
+                True,
             )
         ]
     )

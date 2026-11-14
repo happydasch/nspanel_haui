@@ -23,11 +23,13 @@ class ClimatePage(HAUIPage):
         page_id=16,
         label=_("Climate"),
         description=_("Climate item with temperature and mode controls."),
+        category="entities",
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="climate",
+                required=True,
                 description=_("Climate/HVAC entity for temperature control and mode switching."),
                 section=_("Climate"),
             ),
@@ -117,7 +119,7 @@ class ClimatePage(HAUIPage):
             power_off_btn,
         )
         item = self._resolve_panel_item(panel)
-        self.set_climate_item(item, panel.get("hvac_modes", []))
+        self.set_climate_item(item, self.option(panel, "hvac_modes"))
         # set title
         self._title = self._panel_title(panel, item, self.translate("Climate"))
 

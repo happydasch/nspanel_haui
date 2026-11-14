@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import re
-import threading
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import AbstractContextManager, contextmanager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -33,27 +32,10 @@ class HAUIBase(HAUIConfigAccess):
         """
         super().__init__(app, config)
         self.display = DisplayInterface(ESPHomeTransport(self.app))
-        # Debouncer with executor dispatch: timer callbacks run on the
-        # HA executor thread so page code (send_cmd, state access) is
-        # always on the correct thread.
-        executor: Callable[[Callable[[], None]], None] | None = None
-        loop = getattr(getattr(self.app, "hass", None), "loop", None)
-        if loop is not None:
-            hass = self.app.hass
-            if getattr(hass, "async_add_executor_job", None) is not None:
-
-                def _executor_wrapper(func: Callable[[], None]) -> None:
-                    try:
-                        loop.call_soon_threadsafe(hass.async_add_executor_job, func)
-                    except RuntimeError:
-                        pass  # Event loop is closed during HA shutdown
-
-                executor = _executor_wrapper
-        self.debouncer = Debouncer(executor=executor)
+        self.debouncer = Debouncer(self.app)
         self._recording: bool = False
         self._rec_cmd_depth: int = 0
         self._rec_cmd: list[str] = []
-        self._rec_cmd_lock = threading.RLock()
 
     def find_esphome_entity_id(self, domain: str, original_name: str) -> str | None:
         """Resolve a linked ESPHome entity through the HA adapter registry."""
@@ -134,9 +116,8 @@ class HAUIBase(HAUIConfigAccess):
         Re-entrant: nested calls increment a depth counter without resetting
         the buffer.  Only the outermost ``stop_rec_cmd`` sends the batch.
         """
-        with self._rec_cmd_lock:
-            self._rec_cmd_depth += 1
-            self._recording = True
+        self._rec_cmd_depth += 1
+        self._recording = True
 
     def stop_rec_cmd(self, send_commands: bool = True) -> list[str]:
         """Stops the recording of commands.
@@ -145,11 +126,6 @@ class HAUIBase(HAUIConfigAccess):
         context exits (depth reaches 0) are the recorded commands deduplicated
         and sent.  Inner exits are no-ops.
 
-        The lock is held for the entire method including ``send_cmds`` so that
-        a concurrent caller on another executor thread cannot interleave its
-        commands between chunks of this batch or corrupt the buffer while it
-        is being drained.
-
         Args:
             send_commands (bool, optional): Should commands be sent after
                 stopping recording. Defaults to True.
@@ -157,28 +133,27 @@ class HAUIBase(HAUIConfigAccess):
         Returns:
             list: Recorded commands (after per-batch dedup), empty for inner exits.
         """
-        with self._rec_cmd_lock:
-            if self._rec_cmd_depth > 0:
-                self._rec_cmd_depth -= 1
-            if self._rec_cmd_depth > 0:
-                return []
-            self._recording = False
-            commands = self._dedup_commands(self._rec_cmd)
-            self._rec_cmd = []
-            if send_commands and len(commands) > 0:
-                ctx = self._cmd_context()
-                prefix = f"[{ctx}] " if ctx else ""
-                self.log(
-                    f"{prefix}Sending {len(commands)} command(s)",
-                    level="DEBUG",
-                )
-                commands_str = "\n".join(commands)
-                self.log(
-                    f"{prefix}Commands ({len(commands)}):\n{commands_str}",
-                    level="DEBUG",
-                )
-                self.send_cmds(commands)
-            return commands
+        if self._rec_cmd_depth > 0:
+            self._rec_cmd_depth -= 1
+        if self._rec_cmd_depth > 0:
+            return []
+        self._recording = False
+        commands = self._dedup_commands(self._rec_cmd)
+        self._rec_cmd = []
+        if send_commands and len(commands) > 0:
+            ctx = self._cmd_context()
+            prefix = f"[{ctx}] " if ctx else ""
+            self.log(
+                f"{prefix}Sending {len(commands)} command(s)",
+                level="DEBUG",
+            )
+            commands_str = "\n".join(commands)
+            self.log(
+                f"{prefix}Commands ({len(commands)}):\n{commands_str}",
+                level="DEBUG",
+            )
+            self.send_cmds(commands)
+        return commands
 
     @staticmethod
     def _dedup_commands(commands: list[str]) -> list[str]:
@@ -255,15 +230,14 @@ class HAUIBase(HAUIConfigAccess):
         if not isinstance(cmd, str):
             self.log(f"send_cmd: expected str, got {type(cmd).__name__}", level="ERROR")
             return
-        with self._rec_cmd_lock:
-            if self._recording:
-                self._rec_cmd.append(cmd)
-                return
-            ctx = self._cmd_context()
-            prefix = f"[{ctx}] " if ctx else ""
-            self.log(f"{prefix}Command: {cmd}", level="DEBUG")
-            self.app._last_panel_update = datetime.now(UTC).isoformat()
-            self.display.send_cmd(cmd)
+        if self._recording:
+            self._rec_cmd.append(cmd)
+            return
+        ctx = self._cmd_context()
+        prefix = f"[{ctx}] " if ctx else ""
+        self.log(f"{prefix}Command: {cmd}", level="DEBUG")
+        self.app._last_panel_update = datetime.now(UTC).isoformat()
+        self.display.send_cmd(cmd)
 
     def send_cmds(self, cmds: list[str]) -> None:
         """Sends a list of commands to the display via the ESPHome transport.

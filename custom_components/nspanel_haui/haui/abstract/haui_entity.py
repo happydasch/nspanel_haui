@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -86,10 +85,7 @@ class HAUIEntity:
         """
         entity = self.get_entity()
         if entity is None:
-            self._app.log(
-                f"Entity '{self._entity_id}' not available for attr '{attr}'",
-                level="WARNING",
-            )
+            self._app.warn_missing_entity(self._entity_id, f"attr '{attr}'")
             return default
         if isinstance(attr, str):
             res = entity.attributes.get(attr)
@@ -115,17 +111,16 @@ class HAUIEntity:
         """
         entity = self.get_entity()
         if entity is None:
-            self._app.log(f"Entity '{self._entity_id}' not available for state", level="WARNING")
+            self._app.warn_missing_entity(self._entity_id, "state")
             return None
         return entity.get_state()
 
     def call_entity_service(self, service: str, **kwargs: Any) -> None:
         """Call a service on this entity.
 
-        The service call is dispatched on a daemon thread so the ESPHome
-        dispatch thread isn't blocked while Home Assistant processes the
-        request - some integrations (e.g. Sonos ``select_source``) can take
-        many seconds.
+        The proxy hands the call to Home Assistant's loop without waiting for
+        it, so a slow integration (e.g. Sonos ``select_source``) never blocks
+        the worker, and calls reach Home Assistant in the order they were made.
 
         Args:
             service: The service name, e.g. ``"turn_on"``.
@@ -133,14 +128,6 @@ class HAUIEntity:
         """
         entity = self.get_entity()
         if entity is None:
-            self._app.log(
-                f"Entity '{self._entity_id}' not available for service '{service}'",
-                level="WARNING",
-            )
+            self._app.warn_missing_entity(self._entity_id, f"service '{service}'")
             return
-        threading.Thread(
-            target=entity.call_service,
-            args=(service,),
-            kwargs=kwargs,
-            daemon=True,
-        ).start()
+        entity.call_service(service, **kwargs)

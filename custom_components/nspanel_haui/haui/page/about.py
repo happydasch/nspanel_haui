@@ -5,7 +5,7 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
-from ..version import get_version
+from ..version import get_integration_version
 
 
 class AboutPage(HAUIPage):
@@ -70,7 +70,7 @@ class AboutPage(HAUIPage):
         ip_address = self.app.device.device_info.get("ip", "")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")
         yaml_version = self.app.device.device_info.get("yaml_version", "0.0.0")
-        haui_version = get_version()
+        integration_version = get_integration_version()
         # about text
         self.set_component_text(
             self.COMPONENTS.t_about_1,
@@ -86,9 +86,9 @@ class AboutPage(HAUIPage):
         # tft version
         self.set_component_text(self.COMPONENTS.t_tft_vers, self.translate("TFT-Version:"))
         self.set_component_text(self.COMPONENTS.t_tft_vers_val, tft_version)
-        # yaml version
-        self.set_component_text(self.COMPONENTS.t_yaml_vers, self.translate("YAML-Version:"))
+        # Firmware version reported by ESPHome
+        self.set_component_text(self.COMPONENTS.t_yaml_vers, self.translate("Firmware:"))
         self.set_component_text(self.COMPONENTS.t_yaml_vers_val, yaml_version)
-        # HAUI version
-        self.set_component_text(self.COMPONENTS.t_haui_vers, self.translate("HAUI-Version:"))
-        self.set_component_text(self.COMPONENTS.t_haui_vers_val, haui_version)
+        # Integration version
+        self.set_component_text(self.COMPONENTS.t_haui_vers, self.translate("Integration:"))
+        self.set_component_text(self.COMPONENTS.t_haui_vers_val, integration_version)

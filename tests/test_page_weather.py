@@ -5,7 +5,7 @@ import pytest
 from custom_components.nspanel_haui.haui.mapping.color import (
     WEATHER_COLORS,
     WEATHER_COLORS_LIGHT,
-    ColorTheme,
+    Theme,
 )
 from custom_components.nspanel_haui.haui.page.weather import WeatherPage
 from custom_components.nspanel_haui.haui.utils.icon import parse_icon
@@ -30,19 +30,40 @@ class _State:
 
 
 class _App:
-    def __init__(self, forecast=None, inside_temp=None, temp_entity_id="sensor.panel_temperature"):
+    def __init__(
+        self,
+        forecast=None,
+        inside_temp=None,
+        temp_entity_id="sensor.panel_temperature",
+        defer_off_worker=False,
+    ):
         self.device = _Device()
-        self.color_theme = ColorTheme({})
+        self.theme = Theme()
         self.controller = {}
         self.forecast = forecast
         self.inside_temp = inside_temp
         self.temp_entity_id = temp_entity_id
+        self.defer_off_worker = defer_off_worker
+        self.off_worker_jobs = []
 
     def log(self, msg, **kwargs):
         pass
 
     def call_service(self, service, **kwargs):
         return {"result": {"response": {_ENTITY_ID: {"forecast": self.forecast}}}}
+
+    def submit_off_worker(self, fn, *args, on_done=None):
+        self.off_worker_jobs.append((fn, args, on_done))
+        if not self.defer_off_worker:
+            self.run_off_worker_job(-1)
+
+    def run_off_worker_job(self, index):
+        fn, args, on_done = self.off_worker_jobs.pop(index)
+        try:
+            result, error = fn(*args), None
+        except Exception as exc:
+            result, error = None, exc
+        on_done(result, error)
 
     def find_entity_id(self, domain, name):
         return self.temp_entity_id
@@ -55,7 +76,7 @@ class _App:
 class _WeatherItem:
     def __init__(self, attrs):
         self.attrs = attrs
-        self.last_scheme = None
+        self.last_variant = None
 
     def get_item_id(self):
         return _ENTITY_ID
@@ -66,8 +87,8 @@ class _WeatherItem:
     def get_icon(self):
         return "icon"
 
-    def get_color(self, *, scheme=None):
-        self.last_scheme = scheme
+    def get_color(self, *, variant=None):
+        self.last_variant = variant
         return 0
 
 
@@ -104,6 +125,51 @@ def test_short_forecast_clears_unused_slots():
     for idx in (3, 4, 5):
         for name in ("Name", "Icon", "Val", "SubVal"):
             assert f'f{idx}{name}.txt=""' in page.cmds
+
+
+def test_the_forecast_is_fetched_off_the_worker_and_drawn_when_it_arrives():
+    app = _App(forecast=[_forecast(1)], defer_off_worker=True)
+    page = _weather_page(app, {})
+    page._forecast_type = "daily"
+
+    page.render_forecast()
+
+    assert not [cmd for cmd in page.cmds if cmd.startswith("f1Val")]
+    app.run_off_worker_job(0)
+    assert 'f1Val.txt="11°C"' in page.cmds
+
+
+def test_a_forecast_that_arrives_after_a_newer_request_is_dropped():
+    app = _App(defer_off_worker=True)
+    page = _weather_page(app, {})
+    page._forecast_type = "daily"
+    page.render_forecast()
+    page.render_forecast()
+
+    app.forecast = [_forecast(2)]
+    app.run_off_worker_job(1)
+    app.forecast = [_forecast(1)]
+    app.run_off_worker_job(0)
+
+    assert 'f1Val.txt="12°C"' in page.cmds
+    assert 'f1Val.txt="11°C"' not in page.cmds
+
+
+def test_a_forecast_requested_for_the_previous_panel_is_not_drawn():
+    app = _App(defer_off_worker=True)
+    page = _weather_page(app, {})
+    page._forecast_type = "daily"
+    page.render_forecast()
+
+    # the page starts its next panel from its defaults and asks again
+    page.prepare()
+    page._weather_item = _WeatherItem({})
+    page._forecast_type = "daily"
+    page.render_forecast()
+    app.forecast = [_forecast(1)]
+    app.run_off_worker_job(0)
+
+    assert not [cmd for cmd in page.cmds if cmd.startswith("f1Val")]
 
 
 @pytest.mark.parametrize("failure", ["no response", "malformed response", "service exception"])
@@ -250,7 +316,7 @@ def test_configured_inside_temp_sensor_used():
 
 def test_light_background_selects_light_weather_palette():
     page = _weather_page(_App(forecast=[_forecast(1)]), {})
-    page.app.color_theme = ColorTheme({}, "light")
+    page.app.theme = Theme("light")
     page._forecast_type = "daily"
     page._weather_icons_mode = "color"
     page._light_background = True
@@ -268,8 +334,8 @@ def test_light_background_selects_light_palette_for_main_weather_icon():
 
     page.update_main_weather()
 
-    assert page._weather_item.last_scheme == "light"
-    assert page.app.color_theme.get_icon_color("weather", "sunny") == WEATHER_COLORS["sunny"]
+    assert page._weather_item.last_variant == "light"
+    assert page.app.theme.get_icon_color("weather", "sunny") == WEATHER_COLORS["sunny"]
 
 
 def test_dark_display_keeps_the_weather_page_current():

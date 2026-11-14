@@ -35,6 +35,6 @@ Run this after HMI changes and after compiling/reviewing the HMIs in Nextion Edi
 2. Run `gen_layout.py --check` for the landscape HMI (the default), and `gen_layout.py --spec portrait --check` for the portrait HMI. Run either without `--check` to write its spec into the HMI.
 3. Re-open and inspect both HMI projects in Nextion Editor; compile both TFTs when either HMI changed.
 4. Run `gen_virtual_layout.py` to regenerate editor assets, then run it with `--check` as a validation gate.
-5. Run `python -m scripts.verify_nextion.verify_nextion --require-portrait` and the repository test suite before committing.
+5. Run the repository test suite before committing: it repeats both layout checks and verifies that both HMIs and both TFTs carry the `tft_version` in `esphome/nspanel_haui/version.yaml`.
 
 The scripts have distinct roles: the HMI patcher writes source projects and the virtual-layout exporter reads them to produce derived assets. Do not use the exporter as a substitute for HMI compilation or visual inspection.

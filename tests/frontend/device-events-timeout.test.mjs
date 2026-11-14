@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,7 +15,7 @@ test('a TFT install whose request times out shows the friendly timeout message',
     Promise.reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })),
   );
 
-  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
+  await Events.installTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), [
     'error',

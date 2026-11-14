@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
 
 if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
+    from ..mapping.color import Theme
 
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_base import HAUIBase
@@ -42,8 +44,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     )
 
     # Pages with non-standard color palettes (about, clock, clocktwo, weather)
-    # should set this to ``False`` so user-defined color overrides are bypassed
-    # and the page's built-in palette is used instead.
+    # should set this to ``False`` so the page's built-in palette is used instead.
     USE_SYSTEM_COLORS: ClassVar[bool] = True
 
     # The header title widget (``tTitle``) as the HMIs define it, per
@@ -89,12 +90,14 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         self.prepare()
 
     def prepare(self) -> None:
-        """Initialize page instance attributes.
+        """Initialize the page's per-panel attributes.
 
         Override this instead of ``__init__`` to set default attribute
-        values.  Called automatically after the base class constructor
-        runs.  No need to call ``super().prepare()`` — the base
-        implementation is a no-op.
+        values.  Called after the base class constructor runs and again
+        before every ``start_panel``, so nothing one panel set carries over
+        to the next panel shown on this page.  State that must outlive a
+        panel belongs on the panel (``panel.set_state``).  No need to call
+        ``super().prepare()`` — the base implementation is a no-op.
         """
 
     # part
@@ -130,6 +133,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         panel_key = panel.get("key", "")
         panel_type = panel.get_type()
         self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | Panel: {panel_key} ({panel_type})")
+        self.prepare()
 
         # Batch ALL commands from start_panel, config_panel, and render_panel
         # into a single send_commands call so the ESP32 receives them as one
@@ -196,9 +200,9 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         Args:
             panel (HAUIPanel): Panel the page is loaded for
         """
-        # The device's theme, not get_color(): own-palette pages read none of
+        # The panel's theme, not get_color(): own-palette pages read none of
         # it, and the globals outlive this page on the display.
-        return self.app.color_theme.display_commands()
+        return panel.theme.display_commands()
 
     def prepare_page_load(self, panel: HAUIPanel) -> None:
         """Send ``page_load_commands()``; call right before goto_page.
@@ -224,6 +228,27 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         if self._load_commands is None:
             raise RuntimeError("The page was not prepared for loading")
         return list(self._load_commands)
+
+    def option(self, panel: HAUIPanel, key: str) -> Any:
+        """The panel's value for one of this page's options, or the option's default.
+
+        The default is the ``PageOption.default`` that the page's descriptor
+        (or the descriptor of a page it extends) declares, the one the editor
+        shows; the page keeps no second copy of it.
+
+        Args:
+            panel (HAUIPanel): Panel to read the option from
+            key (str): Option key
+
+        Raises:
+            KeyError: If ``key`` is not an option of this page.
+        """
+        defaults: dict[str, Any] = {}
+        for klass in reversed(type(self).__mro__):
+            descriptor = klass.__dict__.get("DESCRIPTOR")
+            if descriptor is not None:
+                defaults.update({o.key: o.default for o in descriptor.options or []})
+        return panel.get(key, deepcopy(defaults[key]))
 
     def is_loaded_for(self, panel: HAUIPanel) -> bool:
         """Whether the display loaded this page with what ``panel`` reads while loading.
@@ -346,13 +371,18 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
 
     # display
 
+    @property
+    def theme(self) -> Theme:
+        """Return the current panel theme, or the device theme before a panel is set."""
+        return self.panel.theme if self.panel is not None else self.app.theme
+
     def get_color(self, key: str) -> int:
         """Return the selected theme or the contrast palette paired with the page background."""
         if not self.USE_SYSTEM_COLORS:
-            if getattr(self, "_use_color_scheme", False):
-                return self.app.color_theme.get(key)
+            if getattr(self, "_use_theme_background", False):
+                return self.theme.get(key)
             variant = getattr(self, "_background_variant", "dark")
-            return self.app.color_theme.get_background_color(key, variant)
+            return self.theme.get_background_color(key, variant)
         return super().get_color(key)
 
     def set_title(
@@ -448,12 +478,16 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
 
     # items
 
+    def _make_item(self, config: dict | None) -> HAUIItem:
+        """Create a page item using the current panel's theme."""
+        return HAUIItem(self.app, config, theme=self.theme)
+
     def _build_items_from_panel(self, panel: HAUIPanel, *keys: str) -> list[HAUIItem]:
         """Build HAUIItem list from a panel's item config keys.
 
-        Reads each config key in order.  For each key, if the value is a
-        list every entry is added as a separate item; if it's a single
-        value (dict or string) it is wrapped as a single item.
+        Reads each config key in order. For each key, a list adds each entry
+        as a separate item; a dict or entity-ID string adds one item. Strings
+        are normalized to the ``{"item": ...}`` config expected by HAUIItem.
 
         Args:
             panel: The panel whose item config to read.
@@ -465,11 +499,10 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         items: list[HAUIItem] = []
         for key in keys:
             val = panel.get(key, None)
-            if isinstance(val, list):
-                for entry in val:
-                    items.append(HAUIItem(self.app, entry))
-            elif val is not None:
-                items.append(HAUIItem(self.app, val))
+            entries = val if isinstance(val, list) else [val] if val is not None else []
+            for entry in entries:
+                config = {"item": entry} if isinstance(entry, str) else entry
+                items.append(self._make_item(config))
         return items
 
     @staticmethod
@@ -530,7 +563,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     def _item_from_ref(self, value: Any) -> HAUIItem | None:
         """Build an item for a string-or-dict entity reference, or None if it has no ID."""
         entity_id = self._extract_entity_id(value)
-        return HAUIItem(self.app, {"item": entity_id}) if entity_id else None
+        return self._make_item({"item": entity_id}) if entity_id else None
 
     def _panel_title(self, panel: HAUIPanel, item: HAUIItem | None, default: str) -> str:
         """Returns the panel title, falling back to the item's friendly name.
@@ -572,7 +605,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
                 for key in self._POPUP_ITEM_OVERRIDES
                 if panel.get(key, None) is not None
             }
-            return HAUIItem(self.app, {**config, "item": entity_id})
+            return self._make_item({**config, "item": entity_id})
         items = self._build_items_from_panel(panel, "item")
         return items[0] if items else None
 

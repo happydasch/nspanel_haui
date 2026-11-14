@@ -54,164 +54,23 @@ jobs:
           python: "3.14"
           requirements: esphome
 
-      - name: Set the development firmware version
-        # Use the next patch line so every dev build is newer than the current
-        # stable version, while a later stable X.Y.(Z+1) sorts after its .devN.
-        # The ``dev`` branch carries the previous dev version (this workflow
-        # commits it back to the branch), so the derivation accepts either a
-        # stable manifest (a fresh branch or a master merge-back) — deriving the
-        # next patch — or an existing ``X.Y.Z.devN`` — keeping the same X.Y.Z
-        # base, since no stable X.Y.Z has been released yet.
-        # The version must be a valid PEP 440 version with no ``-`` separators:
-        # Home Assistant compares installed/latest with AwesomeVersion, and an
-        # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release
-        # tag) makes it fall back to "update available" on every check.
-        #
-        # The version carries no ``+local`` segment (the commit lives in the
-        # release name and notes): AwesomeVersion sorts ``0.4.5.dev16+g<sha>``
-        # *above* the final ``0.4.5`` and above a later ``0.4.5.dev17``, so
-        # neither Home Assistant nor its Marketplace would ever offer the
-        # release that supersedes such a build. The run number alone keeps
-        # versions unique.
-        #
-        # The same string is the release tag, the integration manifest version
-        # and the firmware yaml_version. The Marketplace reads release tags as
-        # available versions and the installed tag as the installed one; with a
-        # ``dev-<run>-<sha>`` tag the comparison fell back to string inequality,
-        # so an installed dev build kept offering itself as an update. Keeping
-        # them identical (and PEP 440) makes the Marketplace order dev releases
-        # and only offer a build that is actually newer.
+      - name: Set the development firmware and display TFT versions
+        id: version
+        # X.Y.Z.dev<run>, one PEP 440 string for the tag, manifest.json and
+        # yaml_version, with no `+local` segment. Why each rule exists:
+        # docs/develop/release.md, "Published development firmware".
         run: python -m scripts.release.dev_version "$GITHUB_RUN_NUMBER"
 
-      - name: Export the release version
-        id: version
-        run: |
-          echo "version=${DEV_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "sha=${DEV_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Take the display TFT version from the HMIs
-        # A dev release ships the committed TFTs under the system.tftVersion
-        # both HMIs carry, and the firmware requires exactly that TFT
-        # (tft_version, compiled in as tft_required_version), so a dev panel
-        # installs it once its display reports an older one. The version only
-        # moves when system.tftVersion is bumped and the TFTs are recompiled: a
-        # TFT change committed under the same version never reaches a panel
-        # that already runs that version.
-        run: |
-          python3 - <<'PY'
-          import os, re, sys
-          from pathlib import Path
-
-          from scripts.bump_tft_version import shipped_tft_version
-
-          version = shipped_tft_version()
-          version_file = Path("esphome/nspanel_haui/version.yaml")
-          source, count = re.subn(
-              r"(?m)^(  tft_version: )'[^']+'$",
-              rf"\g<1>'{version}'",
-              version_file.read_text(),
-          )
-          if count != 1:
-              raise SystemExit(f"Expected one tft_version in {version_file}, found {count}")
-          version_file.write_text(source)
-          with open(os.environ["GITHUB_ENV"], "a") as env:
-              env.write(f"TFT_VERSION={version}\n")
-          print(f"Shipping display TFT {version}")
-          PY
-
-      - name: Validate and compile the universal firmware
-        run: |
-          esphome config esphome/nspanel_haui_universal.yaml
-          esphome compile esphome/nspanel_haui_universal.yaml
-          BIN=$(find esphome/.esphome -name firmware.factory.bin -path "*nspanel-haui*" | head -1)
-          if [ -z "$BIN" ]; then
-            echo "firmware.factory.bin not found after compile" >&2
-            exit 1
-          fi
-          cp "$BIN" nspanel_haui.bin
-          OTA="$(dirname "$BIN")/firmware.ota.bin"
-          if [ ! -f "$OTA" ]; then
-            echo "firmware.ota.bin not found after compile" >&2
-            exit 1
-          fi
-          cp "$OTA" nspanel_haui_ota.bin
-
-      - name: Find the previous release for the notes
-        # A dispatched build has no push range (github.event.before is empty).
-        # Summarise the commits since the newest tag reachable from HEAD: the
-        # previous development build's tag, or the stable release after a
-        # master merge-back.
-        run: |
-          previous=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)
-          echo "PREVIOUS_TAG=${previous}" >> "$GITHUB_ENV"
-          if [ -n "${previous}" ]; then
-            echo "Notes range: ${previous}..HEAD"
-          else
-            echo "Notes range: whole history (no reachable tag)"
-          fi
+      - name: Compile the universal firmware
+        # esphome compile validates the config first.
+        run: bash scripts/release/compile_firmware.sh
 
       - name: Generate the firmware manifest and commit notes
-        # Same schema as a stable release (scripts/release), including the
-        # ``tft`` block that names the display TFT and its per-model assets.
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-          PREVIOUS_TAG: ${{ env.PREVIOUS_TAG }}
-          DEV_VERSION: ${{ env.DEV_VERSION }}
-          TFT_VERSION: ${{ env.TFT_VERSION }}
+        # Same manifest schema as a stable release, including the ``tft`` block
+        # that names the display TFT and its per-model assets.
         run: |
-          python3 - <<'PY'
-          import json, os, subprocess, sys
-          from pathlib import Path
-
-          from scripts.release.generate_firmware_manifest import build_manifest
-
-          repo = os.environ["GITHUB_REPOSITORY"]
-          commit = os.environ["GITHUB_SHA"]
-          tag = os.environ["DEV_VERSION"]
-          manifest = build_manifest(
-              repo=repo,
-              tag=tag,
-              ota_image=Path("nspanel_haui_ota.bin"),
-              eu_tft=Path("nextion/nspanel_haui.tft"),
-              us_tft=Path("nextion/nspanel_haui_portrait.tft"),
-              tft_version=os.environ["TFT_VERSION"],
-          )
-          manifest["name"] = "NSPanel HAUI Development"
-          Path("firmware-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-          before = os.environ.get("PREVIOUS_TAG", "")
-          if before:
-              commit_range = f"{before}..{commit}"
-              changes = subprocess.check_output(
-                  ["git", "diff", "--stat", "--no-renames", before, commit], text=True
-              ).strip()
-          else:
-              commit_range = commit
-              changes = subprocess.check_output(
-                  ["git", "show", "--format=", "--stat", "--no-renames", commit], text=True
-              ).strip()
-          commits = subprocess.check_output(
-              ["git", "log", "--reverse", "--format=%H%x09%s", commit_range], text=True
-          ).strip().splitlines()
-          notes = [
-              f"Development firmware `{os.environ['DEV_VERSION']}`",
-              "",
-              f"Build commit: [`{commit[:7]}`](https://github.com/{repo}/commit/{commit})",
-              "Firmware variant: `universal` (for universal test panels only).",
-              f"Display TFT: `{os.environ['TFT_VERSION']}`.",
-              "",
-              "## Commits in this build",
-          ]
-          notes.extend(
-              f"- [`{sha[:7]}`](https://github.com/{repo}/commit/{sha}) {subject}"
-              for sha, subject in (line.split(chr(9), 1) for line in commits)
-          )
-          if not commits:
-              notes.append("No commits since the previous release.")
-          if changes:
-              notes.extend(["", "## Changed files", "```text", changes, "```"])
-          Path("dev-release-notes.md").write_text("\n".join(notes) + "\n")
-          PY
+          python -m scripts.release.generate_firmware_manifest --tag "$DEV_VERSION" --name "NSPanel HAUI Development"
+          python -m scripts.release.dev_release_notes
 
       - name: Upload the firmware release inputs
         # The common root is the repository root: the binaries sit at the top of
@@ -235,7 +94,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 0
 
       - uses: ./.github/actions/setup
         with:
@@ -264,6 +122,10 @@ jobs:
     needs: [build, screens]
     if: ${{ !inputs.screens_only }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Dispatches CI for the pushed commit (see the last step).
+      actions: write
     steps:
       # The dispatched commit, not the moving dev tip, so the tag, version files
       # and screens all describe the same source tree.
@@ -305,9 +167,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml docs/screens.html docs/assets/screens
-          git commit -m "chore(release): development firmware ${VERSION} [skip ci]"
+          git commit -m "chore(release): development firmware ${VERSION}"
 
       - name: Tag the versioned source tree and publish it to dev
+        id: tag
         # The Marketplace downloads the *source archive of the tag* (not the
         # release assets), and Home Assistant and the hub read the version from
         # its manifest.json. The bumped manifest therefore has to be in a commit
@@ -318,15 +181,9 @@ jobs:
         # branch's tracked version.yaml carries the dev version instead of
         # lagging on the last stable release (the old tag-only commit left dev
         # stale). The next dispatched build derives the next dev version from
-        # that X.Y.Z.devN directly.
-        # ``[skip ci]`` keeps the bot push from starting CI on that commit; a
-        # re-run of the same workflow run keeps its run number (the version)
-        # and builds the same commit, so it replaces an equivalent commit/tag.
-        #
-        # A dispatched build leaves dev's tip as this ``[skip ci]`` commit, so a
-        # release PR opened while it is the tip runs no checks: cut release prep
-        # on a ``release/X.Y.Z`` branch (docs/release.md, "Branches and
-        # cadence").
+        # that X.Y.Z.devN directly. A re-run of the same workflow run keeps its
+        # run number (the version) and builds the same commit, so it replaces
+        # an equivalent commit/tag.
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
@@ -335,7 +192,11 @@ jobs:
           # parent is the just-pushed HEAD, so when it wins dev advances exactly
           # one release commit. Rejection is not fatal: the tagged release below
           # still carries the versioned commit.
-          git push origin "HEAD:refs/heads/dev" || echo "dev branch raced; the version commit ships in the tagged release only"
+          if git push origin "HEAD:refs/heads/dev"; then
+            echo "dev_pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dev branch raced; the version commit ships in the tagged release only"
+          fi
           git tag "${VERSION}"
           # --force keeps a re-run of the same build idempotent: a re-run keeps
           # the run number and commit, so the tag can only be replaced by an
@@ -378,15 +239,15 @@ jobs:
         # The Marketplace reads only the newest 30 releases, the hub's release
         # check the newest 100 (RELEASES_URL). One prerelease per push would push
         # the latest stable release out of both: the Marketplace then finds no
-        # stable version and a fresh install falls back to the default branch
-        # (dev). Keep the newest dev builds only; stable releases never match.
+        # stable version and a fresh install falls back to the default branch.
+        # Keep the newest dev builds only; stable releases never match.
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP: 10
         run: |
           set -o pipefail
           gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            --jq '.[] | select(.prerelease and (.tag_name | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.dev[0-9]+([+][0-9A-Za-z.]+)?$"))) | [.created_at, .tag_name] | @tsv' \
+            --jq '.[] | select(.prerelease and (.tag_name | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.dev[0-9]+$"))) | [.created_at, .tag_name] | @tsv' \
             | sort -r \
             | tail -n +$((KEEP + 1)) \
             | cut -f2 \
@@ -395,10 +256,23 @@ jobs:
                 gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
               done
 
+      - name: Run CI on the new dev commit
+        # A push with the workflow's GITHUB_TOKEN starts no workflow, so CI is
+        # dispatched: it tests the version commit and deploys the docs with the
+        # new screen overview (a dispatched run always deploys).
+        if: ${{ !cancelled() && steps.tag.outputs.dev_pushed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref dev
+
   publish-screens:
     needs: [screens]
     if: ${{ inputs.screens_only }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Dispatches CI for the pushed commit (see the last step).
+      actions: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -411,10 +285,10 @@ jobs:
           path: .release/screens
 
       - name: Commit the changed screens
+        id: commit
         # Screens-only mode never derives a version, tags or publishes a
-        # release. [skip ci] matches the dev-firmware bot commit; a non-force
-        # push fails when dev moved on while rendering, and the next run
-        # commits the screens then.
+        # release. A non-force push fails when dev moved on while rendering,
+        # and the next run commits the screens then.
         run: |
           cp .release/screens/screens.html docs/screens.html
           rm -rf docs/assets/screens
@@ -427,5 +301,16 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs(screens): regenerate screen overview [skip ci]"
-          git push origin "HEAD:refs/heads/dev" || echo "::notice::dev moved on while rendering; the next run commits the screens"
+          git commit -m "docs(screens): regenerate screen overview"
+          if git push origin "HEAD:refs/heads/dev"; then
+            echo "dev_pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::dev moved on while rendering; the next run commits the screens"
+          fi
+
+      - name: Run CI on the new dev commit
+        # See the publish job: deploys the docs with the new screens.
+        if: steps.commit.outputs.dev_pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref dev

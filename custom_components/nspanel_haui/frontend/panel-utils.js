@@ -1,11 +1,12 @@
 /**
- * NSPanel HAUI - Shared panel utilities.
+ * NSPanel HAUI - Shared panel-list helpers.
  *
- * Common helpers for both grid and list views: panel filtering,
- * move-state computation, and badge rendering.
+ * Grouping and role markers for the Device panel list. The view modules stay
+ * dumb: they render what these helpers and the shell prepared.
  */
 import { html } from './lit-import.js';
 import { t } from './localize.js';
+import { icon } from './ui/icon.js';
 
 /**
  * Collect system panel keys from the host's panels data.
@@ -17,55 +18,45 @@ export function getSystemPanelKeys(host) {
 }
 
 /**
- * Split a full panels array into navigation-visible and hidden groups.
- * When systemPanelKeys is provided, panels whose key matches are excluded
- * (override panels are hidden from both lists).
- * @param {Array} panels
- * @param {Set} [systemPanelKeys] - optional set of system panel keys to exclude
- * @returns {{ navPanels: Array, hiddenPanels: Array }}
+ * Split a device's panels and the hub's system entries into the groups the
+ * Device workspace shows. Popup overrides are stored among the user panels but
+ * belong to the Popups group; a popup the device does not replace is offered in
+ * the panel catalog instead (`defaults`), and the fixed system panels are not
+ * listed at all.
+ *
+ * @param {Array} [panels] - the device's panel configs
+ * @param {Array} [systemPanels] - `system_panels` from the hub
+ * @returns {{ navigation: Array, hidden: Array, popups: Array, defaults: Array }}
  */
-export function computeFilteredPanels(panels, systemPanelKeys) {
-  const userPanels = systemPanelKeys
-    ? panels.filter(p => !systemPanelKeys.has(p.key))
-    : panels;
-  const navPanels = userPanels.filter(p => p.show_in_navigation !== false);
-  const hiddenPanels = userPanels.filter(p => p.show_in_navigation === false);
-  return { navPanels, hiddenPanels };
+export function groupPanels(panels = [], systemPanels = []) {
+  const systemKeys = new Set(systemPanels.map((entry) => entry.key).filter(Boolean));
+  const userPanels = panels.filter((panel) => !systemKeys.has(panel.key));
+  const overridden = (entry) => panels.some((panel) => panel.key === entry.key);
+  const editable = systemPanels.filter((entry) => entry.editable);
+  return {
+    navigation: userPanels.filter((panel) => panel.show_in_navigation !== false),
+    hidden: userPanels.filter((panel) => panel.show_in_navigation === false),
+    popups: editable.filter(overridden),
+    defaults: editable.filter((entry) => !overridden(entry)),
+  };
 }
 
 /**
- * Given a panel and whether it belongs to the nav group, compute its index
- * within its group and whether it can be moved up/down.
- * @param {object} p - the panel config object
- * @param {Array} panels - the full panels array
- * @param {boolean} isNavPanel - whether the panel is in the navigation group
- * @param {Set} systemPanelKeys - keys of system panels, whose overrides are not listed
- * @returns {{ pIdx: number, canMoveUp: boolean, canMoveDown: boolean }}
+ * Home and Idle role markers for a panel thumbnail.
+ *
+ * @param {string|null|undefined} key
+ * @param {object} [deviceConfig]
+ * @returns {Array} templates for the thumbnail's marker overlay
  */
-export function getPanelMoveState(p, panels, isNavPanel, systemPanelKeys) {
-  const { navPanels, hiddenPanels } = computeFilteredPanels(panels, systemPanelKeys);
-  const matchByKey = (x) => p.key && x.key === p.key;
-  const pIdx = p.key ? panels.findIndex(matchByKey) : panels.indexOf(p);
-  const navIdx = p.key ? navPanels.findIndex(matchByKey) : navPanels.indexOf(p);
-  const hiddenIdx = p.key ? hiddenPanels.findIndex(matchByKey) : hiddenPanels.indexOf(p);
-  const canMoveUp = isNavPanel ? navIdx > 0 : hiddenIdx > 0;
-  const canMoveDown = isNavPanel ? (navIdx >= 0 && navIdx < navPanels.length - 1) : (hiddenIdx >= 0 && hiddenIdx < hiddenPanels.length - 1);
-  return { pIdx, canMoveUp, canMoveDown };
+export function panelRoleMarkers(key, deviceConfig = {}) {
+  const roles = [];
+  if (!key || !deviceConfig) return roles;
+  if (key === deviceConfig.home_panel) {
+    roles.push(html`<span class="haui-panel-role haui-panel-role-home" role="img" aria-label=${t('Home panel')}>${icon('home')}</span>`);
+  }
+  if (key === deviceConfig.idle_panel) {
+    roles.push(html`<span class="haui-panel-role haui-panel-role-idle" role="img" aria-label=${t('Idle panel')}>${icon('sleep')}</span>`);
+  }
+  return roles;
 }
 
-/**
- * Build badge icons for home/idle panel designations and the system-panel
- * "edited" marker.
- * @param {object} p - panel config
- * @param {object} dc - device config
- * @param {boolean} [hasOverride] - render the edited badge for system panels
- * @returns {Array} array of TemplateResult badge elements
- */
-export function renderBadges(p, dc, hasOverride = false) {
-  const badges = [];
-  if (!p.key) return badges;
-  if (p.key === dc.home_panel) badges.push(html`<span class="pl-badge pl-badge-home" title=${t('Home panel')}><ha-icon icon="mdi:home-outline"></ha-icon></span>`);
-  if (p.key === dc.idle_panel) badges.push(html`<span class="pl-badge pl-badge-idle" title=${t('Idle panel')}><ha-icon icon="mdi:weather-night"></ha-icon></span>`);
-  if (hasOverride) badges.push(html`<span class="pl-badge pl-badge-edited" title=${t('Edited (overrides system default)')}><ha-icon icon="mdi:pencil"></ha-icon></span>`);
-  return badges;
-}

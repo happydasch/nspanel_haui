@@ -6,6 +6,7 @@
     "typecheck:frontend": "tsc -p jsconfig.json"
   },
   "devDependencies": {
+    "happy-dom": "^21.0.4",
     "typescript": "^7.0.2"
   }
 }

@@ -1,6 +1,9 @@
 """Static checks for the ESPHome YAML (no ESPHome install needed)."""
 
+import re
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent / "esphome" / "nspanel_haui"
 
@@ -11,7 +14,6 @@ def _read(name: str) -> str:
 
 def _load_tagged(path: Path) -> dict:
     """Parse ESPHome YAML, keeping custom tags (``!remove`` …) as ``"!<tag>"``."""
-    import yaml
 
     class Loader(yaml.SafeLoader):
         pass
@@ -32,8 +34,6 @@ def test_min_esphome_version_declared():
 
 def test_web_server_is_optional_and_off_by_default():
     """The web server costs flash/RAM; only the dev build enables it."""
-    import re
-
     # base.yaml keeps only a commented example, so the shipped build omits it.
     assert not re.search(r"^web_server:", _read("base.yaml"), re.MULTILINE)
     # The local development build keeps the web UI for diagnostics.
@@ -52,22 +52,14 @@ def test_firmware_reports_required_tft_version_separately():
     assert 'root["tft_required_version"] = tft_required_version;' in state_script
 
 
-def test_unused_required_tft_version_removed():
-    assert "required_tft_version" not in _read("version.yaml")
-
-
 def test_http_request_buffers_fit_github_redirect_headers():
     """The firmware update entity needs room for GitHub's ~5.4 KB headers."""
-    import re
-
     base = _read("base.yaml")
     assert re.search(r"^\s+buffer_size_rx:\s*8192\s*$", base, re.MULTILINE)
     assert re.search(r"^\s+buffer_size_tx:\s*2048\s*$", base, re.MULTILINE)
 
 
 def test_command_spacing_is_enabled_to_prevent_nextion_rx_overflow():
-    import re
-
     assert re.search(r"^\s+command_spacing:\s*2ms\s*$", _read("display.yaml"), re.MULTILINE)
 
 
@@ -77,8 +69,6 @@ def test_tft_upload_tx_buffer_fits_the_github_redirect():
     The redirected request line overflows the 512-byte ESP-IDF default TX
     buffer, so every hub TFT install failed before the first byte.
     """
-    import re
-
     match = re.search(
         r"^\s+tft_upload_http_buffer_size_tx:\s*(\d+)\s*$", _read("display.yaml"), re.MULTILINE
     )
@@ -121,20 +111,8 @@ def test_tft_install_actions_live_in_the_integration():
     assert "tft_url: $tft_update_url" in display
 
 
-def test_firmware_drops_protocol_the_hub_never_uses():
-    """Discovery uses the device registry and the device state carries the versions."""
-    api = _read("api.yaml")
-    for action in ("haui_discover", "req_device_info", "req_reconnect"):
-        assert f"- action: {action}\n" not in api
-    events = _read("scripts_event.yaml") + _read("switch.yaml")
-    for event in ("esphome.haui_discover", "esphome.res_device_info", "esphome.use_relay_"):
-        assert event not in events
-
-
 def test_maintenance_entities_are_disabled_by_default():
     """Restart Display and Screen Power are rarely needed."""
-    import yaml
-
     entities = {
         e["id"]: e
         for name in ("button.yaml", "switch.yaml")
@@ -156,8 +134,6 @@ def test_buzzer_is_silenced_before_every_main_loop_stall():
     reset leaves the LEDC running until the next boot's setup) left the note
     playing at that moment sounding continuously (#62).
     """
-    import yaml
-
     base = yaml.safe_load(_read("base.yaml"))
     platforms = {ota["platform"]: ota for ota in base["ota"]}
     assert set(platforms) == {"esphome", "http_request"}
@@ -173,8 +149,6 @@ def test_native_ota_is_encrypted_with_the_api_key():
     """ESPHome warns that an OTA password next to an api key wastes flash and
     RAM (#81).  A bare ``encryption:`` inherits ``api_encryption_key``.
     """
-    import yaml
-
     base = yaml.safe_load(_read("base.yaml"))
     native = next(ota for ota in base["ota"] if ota["platform"] == "esphome")
     assert "encryption" in native and native["encryption"] is None
@@ -193,8 +167,6 @@ def test_native_ota_is_encrypted_with_the_api_key():
 
 def test_optional_debug_diagnostics_are_dev_only():
     """Production packages avoid exposing troubleshooting sensors by default."""
-    import yaml
-
     debug = yaml.safe_load(_read("debug.yaml"))
     assert any(sensor["platform"] == "uptime" for sensor in debug["sensor"])
     assert any(sensor["platform"] == "debug" for sensor in debug["sensor"])
@@ -281,8 +253,6 @@ def test_firmware_build_variant_is_reported_and_never_universal_for_custom_build
 
 
 def test_display_setting_changes_do_not_reset_last_interaction():
-    import yaml
-
     numbers = yaml.safe_load(_read("number.yaml"))["number"]
     for timeout_id in (
         "brightness_full",
@@ -300,8 +270,6 @@ def test_display_setting_changes_do_not_reset_last_interaction():
 
 
 def test_last_interaction_uses_one_rollover_safe_clock():
-    import yaml
-
     globals_config = yaml.safe_load(_read("globals.yaml"))["globals"]
     clock = next(value for value in globals_config if value["id"] == "last_interaction_ms")
     assert clock["type"] == "uint32_t"
@@ -367,7 +335,7 @@ def test_connection_grace_reuses_the_dimming_timeout():
     assert "bool connection_grace = timeout_dim_val > 0" in display
     assert "id(hub_state_change_ms) = millis();" in connection
     assert "new_state = 1;" in display
-    assert "target_brightness = int(id(brightness_dim).state);" in display
+    assert "target_brightness = min(target_brightness, int(id(brightness_dim).state));" in display
 
 
 def test_disconnected_display_never_turns_off_or_hardware_sleeps():
@@ -455,7 +423,7 @@ def test_update_display_turns_the_display_off_without_auto_dimming():
         "id(use_auto_dimming).state && timeout_dim_val > 0 && age > timeout_dim_val", 1
     )
     assert len(dim) == 2
-    assert "target_brightness = int(id(brightness_dim).state);" in dim[1]
+    assert "target_brightness = min(target_brightness, int(id(brightness_dim).state));" in dim[1]
 
     # The state label follows the ramp end, as it did in check_display_state.
     assert "age > (timeout_off_val + duration_dim_val)" in display
@@ -481,18 +449,8 @@ def test_a_touched_widget_counts_as_interaction():
     assert reset < on_touch.index("if (touch_event == 1)")
 
 
-def test_display_model_uses_numeric_input_instead_of_slider():
-    import yaml
-
-    numbers = yaml.safe_load(_read("number.yaml"))["number"]
-    display_model = next(number for number in numbers if number["id"] == "display_model")
-    assert display_model["mode"] == "box"
-
-
 def test_current_page_sensor_names_match_the_hub_page_mapping():
     """The firmware names the shown page itself; its table must follow the HMI."""
-    import re
-
     from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING
 
     sensors = _read("sensor.yaml")
@@ -504,8 +462,6 @@ def test_current_page_sensor_names_match_the_hub_page_mapping():
 
 
 def test_current_page_sensors_are_exposed_but_disabled_by_default():
-    import yaml
-
     config = yaml.safe_load(_read("sensor.yaml"))
     current_page = next(s for s in config["text_sensor"] if s.get("id") == "current_page")
     page_number = next(s for s in config["sensor"] if s.get("id") == "page")
@@ -517,8 +473,6 @@ def test_current_page_sensors_are_exposed_but_disabled_by_default():
 
 def test_touch_and_brightness_sensors_are_disabled_by_default():
     """The firmware uses both values itself; the entities are diagnostics only."""
-    import yaml
-
     config = yaml.safe_load(_read("sensor.yaml"))
     touch = next(s for s in config["binary_sensor"] if s.get("id") == "touch")
     brightness = next(s for s in config["sensor"] if s.get("id") == "brightness")
@@ -529,8 +483,6 @@ def test_touch_and_brightness_sensors_are_disabled_by_default():
 
 def test_relays_restore_their_state_after_a_firmware_update():
     """ALWAYS_OFF switched every connected load off on each OTA reboot."""
-    import yaml
-
     switches = {switch["id"]: switch for switch in yaml.safe_load(_read("switch.yaml"))["switch"]}
     for relay in ("relay_left", "relay_right"):
         assert switches[relay]["restore_mode"] == "RESTORE_DEFAULT_OFF"

@@ -112,22 +112,9 @@ class DummyApp:
         self._timer_handles.pop(handle, None)
 
 
-class DummyESPHome:
-    def __init__(self):
-        self.calls = []
-
-    def send_cmd(self, command, payload, force=False):
-        self.calls.append((command, payload, force))
-
-
 @pytest.fixture
 def dummy_app():
     return DummyApp()
-
-
-@pytest.fixture
-def dummy_esphome():
-    return DummyESPHome()
 
 
 def test_notification_controller_add_remove_clear_get(dummy_app):
@@ -179,8 +166,8 @@ def test_queued_notification_exposes_named_fields(dummy_app):
     assert dummy_app.fire_event_calls[-1][1]["force_show"] is True
 
 
-def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
-    """Ensure add_notification fires notif_add callback_event with correct data."""
+def test_add_notification_fires_the_notif_add_event(dummy_app):
+    """The pages and the device learn about a new notification from this event."""
     controller = HAUINotificationController(dummy_app, {})
 
     title = "Alert"
@@ -200,6 +187,21 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     assert event.value.notif_id
 
 
+def test_add_notification_defaults(dummy_app):
+    """A notification without optional fields gets the generic defaults."""
+    controller = HAUINotificationController(dummy_app, {})
+
+    notification = controller.add_notification("Default Notification")
+
+    assert notification.message == ""
+    assert notification.icon == ""
+    assert notification.persistent is False
+    assert notification.force_show is False
+    assert notification.icon_color is None
+    assert notification.sound == "notification"
+    assert notification.text_size == "auto"
+
+
 def test_notification_event_includes_timeout(dummy_app):
     """Automations can distinguish a timed notification from one that stays queued."""
     controller = HAUINotificationController(dummy_app, {})
@@ -208,10 +210,41 @@ def test_notification_event_includes_timeout(dummy_app):
 
     event_type, payload = dummy_app.fire_event_calls[-1]
     assert event_type == "nspanel_haui.notification"
+    assert payload["state"] == "added"
+    assert payload["device"] == "testdevice"
+    assert payload["title"] == "Door"
     assert payload["timeout"] == 15
     assert payload["icon_color"] is None
     assert payload["sound"] == "notification"
     assert payload["force_show"] is False
+
+
+def test_clearing_notifications_fires_a_removed_event_for_each(dummy_app):
+    controller = HAUINotificationController(dummy_app, {})
+    notification = controller.add_notification("Doorbell", "Someone is here", icon="mdi:bell")
+    dummy_app.fire_event_calls.clear()
+
+    controller.clear_notifications()
+
+    assert controller.get_notifications() == []
+    assert dummy_app.fire_event_calls == [
+        (
+            "nspanel_haui.notification",
+            {
+                "device": "testdevice",
+                "id": notification.notif_id,
+                "state": "removed",
+                "title": "Doorbell",
+                "message": "Someone is here",
+                "icon": "mdi:bell",
+                "icon_color": None,
+                "sound": "notification",
+                "persistent": False,
+                "force_show": False,
+                "timeout": None,
+            },
+        )
+    ]
 
 
 def test_empty_icon_color_and_none_sound_are_normalized(dummy_app):
@@ -260,37 +293,54 @@ def test_device_play_sound_on_notification_event(dummy_app):
     assert played == ["notification"]
 
 
-# --- device sounds and quiet hours ---------------------------------------------
+# --- device sounds and muted schedule entries ----------------------------------
 
 
 def _device(app, **cfg):
+    app.now = datetime.now
     return HAUIDevice(app, {**copy.deepcopy(DEVICE_CONFIG), **cfg})
 
 
-def _quiet_window_around_now():
+def _schedule_around_now(sound):
+    """A schedule whose only entry is active now."""
     now = datetime.now()
     return {
-        "quiet_hours_start": (now - timedelta(hours=1)).strftime("%H:%M"),
-        "quiet_hours_end": (now + timedelta(hours=1)).strftime("%H:%M"),
+        "brightness": 80,
+        "schedule": [
+            {
+                "start": (now - timedelta(hours=1)).strftime("%H:%M"),
+                "end": (now + timedelta(hours=1)).strftime("%H:%M"),
+                "sound": sound,
+                "brightness": 20,
+                "display_off": True,
+                "timeout_display_off": 30,
+            }
+        ],
     }
 
 
-def test_quiet_hours_ignored_when_do_not_disturb_is_off(dummy_app):
-    device = _device(dummy_app, use_do_not_disturb=False, **_quiet_window_around_now())
+def test_sounds_are_not_muted_without_a_schedule(dummy_app):
+    device = _device(dummy_app)
 
-    assert device._is_quiet_hours() is False
-
-
-def test_quiet_hours_apply_when_do_not_disturb_is_on(dummy_app):
-    device = _device(dummy_app, use_do_not_disturb=True, **_quiet_window_around_now())
-
-    assert device._is_quiet_hours() is True
+    assert device._sounds_muted() is False
 
 
-def test_play_sound_is_silent_during_quiet_hours(dummy_app):
+def test_an_active_entry_with_sound_on_does_not_mute(dummy_app):
+    device = _device(dummy_app, **_schedule_around_now(sound=True))
+
+    assert device._sounds_muted() is False
+
+
+def test_an_active_entry_with_sound_off_mutes(dummy_app):
+    device = _device(dummy_app, **_schedule_around_now(sound=False))
+
+    assert device._sounds_muted() is True
+
+
+def test_play_sound_is_silent_while_the_schedule_mutes_sounds(dummy_app):
     esphome = MagicMock()
     dummy_app.controller["esphome"] = MagicMock(esphome=esphome)
-    device = _device(dummy_app, use_do_not_disturb=True, **_quiet_window_around_now())
+    device = _device(dummy_app, **_schedule_around_now(sound=False))
 
     device.play_sound("startup")
 
@@ -327,12 +377,11 @@ def test_notification_plays_its_own_sound(dummy_app):
     assert played == ["alert"]
 
 
-def test_notification_sound_is_suppressed_during_quiet_hours(dummy_app):
+def test_notification_sound_is_suppressed_while_the_schedule_mutes_sounds(dummy_app):
     device = _device(
         dummy_app,
         sound_on_notification=True,
-        use_do_not_disturb=True,
-        **_quiet_window_around_now(),
+        **_schedule_around_now(sound=False),
     )
     played = []
     device.play_sound = played.append
@@ -457,38 +506,36 @@ def test_silent_persistent_notification_does_not_start_the_loop(dummy_app):
     assert loops == []
 
 
-def test_persistent_alert_from_quiet_hours_sounds_once_they_end(dummy_app):
+def test_persistent_alert_from_a_muted_entry_sounds_once_it_ends(dummy_app):
     device, notification, loops, played = _persistent_alert_device(
-        dummy_app, use_do_not_disturb=True, **_quiet_window_around_now()
+        dummy_app, **_schedule_around_now(sound=False)
     )
 
     device.process_event(HAUIEvent(NotifEvent.NOTIF_ADD, notification))
     (repeat,) = loops
     repeat({})
-    # The loop runs through quiet hours, silently.
+    # The loop runs through the muted entry, silently.
     assert played == []
 
-    device.config["use_do_not_disturb"] = False  # quiet hours are over
+    device.config["schedule"] = []  # the muted entry is over
     repeat({})
 
     assert played == ["alert"]
 
 
-def test_persistent_alert_loop_goes_silent_when_quiet_hours_begin(dummy_app):
-    device, notification, loops, played = _persistent_alert_device(
-        dummy_app, use_do_not_disturb=False, **_quiet_window_around_now()
-    )
+def test_persistent_alert_loop_goes_silent_when_a_muted_entry_begins(dummy_app):
+    device, notification, loops, played = _persistent_alert_device(dummy_app)
     device.process_event(HAUIEvent(NotifEvent.NOTIF_ADD, notification))
     (repeat,) = loops
     assert played == ["alert"]
 
-    device.config["use_do_not_disturb"] = True  # quiet hours begin
+    device.config.update(_schedule_around_now(sound=False))  # a muted entry begins
     repeat({})
 
     assert played == ["alert"]
 
 
-def test_notification_wakes_the_display_outside_quiet_hours(dummy_app):
+def test_notification_wakes_the_display_while_sounds_are_on(dummy_app):
     esphome = MagicMock()
     dummy_app.controller["esphome"] = MagicMock(esphome=esphome)
     device = _device(dummy_app)
@@ -498,10 +545,10 @@ def test_notification_wakes_the_display_outside_quiet_hours(dummy_app):
     esphome.publish.assert_called_once_with(ESPAction.RESET_LAST_INTERACTION, "0")
 
 
-def test_notification_leaves_the_display_dark_in_quiet_hours(dummy_app):
+def test_notification_leaves_the_display_dark_while_the_schedule_mutes_sounds(dummy_app):
     esphome = MagicMock()
     dummy_app.controller["esphome"] = MagicMock(esphome=esphome)
-    device = _device(dummy_app, use_do_not_disturb=True, **_quiet_window_around_now())
+    device = _device(dummy_app, **_schedule_around_now(sound=False))
 
     device.wake_for_notification()
 
@@ -1117,3 +1164,16 @@ def test_event_list_and_popup_share_the_notification_id(loop_ctrl):
     assert nav.opens[-1][1]["notif_id"] == second.notif_id
     added = [d for t, d in app.fire_event_calls if d["state"] == "added"]
     assert added[-1]["id"] == second.notif_id
+
+
+def test_clearing_notifications_closes_an_open_list(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1")
+    ctrl.add_notification("Second", "2")
+    ctrl.open_notifications()
+    assert nav.current is not None
+
+    ctrl.clear_notifications()
+
+    assert nav.current is None

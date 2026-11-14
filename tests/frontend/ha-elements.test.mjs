@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +19,7 @@ function markup(value) {
 
 /** The editor element without Lit's constructor, which needs a real DOM. */
 function loadedEditor() {
-  const ed = Object.create(NSPanelEditor.prototype);
+  const ed = document.createElement('nspanel-haui-editor');
   Object.assign(ed, {
     entryId: 'entry1',
     _loading: false,
@@ -27,9 +27,15 @@ function loadedEditor() {
     _panelTypes: [],
     _selectedDevice: null,
     _deviceConfig: null,
-    _viewMode: 'grid',
     _toast: null,
     _deleteTarget: null,
+    _store: {
+      getState: () => ({
+        devices: { order: [], byName: {}, selected: null },
+        hub: { entryId: 'entry1', systemPanels: [] },
+        ui: { route: { view: 'fleet', device: null, panel: null, panelView: 'preview' }, overlays: [] },
+      }),
+    },
     requestUpdate() {},
   });
   return ed;
@@ -49,7 +55,7 @@ test('the editor names HA elements that do not load instead of waiting silently'
 
   const out = markup(ed.render());
   assert.match(out, /ha-dialog-footer/);
-  assert.doesNotMatch(out, /<nspanel-dialog-edit-panel/);
+  assert.doesNotMatch(out, /<nspanel-panel-editor/);
 });
 
 // Elements stay undefined for the rest of this process until a later test
@@ -66,7 +72,7 @@ test('the slow loading screen offers a way out instead of a dead end', (t) => {
 
   ed._forceRenderWithoutHaElements();
   const forced = markup(ed.render());
-  assert.match(forced, /<nspanel-dialog-edit-panel/);
+  assert.match(forced, /haui-dashboard-content/);
   assert.doesNotMatch(forced, /Continue anyway/);
 });
 
@@ -80,7 +86,7 @@ test('the editor waits for HA elements, then renders once they are defined', asy
   for (const tag of HA_ELEMENTS) customElements.define(tag, class {});
   await settle();
 
-  assert.match(markup(ed.render()), /<nspanel-dialog-edit-panel/);
+  assert.match(markup(ed.render()), /haui-dashboard-content/);
 });
 
 // A failed config-entry load must not be mistaken for "no integration set up".

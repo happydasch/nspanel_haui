@@ -32,9 +32,6 @@ class _Switch:
 class _Navigation:
     page = None
 
-    def set_idle_profile(self, is_night):
-        pass
-
     def cancel_timeouts(self):
         pass
 
@@ -95,7 +92,6 @@ def _device(app, **config):
         use_auto_dimming=True,
         use_auto_display_off=False,
         sound_on_startup=False,
-        day_night_schedule_mode="off",
     )
     device.sync_config_to_device()
     device._initial_connect_done = True

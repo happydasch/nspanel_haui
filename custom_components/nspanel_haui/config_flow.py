@@ -1,7 +1,9 @@
 """Config flow for NSPanel HAUI.
 
-Per-device and panel configuration lives in the custom frontend panel
-editor (talks to ``/api/nspanel_haui/panels``).
+Per-device settings and panels are saved through dedicated routes in the
+custom frontend panel editor: ``/api/nspanel_haui/devices``,
+``/api/nspanel_haui/panels``, ``/api/nspanel_haui/device_order`` and
+``/api/nspanel_haui/themes``.
 """
 
 from __future__ import annotations

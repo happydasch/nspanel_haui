@@ -10,6 +10,7 @@ from ..mapping.icon_mapping import (
     SIMPLE_TYPE_MAPPING,
 )
 from .color import rgb565_to_rgb, rgb_brightness, rgb_to_rgb565
+from .datetime import format_state_datetime
 from .icon import get_icon, get_icon_name_by_state
 from .value import format_number
 
@@ -84,12 +85,12 @@ def _color_weather(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int:
     key = (item_state or "").replace("-", "_")
-    color = haui_item.get_icon_color("weather", key, icon_scheme)
+    color = haui_item.get_icon_color("weather", key, icon_variant)
     if color is None:
-        color = haui_item.get_icon_color("weather", "default", icon_scheme)
+        color = haui_item.get_icon_color("weather", "default", icon_variant)
     if color is None:
         raise KeyError("weather icon palette has no default color")
     return color
@@ -100,10 +101,10 @@ def _color_climate(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int | None:
     return (
-        haui_item.get_icon_color("climate", item_state, icon_scheme)
+        haui_item.get_icon_color("climate", item_state, icon_variant)
         if item_state is not None
         else None
     )
@@ -114,7 +115,7 @@ def _color_alarm(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int | None:
     if item_state == "disarmed":
         key = "disarmed"
@@ -124,7 +125,7 @@ def _color_alarm(
         key = "armed"
     else:
         return None
-    return haui_item.get_icon_color("alarm", key, icon_scheme)
+    return haui_item.get_icon_color("alarm", key, icon_variant)
 
 
 def _color_media_player(
@@ -132,7 +133,7 @@ def _color_media_player(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int:
     if item_state == "playing":
         return color_getter("entity_on")
@@ -146,7 +147,7 @@ def _color_group(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int:
     return color_getter("entity_on") if item_state == "on" else color_getter("entity_off")
 
@@ -156,7 +157,7 @@ def _color_light(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int | None:
     if item_state != "on":
         return None
@@ -191,7 +192,7 @@ def get_item_color(
     haui_item: HAUIItem,
     default_color: int,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
-    icon_scheme: str | None = None,
+    icon_variant: str | None = None,
 ) -> int:
     """Returns a RGB565 color for the given entity.
 
@@ -223,7 +224,7 @@ def get_item_color(
     handler = _COLOR_DISPATCH.get(item_type)
     if handler:
         color = handler(
-            entity, item_state, haui_item, color_getter=color_getter, icon_scheme=icon_scheme
+            entity, item_state, haui_item, color_getter=color_getter, icon_variant=icon_variant
         )
         if color is not None:
             result_color = color
@@ -336,7 +337,36 @@ def _value_vacuum(entity: Any, item_state: str | None, haui_item: HAUIItem) -> s
     return haui_item.translate("Clean") if entity.state == "docked" else haui_item.translate("Stop")
 
 
+def _value_datetime(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
+    device = haui_item.app.device
+    text = format_state_datetime(
+        item_state or "",
+        device.get_time_format(),
+        device.get_date_format(),
+        device.get_date_format_locale(),
+        device.get_locale(),
+        haui_item.app.get_timezone(),
+    )
+    # unknown and unavailable hold no date: shown translated like any state
+    return haui_item.translate_item_state() if text is None else text
+
+
+_DATETIME_SENSOR_CLASSES = frozenset(["date", "timestamp"])
+
+
+def _value_sensor(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
+    if entity.attributes.get("device_class") in _DATETIME_SENSOR_CLASSES:
+        return _value_datetime(entity, item_state, haui_item)
+    return haui_item.translate_item_state()
+
+
 _VALUE_DISPATCH = {
+    "sensor": _value_sensor,
+    "date": _value_datetime,
+    "time": _value_datetime,
+    "datetime": _value_datetime,
+    "input_datetime": _value_datetime,
+    "event": _value_datetime,
     "weather": _value_weather,
     "button": _value_button,
     "input_button": _value_button,

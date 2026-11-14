@@ -125,7 +125,9 @@ class HAUIESPHomeController(HAUIBase):
             ESPAction.GOTO_PAGE,
         ):
             self.app.publish_preview_output(bare_cmd, value)
-        self.prev_cmd = dedup_key
+        # Only a command the device got may hold back the same one next time.
+        if published:
+            self.prev_cmd = dedup_key
 
     def publish_detached(self, cmd: str, value: str | dict | list = "") -> None:
         """Send a command without waiting for it and without touching the worker.

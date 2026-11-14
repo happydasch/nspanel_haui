@@ -6,7 +6,7 @@
  * These handle the item/list editing UI that was historically part of the
  * big option-field switch statement.
  */
-import { html } from './lit-import.js';
+import { html, nothing } from './lit-import.js';
 import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
@@ -28,45 +28,22 @@ import {
   renderIconPicker,
   renderNumberInput,
   renderSelect,
+  fieldMessage,
   renderToggle,
-  saveColor,
-  renderColorPresets,
-  colorFieldText,
-} from './form-fields.js';
-import { parseRgbListToHex, hexToColorMatching } from './color-utils.js';
+  renderColorField,
+  renderField,
+} from './form-field-controls.js';
+import { parseRgbListToHex } from './color-utils.js';
 import { formVal } from './dom-helpers.js';
-
-/* ── color popover helpers ──────────────────────────────────────────────── */
-
-/**
- * Toggle a color popover, closing all others first.
- * Also installs a one-shot document mousedown handler to close on outside
- * click when the popover is opened.
- * @param {Event} e - click event from the palette button
- */
-function toggleColorPopover(e) {
-  const btn = e.currentTarget;
-  const root = btn.getRootNode();
-  // Close all other open color popovers in this shadow root
-  root.querySelectorAll(".color-popover.open").forEach(el => el.classList.remove("open"));
-  const pop = btn.closest(".form-group").querySelector(".color-popover");
-  if (!pop) return;
-  const wasOpen = pop.classList.contains("open");
-  pop.classList.toggle("open");
-  // When opening, install a one-shot outside-click handler
-  if (!wasOpen) {
-    const close = (ev) => {
-      if (!pop.contains(ev.target) && !btn.contains(ev.target)) {
-        pop.classList.remove("open");
-        document.removeEventListener("mousedown", close);
-      }
-    };
-    // Use setTimeout to avoid the current click event triggering the handler
-    setTimeout(() => document.addEventListener("mousedown", close), 0);
-  }
-}
+import { dropsAfter } from './ui/panel-row.js';
+import { badge } from './ui/badge.js';
+import { addButton } from './ui/button.js';
+import { emptyState } from './ui/empty-state.js';
 
 /* ── item list row (shared by all item list UIs) ─────────────────────── */
+
+/** The row being dragged: its list and index. Drag data is unreadable during dragover. */
+let draggedItem = null;
 
 /**
  * Render a single item list row with type icon, primary/secondary text,
@@ -74,75 +51,103 @@ function toggleColorPopover(e) {
  *
  * @param {object} host - Lit host element
  * @param {object} item - the item config
- * @param {object} actions - { onEdit, onRemove?, onMoveUp?, onMoveDown? }
- * @param {object} flags - { canMoveUp, canMoveDown }
+ * @param {object} actions - { onEdit, onRemove? }
+ * @param {{ list: string, index: number, onMove: (from: number, to: number) => void }|null} drag -
+ *   makes the row draggable within its list; `onMove` gets the dragged row's index and its new one
  */
-export function renderItemListRow(host, item, actions, flags = {}) {
+export function renderItemListRow(host, item, actions, drag = null) {
   const type = detectItemType(item?.item);
   const icon = (item && item.icon) || ITEM_TYPE_ICONS[type] || 'mdi:circle-outline';
   const typeLabel = itemTypeShort()[type] || t('Item');
-  const primary = itemPrimaryText(item);
   const secondary = itemSecondaryText(item);
-  const showTypeChip = !item?.name;
+  // An entity without a name of its own goes by its Home Assistant name, as on the panel.
+  const entityName = !item?.name && type === ITEM_TYPE.ENTITY_ID
+    ? host?.hass?.states?.[secondary]?.attributes?.friendly_name
+    : '';
+  const primary = entityName || itemPrimaryText(item);
+  // The entity id below already tells an entity apart; other kinds name theirs.
+  const showTypeChip = type !== ITEM_TYPE.ENTITY_ID && Boolean(item?.name);
   const parseItemColor = (val) =>
     val && !(typeof val === 'object' && !Array.isArray(val))
       ? parseRgbListToHex(val)
       : '';
   const itemColor = parseItemColor(item?.color);
   const itemBackColor = parseItemColor(item?.back_color);
-  const iconBgStyle = itemBackColor
-    ? `background-color:${itemBackColor};`
-    : '';
-  const iconColorStyle = itemColor
-    ? `color:${itemColor};`
-    : '';
+  const iconStyle = [
+    itemBackColor && `--haui-item-row-icon-background:${itemBackColor}`,
+    itemColor && `--haui-item-row-icon-color:${itemColor}`,
+  ].filter(Boolean).join(';');
+  const clearDrop = (row) => row.classList.remove('is-drop-before', 'is-drop-after');
+  // A row takes a drop only from another row of its own list.
+  const takesDrop = () => draggedItem && draggedItem.list === drag.list && draggedItem.index !== drag.index;
+  const startDrag = drag ? (event) => {
+    draggedItem = { list: drag.list, index: drag.index };
+    // Firefox starts a drag only once it carries data.
+    event.dataTransfer?.setData('text/plain', String(drag.index));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    event.currentTarget.classList.add('is-dragging');
+  } : null;
+  const endDrag = drag ? (event) => {
+    draggedItem = null;
+    event.currentTarget.classList.remove('is-dragging');
+  } : null;
+  // Without preventDefault on dragover the browser never fires drop on the row.
+  const allowDrop = drag ? (event) => {
+    if (!takesDrop()) return;
+    event.preventDefault();
+    const after = dropsAfter(event);
+    event.currentTarget.classList.toggle('is-drop-before', !after);
+    event.currentTarget.classList.toggle('is-drop-after', after);
+  } : null;
+  const leaveDrop = drag ? (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) clearDrop(event.currentTarget);
+  } : null;
+  const acceptDrop = drag ? (event) => {
+    if (!takesDrop()) return;
+    event.preventDefault();
+    clearDrop(event.currentTarget);
+    const from = draggedItem.index;
+    const slot = drag.index + (dropsAfter(event) ? 1 : 0);
+    // Taking the dragged row out first moves every later slot up by one.
+    const to = from < slot ? slot - 1 : slot;
+    if (to !== from) drag.onMove(from, to);
+  } : null;
+  const gripLabel = drag ? t('Drag to reorder {name}').replace('{name}', primary) : '';
+  // The whole row opens the item; the narrow sidebar keeps its width for the name.
   return html`
-    <div class="item-list-row">
-      <span class="item-row-icon" style=${iconBgStyle || ''}>
-        <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
-      </span>
-      <div class="item-row-text">
-        <div class="item-row-primary">
-          <span class="item-row-name">${primary}</span>
-          ${showTypeChip
-            ? ''
-            : html`<span class="item-row-chip">${typeLabel}</span>`}
-        </div>
-        ${secondary
-          ? html`<div class="item-row-secondary">${secondary}</div>`
-          : ''}
-      </div>
-      <div class="item-row-actions">
-        ${actions.onMoveUp
-          ? html`<ha-icon-button
-              title=${t("Move up")}
-              ?disabled=${!flags.canMoveUp}
-              @click=${actions.onMoveUp}
-            ><ha-icon icon="mdi:arrow-up"></ha-icon></ha-icon-button>`
-          : ''}
-        ${actions.onMoveDown
-          ? html`<ha-icon-button
-              title=${t("Move down")}
-              ?disabled=${!flags.canMoveDown}
-              @click=${actions.onMoveDown}
-            ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>`
-          : ''}
-        ${actions.onEdit
-          ? html`<ha-icon-button title=${t("Edit")} @click=${actions.onEdit}>
-              <ha-icon icon="mdi:pencil-outline"></ha-icon>
-            </ha-icon-button>`
-          : ''}
-        ${actions.onRemove
-          ? html`<ha-icon-button title=${t("Remove")} @click=${actions.onRemove}>
-              <ha-icon icon="mdi:delete-outline"></ha-icon>
-            </ha-icon-button>`
-          : ''}
-      </div>
+    <div class="haui-item-list-row" draggable=${drag ? 'true' : nothing}
+      @dragstart=${startDrag ?? nothing} @dragend=${endDrag ?? nothing}
+      @dragover=${allowDrop ?? nothing} @dragleave=${leaveDrop ?? nothing} @drop=${acceptDrop ?? nothing}>
+      ${drag
+        ? html`<span class="haui-item-row-grip" role="img" aria-label=${gripLabel} title=${gripLabel}>
+            <ha-icon icon="mdi:drag" aria-hidden="true"></ha-icon>
+          </span>`
+        : ''}
+      <button type="button" class="haui-item-row-main" title=${t("Edit")} @click=${actions.onEdit}>
+        <span class="haui-item-row-icon" style=${iconStyle || nothing}>
+          <ha-icon icon=${icon}></ha-icon>
+        </span>
+        <span class="haui-item-row-text">
+          <span class="haui-item-row-primary">
+            <span class="haui-item-row-name">${primary}</span>
+            ${showTypeChip ? badge(typeLabel, 'neutral', 'haui-item-row-chip') : ''}
+          </span>
+          ${secondary
+            ? html`<span class="haui-item-row-secondary">${secondary}</span>`
+            : ''}
+        </span>
+        <ha-icon class="haui-item-row-edit" icon="mdi:pencil-outline"></ha-icon>
+      </button>
+      ${actions.onRemove
+        ? html`<ha-icon-button class="haui-item-row-remove" label=${t("Remove")} title=${t("Remove")}
+            @click=${actions.onRemove}
+          ><ha-icon icon="mdi:delete-outline"></ha-icon></ha-icon-button>`
+        : ''}
     </div>
   `;
 }
 
-/* ── list-items / list-entities field ───────────────────────────────── */
+/* ── haui-item-list-items / list-entities field ───────────────────────────────── */
 
 /**
  * Render a list-of-strings editor for `kind: list_items` and `kind: list_entities`.
@@ -173,11 +178,11 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
   };
 
   return html`
-    <div class="form-group" id=${id}>
+    <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
-      ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+      ${opt.description ? html`<div class="haui-field-hint is-persistent">${opt.description}</div>` : ""}
 
-      <div class="item-list">
+      <div class="haui-item-list">
         ${list.map((val, i) => {
           const rem = html`
             <ha-icon-button
@@ -220,7 +225,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
             <div class="list-item-row">
               ${rem}
               <input
-                class="native-input"
+                class="haui-input"
                 .value=${String(val != null ? val : "")}
                 @input=${(e) => {
                   mutate((arr) => { arr[i] = e.target.value; });
@@ -232,18 +237,16 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
       </div>
 
       ${max != null && list.length >= max
-        ? html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`
-        : html`
-            <button
-              class="add-item-btn"
-              @click=${() => {
-                const seed = choices
-                  ? (Array.isArray(choices[0]) ? choices[0][0] : choices[0].value)
-                  : "";
-                mutate((arr) => { arr.push(seed); });
-              }}
-            >${t("+ Add")}</button>
-          `}
+        ? html`<div class="haui-item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`
+        : addButton({
+          label: t("Add"),
+          onClick: () => {
+            const seed = choices
+              ? (Array.isArray(choices[0]) ? choices[0][0] : choices[0].value)
+              : "";
+            mutate((arr) => { arr.push(seed); });
+          },
+        })}
     </div>
   `;
 }
@@ -253,7 +256,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
 /**
  * Render a rich entity list editor for `kind: item_list`.
  */
-export function renderItemListField(host, opt, currentValue) {
+export function renderItemListField(host, opt, currentValue, feedback = {}) {
   if (!host._itemListData) host._itemListData = {};
   if (!host._itemListData[opt.key]) {
     let list = Array.isArray(currentValue) ? [...currentValue] : [];
@@ -271,19 +274,21 @@ export function renderItemListField(host, opt, currentValue) {
   const editingIndex = isEditing ? host._editingItem.index : null;
 
   return html`
-    <div class="form-group" id=${id}>
+    <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
-      ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+      ${opt.description ? html`<div class="haui-field-hint is-persistent">${opt.description}</div>` : ""}
+      ${fieldMessage(id, feedback)}
 
-      <div class="item-list">
+      <div class="haui-item-list">
         ${entities.length === 0 && editingIndex !== -1
-          ? html`<div class="item-list-empty">${t('No items yet. Click "+ Add Item" below.')}</div>`
+          ? emptyState({ message: t('No items yet. Click "+ Add Item" below.'), iconName: null, className: 'haui-empty-state-inset' })
           : ''}
         ${entities.map((item, i) => {
           if (editingIndex === i) {
             return renderItemEditFields(host);
           }
-          return renderItemListRow(
+          const entryFeedback = feedback.entries?.get(i);
+          return html`${renderItemListRow(
             host,
             item,
             {
@@ -301,24 +306,22 @@ export function renderItemListField(host, opt, currentValue) {
                 host._itemListData[opt.key] = host._itemListData[opt.key].filter((_, idx) => idx !== i);
                 host.requestUpdate();
               },
-              onMoveUp: () => {
-                const list = host._itemListData[opt.key];
-                if (i <= 0) return;
-                [list[i - 1], list[i]] = [list[i], list[i - 1]];
-                host.requestUpdate();
-              },
-              onMoveDown: () => {
-                const list = host._itemListData[opt.key];
-                if (i >= list.length - 1) return;
-                [list[i + 1], list[i]] = [list[i], list[i + 1]];
-                host.requestUpdate();
-              },
             },
             {
-              canMoveUp: i > 0,
-              canMoveDown: i < entities.length - 1,
+              list: opt.key,
+              index: i,
+              onMove: (from, to) => {
+                const list = host._itemListData[opt.key];
+                // The item open in the inline form keeps its form when rows move around it.
+                const edited = isEditing ? list[editingIndex] : undefined;
+                list.splice(to, 0, ...list.splice(from, 1));
+                if (edited !== undefined) {
+                  host._editingItem = { ...host._editingItem, index: list.indexOf(edited) };
+                }
+                host.requestUpdate();
+              },
             }
-          );
+          )}${entryFeedback ? fieldMessage(`${id}-${i}`, entryFeedback) : nothing}`;
         })}
       </div>
 
@@ -331,28 +334,49 @@ export function renderItemListField(host, opt, currentValue) {
         : (() => {
             const max = opt.max_items;
             if (max != null && entities.length >= max) {
-              return html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`;
+              return html`<div class="haui-item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`;
             }
-            return html`
-              <button
-                class="add-item-btn"
-                @click=${() => {
-                  host._editingItem = {
-                    optKey: opt.key,
-                    index: -1,
-                    config: {},
-                    domain,
-                  };
-                  host._editingItemType = "entity_id";
-                  host.requestUpdate();
-                }}
-              >
-                ${t("+ Add Item")}
-              </button>
-            `;
+            return addButton({
+              label: t("Add Item"),
+              onClick: () => {
+                host._editingItem = {
+                  optKey: opt.key,
+                  index: -1,
+                  config: {},
+                  domain,
+                };
+                host._editingItemType = "entity_id";
+                host.requestUpdate();
+              },
+            });
           })()}
     </div>
   `;
+}
+
+function renderItemColorEditor(host, { id, label, hint, value, setValue }) {
+  // Kept on the item draft, so the next item opens with its presets closed.
+  const openPresets = host._editingItem.openPresets ?? [];
+  const presetsOpen = openPresets.includes(id);
+  return renderField({
+    id,
+    label,
+    hint,
+    control: renderColorField({
+      id,
+      value,
+      api: host.api,
+      onChange: setValue,
+      presetsOpen,
+      onTogglePresets: () => {
+        host._editingItem = {
+          ...host._editingItem,
+          openPresets: presetsOpen ? openPresets.filter((key) => key !== id) : [...openPresets, id],
+        };
+        host.requestUpdate();
+      },
+    }),
+  });
 }
 
 /* ── per-item option field (mirrors renderOptionField for item configs) ─ */
@@ -379,102 +403,51 @@ function renderItemOptionField(host, opt, currentValue) {
   switch (opt.kind) {
     case "bool":
       return html`
-        <div class="checkbox-wrap">
-          <div class="checkbox-row">
+        <div class="haui-checkbox-wrap">
+          <div class="haui-checkbox-row">
             ${renderToggle(id, val, setVal)}
             <label for=${id} title=${opt.description}>${opt.label}</label>
           </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
     case "int":
+      // an empty field unsets the option, so the item uses the panel's value again
       return html`
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          ${renderNumberInput(id, val, (raw) => setVal(parseInt(raw, 10) || 0), { step: "1" })}
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${renderNumberInput(id, val, (raw) => setVal(raw === "" ? undefined : parseInt(raw, 10)), { step: "1" })}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
-    case "color": {
-      const colorHex = parseRgbListToHex(val);
-      const hasTpl = formatFieldValue(val).includes("{{");
-      return html`
-        <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
-          <div class="field-row">
-            <div class="input-preview-wrap">
-              <div class="cp-sw input-preview" style="pointer-events:auto;background-color:${colorHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);"
-                title=${colorHex || t("no color")}
-                @click=${(e) => {
-                  const inp = e.currentTarget.querySelector("input[type=color]");
-                  if (inp) inp.click();
-                }}
-              >
-                <input type="color" .value=${colorHex || "#000000"}
-                  @input=${(e) => {
-                    const hex = e.target.value;
-                    const prevVal = host._editingItem?.config?.[opt.key];
-                    const newVal = hexToColorMatching(hex, prevVal);
-                    saveColor(hex);
-                    setVal(newVal);
-                  }}
-                />
-              </div>
-              <input
-                id=${id}
-                class="native-input"
-                .value=${colorFieldText(val)}
-              @input=${(e) => {
-                const raw = e.target.value;
-                if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
-                setVal(parseFieldValue(raw));
-              }}
-              @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
-            />
-            </div>
-            <ha-icon-button class="color-picker-btn"
-              @click=${toggleColorPopover}
-              title=${t("Presets")}
-            >
-              <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
-            </ha-icon-button>
-          </div>
-          <div class="color-popover" @click=${(e) => e.stopPropagation()}>
-            ${!hasTpl ? renderColorPresets(colorHex, (hex) => {
-              const prevVal = host._editingItem?.config?.[opt.key];
-              const newVal = hexToColorMatching(hex, prevVal);
-              saveColor(hex);
-              setVal(newVal);
-              host.renderRoot?.querySelectorAll(".color-popover.open")
-                .forEach((el) => el.classList.remove("open"));
-            }) : ""}
-          </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
-          <div class="template-preview" ?hidden=${!hasTpl}>
-            <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
-          </div>
-        </div>`;
-    }
+    case "color":
+      return renderItemColorEditor(host, {
+        id,
+        label: opt.label,
+        hint: opt.description,
+        value: val,
+        setValue: setVal,
+      });
 
     case "select":
       return html`
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
           ${renderSelect(id, val, opt.choices || [], setVal)}
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
     case "str":
     default:
       return html`
-        <div class="form-group">
+        <div class="haui-field">
           <label for=${id} title=${opt.description}>${opt.label}</label>
           <input
             id=${id}
-            class="native-input"
+            class="haui-input"
             .value=${String(val != null ? val : "")}
             @input=${(e) => {
               if (host.api) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target);
@@ -482,10 +455,10 @@ function renderItemOptionField(host, opt, currentValue) {
             }}
             @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
           />
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
           ${host.hass
             ? html`
-                <div class="template-preview" ?hidden=${!(String(val).includes("{{"))}>
+                <div class="haui-template-preview" ?hidden=${!(String(val).includes("{{"))}>
                   <span id="tp-${id}">${(String(val).includes("{{")) ? "..." : ""}</span>
                 </div>
               `
@@ -503,65 +476,16 @@ function renderItemOptionField(host, opt, currentValue) {
  */
 function renderPromotedField(host, ee, f, label, hint) {
   if (f === 'color') {
-    const cv = ee.config?.[f];
-    const cHex = parseRgbListToHex(cv);
-    const hasTpl = formatFieldValue(cv).includes("{{");
-    return html`
-      <div class="form-group">
-        <label for="item-${f}" title=${hint}>${label}</label>
-        <div class="field-row">
-          <div class="input-preview-wrap">
-            <div class="cp-sw input-preview" style="pointer-events:auto;background-color:${cHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);"
-              title=${cHex || t("no color")}
-              @click=${(e) => {
-                const inp = e.currentTarget.querySelector("input[type=color]");
-                if (inp) inp.click();
-              }}
-            >
-              <input type="color" .value=${cHex || "#000000"}
-                @input=${(e) => {
-                  const hex = e.target.value;
-                  const prevVal = host._editingItem?.config?.[f];
-                  const newVal = hexToColorMatching(hex, prevVal);
-                  saveColor(hex);
-                  host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
-                  setTimeout(() => host.requestUpdate(), 0);
-                }}
-              />
-            </div>
-            <input
-              id="item-${f}"
-              class="native-input"
-              .value=${colorFieldText(cv)}
-            @input=${(e) => {
-              const raw = e.target.value;
-              if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
-              host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
-              setTimeout(() => host.requestUpdate(), 0);
-            }}
-            @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-          />
-          </div>
-          <ha-icon-button class="color-picker-btn"
-            @click=${toggleColorPopover}
-            title=${t("Presets")}
-          >
-            <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
-          </ha-icon-button>
-        </div>
-        <div class="color-popover" @click=${(e) => e.stopPropagation()}>
-          ${!hasTpl ? renderColorPresets(cHex, (hex) => {
-            const prevVal = host._editingItem?.config?.[f];
-            const newVal = hexToColorMatching(hex, prevVal);
-            host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
-            saveColor(hex);
-            host.renderRoot?.querySelectorAll(".color-popover.open")
-              .forEach((el) => el.classList.remove("open"));
-            setTimeout(() => host.requestUpdate(), 0);
-          }) : ""}
-        </div>
-        ${hasTpl ? html`<div class="template-preview"><span id="tp-item-${f}">...</span></div>` : html`<div class="template-preview" hidden><span id="tp-item-${f}"></span></div>`}
-      </div>`;
+    return renderItemColorEditor(host, {
+      id: `item-${f}`,
+      label,
+      hint,
+      value: ee.config?.[f],
+      setValue: (value) => {
+        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: value } };
+        setTimeout(() => host.requestUpdate(), 0);
+      },
+    });
   }
   if (f === 'icon') {
     const rawIcon = ee.config?.[f];
@@ -570,15 +494,16 @@ function renderPromotedField(host, ee, f, label, hint) {
     const dictPreviewText = showDictPreview
       ? t("State-keyed: {value}").replace("{value}", Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", "))
       : "";
-    return html`
-      <div class="form-group">
-        <label for="item-${f}" title=${hint}>${label}</label>
-        ${renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
-          host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
-          setTimeout(() => host.requestUpdate(), 0);
-        })}
-        <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
-      </div>`;
+    return renderField({
+      id: `item-${f}`,
+      label,
+      hint,
+      control: renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
+        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
+        setTimeout(() => host.requestUpdate(), 0);
+      }),
+      extra: html`<div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+    });
   }
   const rawVal = ee.config?.[f];
   const displayStr = formatFieldValue(rawVal);
@@ -587,25 +512,27 @@ function renderPromotedField(host, ee, f, label, hint) {
     ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
     : "";
   const hasTpl = displayStr.includes("{{");
-  return html`
-    <div class="form-group">
-      <label for="item-${f}" title=${hint}>${label}</label>
-      <input id="item-${f}" .value=${displayStr} class="native-input"
-        @input=${(e) => {
-          const raw = e.target.value;
-          if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
-          host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
-          setTimeout(() => host.requestUpdate(), 0);
-        }}
-        @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-      />
+  return renderField({
+    id: `item-${f}`,
+    label,
+    hint,
+    control: html`<input id="item-${f}" .value=${displayStr} class="haui-input"
+      @input=${(e) => {
+        const raw = e.target.value;
+        if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
+        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
+        setTimeout(() => host.requestUpdate(), 0);
+      }}
+      @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
+    />`,
+    extra: html`
       ${host.hass
-        ? html`<div class="template-preview" ?hidden=${!hasTpl}>
+        ? html`<div class="haui-template-preview" ?hidden=${!hasTpl}>
             <span id="tp-item-${f}">${hasTpl ? "..." : ""}</span>
           </div>`
         : ""}
-      <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
-    </div>`;
+      <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+  });
 }
 
 /* ── inline item edit form ──────────────────────────────────────────── */
@@ -630,8 +557,8 @@ export function renderItemEditFields(host, descriptor) {
   const uid = `item-edit-${ee.optKey}-${ee.index}`;
 
   return html`
-    <div class="item-edit-inline" id="${uid}">
-      <div class="form-group">
+    <div class="haui-item-edit-inline" id="${uid}">
+      <div class="haui-field">
         <label for="item-type" title=${t("Type of item this entity slot represents")}>${t("Type")}</label>
         ${renderSelect("item-type", itemType, [
           { value: ITEM_TYPE.ENTITY_ID, label: t("Entity") },
@@ -645,7 +572,7 @@ export function renderItemEditFields(host, descriptor) {
         })}
       </div>
 
-      <div class="form-group">
+      <div class="haui-field">
         ${(() => {
           const labels = itemLabels();
           const info = labels[itemType] || labels.entity_id;
@@ -686,7 +613,7 @@ export function renderItemEditFields(host, descriptor) {
             <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, service name, or custom text")}`}>${info.label}</label>
             <input
               id="item-entity"
-              class="native-input"
+              class="haui-input"
               .value=${itemValue}
               placeholder=${info.placeholder}
               @input=${(e) => {
@@ -700,7 +627,7 @@ export function renderItemEditFields(host, descriptor) {
               @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-entity`, e.target); }}
             />
             ${host.hass
-              ? html`<div class="template-preview" ?hidden=${!(String(itemValue).includes("{{"))}>
+              ? html`<div class="haui-template-preview" ?hidden=${!(String(itemValue).includes("{{"))}>
                   <span id="tp-item-entity">${(String(itemValue).includes("{{")) ? "..." : ""}</span>
                 </div>`
               : ""}
@@ -713,46 +640,39 @@ export function renderItemEditFields(host, descriptor) {
         { f: 'icon', label: t("Icon"), hint: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.") },
         { f: 'color', label: t("Color"), hint: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.") },
       ].map(fd => renderPromotedField(host, ee, fd.f, fd.label, fd.hint))}
-      <div
-        class="collapsible-title"
-        @click=${(e) => {
-          const toggle = e.currentTarget;
-          const arrow = toggle.querySelector(".collapsible-icon");
-          const section = toggle.nextElementSibling;
-          if (arrow) arrow.classList.toggle("is-open");
-          if (section) section.classList.toggle("open");
-        }}
-      >
-        <ha-icon icon="mdi:chevron-right" class="collapsible-icon"></ha-icon>
-        ${t("Advanced")}
-      </div>
-      <div class="item-advanced-section">
-        ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
-          (f) => {
-            const fieldLabels = {
-              value: t("Value"),
-              state: t("State"),
-              popup_key: t("Popup key"),
-            };
-            const hints = {
-              value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
-              state: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic."),
-              popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
-            };
-            const typedFields = new Set(["value"]);
-            const isTyped = typedFields.has(f);
-            const rawVal = ee.config?.[f];
-            const displayStr = formatFieldValue(rawVal);
-            const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
-            const dictPreviewText = showDictPreview
-              ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
-              : "";
-            return html`
-              <div class="form-group">
-                <label for="item-${f}" title=${hints[f]}>${fieldLabels[f]}</label>
-                <input
+      <details class="haui-item-advanced">
+        <summary class="haui-collapsible-title">
+          <ha-icon icon="mdi:chevron-right" class="haui-collapsible-icon"></ha-icon>
+          <span>${t("Advanced")}</span>
+        </summary>
+        <div class="haui-item-advanced-section">
+          ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
+            (f) => {
+              const fieldLabels = {
+                value: t("Value"),
+                state: t("State"),
+                popup_key: t("Popup key"),
+              };
+              const hints = {
+                value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
+                state: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic."),
+                popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
+              };
+              const typedFields = new Set(["value"]);
+              const isTyped = typedFields.has(f);
+              const rawVal = ee.config?.[f];
+              const displayStr = formatFieldValue(rawVal);
+              const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
+              const dictPreviewText = showDictPreview
+                ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
+                : "";
+              return renderField({
+                id: `item-${f}`,
+                label: fieldLabels[f],
+                hint: hints[f],
+                control: html`<input
                   id="item-${f}"
-                  class="native-input"
+                  class="haui-input"
                   .value=${displayStr}
                   @input=${(e) => {
                     const raw = e.target.value;
@@ -764,53 +684,53 @@ export function renderItemEditFields(host, descriptor) {
                     setTimeout(() => host.requestUpdate(), 0);
                   }}
                   @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-                />
-                ${host.hass
-                  ? html`<div class="template-preview" ?hidden=${!displayStr.includes("{{")}>
-                      <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
-                    </div>`
-                  : ""}
-                <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
-              </div>
-            `;
-          }
-        )}
-        ${host._editingItemType === ITEM_TYPE.ACTION
-          ? html`
-            <div class="form-group">
-              <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
-              <textarea
-                id="item-service_data"
-                class="w-full"
-                style="min-height:80px;font-family:var(--code-font-family,monospace);font-size:13px;"
-                .value=${(() => {
-                  const sd = host._editingItem?.config?.service_data;
-                  if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);
-                  return sd != null ? String(sd) : '';
-                })()}
-                @input=${(e) => {
-                  const raw = e.target.value;
-                  let parsed;
-                  try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-                  host._editingItem = host._editingItem
-                    ? { ...host._editingItem, config: { ...host._editingItem.config, service_data: parsed } }
-                    : { config: { service_data: parsed } };
-                  setTimeout(() => host.requestUpdate(), 0);
-                }}
-                placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
-              ></textarea>
-              <div class="field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
-            </div>`
-          : ""}
-        ${(() => {
-          if (!descriptor?.item_options?.length) return "";
-          return descriptor.item_options.map((opt) =>
-            renderItemOptionField(host, opt, ee.config?.[opt.key])
-          );
-        })()}
-      </div>
+                />`,
+                extra: html`
+                  ${host.hass
+                    ? html`<div class="haui-template-preview" ?hidden=${!displayStr.includes("{{")}>
+                        <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
+                      </div>`
+                    : ""}
+                  <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+              });
+            }
+          )}
+          ${host._editingItemType === ITEM_TYPE.ACTION
+            ? html`
+              <div class="haui-field">
+                <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
+                <textarea
+                  id="item-service_data"
+                  class="haui-w-full haui-item-service-data"
+                  .value=${(() => {
+                    const sd = host._editingItem?.config?.service_data;
+                    if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);
+                    return sd != null ? String(sd) : '';
+                  })()}
+                  @input=${(e) => {
+                    const raw = e.target.value;
+                    let parsed;
+                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+                    host._editingItem = host._editingItem
+                      ? { ...host._editingItem, config: { ...host._editingItem.config, service_data: parsed } }
+                      : { config: { service_data: parsed } };
+                    setTimeout(() => host.requestUpdate(), 0);
+                  }}
+                  placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
+                ></textarea>
+                <div class="haui-field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
+              </div>`
+            : ""}
+          ${(() => {
+            if (!descriptor?.item_options?.length) return "";
+            return descriptor.item_options.map((opt) =>
+              renderItemOptionField(host, opt, ee.config?.[opt.key])
+            );
+          })()}
+        </div>
+      </details>
 
-      <div class="item-edit-actions">
+      <div class="haui-item-edit-actions">
         <ha-button variant="neutral" appearance="plain" @click=${() => { host._editingItem = null; host._editingItemType = null; host.requestUpdate(); }}>
           ${t("Cancel")}
         </ha-button>

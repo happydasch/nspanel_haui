@@ -4,17 +4,21 @@
 The ``tft_version`` in ``esphome/nspanel_haui/version.yaml`` tracks the TFT
 version separately from the firmware tag. The release uploads the TFT assets,
 but the manifest must advertise the embedded TFT version when a release does
-not include a TFT update.
+not include a TFT update. Both TFT assets must carry that version, or the
+generator refuses to write the manifest.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
 import re
 from pathlib import Path
 from typing import Any
+
+from scripts.bump_tft_version import check_tft_carries
 
 VERSION_YAML = Path("esphome/nspanel_haui/version.yaml")
 
@@ -56,11 +60,16 @@ def build_manifest(
     ota_image: Path,
     eu_tft: Path,
     us_tft: Path,
-    tft_version: str | None = None,
+    tft_version: str,
 ) -> dict[str, Any]:
-    """Build a release manifest with the TFT version required by its firmware."""
+    """Build a release manifest with the TFT version required by its firmware.
+
+    Raises:
+        ValueError: A TFT asset does not carry ``tft_version``.
+    """
+    for tft in (eu_tft, us_tft):
+        check_tft_carries(tft, tft_version)
     version = tag.removeprefix("v")
-    display_version = (tft_version or "").strip() or version
     release_url = f"https://github.com/{repo}/releases/download/{tag}"
     return build_manifest_from_assets(
         version,
@@ -68,7 +77,7 @@ def build_manifest(
         f"{release_url}/nspanel_haui_ota.bin",
         _md5(ota_image),
         {
-            "version": display_version,
+            "version": tft_version,
             "assets": {
                 "eu": {
                     "path": f"{release_url}/nspanel_haui.tft",
@@ -92,16 +101,34 @@ def _read_tft_version(path: Path) -> str:
     return match.group(1)
 
 
-def main() -> None:
+def validate_manifest(manifest: dict[str, Any]) -> None:
+    """Raise when the manifest lacks a field the hub needs to offer the update."""
+    ota = manifest.get("builds", [{}])[0].get("ota", {})
+    if not manifest.get("version") or manifest.get("variant") != "universal":
+        raise ValueError("firmware manifest is missing its version or universal variant")
+    if not ota.get("path") or not ota.get("md5"):
+        raise ValueError("firmware manifest is missing the OTA path or checksum")
+    if not manifest.get("tft", {}).get("assets"):
+        raise ValueError("firmware manifest is missing TFT assets")
+
+
+def main(argv: list[str] | None = None) -> None:
     """Write the release manifest for the artifacts in the workflow workspace."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--tag", help="release tag (default: GITHUB_REF_NAME)")
+    parser.add_argument("--name", help="manifest name (default: NSPanel HAUI)")
+    args = parser.parse_args(argv)
     manifest = build_manifest(
         repo=os.environ["GITHUB_REPOSITORY"],
-        tag=os.environ["GITHUB_REF_NAME"],
+        tag=args.tag or os.environ["GITHUB_REF_NAME"],
         ota_image=Path("nspanel_haui_ota.bin"),
         eu_tft=Path("nextion/nspanel_haui.tft"),
         us_tft=Path("nextion/nspanel_haui_portrait.tft"),
         tft_version=_read_tft_version(VERSION_YAML),
     )
+    if args.name:
+        manifest["name"] = args.name
+    validate_manifest(manifest)
     manifest_path = Path("firmware-manifest.json")
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))

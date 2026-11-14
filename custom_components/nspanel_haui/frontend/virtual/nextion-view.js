@@ -218,11 +218,11 @@ export function renderDisplay(display, ctx) {
   // Only the visible part: the landscape panel hides its rightmost 30 px.
   const size = `width:${layout.visible_width}px;height:${layout.height}px;`;
   if (!display.page) {
-    return html`<div class="vp-screen" style="${size}background:#000;"></div>`;
+    return html`<div class="vp-screen" style="${size}background:var(--haui-screen-off);"></div>`;
   }
   const pageComp = display.component(0);
   const pageBg = backgroundStyle(pageComp.attrs, { x: 0, y: 0 }, ctx.pictureUrl)
-    || 'background:#000;';
+    || 'background:var(--haui-screen-off);';
   const widgets = [...display.components.values()]
     .filter(c => c.id !== 0 && !c.hidden)
     .sort((a, b) => a.id - b.id);

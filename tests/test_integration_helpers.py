@@ -164,5 +164,10 @@ def test_panel_store_uses_per_entry_key_and_fresh_empty_payloads(monkeypatch):
     storage.panel_store(object(), "abc")
 
     assert created == [(storage.PANEL_STORE_VERSION, "nspanel_haui.abc_panels")]
-    assert storage.empty_store() == {"version": 1, "devices": {}}
+    assert storage.empty_store() == {
+        "version": 1,
+        "devices": {},
+        "device_order": [],
+        "themes": {},
+    }
     assert storage.empty_store() is not storage.empty_store()

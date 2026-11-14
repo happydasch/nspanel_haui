@@ -1,14 +1,14 @@
 /**
- * NSPanel HAUI - Device manager event handlers.
+ * NSPanel HAUI - device actions.
  *
- * Extracted from haui-editor.js; each function takes the component instance
- * (`host`) as its first parameter.
+ * Adding, removing and enabling devices, and the TFT and firmware installs the
+ * update surface asks for. Each function takes the editor (`host`) first.
  */
 import { t } from './localize.js';
 
 /**
  * Get the user-friendly display name for a device, falling back to the device key.
- * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {any} host
  * @param {string} name  - device key
  * @returns {string}
  */
@@ -16,38 +16,15 @@ function _friendlyName(host, name) {
   return host._panels?.devices?.[name]?.friendly_name || name;
 }
 
-
-export async function onDeviceManagerMoveDevice(host, e) {
-  const { name, direction } = e.detail || {};
-  if (!name || !direction) return;
-  await host.store.actions.moveDevice(name, direction);
-}
-
-export async function onDeviceManagerToggleDevice(host, e) {
-  const name = e.detail?.name;
+/** Enable or disable a device. @param {any} host @param {string} name */
+export async function toggleDevice(host, name) {
   if (!name) return;
   await host.store.actions.toggleDevice(name);
   host.requestUpdate();
 }
 
-export function onDeviceManagerSelect(host, e) {
-  const name = e.detail?.name;
-  if (!name) return;
-  host._selectDevice(name);
-}
-
-export function onDeviceManagerSettings(host, e) {
-  const name = e.detail?.name;
-  if (!name) return;
-  host._showDeviceManager = false;
-  host.store.actions.selectDevice(name);
-  host._loadDeviceConfig(name);
-  host._openDeviceConfig();
-  host.requestUpdate();
-}
-
-export async function onDeviceManagerRemove(host, e) {
-  const name = e.detail?.name;
+/** Remove a device from the hub, with its settings and panels. @param {any} host @param {string} name */
+export async function removeDevice(host, name) {
   if (!name) return;
   const friendly = _friendlyName(host, name);
   try {
@@ -61,43 +38,39 @@ export async function onDeviceManagerRemove(host, e) {
   host.requestUpdate();
 }
 
-export async function onDeviceManagerAdd(host, e) {
-  const device = e.detail?.device;
-  if (!device) return;
+/**
+ * Add discovered devices to the hub in one request.
+ *
+ * @param {any} host
+ * @param {Array<{ name?: string, friendly_name?: string, esphome_device_id?: string }>} devices
+ * @returns {Promise<boolean>} whether devices were added
+ */
+export async function addDevices(host, devices) {
+  const known = host.store.getState().devices.byName;
+  const batch = (devices || []).map((device) => ({
+    name: device.name || device.friendly_name,
+    esphome_device_id: device.esphome_device_id || "",
+    enabled: true,
+  })).filter((device) => device.name && !known[device.name]);
+  if (!batch.length) return false;
+  let added = false;
   try {
-    await host.api.devices.add(host.entryId, [device]);
-    // Reload so later saves include the new device instead of dropping it.
-    await host.store.actions.loadPanels();
-    host._showToast(t('Added "{name}"').replace('{name}', device.name), "success");
-  } catch (err) {
-    host._showToast(err.message || t("Failed to add device"), "error");
-  }
-  host.requestUpdate();
-}
-
-export async function onDeviceManagerScan(host, e) {
-  const devices = e.detail?.devices;
-  if (!devices || !devices.length) return;
-  try {
-    // Batch-add all discovered devices in a single API call.
-    const known = host.store.getState().devices.byName;
-    const batch = devices.map((d) => ({
-      name: d.name || d.friendly_name,
-      esphome_device_id: d.esphome_device_id || "",
-      enabled: true,
-    })).filter((d) => d.name && !known[d.name]);
-    if (!batch.length) return;
     await host.api.devices.add(host.entryId, batch);
     // Reload so later saves include the new devices instead of dropping them.
     await host.store.actions.loadPanels();
-    host._showToast(t("Added {count} device(s)").replace("{count}", batch.length), "success");
+    host._showToast(batch.length === 1
+      ? t('Added "{name}"').replace('{name}', batch[0].name)
+      : t("Added {count} device(s)").replace("{count}", String(batch.length)), "success");
+    added = true;
   } catch (err) {
-    host._showToast(err.message || t("Failed to add devices"), "error");
+    host._showToast(err.message || (batch.length === 1 ? t("Failed to add device") : t("Failed to add devices")), "error");
   }
   host.requestUpdate();
+  return added;
 }
 
-export async function onDeviceManagerUpdateTft(host, e) {
+/** Install a TFT the update surface chose (release, URL or local file). */
+export async function installTft(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
@@ -108,7 +81,7 @@ export async function onDeviceManagerUpdateTft(host, e) {
     // Single-device failures are returned as HTTP errors and land in the
     // catch below; the `*` path aggregates failures server-side.  A body with
     // a 200 but an error update state is only possible by contract change on
-    // the backend — still surface it instead of a false success toast.
+    // the backend — still surface it instead of a false success haui-toast.
     const update = result.update;
     if (update?.state === "error") {
       const message = update.last_error || t("TFT update failed");
@@ -143,7 +116,8 @@ export async function onDeviceManagerUpdateTft(host, e) {
   }
 }
 
-export async function onDeviceManagerUpdateFirmware(host, e) {
+/** Install a firmware the update surface chose (release, URL or local file). */
+export async function installFirmware(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {

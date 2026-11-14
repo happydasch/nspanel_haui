@@ -22,7 +22,7 @@ const ASSIGN_RE = /^([A-Za-z_][\w]*(?:\[[^\]]+\])?(?:\.[A-Za-z_]\w*)*)\s*([+\-*/
 const COMMAND_RE = /^([a-z_]\w*)(?:\s+(.*))?$/;
 
 /** Commands handled by the host; their arguments are evaluated first. */
-export const COMMANDS = new Set([
+const COMMANDS = new Set([
   'vis', 'click', 'tsw', 'ref', 'xpic', 'cirs', 'cls', 'covx', 'page',
   'sendme', 'doevents', 'printh', 'prints',
 ]);
@@ -106,7 +106,7 @@ function parseLines(lines) {
 const parseCache = new Map();
 
 /** Parse script source into statement nodes (cached; event code is reused). */
-export function parseScript(code) {
+function parseScript(code) {
   let nodes = parseCache.get(code);
   if (!nodes) {
     nodes = parseLines(cleanLines(code));
@@ -210,7 +210,7 @@ export function evaluate(expr, host) {
  * `pageName.obj.attr` a widget of another page; `b[expr].attr` the widget with
  * that id on the current page.
  */
-export function resolveRef(ref, host) {
+function resolveRef(ref, host) {
   const indexed = /^b\[(.+)\]\.(\w+)$/.exec(ref);
   if (indexed) return { page: null, comp: Number(evaluate(indexed[1], host)), attr: indexed[2] };
   const parts = ref.split('.');

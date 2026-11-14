@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import test from 'node:test';
 import assert from 'node:assert/strict';

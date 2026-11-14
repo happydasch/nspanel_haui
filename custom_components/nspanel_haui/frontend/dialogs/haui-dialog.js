@@ -6,7 +6,7 @@
  * on each dialog element directly, so events don't need to bubble.
  */
 import { LitElement } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { haStyle, haStyleDialog, dialogStyles } from '../styles.js';
 
 export class HauiDialog extends LitElement {
   static get properties() {
@@ -16,7 +16,7 @@ export class HauiDialog extends LitElement {
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
+  static styles = [haStyle, haStyleDialog, dialogStyles];
 
   constructor() {
     super();

@@ -6,25 +6,27 @@ import pytest
 
 from custom_components.nspanel_haui.haui.abstract import haui_page
 from custom_components.nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import Card
-from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.clock import ClockPage
 from custom_components.nspanel_haui.haui.utils.icon import parse_icon
 
 
-def test_light_background_uses_light_text_colors_even_with_dark_active_scheme():
+def test_light_background_uses_light_text_colors_even_with_dark_active_theme():
     page = ClockPage.__new__(ClockPage)
-    page.app = SimpleNamespace(color_theme=ColorTheme({}, "dark"))
-    page._use_color_scheme = False
+    page.app = SimpleNamespace(theme=Theme("dark"))
+    page.panel = None
+    page._use_theme_background = False
     page._background_variant = "light"
 
     assert page.get_color("text") == 4226
     assert page.get_color("component_text") == 4226
 
 
-def test_scheme_background_uses_selected_scheme_text_colors():
+def test_theme_background_uses_selected_theme_text_colors():
     page = ClockPage.__new__(ClockPage)
-    page.app = SimpleNamespace(color_theme=ColorTheme({}, "dark"))
-    page._use_color_scheme = True
+    page.app = SimpleNamespace(theme=Theme("dark"))
+    page.panel = None
+    page._use_theme_background = True
     page._background_variant = "dark"
 
     assert page.get_color("text") == 59164
@@ -56,6 +58,7 @@ class _Notification:
 class _App:
     def __init__(self):
         self.device = _Device()
+        self.theme = Theme()
         self.controller = {"notification": _Notification()}
         self.listened = []
 
@@ -95,26 +98,28 @@ class _Item:
     def get_icon(self):
         return f"icon-{self.item_id}"
 
-    def get_color(self, *, scheme=None):
+    def get_color(self, *, variant=None):
         return 0
 
 
 class _Panel:
     def __init__(self, config):
         self.config = config
+        self.theme = Theme()
 
     def get(self, key, default=None):
         return self.config.get(key, default)
 
 
 def _show(monkeypatch, **panel_config):
-    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config: _Item(config))
+    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config, **kwargs: _Item(config))
     page = ClockPage(_App(), {"page_id": 7})
     page.cmds = []
     page.send_cmd = page.cmds.append
     page.get_color = lambda key: 0
     page._render_cycle_card = lambda: None
     panel = _Panel(panel_config)
+    page.panel = panel
     page.start_panel(panel)
     page.render_panel(panel)
     return page
@@ -146,8 +151,9 @@ def test_weather_icon_is_hidden_when_weather_item_has_no_entity(monkeypatch):
     assert not any(command.startswith("tMainIcon.txt=") for command in page.cmds)
 
 
-def test_weather_item_drives_weather_icon(monkeypatch):
-    page = _show(monkeypatch, item={"item": "weather.home"}, items=[{"item": "light.kitchen"}])
+@pytest.mark.parametrize("weather", [{"item": "weather.home"}, "weather.home"])
+def test_weather_item_drives_weather_icon(monkeypatch, weather):
+    page = _show(monkeypatch, item=weather, items=[{"item": "light.kitchen"}])
 
     assert 'tMainIcon.txt="icon-weather.home"' in page.cmds
     # weather header (temperature, pressure), then the item button
@@ -299,7 +305,7 @@ def test_outside_temp_missing_keeps_home_temp():
 def test_first_card_shows_the_configured_weather_temperature(monkeypatch):
     """The first card renders after the weather item is set: never "--°C" on
     the first open, never the previous panel's weather on a later one."""
-    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config: _Item(config))
+    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config, **kwargs: _Item(config))
     page = ClockPage(_App(), {"page_id": 7})
     page.cmds = []
     page.send_cmd = page.cmds.append

@@ -1,11 +1,11 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { isPortraitModel } from '../../custom_components/nspanel_haui/frontend/constants.js';
-import { renderPanelGrid } from '../../custom_components/nspanel_haui/frontend/panel-grid.js';
-import { renderSystemPanelCard } from '../../custom_components/nspanel_haui/frontend/panel-sys-grid.js';
+import { renderPanelList } from '../../custom_components/nspanel_haui/frontend/views/panel-list.js';
+import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 import { makeHost } from './fake-host.mjs';
 
 /** Flatten a Lit TemplateResult tree to text, with functions shown as [fn]. */
@@ -16,13 +16,23 @@ function flat(v) {
   return v == null ? '' : String(v);
 }
 
-function hostFor(displayModel, panels = [{ type: 'grid', key: 'grid_0', items: [] }]) {
-  const host = makeHost({ devices: { kitchen: { config: {}, panels } } }, () => { throw new Error('no fetch'); });
-  host._panelTypes = [{ type_key: 'grid', label: 'Grid', icon: 'mdi:view-grid', page_id: 9 }];
-  host._deviceConfig = { display_model: displayModel };
-  host.__navPanelsOpen = true;
-  host.__hiddenPanelsOpen = false;
-  return host;
+/**
+ * Build the Device panel-list model through the shell's own builder, so the
+ * thumbnail orientation, role markers and system entries are the shipped ones.
+ */
+function listFor(displayModel, panels = [{ type: 'clock', key: 'clock_0', items: [] }], systemPanels = []) {
+  const host = makeHost({
+    devices: { kitchen: { config: { display_model: displayModel }, panels } },
+    system_panels: systemPanels,
+  }, () => { throw new Error('no fetch'); });
+  Object.setPrototypeOf(host, NSPanelEditor.prototype);
+  host._store = host.store;
+  host._panelTypes = [{ type_key: 'clock', label: 'Clock', page_id: 3 }];
+  host._collapsedPanelGroups = [];
+
+  const state = host.store.getState();
+  const device = { name: 'kitchen', panels, config: state.devices.byName.kitchen.config };
+  return renderPanelList(host._panelListModel(device, state.devices.byName.kitchen.status));
 }
 
 test('the display model decides whether a device uses the portrait layout', () => {
@@ -32,32 +42,46 @@ test('the display model decides whether a device uses the portrait layout', () =
   assert.equal(isPortraitModel(undefined), false);
 });
 
-test('portrait devices mount the simulator frame in portrait', () => {
-  const out = flat(renderPanelGrid(hostFor('us')));
-  assert.match(out, /nspanel-simulator-frame[\s\S]*\.portrait=true/);
-});
-
-test('landscape devices mount the simulator frame without portrait', () => {
-  const out = flat(renderPanelGrid(hostFor('eu')));
-  assert.match(out, /nspanel-simulator-frame[\s\S]*\.portrait=false/);
-});
-
-test('the card preview directly contains the simulator frame', () => {
-  // Keep the frame directly in the available-width wrapper so its measured size
-  // and the screen's aspect ratio determine the final preview dimensions.
-  const out = flat(renderPanelGrid(hostFor('eu')));
-  assert.match(out, /<div class="pg-card-preview" @click=\[fn\]>\s*<nspanel-simulator-frame/);
+test('panel thumbnails directly contain the hub-rendered simulator frame', () => {
+  assert.match(flat(listFor('eu')), /haui-panel-thumb[\s\S]*nspanel-simulator-frame/);
 });
 
 test('the simulator preview draws no duplicate fake header/footer chrome', () => {
-  const out = flat(renderPanelGrid(hostFor('eu')));
-  assert.doesNotMatch(out, /pg-card-preview-header|pg-card-preview-footer|pg-card-preview--with-header/);
+  assert.doesNotMatch(flat(listFor('eu')), /pg-card-preview-header|pg-card-preview-footer|pg-card-preview--with-header/);
 });
 
-test('system panel cards mount the simulator frame too', () => {
-  const sp = { type: 'system', key: 'sys_system', label: 'System', has_header: true, page_id: 0 };
-  const portrait = flat(renderSystemPanelCard(hostFor('us'), sp));
-  assert.match(portrait, /nspanel-simulator-frame[\s\S]*\.portrait=true/);
-  const landscape = flat(renderSystemPanelCard(hostFor('eu'), sp));
-  assert.match(landscape, /nspanel-simulator-frame/);
+test('only replaced popups are listed, fixed system panels are not', () => {
+  const out = flat(listFor('us', [{ type: 'cover', key: 'popup_cover', items: [] }], [
+    { type: 'system', key: 'sys_settings', label: 'Settings', editable: false, page_id: 30 },
+    { type: 'popup_cover', key: 'popup_cover', label: 'Cover popup', editable: true },
+    { type: 'popup_light', key: 'popup_light', label: 'Light popup', editable: true },
+  ]));
+  assert.match(out, /Cover popup/);
+  assert.match(out, /nspanel-simulator-frame/);
+  assert.doesNotMatch(out, /Light popup/);
+  assert.doesNotMatch(out, /Settings/);
+});
+
+test('the panel list builder hands the view a menu for user panels only', () => {
+  const host = makeHost({
+    devices: { kitchen: { config: {}, panels: [{ type: 'clock', key: 'clock_0', items: [{}, {}] }] } },
+    system_panels: [{ key: 'sys_settings', label: 'Settings', editable: false }],
+  }, () => { throw new Error('no fetch'); });
+  Object.setPrototypeOf(host, NSPanelEditor.prototype);
+  Object.setPrototypeOf(host, NSPanelEditor.prototype);
+  host._store = host.store;
+  host._panelTypes = [{ type_key: 'clock', label: 'Clock', page_id: 3 }];
+  host._collapsedPanelGroups = [];
+  const state = host.store.getState();
+  const model = host._panelListModel(
+    { name: 'kitchen', panels: [{ type: 'clock', key: 'clock_0', items: [{}, {}] }], config: {} },
+    null,
+  );
+  assert.deepEqual(model.groups.map((group) => group.id), ['navigation', 'hidden', 'popups']);
+  const userEntry = model.groups[0].entries[0];
+  assert.equal(userEntry.itemCount, 2);
+  assert.ok(userEntry.menu.some((item) => item !== 'divider' && item.danger === true));
+  assert.equal(model.groups[2].entries.length, 0);
+  assert.equal(state.devices.selected, 'kitchen');
+  assert.equal(typeof NSPanelEditor.prototype._panelListModel, 'function');
 });

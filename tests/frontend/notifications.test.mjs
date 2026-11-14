@@ -1,25 +1,45 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  dismissNotification,
-  loadNotifications,
-  stopNotificationSubscription,
-  subscribeNotifications,
-} from '../../custom_components/nspanel_haui/frontend/notifications.js';
+// The queue lives in the store; the removed frontend/notifications.js wrapper
+// only forwarded these calls.
+const subscribeNotifications = (host) => host.store.actions.subscribeNotifications();
+const stopNotificationSubscription = (host) => host.store.actions.stopNotifications();
+const loadNotifications = async (host) => { await host.store.actions.loadNotifications(); };
+const dismissNotification = async (host, notification) => {
+  if (!notification) return;
+  await host.store.actions.dismissNotification(notification.device, notification.id);
+};
 import { jsonResponse, makeHost } from './fake-host.mjs';
 
 const panels = { devices: { kitchen: { config: {}, panels: [] } } };
 
-test('the notifications inbox dialog is registered', async () => {
-  const { NotificationsDialog } = await import(
-    '../../custom_components/nspanel_haui/frontend/dialogs/notifications.js'
-  );
-  assert.equal(NotificationsDialog.name, 'NotificationsDialog');
-  assert.equal(customElements.get('nspanel-dialog-notifications'), NotificationsDialog);
+function flatten(value) {
+  if (Array.isArray(value)) return value.map(flatten).join('');
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object') return '';
+  if (Array.isArray(value.strings) && Array.isArray(value.values)) {
+    return value.strings.map((part, index) => `${part}${flatten(value.values[index] ?? '')}`).join('');
+  }
+  return '';
+}
+
+test('notification centre renders a dismissible popover and an empty state', () => {
+  const closed = notificationsView({ open: false, notifications: [], onDismiss() {}, onClose() {} });
+  assert.equal(typeof closed, 'symbol');
+  const item = { id: '42', device: 'kitchen', title: 'Doorbell', message: 'Front door', persistent: true };
+  const opened = flatten(notificationsView({ open: true, notifications: [item], onDismiss() {}, onClose() {} }));
+  assert.match(opened, /haui-notification-popover/);
+  assert.match(opened, /Doorbell/);
+  assert.match(opened, /Front door/);
+  assert.match(opened, /Persistent/);
+  assert.match(flatten(notificationsView({ open: true, notifications: [], onDismiss() {}, onClose() {} })), /No notifications queued/);
 });
+
+import { notificationsView } from '../../custom_components/nspanel_haui/frontend/views/notifications.js';
+
 
 test('the notification inbox loads the current server queue', async () => {
   const notification = { id: '42', device: 'kitchen', title: 'Doorbell' };

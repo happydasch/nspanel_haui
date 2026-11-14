@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import datetime
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypedDict
@@ -8,14 +9,15 @@ from packaging.version import Version, parse
 
 if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
+    from .notification import Notification
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import (
+    DEFAULT_CONFIG,
     ESPAction,
     ESPRequest,
     ESPResponse,
-    FirmwareUpdateChannel,
     PopupPanelKey,
 )
 from ..utils.text import strip_markdown, trim_text
@@ -77,15 +79,47 @@ VERIFY_MAX_REFRESHES = 2
 # the latest stable GitHub release, or the newest dev prerelease) and, when it
 # names a newer version, flashes its image with the firmware's
 # ``install_firmware_url`` action; the display TFT the new firmware's manifest
-# ships follows after the reboot.  A failed automatic install is retried at
-# most once an hour.
-FIRMWARE_RETRY_SECONDS = 60 * 60
+# ships follows after the reboot.  A failed automatic install is retried after
+# the policy's ``retry_interval``, at most ``max_attempts`` times per version
+# (``_AutoAttempt``).
 # The device downloads and flashes the image, then reboots.  An install that
 # has not ended in a reconnect after this long failed without a reboot.
 FIRMWARE_INSTALL_TIMEOUT_SECONDS = 10 * 60
 # Fired on every firmware version or install state change; the "HAUI Firmware"
 # update entity (``update.py``) renders it.
 FIRMWARE_UPDATE_EVENT = "nspanel_haui.firmware_update_changed"
+# How far the editor may put off a scheduled automatic firmware install.
+DEFER_SECONDS = (3600, 86400)
+# What an install usually takes, for the editor's time estimate: the device
+# reports no byte progress (the transfer blocks its main loop), only steps.
+FIRMWARE_EXPECTED_SECONDS = 3 * 60
+TFT_EXPECTED_SECONDS = 15 * 60
+
+
+class _AutoAttempt(TypedDict):
+    """The automatic install attempts of one kind (``firmware``, ``tft``) for one version."""
+
+    version: str | None
+    attempts: int
+    last_at: datetime.datetime | None
+    failed: bool
+
+
+class _Progress(TypedDict):
+    """The step an install is at: ``scheduled``, ``starting``, ``transferring``,
+    ``verifying``, ``done`` or ``failed``."""
+
+    phase: str
+    phase_started_at: str
+    started_at: str | None
+    expected_seconds: int
+
+
+class _AutoSnapshot(TypedDict):
+    attempts: int
+    max_attempts: int
+    next_attempt_at: str | None
+    stopped_reason: str | None
 
 
 class _DisplayUpdateSnapshot(TypedDict):
@@ -97,6 +131,8 @@ class _DisplayUpdateSnapshot(TypedDict):
     started_at: str | None
     last_error: str | None
     update_reason: str | None
+    auto: _AutoSnapshot
+    progress: _Progress | None
 
 
 class _FirmwareUpdateSnapshot(TypedDict):
@@ -106,6 +142,10 @@ class _FirmwareUpdateSnapshot(TypedDict):
     reason: str | None
     installing: bool
     last_error: str | None
+    auto: _AutoSnapshot
+    scheduled: dict[str, str] | None
+    skipped_version: str | None
+    progress: _Progress | None
 
 
 class UpdateSnapshot(TypedDict):
@@ -116,6 +156,15 @@ class UpdateSnapshot(TypedDict):
     enabled: bool
     display: _DisplayUpdateSnapshot
     firmware: _FirmwareUpdateSnapshot
+
+
+# check_error of a check a newer one replaced before it finished
+CHECK_SUPERSEDED = "check superseded"
+
+
+def _with_defaults(config: dict[str, Any]) -> dict[str, Any]:
+    """The update settings ``config`` gives, the rest at their declared default."""
+    return {**copy.deepcopy(DEFAULT_CONFIG["update"]), **config}
 
 
 class HAUIUpdateController(HAUIBase):
@@ -145,9 +194,10 @@ class HAUIUpdateController(HAUIBase):
 
         Args:
             app (NSPanelHAUI): App
-            config (dict): Config for controller
+            config (dict): Config for controller; a setting it leaves out takes
+                its ``DEFAULT_CONFIG["update"]`` default
         """
-        super().__init__(app, config)
+        super().__init__(app, _with_defaults(config))
         self.log(f"Creating Update Controller with config: {config}", level="DEBUG")
         self._timer: str | None = None  # timer for update check by interval
         self._timer_delay: str | None = None  # delays the TFT check after a connect
@@ -197,11 +247,27 @@ class HAUIUpdateController(HAUIBase):
         self._firmware_install_at: datetime.datetime | None = None
         self._firmware_install_error: str | None = None
         self._firmware_install_timer: str | None = None
+        # the queued "installing" notice, removed when the install ends
+        self._firmware_install_notice: Notification | None = None
         # A firmware installed by hand (another release or a URL) pauses the
         # automatic firmware update, which would otherwise reinstall the latest
         # release on the next check.  In memory only: a Home Assistant restart
         # or installing the offered update ends it.
         self._manual_firmware = False
+        # Automatic install attempts per kind; reset by a success, a manual
+        # install, a newer version or a Home Assistant restart (in memory).
+        self._auto_attempts: dict[str, _AutoAttempt] = {}
+        # An automatic firmware install waiting out ``install_delay``:
+        # ``{"version", "starts_at"}``; the editor can start it now or defer it.
+        self._scheduled: dict[str, Any] | None = None
+        self._scheduled_timer: str | None = None
+        # Set while a hub rollout (``hub/rollout.py``) owns this device's installs.
+        self._rollout_hold = False
+        # How the last firmware install ended: None while none ended since it
+        # started (or the next check), True for success, False for a failure.
+        self._firmware_install_ok: bool | None = None
+        # The step each kind is at, and since when (``_progress``).
+        self._phase_since: dict[str, tuple[str, datetime.datetime]] = {}
         self._async_check_id = 0
         self._async_catalog_id = 0
         self._async_install_id = 0
@@ -210,7 +276,7 @@ class HAUIUpdateController(HAUIBase):
     # internal timers for version checks
     def _updates_enabled(self) -> bool:
         """Whether this device permits update checks and installs."""
-        return bool(self.get("enabled", True))
+        return bool(self.get("enabled"))
 
     def _start_timer(self) -> None:
         if not self._updates_enabled() or self._timer is not None or self._interval == 0:
@@ -242,8 +308,8 @@ class HAUIUpdateController(HAUIBase):
         if not self._updates_enabled():
             return
         self.start_async_check(
-            allow_auto_install=self.get("check_on_connect", False),
-            include_notice=self.get("check_on_connect", False),
+            allow_auto_install=self.get("check_on_connect"),
+            include_notice=self.get("check_on_connect"),
             check_tft=True,
         )
 
@@ -266,12 +332,15 @@ class HAUIUpdateController(HAUIBase):
         still be running. Checks are reconfigured, while active installs and
         their verification timers remain owned by the in-flight operation.
         """
-        previous_channel = self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE)
-        self.config = config
-        if previous_channel != self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE):
+        previous_channel = self.get("firmware_update_channel")
+        self.config = _with_defaults(config)
+        if previous_channel != self.get("firmware_update_channel"):
             self._last_notified_release = None
         self._interval = self.get("update_interval")
+        if self._scheduled and self._scheduled["version"] == self.get("skipped_firmware_version"):
+            self._drop_schedule()
         if not self._updates_enabled():
+            self._drop_schedule()
             self._stop_timer()
             self._stop_timer_delay()
             self._async_check_id += 1
@@ -298,6 +367,7 @@ class HAUIUpdateController(HAUIBase):
         self._cancel_timer("_install_verify_timer")
         self._cancel_timer("_install_timeout_timer")
         self._cancel_timer("_firmware_install_timer")
+        self._drop_schedule()
         self._firmware_installing = False
 
     # update
@@ -338,7 +408,7 @@ class HAUIUpdateController(HAUIBase):
 
     def _get_latest_release(self) -> dict[str, Any] | None:
         """Return the newest fetched release of the configured channel."""
-        channel = str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE))
+        channel = str(self.get("firmware_update_channel"))
         return release_source.latest_release(self._release_infos, channel)
 
     def _is_update_available(self) -> bool:
@@ -516,11 +586,11 @@ class HAUIUpdateController(HAUIBase):
 
         Returns:
             bool: True when ``firmware_auto_update`` is on, no firmware was
-            installed by hand, no install or TFT upload is in flight, the last
-            attempt is more than ``FIRMWARE_RETRY_SECONDS`` ago and the
-            manifest offers a newer firmware.
+            installed by hand, no install or TFT upload is in flight, the
+            retry policy allows another attempt (``_auto_attempt_allowed``)
+            and the manifest offers a newer firmware.
         """
-        if not self._updates_enabled() or not self.get("firmware_auto_update", False):
+        if not self._updates_enabled() or not self.get("firmware_auto_update"):
             return False
         if not self.app.device.connected:
             return False
@@ -530,10 +600,13 @@ class HAUIUpdateController(HAUIBase):
             return False  # never reboot the device mid TFT upload
         if self._firmware_installing:
             return False
-        if self._firmware_install_at is not None:
-            age = datetime.datetime.now(tz=datetime.UTC) - self._firmware_install_at
-            if age.total_seconds() < FIRMWARE_RETRY_SECONDS:
-                return False
+        if self._rollout_hold:
+            return False
+        version = self._firmware_update_version()
+        if version and version == self.get("skipped_firmware_version"):
+            return False
+        if not self._auto_attempt_allowed("firmware", version):
+            return False
         return self._firmware_update_available()
 
     def _start_firmware_install(
@@ -554,10 +627,25 @@ class HAUIUpdateController(HAUIBase):
             self._firmware_install_error = "Updates are disabled for this device"
             self.publish_firmware_update()
             return self.get_update_state()
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            # A TFT upload can start while the firmware is fetched; the
+            # firmware install would reboot the device in the middle of it.
+            self._firmware_install_error = "Cannot install firmware during a TFT upload"
+            self.log(self._firmware_install_error, level="WARNING")
+            self.publish_firmware_update()
+            return self.get_update_state()
+        self._firmware_install_ok = None
+        if manual:
+            self._auto_attempts.pop("firmware", None)
+            self._drop_schedule()
+        else:
+            self._record_auto_attempt("firmware", label)
         published = self.app.controller["esphome"].esphome.publish(
             ESPAction.INSTALL_FIRMWARE_URL, {"url": url, "md5sum": md5}
         )
         if not published:
+            self._firmware_install_ok = False
+            self._record_auto_result("firmware", False)
             self._firmware_install_error = (
                 "Could not send the firmware install command; the panel's firmware needs "
                 "the install_firmware_url action (0.4.3 and later), so flash the latest "
@@ -579,16 +667,111 @@ class HAUIUpdateController(HAUIBase):
         self.publish_firmware_update()
         return self.get_update_state()
 
+    # the waiting period of an automatic firmware install
+
+    def _schedule_firmware_install(self) -> None:
+        """Start the due automatic firmware install after the policy's ``install_delay``.
+
+        A version already scheduled keeps its start time (a later check does not
+        push it back); ``install_delay`` 0 starts the install right away.
+        """
+        manifest = self._firmware_manifest
+        if manifest is None:
+            return
+        delay = int(self.get("install_delay"))
+        if delay <= 0:
+            self._start_firmware_install(
+                manifest["url"], manifest["md5"], manifest["version"], manual=False
+            )
+            return
+        if self._scheduled is not None and self._scheduled["version"] == manifest["version"]:
+            return
+        self._arm_schedule(manifest["version"], delay)
+        self.log(f"Firmware {manifest['version']} installs automatically in {delay} seconds")
+
+    def _arm_schedule(self, version: str, delay: int) -> None:
+        self._cancel_timer("_scheduled_timer")
+        self._scheduled = {
+            "version": version,
+            "starts_at": datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(seconds=delay),
+        }
+        self._scheduled_timer = self.app.run_in(self._scheduled_timer_callback, delay)
+        self.publish_firmware_update()
+
+    def _drop_schedule(self) -> None:
+        """Forget the scheduled automatic install, if any."""
+        self._cancel_timer("_scheduled_timer")
+        if self._scheduled is not None:
+            self._scheduled = None
+            self.publish_firmware_update()
+
+    def _scheduled_timer_callback(self, kwargs: dict[str, Any]) -> None:
+        self._scheduled_timer = None
+        self._start_scheduled_install()
+
+    def _start_scheduled_install(self) -> None:
+        """Start the scheduled install if every guard still allows it."""
+        scheduled = self._scheduled
+        self._drop_schedule()
+        manifest = self._firmware_manifest
+        if scheduled is None or manifest is None or manifest["version"] != scheduled["version"]:
+            return
+        if not self._firmware_install_due():
+            self.log(f"Scheduled firmware install of {scheduled['version']} is no longer due")
+            return
+        self._start_firmware_install(
+            manifest["url"], manifest["md5"], manifest["version"], manual=False
+        )
+
+    def control_scheduled(self, action: str, seconds: int | None = None) -> dict[str, Any]:
+        """Act on the scheduled automatic firmware install from the editor.
+
+        Args:
+            action: ``install_now`` starts it now; ``defer`` moves its start.
+            seconds: For ``defer``: 3600 or 86400.
+
+        Returns:
+            dict: The update state, see ``get_update_state``
+
+        Raises:
+            ValueError: No install is scheduled, an unknown action, or another
+                defer duration.
+        """
+        if self._scheduled is None:
+            raise ValueError("No automatic firmware install is scheduled")
+        if action == "install_now":
+            self._start_scheduled_install()
+        elif action == "defer":
+            if seconds not in DEFER_SECONDS:
+                raise ValueError(f"Defer by one of {DEFER_SECONDS} seconds, not {seconds!r}")
+            self._arm_schedule(self._scheduled["version"], seconds)
+            self.log(f"Firmware {self._scheduled['version']} install deferred by {seconds} seconds")
+        else:
+            raise ValueError(f"Unknown update control action {action!r}")
+        return self.get_update_state()
+
+    def set_rollout_hold(self, hold: bool) -> None:
+        """Hold automatic firmware installs while a hub rollout owns this device.
+
+        A hold drops the scheduled install and schedules none until released.
+        """
+        self._rollout_hold = hold
+        if hold:
+            self._drop_schedule()
+
     def _firmware_install_timer_callback(self, kwargs: dict[str, Any]) -> None:
         self._firmware_install_timer = None
         if not self._firmware_installing:
             return
         self._firmware_installing = False
+        self._drop_firmware_install_notice()
         self._firmware_install_error = (
             f"Firmware install of {self._firmware_install_version} did not finish: the panel "
             "did not reboot. See the device's ESPHome log for the download or flash error."
         )
         self.log(self._firmware_install_error, level="ERROR")
+        self._firmware_install_ok = False
+        self._record_auto_result("firmware", False)
         self.publish_firmware_update()
 
     def _finish_firmware_install(self) -> None:
@@ -601,6 +784,7 @@ class HAUIUpdateController(HAUIBase):
         """
         self._firmware_installing = False
         self._cancel_timer("_firmware_install_timer")
+        self._drop_firmware_install_notice()
         label = self._firmware_install_version
         if not self._rebooted_since(self._firmware_install_at):
             self._firmware_install_error = (
@@ -608,6 +792,8 @@ class HAUIUpdateController(HAUIBase):
                 "device's ESPHome log for the download or flash error."
             )
             self.log(self._firmware_install_error, level="ERROR")
+            self._firmware_install_ok = False
+            self._record_auto_result("firmware", False)
             return
         installed = (self.app.device.device_info or {}).get("yaml_version")
         if self._try_parse_version(label) is not None and not self._same_version(label, installed):
@@ -615,23 +801,39 @@ class HAUIUpdateController(HAUIBase):
                 f"Firmware install of {label} failed: the panel still runs {installed}"
             )
             self.log(self._firmware_install_error, level="ERROR")
+            self._firmware_install_ok = False
+            self._record_auto_result("firmware", False)
             return
+        self._firmware_install_ok = True
+        self._record_auto_result("firmware", True)
         self.log(f"Device reconnected after installing firmware {label}")
 
     def _notify_firmware_install(self, version: str | None) -> None:
-        """Tell the user on the display that a firmware update is installing."""
+        """Tell the user on the display that a firmware update is installing.
+
+        The notice is a queued notification, so it never replaces one the user
+        is reading; it leaves the queue when the install ends.
+        """
         msg = self.translate(
             "A new firmware release is installing. The display updates after the device reboots."
         )
         msg += "\r\n\r\n"
         msg += self.translate("Version:")
         msg += f" {version}"
-        self.app.controller["navigation"].open_panel(
-            PopupPanelKey.POPUP_NOTIFY,
+        self._drop_firmware_install_notice()
+        self._firmware_install_notice = self.app.controller["notification"].add_notification(
+            self.translate("Update"),
+            msg,
             icon="mdi:package-down",
-            title=self.translate("Update"),
-            notification=msg,
+            force_show=True,
+            sound="",
         )
+
+    def _drop_firmware_install_notice(self) -> None:
+        """Remove the install notice from the queue once the install ended."""
+        if self._firmware_install_notice is not None:
+            self.app.controller["notification"].remove_notification(self._firmware_install_notice)
+            self._firmware_install_notice = None
 
     def publish_firmware_update(self) -> None:
         """Fire the firmware versions and install state for the "HAUI Firmware" entity."""
@@ -722,6 +924,15 @@ class HAUIUpdateController(HAUIBase):
                 UPDATE_STATE_ERROR, version=version, error="Updates are disabled for this device"
             )
             return self.get_update_state()
+        if self._firmware_installing:
+            # A firmware install can start while the TFT is resolved; its
+            # reboot would cut the upload off.
+            self._set_update_state(
+                UPDATE_STATE_ERROR,
+                version=version,
+                error=self.translate("Cannot install TFT during a firmware update"),
+            )
+            return self.get_update_state()
         published = self.app.controller["esphome"].esphome.publish(ESPAction.UPLOAD_TFT_URL, url)
         if not published:
             msg = "Could not send the TFT upload command; check the ESPHome connection"
@@ -781,9 +992,11 @@ class HAUIUpdateController(HAUIBase):
             self._set_update_state(UPDATE_STATE_ERROR, error="no TFT version requirement reported")
             return self.get_update_state()
         # A manual retry starts a fresh attempt: it must not be blocked by the
-        # "install not confirmed" guard left over from a previous attempt.
+        # "install not confirmed" guard left over from a previous attempt, and
+        # it gives the automatic install its attempts back.
         self._last_install_confirmed = False
         self._last_install_at = None
+        self._auto_attempts.pop("tft", None)
         result = self.run_update_display(version)
         if result["state"] == UPDATE_STATE_INSTALLING:
             matches = self._same_version(version, required)
@@ -827,12 +1040,60 @@ class HAUIUpdateController(HAUIBase):
             include_notice=False,
             include_tft_source=True,
             require_connected=False,
-            on_complete=lambda _state: on_complete(
-                self._set_missing_manifest_error_for_tft(version)
-                if self._get_tft_manifest() is None
-                else self.install_tft(version)
+            on_complete=lambda check: self._answer_once(
+                on_complete,
+                lambda message: {
+                    **self.get_update_state(),
+                    "state": UPDATE_STATE_ERROR,
+                    "last_error": f"TFT install request failed: {message}",
+                },
+                lambda answer: answer(self._install_tft_after_check(check, version)),
             ),
         )
+
+    @staticmethod
+    def _answer_once(
+        on_complete: Callable[[dict[str, Any]], None],
+        failed: Callable[[str], dict[str, Any]],
+        work: Callable[[Callable[[dict[str, Any]], None]], None],
+    ) -> None:
+        """Run ``work(answer)`` so that ``on_complete`` is answered even when it raises.
+
+        The editor and the update entity wait for ``on_complete`` after the
+        off-worker gap. When ``work`` raises before answering they get
+        ``failed(message)``; the exception still reaches the worker's log.
+        """
+        answered = False
+
+        def answer(result: dict[str, Any]) -> None:
+            nonlocal answered
+            answered = True
+            on_complete(result)
+
+        try:
+            work(answer)
+        except Exception as exc:
+            if not answered:
+                on_complete(failed(str(exc)))
+            raise
+
+    def _install_tft_after_check(
+        self, check: dict[str, Any], version: str | None
+    ) -> dict[str, Any]:
+        """Install the TFT with the manifest the check loaded.
+
+        A superseded check loaded nothing: a newer check is still fetching,
+        and the manifest held now may belong to another URL or channel.
+        """
+        if check["check_error"] == CHECK_SUPERSEDED:
+            return {
+                **self.get_update_state(),
+                "state": UPDATE_STATE_ERROR,
+                "last_error": self.translate("Install request superseded"),
+            }
+        if self._get_tft_manifest() is None:
+            return self._set_missing_manifest_error_for_tft(version)
+        return self.install_tft(version)
 
     def _set_missing_manifest_error_for_tft(self, version: str | None) -> dict[str, Any]:
         """Record a manifest fetch failure without retrying synchronously."""
@@ -895,6 +1156,7 @@ class HAUIUpdateController(HAUIBase):
         # _set_update_state keeps the previous version when given None; a URL
         # install must not be confirmed against an earlier release's version.
         self._update_version = None
+        self._auto_attempts.pop("tft", None)
         result = self._start_tft_upload(url, None)
         if result["state"] == UPDATE_STATE_INSTALLING:
             self._manual_tft_firmware = (self.app.device.device_info or {}).get("yaml_version")
@@ -908,8 +1170,9 @@ class HAUIUpdateController(HAUIBase):
         """Record a transition of the TFT update state.
 
         The display gives no byte-level progress, so only coarse transitions
-        are tracked.  ``idle`` clears the recorded error; ``installing`` stamps
-        the start time; other transitions keep the previous timestamp.
+        are tracked.  Every state but ``error`` clears the recorded error (the
+        update entity shows it first); ``installing`` stamps the start time;
+        other transitions keep the previous timestamp.
 
         Args:
             state (str): New update state
@@ -918,12 +1181,9 @@ class HAUIUpdateController(HAUIBase):
         """
         if version is not None:
             self._update_version = version
-        if state == UPDATE_STATE_IDLE:
-            self._update_last_error = None
         if state == UPDATE_STATE_INSTALLING:
             self._update_started_at = datetime.datetime.now(tz=datetime.UTC)
-        if error is not None:
-            self._update_last_error = error
+        self._update_last_error = error if state == UPDATE_STATE_ERROR else None
         self._update_state = state
         self.log(f"TFT update state: {state}")
         self.publish_display_update()
@@ -965,6 +1225,8 @@ class HAUIUpdateController(HAUIBase):
                 ),
                 "last_error": self._update_last_error,
                 "update_reason": tft_reason,
+                "auto": self._auto_snapshot("tft"),
+                "progress": self._progress("tft"),
             },
             "firmware": {
                 "installed_version": installed_firmware,
@@ -975,6 +1237,17 @@ class HAUIUpdateController(HAUIBase):
                 "reason": firmware_reason,
                 "installing": self._firmware_installing,
                 "last_error": self._firmware_install_error,
+                "auto": self._auto_snapshot("firmware"),
+                "scheduled": (
+                    {
+                        "version": self._scheduled["version"],
+                        "starts_at": self._scheduled["starts_at"].isoformat(),
+                    }
+                    if self._scheduled is not None
+                    else None
+                ),
+                "skipped_version": self.get("skipped_firmware_version") or None,
+                "progress": self._progress("firmware"),
             },
         }
 
@@ -1024,6 +1297,12 @@ class HAUIUpdateController(HAUIBase):
             "firmware_update_reason": firmware["reason"],
             "firmware_installing": firmware["installing"],
             "firmware_install_error": firmware["last_error"],
+            "firmware_auto": firmware["auto"],
+            "tft_auto": display["auto"],
+            "firmware_scheduled": firmware["scheduled"],
+            "firmware_skipped_version": firmware["skipped_version"],
+            "firmware_progress": firmware["progress"],
+            "tft_progress": display["progress"],
         }
 
     def _mark_done_if_installed(self) -> None:
@@ -1051,9 +1330,181 @@ class HAUIUpdateController(HAUIBase):
         elif self._version_is_newer(requested, installed) is True:
             return  # the display still reports an older TFT
         self._set_update_state(UPDATE_STATE_DONE, version=requested)
+        self._auto_attempts.pop("tft", None)
         self._last_install_confirmed = True
         self._cancel_timer("_install_verify_timer")
         self._cancel_timer("_install_timeout_timer")
+
+    def _unconfirmed_install_waits(self, required_version: str) -> bool:
+        """Whether an unconfirmed install of ``required_version`` holds off the next one.
+
+        An install the display never confirmed failed (or is still in flight).
+        It counts as a failed attempt; the automatic install tries again once
+        the retry policy allows (``_auto_attempt_allowed``), and until then the
+        failure is reported with when the next attempt follows.
+        """
+        if not self._recent_unconfirmed_install(required_version):
+            return False
+        self._record_auto_result("tft", False, at=self._last_install_at)
+        # The install is still the one in flight (its verification window may
+        # be running): it fails now, and a retry waits for a later check.
+        in_flight = self._update_state == UPDATE_STATE_INSTALLING
+        if (
+            not in_flight
+            and self.get("auto_install")
+            and self._auto_attempt_allowed("tft", required_version)
+        ):
+            return False
+        stopped = self._auto_snapshot("tft")["stopped_reason"]
+        self._set_install_failed(
+            stopped
+            or "TFT install was not confirmed; press Install TFT to retry now, or the "
+            "automatic install tries again after the retry interval"
+        )
+        return True
+
+    # automatic install attempts (the retry policy)
+
+    def _retry_interval(self) -> int:
+        return int(self.get("retry_interval"))
+
+    def _max_attempts(self) -> int:
+        return int(self.get("max_attempts"))
+
+    def _record_auto_attempt(self, kind: str, version: str | None) -> None:
+        """Count an automatic install of ``version`` that starts now."""
+        record = self._auto_attempts.get(kind)
+        if record is None or record["version"] != version:
+            record = {"version": version, "attempts": 0, "last_at": None, "failed": False}
+            self._auto_attempts[kind] = record
+        record["attempts"] += 1
+        record["last_at"] = datetime.datetime.now(tz=datetime.UTC)
+        record["failed"] = False
+
+    def _record_auto_result(self, kind: str, ok: bool, at: datetime.datetime | None = None) -> None:
+        """Record how the last install of ``kind`` ended.
+
+        A success clears the record. A failure marks it; a failed install that
+        was not automatic (a manual one, or one from before a restart) counts
+        as one attempt started ``at`` (now when not given), so the automatic
+        install waits the retry interval before it tries the version again.
+        """
+        if ok:
+            self._auto_attempts.pop(kind, None)
+            return
+        record = self._auto_attempts.get(kind)
+        if record is None:
+            version = self._update_version if kind == "tft" else self._firmware_install_version
+            record = {
+                "version": version,
+                "attempts": 1,
+                "last_at": at or datetime.datetime.now(tz=datetime.UTC),
+                "failed": True,
+            }
+            self._auto_attempts[kind] = record
+        record["failed"] = True
+
+    def _auto_attempt_allowed(self, kind: str, version: str | None) -> bool:
+        """Whether the retry policy lets an automatic install of ``version`` start now.
+
+        A version without attempts may start. After a failure the next attempt
+        waits ``retry_interval`` seconds, and after ``max_attempts`` attempts the
+        automatic install of that version stops.
+        """
+        record = self._auto_attempts.get(kind)
+        if record is None or record["version"] != version:
+            return True
+        if record["attempts"] >= self._max_attempts():
+            return False
+        if record["last_at"] is None:
+            return True
+        age = datetime.datetime.now(tz=datetime.UTC) - record["last_at"]
+        return age.total_seconds() >= self._retry_interval()
+
+    def _auto_snapshot(self, kind: str) -> _AutoSnapshot:
+        """The retry state of ``kind`` for the editor."""
+        record = self._auto_attempts.get(kind)
+        max_attempts = self._max_attempts()
+        if record is None:
+            return {
+                "attempts": 0,
+                "max_attempts": max_attempts,
+                "next_attempt_at": None,
+                "stopped_reason": None,
+            }
+        stopped = record["failed"] and record["attempts"] >= max_attempts
+        next_at = None
+        if record["failed"] and not stopped and record["last_at"] is not None:
+            next_at = (
+                record["last_at"] + datetime.timedelta(seconds=self._retry_interval())
+            ).isoformat()
+        return {
+            "attempts": record["attempts"],
+            "max_attempts": max_attempts,
+            "next_attempt_at": next_at,
+            "stopped_reason": (
+                f"Automatic install of {record['version']} stopped after "
+                f"{record['attempts']} failed attempts. Install it by hand or wait for a "
+                "newer version."
+                if stopped
+                else None
+            ),
+        }
+
+    # step progress
+
+    def _firmware_phase(self) -> str | None:
+        if self._firmware_installing:
+            return "transferring" if not self.app.device.connected else "starting"
+        if self._scheduled is not None:
+            return "scheduled"
+        if self._firmware_install_ok is True:
+            return "done"
+        if self._firmware_install_ok is False:
+            return "failed"
+        return None
+
+    def _display_phase(self) -> str | None:
+        state = self._update_state
+        if state == UPDATE_STATE_CHECKING:
+            return "starting"
+        if state == UPDATE_STATE_INSTALLING:
+            if not self.app.device.connected:
+                return "transferring"
+            return "verifying" if self._install_verify_timer is not None else "starting"
+        if state == UPDATE_STATE_DONE:
+            return "done"
+        if state == UPDATE_STATE_ERROR:
+            return "failed"
+        return None
+
+    def _progress(self, kind: str) -> _Progress | None:
+        """The step the ``firmware`` or ``tft`` install is at, for the editor.
+
+        Each change of step stamps when it began, so the editor can show how
+        long the current step has run.
+        """
+        if kind == "firmware":
+            phase = self._firmware_phase()
+            started = self._firmware_install_at if phase != "scheduled" else None
+            expected = FIRMWARE_EXPECTED_SECONDS
+        else:
+            phase = self._display_phase()
+            started = self._update_started_at
+            expected = TFT_EXPECTED_SECONDS
+        if phase is None:
+            self._phase_since.pop(kind, None)
+            return None
+        known = self._phase_since.get(kind)
+        if known is None or known[0] != phase:
+            known = (phase, datetime.datetime.now(tz=datetime.UTC))
+            self._phase_since[kind] = known
+        return {
+            "phase": phase,
+            "phase_started_at": known[1].isoformat(),
+            "started_at": started.isoformat() if started else None,
+            "expected_seconds": expected,
+        }
 
     def _recent_unconfirmed_install(self, version: str | None) -> bool:
         """True when ``version`` was installed and the display never confirmed it.
@@ -1072,6 +1523,7 @@ class HAUIUpdateController(HAUIBase):
     def _set_install_failed(self, message: str) -> None:
         """Mark the in-flight install as failed and stop its timers."""
         self.log(message, level="ERROR")
+        self._record_auto_result("tft", False)
         self._set_update_state(
             UPDATE_STATE_ERROR, version=self._last_install_version, error=message
         )
@@ -1094,9 +1546,15 @@ class HAUIUpdateController(HAUIBase):
             # reconnect, when the new firmware's tft_version decides the TFT.
             self.log("Firmware update in flight; TFT install deferred until it finishes")
             return
-        if self.get("auto_install", True):
+        if self.get("auto_install"):
+            if not self._auto_attempt_allowed("tft", required_version):
+                self.log(f"Automatic TFT install of {required_version} waits for its retry policy")
+                self.publish_display_update()
+                return
             self.log(f"TFT {installed_version!r} is older than {required_version}, installing")
-            self.run_update_display(required_version)
+            self._record_auto_attempt("tft", required_version)
+            if self.run_update_display(required_version)["state"] == UPDATE_STATE_ERROR:
+                self._record_auto_result("tft", False)
             return
         msg = self.translate("Your TFT-version is outdated.")
         msg += "\r\n"
@@ -1200,6 +1658,7 @@ class HAUIUpdateController(HAUIBase):
             newer = self._version_is_newer(required_version, installed_version)
             if newer is False:
                 self.log("Installed TFT version is up to date")
+                self._auto_attempts.pop("tft", None)
                 self._mark_done_if_installed()
                 self._last_install_confirmed = True
                 self._cancel_timer("_install_verify_timer")
@@ -1215,11 +1674,7 @@ class HAUIUpdateController(HAUIBase):
                     level="WARNING",
                 )
                 return
-            if self._recent_unconfirmed_install(required_version):
-                self._set_install_failed(
-                    "TFT install was not confirmed; press Install TFT to retry "
-                    "(auto-reinstall is disabled while unconfirmed)"
-                )
+            if self._unconfirmed_install_waits(required_version):
                 return
             self._install_missing_tft(required_version, installed_version, firmware_version)
             return
@@ -1230,11 +1685,7 @@ class HAUIUpdateController(HAUIBase):
             self.log("TFT version still unknown after reconnect; verifying the install")
             self._request_device_state()
             return
-        if self._recent_unconfirmed_install(required_version):
-            self._set_install_failed(
-                "TFT install was not confirmed; press Install TFT to retry "
-                "(auto-reinstall is disabled while unconfirmed)"
-            )
+        if self._unconfirmed_install_waits(required_version):
             return
         self.log(f"TFT version unknown, installing {required_version}")
         self._install_missing_tft(required_version, installed_version, firmware_version)
@@ -1406,8 +1857,8 @@ class HAUIUpdateController(HAUIBase):
         firmware_info = self.app.device.device_info or {}
         required_tft_version = self._required_tft_version(firmware_info)
         request = UpdateFetchRequest(
-            manifest_override=str(self.get("firmware_manifest_url", "") or ""),
-            channel=str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE)),
+            manifest_override=str(self.get("firmware_manifest_url") or ""),
+            channel=str(self.get("firmware_update_channel")),
             force=force_refresh,
             include_releases=include_notice,
             include_tft_source=(
@@ -1445,11 +1896,31 @@ class HAUIUpdateController(HAUIBase):
     ) -> None:
         """Apply fetched update inputs on the device worker and finish the check."""
         if lifecycle != self._lifecycle_generation or request_id != self._async_check_id:
-            on_complete(self._check_result("check superseded"))
+            on_complete(self._check_result(CHECK_SUPERSEDED))
             return
         if not self._updates_enabled():
             on_complete(self._check_result("Updates are disabled for this device"))
             return
+        try:
+            result = self._apply_check_inputs(
+                inputs, error, allow_auto_install, include_notice, check_tft
+            )
+        except Exception as exc:
+            # The editor or the update entity waits for this answer; the
+            # exception still reaches the worker's log.
+            on_complete(self._check_result(f"Update check failed: {exc}"))
+            raise
+        on_complete(result)
+
+    def _apply_check_inputs(
+        self,
+        inputs: UpdateFetchInputs | None,
+        error: BaseException | None,
+        allow_auto_install: bool,
+        include_notice: bool,
+        check_tft: bool,
+    ) -> dict[str, Any]:
+        """Adopt what a check fetched and act on it; returns the check result."""
         if error is not None or inputs is None:
             inputs = release_source.failed_update_inputs(
                 str(error) if error else "Update check failed"
@@ -1457,17 +1928,13 @@ class HAUIUpdateController(HAUIBase):
         if inputs["release_warning"]:
             self.log(inputs["release_warning"], level="WARNING")
         self._release_infos = inputs["releases"]
+        if self._firmware_install_ok:
+            self._firmware_install_ok = None
         if self._apply_manifests(inputs):
             self.publish_display_update()
             self.publish_firmware_update()
         if allow_auto_install and self._firmware_manifest and self._firmware_install_due():
-            manifest_info = self._firmware_manifest
-            self._start_firmware_install(
-                manifest_info["url"],
-                manifest_info["md5"],
-                manifest_info["version"],
-                manual=False,
-            )
+            self._schedule_firmware_install()
         if check_tft and self.app.device.connected:
             if self._get_tft_manifest() is None:
                 self.log(
@@ -1487,10 +1954,8 @@ class HAUIUpdateController(HAUIBase):
             and self._is_update_available()
         ):
             self._notify_firmware_release(latest_release)
-        on_complete(
-            self._check_result(
-                inputs["release_error"], latest_release["tag_name"] if latest_release else None
-            )
+        return self._check_result(
+            inputs["release_error"], latest_release["tag_name"] if latest_release else None
         )
 
     def _apply_manifests(self, inputs: UpdateFetchInputs) -> bool:
@@ -1554,8 +2019,19 @@ class HAUIUpdateController(HAUIBase):
             include_notice=False,
             include_tft_source=True,
             require_connected=False,
-            on_complete=lambda _state: on_complete(self._loaded_tft_releases()),
+            on_complete=lambda check: self._answer_once(
+                on_complete,
+                lambda message: {"releases": [], "required": None, "error": message},
+                lambda answer: answer(self._list_tft_releases_after_check(check)),
+            ),
         )
+
+    def _list_tft_releases_after_check(self, check: dict[str, Any]) -> dict[str, Any]:
+        """List the TFT versions the manifest the check loaded offers."""
+        if check["check_error"] == CHECK_SUPERSEDED:
+            # a superseded check loaded no manifest to list from
+            return {"releases": [], "required": None, "error": "request superseded"}
+        return self._loaded_tft_releases()
 
     def start_async_list_firmware_releases(
         self, on_complete: Callable[[dict[str, Any]], None]
@@ -1625,14 +2101,21 @@ class HAUIUpdateController(HAUIBase):
         request = FirmwareInstallRequest(
             version=version,
             url=url,
-            manifest_override=str(self.get("firmware_manifest_url", "") or ""),
-            channel=str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE)),
+            manifest_override=str(self.get("firmware_manifest_url") or ""),
+            channel=str(self.get("firmware_update_channel")),
         )
         self.app.submit_off_worker(
             release_source.fetch_firmware_install_inputs,
             request,
-            on_done=lambda result, error: self._complete_async_firmware_install(
-                request_id, lifecycle, version, url, result, error, on_complete
+            on_done=lambda result, error: self._answer_once(
+                on_complete,
+                lambda message: {
+                    **self.get_update_state(),
+                    "firmware_install_error": f"Firmware install request failed: {message}",
+                },
+                lambda answer: self._complete_async_firmware_install(
+                    request_id, lifecycle, version, url, result, error, answer
+                ),
             ),
         )
 
@@ -1744,20 +2227,24 @@ class HAUIUpdateController(HAUIBase):
         release_tag = latest_release["tag_name"]
         if release_tag == self._last_notified_release:
             return
-        msg = latest_release["name"]
+        # GitHub reports null for a release without a title or notes; its
+        # release page then shows the tag as the title.
+        msg = latest_release["name"] or release_tag
         msg += "\r\n"
-        msg += trim_text(strip_markdown(latest_release["body"]), 200)
+        msg += trim_text(strip_markdown(latest_release["body"] or ""), 200)
         msg += "\r\n\r\n"
         msg += self.translate("Firmware release:")
         msg += f" {release_tag}"
         msg += "\r\n\r\n"
         msg += self.translate("Firmware and display installs use the configured firmware manifest.")
         msg += "\r\n\r\n"
-        self.app.controller["navigation"].open_panel(
-            PopupPanelKey.POPUP_NOTIFY,
+        # Queued, so it never replaces a notification the user is reading.
+        self.app.controller["notification"].add_notification(
+            self.translate("Update"),
+            msg,
             icon="mdi:message-alert",
-            title=self.translate("Update"),
-            notification=msg,
+            force_show=True,
+            sound="",
         )
         self._last_notified_release = release_tag
 

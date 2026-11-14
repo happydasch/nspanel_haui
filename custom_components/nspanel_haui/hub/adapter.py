@@ -6,6 +6,7 @@ Bridges Home Assistant's async API to the synchronous interface used by haui/ co
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import threading
 import uuid
@@ -393,13 +394,14 @@ class HAAdapter:
         self.name = name
         self._loop: asyncio.AbstractEventLoop = hass.loop
         self._state_handles: dict[str, Callable] = {}
-        self._sun_event_handles: dict[str, dict[str, Callable]] = {}
         self._timer_handles: dict[str, Callable] = {}
         self._timer_meta: dict[str, dict] = {}  # handle_id -> {callback_name, type, interval}
         # Guards _timer_handles/_timer_meta: the loop starts intervals and the
         # worker fires and cancels timers.
         self._timer_lock = threading.Lock()
         self._status_logs: list[str] = []  # last 100 lines for status view
+        # Entities warned about as missing; one leaves when it exists again.
+        self._missing_entities: set[str] = set()
         self._plugin_proxies: dict[str, Any] = {}  # plugin_name -> proxy instance
         # Every call from Home Assistant into this app (device events, state
         # changes, timers, reloads, services) runs on this one thread, in order
@@ -432,11 +434,11 @@ class HAAdapter:
             return
         exc_info = kwargs.get("exc_info")
         _LOGGER.log(level, msg, exc_info=exc_info)
-        # Capture last 100 log lines for the status view
-        import time as _time
-
-        ts = _time.strftime("%H:%M:%S")
-        self._status_logs.append(f"[{ts}] {level_name[:4]} {msg}")
+        # Capture last 100 log lines for the status view. The editor sorts the
+        # lines of every device and shows their age, so each one carries a
+        # complete timestamp and the level's full name.
+        ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+        self._status_logs.append(f"[{ts}] {level_name} {msg}")
         if len(self._status_logs) > 100:
             self._status_logs = self._status_logs[-100:]
 
@@ -608,7 +610,27 @@ class HAAdapter:
     # entities
 
     def item_exists(self, entity_id: str) -> bool:
-        return self.hass.states.get(entity_id) is not None
+        exists = self.hass.states.get(entity_id) is not None
+        if exists:
+            # Back again: a later disappearance is news and gets its warning.
+            self._missing_entities.discard(entity_id)
+        return exists
+
+    def warn_missing_entity(self, entity_id: str, purpose: str) -> None:
+        """Warn that a configured entity does not exist, once until it exists again.
+
+        Pages read their entities on every render, so a missing one wrote the
+        same warning each time and filled the status log (and Home Assistant's)
+        with it, pushing every other message out.
+
+        Args:
+            entity_id: The entity that does not exist.
+            purpose: What the caller wanted from it, e.g. ``"state"``.
+        """
+        if entity_id in self._missing_entities:
+            return
+        self._missing_entities.add(entity_id)
+        self.log(f"Entity '{entity_id}' not available for {purpose}", level="WARNING")
 
     def get_item(self, entity_id: str) -> ItemProxy:
         return ItemProxy(self.hass, self._loop, entity_id, proxy=self)
@@ -774,113 +796,21 @@ class HAAdapter:
 
         return dt_util.now()
 
-    def get_solar_profile_state(self, sunset_offset: int, sunrise_offset: int) -> bool:
-        """Return whether local solar event boundaries currently select Night."""
-        from datetime import timedelta
+    def get_sun_time(self, event: str, day: Any) -> Any:
+        """Return the local time of ``sunrise`` or ``sunset`` on ``day``.
 
-        if not -720 <= sunset_offset <= 720 or not -720 <= sunrise_offset <= 720:
-            raise ValueError("Solar offsets must be between -720 and 720 minutes")
+        Returns:
+            datetime | None: None where the sun does not rise or set that day.
+        """
 
-        async def _calculate() -> bool:
-            from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
+        async def _calculate() -> Any:
             from homeassistant.helpers.sun import get_astral_event_date
             from homeassistant.util import dt as dt_util
 
-            now = dt_util.now()
-            events: list[tuple[Any, str]] = []
-            for day_offset in range(-2, 3):
-                date = now.date() + timedelta(days=day_offset)
-                for event_name, kind, offset in (
-                    (SUN_EVENT_SUNRISE, "day", sunrise_offset),
-                    (SUN_EVENT_SUNSET, "night", sunset_offset),
-                ):
-                    point = get_astral_event_date(self.hass, event_name, date)
-                    if point is not None:
-                        events.append((point + timedelta(minutes=offset), kind))
-            if not any(kind == "day" for _, kind in events) or not any(
-                kind == "night" for _, kind in events
-            ):
-                raise ValueError("Home Assistant cannot calculate both sunrise and sunset here")
-            previous = [(point, kind) for point, kind in events if point <= now]
-            if not previous:
-                raise ValueError("No previous solar boundary is available")
-            _, kind = max(previous, key=lambda event: event[0])
-            return kind == "night"
+            point = get_astral_event_date(self.hass, event, day)
+            return dt_util.as_local(point) if point is not None else None
 
         return _run_on_loop(self._loop, _calculate())
-
-    def listen_sun_events(
-        self,
-        sunset_callback: Callable[[], None],
-        sunrise_callback: Callable[[], None],
-        config_callback: Callable[[], None],
-        *,
-        sunset_offset: int,
-        sunrise_offset: int,
-    ) -> str:
-        """Register solar and location/config listeners on HA's event loop."""
-        from datetime import timedelta
-
-        from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
-        from homeassistant.core import callback as ha_callback
-
-        handle_id = str(uuid.uuid4())
-
-        @ha_callback
-        def _sunset_cb() -> None:
-            self.dispatch(sunset_callback)
-
-        @ha_callback
-        def _sunrise_cb() -> None:
-            self.dispatch(sunrise_callback)
-
-        async def _register() -> None:
-            from homeassistant.helpers.event import async_track_sunrise, async_track_sunset
-
-            handles: dict[str, Callable] = {}
-            self._sun_event_handles[handle_id] = handles
-
-            @ha_callback
-            def _config_cb(_event: Any) -> None:
-                _ensure_trackers()
-                self.dispatch(config_callback)
-
-            def _ensure_trackers() -> None:
-                for kind, register in (
-                    (
-                        "sunset",
-                        lambda: async_track_sunset(
-                            self.hass, _sunset_cb, timedelta(minutes=sunset_offset)
-                        ),
-                    ),
-                    (
-                        "sunrise",
-                        lambda: async_track_sunrise(
-                            self.hass, _sunrise_cb, timedelta(minutes=sunrise_offset)
-                        ),
-                    ),
-                ):
-                    if kind in handles:
-                        continue
-                    try:
-                        handles[kind] = register()
-                    except Exception as exc:  # noqa: BLE001
-                        _LOGGER.warning("Unable to track solar %s for %s: %s", kind, self.name, exc)
-
-            handles["config"] = self.hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, _config_cb)
-            _ensure_trackers()
-
-        _run_on_loop(self._loop, _register())
-        return handle_id
-
-    def cancel_sun_events(self, handle_id: str) -> None:
-        """Unregister the solar and core-config listeners."""
-
-        async def _unregister() -> None:
-            for remove in self._sun_event_handles.pop(handle_id, {}).values():
-                remove()
-
-        _run_on_loop(self._loop, _unregister())
 
     def listen_state(
         self,

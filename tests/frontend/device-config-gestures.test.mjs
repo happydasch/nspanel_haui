@@ -1,60 +1,226 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
-import { GESTURE_NAMES } from '../../custom_components/nspanel_haui/frontend/constants.js';
+import {
+  gestureActionLabel, gestureEditor, gestureSwipesLabel,
+} from '../../custom_components/nspanel_haui/frontend/ui/gesture-editor.js';
+import { deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { DEVICE_CONFIG_DEFAULTS, GESTURE_NAMES } from '../../custom_components/nspanel_haui/frontend/constants.js';
+import { render } from './support/render.mjs';
+import { byRole } from './support/queries.mjs';
 
 /** A dialog instance without Lit's constructor (which needs a real DOM). */
 function dialog(props = {}) {
-  const dlg = Object.create(customElements.get('nspanel-dialog-device-config').prototype);
+  const dlg = document.createElement('nspanel-device-settings');
   const events = [];
   Object.assign(dlg, { requestUpdate() {}, dispatchEvent(e) { events.push(e); return true; } }, props);
   return { dlg, events };
 }
 
-/** Flatten a Lit TemplateResult tree to text, with functions shown as [fn]. */
-function flat(v) {
-  if (Array.isArray(v)) return v.map(flat).join('');
-  if (v && v.strings) return v.strings.reduce((a, s, i) => a + s + (i < v.values.length ? flat(v.values[i]) : ''), '');
-  if (typeof v === 'function') return '[fn]';
-  return v == null ? '' : String(v);
+/** Flatten a Lit TemplateResult tree to text. */
+function flat(value) {
+  if (Array.isArray(value)) return value.map(flat).join('');
+  if (value && value.strings) return value.strings.reduce((text, part, index) =>
+    text + part + (index < value.values.length ? flat(value.values[index]) : ''), '');
+  return value == null ? '' : String(value);
 }
 
-const PANELS = [{ value: '', label: '- None -' }, { value: 'lights', label: 'lights' }];
+function templates(value) {
+  if (Array.isArray(value)) return value.flatMap(templates);
+  if (value && value.strings) return [value, ...value.values.flatMap(templates)];
+  return [];
+}
+
+test('device settings include the home and idle panels and save their assignments', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS, use_relay_left: false, use_relay_right: false };
+  const panels = [
+    { key: 'kitchen', title: 'Kitchen' },
+    { key: 'clock', title: 'Clock' },
+    { key: 'weather', title: 'Weather' },
+  ];
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels });
+  const output = flat(dlg.render());
+  const separatelyManagedDefaults = new Set([
+    'theme_variant', 'theme_id', 'home_panel', 'idle_panel', 'idle_panel_extra', 'schedule', 'gestures',
+  ]);
+
+  assert.match(output, /haui-device-settings-sidebar/);
+  assert.doesNotMatch(output, /Configure colors|Appearance/);
+  assert.doesNotMatch(output, /<ha-dialog[ >]/);
+  for (const key of Object.keys(DEVICE_CONFIG_DEFAULTS).filter((name) => !separatelyManagedDefaults.has(name))) {
+    const renderedKey = key === 'snapshot_max_age_seconds' ? 'snapshot_max_age_mode' : key;
+    assert.ok(output.includes(renderedKey), `settings form exposes ${key}`);
+  }
+  assert.match(output, /Home panel/);
+  assert.match(output, /Idle panels/);
+  assert.doesNotMatch(output, /Panel Assignments|<summary>Schedule|<summary>Gestures/);
+  assert.doesNotMatch(output, /dc-schedule|dc-gesture/);
+
+  const selectFor = (id) => {
+    const select = templates(dlg.render()).find((template) =>
+      template.strings[0].includes('<select id=') && template.values.includes(id));
+    assert.ok(select, `${id} select is rendered`);
+    const eventIndex = select.strings.findIndex((part) => part.trimEnd().endsWith('@change='));
+    return select.values[eventIndex];
+  };
+  selectFor('dc-home-panel')({ currentTarget: { value: 'kitchen' } });
+  selectFor('dc-idle-panels')({ currentTarget: { value: 'clock' } });
+
+  dlg._dispatchSave();
+  assert.deepEqual(events[0].detail.config, {
+    ...config, home_panel: 'kitchen', idle_panel: 'clock', idle_panel_extra: '',
+  });
+});
+
+test('the settings rows open the theme, schedule, gestures and updates sidebars', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS };
+  const summaries = { theme: 'Evening', schedule: '1 entry', gestures: '4 entries', updates: 'Stable · Manual' };
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels: [], summaries });
+  const root = render(dlg.render());
+  for (const [label, option] of [['Theme', 'theme'], ['Schedule', 'schedule'], ['Gestures', 'gestures'], ['Updates', 'updates']]) {
+    const row = byRole(root, 'button', { name: `${label} ${summaries[option]}` });
+    assert.ok(row, `${label} row shows its summary`);
+    row.dispatchEvent(new Event('click', { bubbles: true }));
+    assert.equal(events.at(-1).type, 'open-option');
+    assert.deepEqual(events.at(-1).detail, { option });
+  }
+});
+
+test('a save in a sidebar opened from the settings survives saving the settings', () => {
+  const before = { ...DEVICE_CONFIG_DEFAULTS, schedule: [] };
+  const { dlg, events } = dialog({ config: before, panels: [] });
+  dlg.willUpdate(new Map([['config', undefined]]));
+  const level = render(dlg.render()).querySelector('#dc-log_level');
+  level.value = 'DEBUG';
+  level.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // The schedule sidebar saved over the settings: the store hands them its new config.
+  const after = { ...before, schedule: [{ start: '22:00', end: 'sunrise', sound: false }], brightness: 40 };
+  dlg.config = after;
+  dlg.willUpdate(new Map([['config', before]]));
+  dlg._dispatchSave();
+
+  assert.deepEqual(events.at(-1).detail.config, { ...after, log_level: 'DEBUG' });
+});
 
 test('the gesture names offered match the Python GESTURES tuple', () => {
   assert.deepEqual(GESTURE_NAMES, ['swipe_left', 'swipe_right', 'swipe_up', 'swipe_down']);
 });
 
-test('adding, editing and removing a gesture sequence updates the form the dialog saves', () => {
-  const { dlg, events } = dialog({ _deviceConfigForm: { locale: 'en_US' } });
+test('the idle panels keep their order and can be reordered by dragging', () => {
+  const config = {
+    ...DEVICE_CONFIG_DEFAULTS, home_panel: 'light', idle_panel: 'clock',
+    idle_panel_extra: 'weather, photo',
+  };
+  const panels = [
+    { key: 'clock', title: 'Clock' }, { key: 'weather', title: 'Weather' },
+    { key: 'photo', title: 'Photo' }, { key: 'light', title: 'Light' },
+  ];
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels });
+  const view = dlg.render();
+  const idleRows = templates(view).filter((template) => template.strings[0].includes('<li class="haui-pill"'));
+  const row = (name) => idleRows.find((template) => flat(template).includes(name));
+  const weather = row('Weather');
+  const clock = row('Clock');
+  assert.ok(weather);
+  assert.ok(clock);
 
-  dlg._updateGestureSequences((list) => [...list, { sequence: ['swipe_left', 'swipe_right'], timeframe: 3, open: '' }]);
-  assert.deepEqual(dlg._deviceConfigForm.gesture_sequences, [
-    { sequence: ['swipe_left', 'swipe_right'], timeframe: 3, open: '' },
-  ]);
-
-  dlg._updateGestureSequences((list) => { list[0] = { ...list[0], open: 'lights', timeframe: 5 }; return list; });
-  assert.equal(dlg._deviceConfigForm.gesture_sequences[0].open, 'lights');
-  assert.equal(dlg._deviceConfigForm.gesture_sequences[0].timeframe, 5);
-  assert.equal(dlg._deviceConfigForm.locale, 'en_US', 'other settings are kept');
+  const handle = templates(weather).find((template) => template.strings[0].includes('haui-sort-handle'));
+  assert.ok(handle, 'the idle pill has a drag handle');
+  const start = handle.values[handle.strings.findIndex((part) => part.trimEnd().endsWith('@dragstart='))];
+  const sourceRow = { classList: { add() {}, remove() {} } };
+  start({
+    currentTarget: { closest: () => sourceRow },
+    dataTransfer: { setData() {}, setDragImage() {}, effectAllowed: '' },
+  });
+  const drop = clock.values[clock.strings.findIndex((part) => part.trimEnd().endsWith('@drop='))];
+  const targetRow = {
+    classList: { remove() {} },
+    getBoundingClientRect: () => ({ top: 0, height: 20 }),
+  };
+  drop({ currentTarget: targetRow, clientY: 1, preventDefault() {} });
 
   dlg._dispatchSave();
-  assert.equal(events[0].type, 'dialog-save');
-  assert.deepEqual(events[0].detail.config.gesture_sequences[0].sequence, ['swipe_left', 'swipe_right']);
-
-  dlg._updateGestureSequences((list) => list.filter((_, i) => i !== 0));
-  assert.deepEqual(dlg._deviceConfigForm.gesture_sequences, []);
+  assert.deepEqual(events[0].detail.config, {
+    ...config, idle_panel: 'weather', idle_panel_extra: 'clock, photo',
+  });
 });
 
-test('a sequence row shows its swipes, time limit and target panel', () => {
-  const { dlg } = dialog({ _deviceConfigForm: {} });
-  const row = flat(dlg._renderGestureSequence({ sequence: ['swipe_up', 'swipe_down'], timeframe: 7, open: 'lights' }, 2, PANELS));
-  assert.match(row, /dc-gesture_sequence_2/);
-  assert.match(row, /swipe_up, swipe_down/);
-  assert.match(row, /dc-gesture_timeframe_2/);
-  assert.match(row, /dc-gesture_open_2/);
-  assert.match(row, /mdi:delete-outline/);
+test('removing a gesture keeps the others, and their fold states, as they were', () => {
+  const gestures = DEVICE_CONFIG_DEFAULTS.gestures;
+  const changes = [];
+  const result = gestureEditor({ gestures, onChange: (next) => changes.push(next) });
+  const removeButtons = templates(result).filter((template) => template.values.includes('Remove gesture'));
+  assert.equal(removeButtons.length, 4);
+  const remove = removeButtons[1].values.find((value) => typeof value === 'function');
+  // The rendered rows, by position: only the third one is open.
+  const rows = [{ open: false }, { open: false }, { open: true }, { open: false }];
+  const editorElement = {
+    querySelectorAll: (selector) => (selector === ':scope > details.haui-entry' ? rows : []),
+  };
+  remove({
+    preventDefault() {},
+    currentTarget: { closest: (selector) => (selector === '.haui-entry-list' ? editorElement : null) },
+  });
+
+  assert.deepEqual(changes, [[gestures[0], gestures[2], gestures[3]]]);
+  // Lit drops the last row; the open Swipe up entry now renders in the second one and stays open.
+  assert.deepEqual(rows.slice(0, 3).map((row) => row.open), [false, true, false]);
+});
+
+test('an unfinished gesture says what it still lacks', () => {
+  assert.equal(gestureSwipesLabel({ swipes: [] }), 'No swipes');
+  assert.equal(gestureActionLabel(''), 'No action');
+  assert.equal(gestureSwipesLabel({ swipes: ['swipe_up'] }), 'Swipe up');
+  assert.equal(gestureActionLabel('gone'), 'gone');
+});
+
+test('gestures are edited in a draft: only a new one opens, and Save writes them', async () => {
+  const { NSPanelEditor } = await import('../../custom_components/nspanel_haui/frontend/app/shell.js');
+  const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
+    _selectedDevice: 'kitchen', _deviceConfig: { ...DEVICE_CONFIG_DEFAULTS, locale: 'de_DE' }, _saving: false,
+    _store: { actions: { closeOverlay() {} } },
+    _restoreSidebarFocus() {},
+  });
+  const render = () => deviceOptionPanel('gestures', {
+    panels: [], config: editor._deviceConfig, gestureDraft: editor._gestureDraft,
+    onGestureChange: (draft) => editor._changeGestures(draft),
+    onGestureEntryToggle: (index, isOpen) => editor._onGestureEntryToggle(index, isOpen),
+    onGestureSave: () => editor._saveGestures(),
+  });
+  const entries = (view) => templates(view).filter((template) =>
+    template.strings[0].includes('<details class="haui-entry"'));
+  const openStates = (view) => entries(view).map((entry) => entry.values[0]);
+  const saveButton = (view) => templates(view).find((template) =>
+    template.strings.join('').includes('class=') && template.values.includes('Save'));
+
+  assert.deepEqual(openStates(render()), [false, false, false, false]);
+  const add = templates(render()).find((template) => template.values.includes('panel-gesture_add'));
+  add.values.find((value) => typeof value === 'function')();
+  assert.deepEqual(openStates(render()), [false, false, false, false, true]);
+  assert.ok(saveButton(render()));
+
+  const added = entries(render())[4];
+  added.values.find((value) => typeof value === 'function')({ target: { open: false } });
+  assert.deepEqual(openStates(render()), [false, false, false, false, false]);
+
+  const saved = [];
+  editor._devicePanels = () => [];
+  editor._saveDeviceConfig = async (config) => {
+    saved.push(config);
+    editor._deviceConfig = config;
+    return true;
+  };
+  editor.requestUpdate = () => {};
+  await editor._saveGestures();
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].locale, 'de_DE');
+  assert.deepEqual(saved[0].gestures, [
+    ...DEVICE_CONFIG_DEFAULTS.gestures, { swipes: [], action: '', timeframe: 3 },
+  ]);
+  assert.equal('expandedEntryIndex' in saved[0], false);
+  assert.equal(editor._gestureDraft, null);
 });

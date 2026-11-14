@@ -1,3 +1,5 @@
+import './support/browser.mjs';
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -341,6 +343,21 @@ test('sandbox hardware buttons and idle timeout go to the virtual app', async ()
     { type: 'nspanel_haui/virtual_panel/event', session_id: 'abc', name: 'esphome.button_left', value: '1' },
     { type: 'nspanel_haui/virtual_panel/event', session_id: 'abc', name: 'esphome.button_left', value: '0' },
     { type: 'nspanel_haui/virtual_panel/idle', session_id: 'abc' },
+  ]);
+});
+
+test('a sandbox session opens a panel of the device by key', async () => {
+  const { hass, push, resolveLayout, session } = await started();
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+
+  await session.openPanel('grid_0');
+  await session.openPanel('sleep', true);
+
+  assert.deepEqual(hass.calls, [
+    { type: 'nspanel_haui/virtual_panel/open', session_id: 'abc', key: 'grid_0', idle: false },
+    { type: 'nspanel_haui/virtual_panel/open', session_id: 'abc', key: 'sleep', idle: true },
   ]);
 });
 

@@ -25,17 +25,21 @@ class AlarmPage(HAUIPage):
         page_id=17,
         label=_("Alarm"),
         description=_("Alarm control panel with numeric keypad."),
+        category="tools",
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="alarm_control_panel",
+                required=True,
                 description=_("Alarm control panel item for arming/disarming the security system."),
                 section=_("Alarm"),
             ),
             PageOption(
                 key="keypad_font",
                 kind="int",
+                min=0,
+                max=7,
                 default=_KEYPAD_FONT_DEFAULT,
                 label=_("Keypad font size"),
                 description=_("Font ID for the numeric keypad digits (0-7, larger = bigger text)."),
@@ -275,17 +279,17 @@ class AlarmPage(HAUIPage):
     def _style_keypad(self, panel: HAUIPanel) -> None:
         """Apply the configured font and colors to every keypad button once.
 
-        Unset colors use the theme's ``background`` and ``component_text``, so
-        the keys follow the device's color overrides; the font falls back to
-        the descriptor default for panels saved before the keypad options
+        Unset colors use the selected theme's ``background`` and
+        ``component_text``; the font falls back to the descriptor default for
+        panels saved before the keypad options
         existed (including the unlock popup, which is a system panel and has no
         options of its own).
         """
-        font = panel.get("keypad_font", _KEYPAD_FONT_DEFAULT)
-        bg_color = panel.get("keypad_bg_color", None)
+        font = self.option(panel, "keypad_font")
+        bg_color = self.option(panel, "keypad_bg_color")
         if bg_color in (None, ""):
             bg_color = self.get_color("background")
-        text_color = panel.get("keypad_text_color", None)
+        text_color = self.option(panel, "keypad_text_color")
         if text_color in (None, ""):
             text_color = self.get_color("component_text")
         for comp in self._keypad_buttons:
@@ -350,7 +354,7 @@ class AlarmPage(HAUIPage):
         # some integrations don't advertise features; fall back to the common set
         if not features:
             features = 1 | 2 | 4
-        hidden = self.panel.get("hidden_arm_modes", []) if self.panel else []
+        hidden = self.option(self.panel, "hidden_arm_modes") if self.panel else []
         actions: list[tuple[str, str]] = []
         for bit, service, label in self._ARM_MODES:
             if service.removeprefix("alarm_arm_") in (hidden or []):
@@ -369,7 +373,7 @@ class AlarmPage(HAUIPage):
         """
         panel = self.panel
         text = label
-        if panel is not None and panel.get("action_icons", False):
+        if panel is not None and self.option(panel, "action_icons"):
             icon = self._ALARM_ICONS.get(self._ACTION_STATES.get(service, ""), "")
             with_icon = f"{icon} {label}" if icon else label
             if len(with_icon.encode()) <= _ACTION_TEXT_MAX_BYTES:
@@ -413,8 +417,12 @@ class AlarmPage(HAUIPage):
                 self._input = ""
             self.update_components()
 
+    def _keypad_enabled(self) -> bool:
+        """Whether the keypad takes input: only while the alarm entity is available."""
+        return self.item_is_available(self._item)
+
     def callback_keypad(self, event: HAUIEvent, component: Component) -> None:
-        if not self.item_is_available(self._item):
+        if not self._keypad_enabled():
             return
         with self.rec_cmd:
             name = component.name

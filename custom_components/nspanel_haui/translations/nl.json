@@ -1,0 +1,184 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI ({count} apparaat/apparaten gevonden)",
+    "step": {
+      "user": {
+        "title": "NSPanel HAUI-hub toevoegen"
+      },
+      "confirm": {
+        "title": "NSPanel HAUI-apparaten gevonden",
+        "description": "Er zijn {count} ESPHome-apparaat/apparaten met HAUI-firmware gevonden: {names}. Wil je ze aan een nieuwe NSPanel HAUI-hub toevoegen?"
+      }
+    },
+    "abort": {
+      "already_configured": "Er is al een hub met deze naam ingesteld",
+      "already_in_progress": "Er is al een hubconfiguratie bezig",
+      "single_instance_allowed": "Er wordt slechts één NSPanel HAUI-hub ondersteund",
+      "no_devices_found": "Er zijn geen NSPanel HAUI-apparaten gevonden. Installeer eerst de HAUI-firmware op een ESPHome-apparaat."
+    }
+  },
+  "issues": {
+    "device_start_failed": {
+      "title": "Apparaat kon niet starten: {device}",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Hub opnieuw laden",
+            "description": "NSPanel HAUI kon apparaat {device} niet starten.\n\nDe fout was: `{error}`.\n\nGebruik de herstelactie om het apparaat opnieuw te starten, of bekijk de logboeken voor details. Het opnieuw laden van de NSPanel HAUI-hubconfiguratie probeert apparaat {device} opnieuw te starten."
+          }
+        },
+        "flow_title": "Apparaat {device} opnieuw starten"
+      }
+    },
+    "hub_idle": {
+      "title": "NSPanel HAUI-hub heeft geen ingeschakelde apparaten",
+      "description": "Hub {hub} heeft geen ingeschakelde apparaten.\n\nSchakel minstens één apparaat in de NSPanel HAUI-editor in, of voeg een nieuw ESPHome-apparaat met HAUI-firmware toe. Nieuwe HAUI-apparaten kunnen automatisch aan de hub worden toegevoegd."
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Paneel openen",
+      "description": "Navigeer naar een bepaald paneel. Als wekken is ingeschakeld, wordt het scherm eerst gewekt.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Doel-NSPanel-apparaat. Indien weggelaten, geldt voor alle apparaten."
+        },
+        "panel": {
+          "name": "Paneel",
+          "description": "Paneelsleutel of UUID om naartoe te navigeren (bijv. 'alarm', 'grid_0')."
+        },
+        "wakeup": {
+          "name": "Eerst wekken",
+          "description": "Wek het scherm voordat het paneel wordt geopend."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Paneel sluiten",
+      "description": "Sluit het huidige paneel en keer terug naar het vorige of startpaneel.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Doel-NSPanel-apparaat. Indien weggelaten, geldt voor alle apparaten."
+        }
+      }
+    },
+    "wakeup": {
+      "name": "Wekken",
+      "description": "Wek het scherm en navigeer naar het wekpaneel of startpaneel.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Doel-NSPanel-apparaat. Indien weggelaten, geldt voor alle apparaten."
+        }
+      }
+    },
+    "idle": {
+      "name": "Inactief",
+      "description": "Ga onmiddellijk naar de inactieve toestand door de ingestelde inactieve pagina (idle_panel) te openen, alsof de paginatime-out is verlopen.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Doel-NSPanel-apparaat. Indien weggelaten, geldt voor alle apparaten."
+        }
+      }
+    },
+    "send_notification": {
+      "name": "Melding verzenden",
+      "description": "Toon een melding op het paneel met een titel, bericht, icoon, icoonkleur en geluid.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Doel-NSPanel-apparaat. Indien weggelaten, geldt voor alle apparaten."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Titel van de melding die op het paneel wordt getoond."
+        },
+        "message": {
+          "name": "Bericht",
+          "description": "Tekst van de melding."
+        },
+        "icon": {
+          "name": "Icoon",
+          "description": "Material Design-pictogram dat bij de melding wordt getoond (bijv. 'mdi:bell')."
+        },
+        "icon_color": {
+          "name": "Icoonkleur",
+          "description": "Icoonkleur als #rrggbb, een RGB565-getal, [r, g, b] of een geheel getal als tekst. Laat leeg om de tekstkleur van het thema te gebruiken."
+        },
+        "sound": {
+          "name": "Geluid",
+          "description": "Geluid dat voor de melding wordt afgespeeld. 'none' houdt de melding stil."
+        },
+        "timeout": {
+          "name": "Time-out",
+          "description": "Seconden tot de melding automatisch sluit. 0 houdt de melding totdat deze wordt gesloten."
+        },
+        "persistent": {
+          "name": "Aanhoudend",
+          "description": "Open de melding onmiddellijk en herhaal het geluid totdat de melding op het paneel wordt gesloten."
+        },
+        "force_show": {
+          "name": "Weergave forceren",
+          "description": "Open de melding onmiddellijk, zelfs als er een ander paneel wordt getoond."
+        },
+        "text_size": {
+          "name": "Tekstgrootte",
+          "description": "Tekstgrootte van de pop-up: 'auto' (het grootste lettertype waarbij het hele bericht op één pagina past) of een lettergrootte 1-3."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Laatste interactie resetten",
+      "description": "Reset de inactiviteitstimer van het paneel alsof de gebruiker het zojuist heeft aangeraakt.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "Doel-NSPanel-apparaat. Indien weggelaten, geldt voor alle apparaten."
+        },
+        "offset": {
+          "name": "Offset",
+          "description": "Offset in seconden die op het resetpunt wordt toegepast."
+        }
+      }
+    },
+    "update_tft": {
+      "name": "TFT bijwerken",
+      "description": "Installeer de TFT-release die de firmware van het paneel nodig heeft, een andere release (ook oudere), of het TFT-bestand op een URL.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "NSPanel-apparaat waarvan het scherm moet worden bijgewerkt."
+        },
+        "version": {
+          "name": "Versie",
+          "description": "Optionele GitHub-release om te installeren in plaats van de release die de firmware nodig heeft, bijv. een oudere release. Kan niet worden gecombineerd met URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Optionele http(s)-URL van een .tft-bestand om te installeren in plaats van de GitHub-release die de firmware nodig heeft. Kan niet worden gecombineerd met Versie."
+        }
+      }
+    },
+    "update_firmware": {
+      "name": "Firmware bijwerken",
+      "description": "Installeer de firmware-update die Home Assistant voor het paneel aanbiedt, een andere GitHub-release (ook oudere), of de firmware-OTA-image op een URL.",
+      "fields": {
+        "device": {
+          "name": "Apparaat",
+          "description": "NSPanel-apparaat waarvan de firmware moet worden geïnstalleerd."
+        },
+        "version": {
+          "name": "Versie",
+          "description": "Optionele GitHub-release om te installeren in plaats van de aangeboden update, bijv. een oudere release. Kan niet worden gecombineerd met URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Optionele http(s)-URL van een firmware-OTA-image (firmware.ota.bin, niet de fabrieksimage). Kan niet worden gecombineerd met Versie."
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +11,7 @@ const Editor = customElements.get('nspanel-haui-editor');
 
 /** An editor instance without Lit's constructor, recording saves and API calls. */
 function editor(previousModel, { saveOk = true } = {}) {
-  const host = Object.create(Editor.prototype);
+  const host = document.createElement('nspanel-haui-editor');
   Object.assign(host, {
     entryId: 'entry1',
     hass: {
@@ -26,10 +26,11 @@ function editor(previousModel, { saveOk = true } = {}) {
     _editingDeviceConfig: true,
     _saving: false,
     _tftInstallTarget: null,
+    store: { actions: { closeOverlay() {} } },
     calls: [],
     toasts: [],
     _devicePanels() { return []; },
-    async _savePanels(_panels, _message, config) {
+    async _saveDeviceConfig(config) {
       if (saveOk) host._deviceConfig = config;
       return saveOk;
     },

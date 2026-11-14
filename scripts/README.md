@@ -47,8 +47,7 @@ Some tools have extra requirements:
 | `hmi_layout/gen_virtual_layout.py` | Regenerate the editor's virtual layouts, pictures, icon map, font metrics and theme code |
 | `hmi_layout/portrait_layout.py`, `hmi_layout/landscape_layout.py`, `hmi_layout/theme.py` | Spec and attribute data — imported by the tools above, not run directly |
 | `nextion2text/Nextion2Text.py` | Dump an `.HMI` project to readable text (widgets, attributes, event code) |
-| `verify_nextion/verify_nextion.py` | Release gate for the HMI/TFT files |
-| `verify_nextion/check_hmi_bump.py` | Fail when an HMI changed without a TFT version bump |
+| `verify_nextion/check_hmi_bump.py` | Fail when an HMI or TFT changed without a TFT version bump |
 
 ### Display images
 
@@ -88,6 +87,7 @@ Some tools have extra requirements:
 | `preview_gallery/gallery.html`, `preview_gallery/gallery.js` | The browser gallery |
 | `preview_gallery/capture.mjs` | Headless Chrome capture used by `--png`/`--docs` |
 | `readme_images/gen_readme_images.py` | Capture the README hero and step images into `docs/assets/readme/` |
+| `readme_images/gen_editor_screenshots.py`, `readme_images/capture_editor.mjs` | Capture the README's editor screenshots (light and dark) from a throwaway Home Assistant |
 
 ### Translations, versions and tooling
 
@@ -95,8 +95,11 @@ Some tools have extra requirements:
 |--------|---------|
 | `translations/extract_translations.py` | Extract `t()`/`translate()`/`_()` strings and sync `haui/locale/*.json` |
 | `translations/merge_translations.py` | Merge a completed `translate.json` batch back into the locale files |
-| `release/dev_version.py` | CI helper: derive and write the dev firmware version |
+| `release/dev_version.py` | CI helper: derive and write the dev firmware and display TFT versions |
+| `release/compile_firmware.sh` | CI helper: compile the universal firmware and copy both images to the repository root |
 | `release/generate_firmware_manifest.py` | CI helper: build `firmware-manifest.json` from the release artifacts |
+| `release/dev_release_notes.py` | CI helper: write the notes of a development prerelease |
+| `docs/dev_site.sh` | CI helper: point `mkdocs.yml` at the dev docs site (`/dev/`) |
 | `git_hooks/install.sh` | Install the repository's git hooks (`core.hooksPath`) |
 | `git_hooks/pre-commit` | Regenerate virtual-layout assets and run the layout check before a commit |
 | `nextion_vnc/nextion_vnc.sh` | Serve the Nextion Editor VM through noVNC in a browser |
@@ -134,18 +137,8 @@ page in both HMIs.
 
 ### `verify_nextion/`
 
-`verify_nextion/verify_nextion.py` is the release gate: it checks that
-`clock.tTime` reports touches, that `system.tftVersion` matches
-`esphome/nspanel_haui/version.yaml` in both HMIs, and — with
-`--require-portrait` — that the portrait HMI/TFT exist and report the same touch
-settings as the landscape one.
-
-```bash
-python -m scripts.verify_nextion.verify_nextion --require-portrait
-```
-
 `verify_nextion/check_hmi_bump.py` is the CI guard that fails a change which
-modifies an HMI without advancing the TFT version:
+modifies an HMI or a compiled TFT without advancing the TFT version:
 
 ```bash
 python -m scripts.verify_nextion.check_hmi_bump --base origin/dev
@@ -246,6 +239,17 @@ python -m scripts.check_preview_coverage
 python -m scripts.readme_images.gen_readme_images [--chrome PATH]
 ```
 
+`readme_images/gen_editor_screenshots.py` captures the README's editor
+screenshots in the light and the dark theme. It starts a throwaway Home
+Assistant from `.venv_ha` in a temporary directory on port 8124 (so a
+development instance on 8123 keeps running), with the `demo` integration's
+entities and six sample NSPanel devices, onboards a test user and drives the
+editor with headless Chrome (`capture_editor.mjs`, Node 22+):
+
+```bash
+python -m scripts.readme_images.gen_editor_screenshots [--hass PATH] [--chrome PATH] [--port 8124] [--only PREFIX ...]
+```
+
 ## Translations
 
 Extraction is the routine step. It scans Python `self.translate("…")` calls,
@@ -277,9 +281,11 @@ python -m scripts.bump_version 0.5.0.dev3                   # dev firmware bump
 A stable version updates `manifest.json`, `pyproject.toml`, the firmware
 `yaml_version`, and — with `--tft-update` — `tft_version` plus both HMI
 `system.tftVersion` values. A dev version is firmware-only. `CHANGELOG.md` is
-not edited. `--text-only` is a legacy alias for a firmware-only release. A TFT
+not edited. A TFT
 version change must keep the same string length; use the Nextion Editor for a
-length-changing bump.
+length-changing bump. A dev bump is also how a minor development cycle starts:
+commit `X.Y.0.dev0` (a placeholder suffix) on `dev` after a release; the first
+build writes its own run number and keeps the base.
 
 `bump_tft_version.py` edits only `system.tftVersion` in the HMI binaries and
 re-stamps the affected pages (useful after editing the HMI in the Nextion
@@ -308,14 +314,31 @@ hub keeps re-offering it.
 
 - `dev_version.py RUN_NUMBER` derives the PEP 440 dev version from
   `manifest.json` and writes it to `manifest.json`, the firmware `yaml_version`
-  and the GitHub environment (`DEV_VERSION`, `DEV_SHA`). It requires
-  `GITHUB_ENV` and `GITHUB_SHA` and is run by the dev-firmware workflow.
-- `release/generate_firmware_manifest.py` builds the stable release manifest
-  from `nspanel_haui_ota.bin` and both TFT assets. It requires
-  `GITHUB_REPOSITORY` and `GITHUB_REF_NAME` and is run by the release workflow
-  for `v*` tags.
+  and the GitHub environment (`DEV_VERSION`). It also writes the
+  HMIs' `system.tftVersion` to `tft_version` (`TFT_VERSION`) after checking
+  both TFTs carry it, and the job outputs `version` and `sha`. It requires
+  `GITHUB_ENV`, `GITHUB_OUTPUT` and `GITHUB_SHA` and is run by the dev-firmware
+  workflow.
+- `compile_firmware.sh` compiles `esphome/nspanel_haui_universal.yaml` and
+  copies the factory image to `nspanel_haui.bin` and the OTA image to
+  `nspanel_haui_ota.bin`; both release workflows run it.
+- `generate_firmware_manifest.py` builds the release manifest from
+  `nspanel_haui_ota.bin` and both TFT assets, with the TFT version from
+  `version.yaml`, and refuses one without version, OTA image or TFT assets, or
+  with a TFT that does not carry that version. It requires
+  `GITHUB_REPOSITORY` and takes the tag from `--tag` or
+  `GITHUB_REF_NAME`; the release workflow runs it for `v*` tags, the
+  dev-firmware workflow with `--tag <dev version> --name "NSPanel HAUI
+  Development"`.
+- `dev_release_notes.py` writes `dev-release-notes.md`: the commits since the
+  newest reachable tag and a changed-file summary. It requires
+  `GITHUB_REPOSITORY`, `GITHUB_SHA`, `DEV_VERSION` and `TFT_VERSION`.
 
-See [docs/release.md](../docs/release.md) for the full branch and release
+`docs/dev_site.sh` rewrites `site_url`, `repo_url` and `edit_uri` in
+`mkdocs.yml` for the dev docs site; `ci.yml` runs it in a dev checkout before
+`zensical build`.
+
+See [docs/develop/release.md](../docs/develop/release.md) for the full branch and release
 process.
 
 ## Developer tooling
@@ -364,7 +387,6 @@ node --test 'tests/frontend/*.test.mjs'
 ruff check custom_components/ scripts/
 mypy
 zensical build --strict
-python -m scripts.verify_nextion.verify_nextion --require-portrait
 python -m scripts.hmi_layout.gen_virtual_layout --check
 python -m scripts.hmi_layout.gen_layout --check
 python -m scripts.hmi_layout.gen_layout --spec portrait --check

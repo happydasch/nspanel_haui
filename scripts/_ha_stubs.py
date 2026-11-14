@@ -7,6 +7,7 @@ scripts run outside Home Assistant, so importing this module installs stubs.
 from __future__ import annotations
 
 import sys
+from importlib.machinery import ModuleSpec
 
 
 def _install_ha_stubs() -> None:
@@ -67,6 +68,9 @@ def _install_ha_stubs() -> None:
             "PLATFORM_SCHEMA": {},
             "CONFIG_SCHEMA": {},
         },
+        "homeassistant.helpers.storage": {
+            "Store": type("Store", (), {}),
+        },
         "homeassistant.core": {
             "HomeAssistant": type("HomeAssistant", (), {}),
             "State": type("State", (), {}),
@@ -114,13 +118,7 @@ def _install_ha_stubs() -> None:
             mod = types.ModuleType(fullname)
             mod.__package__ = fullname.rpartition(".")[0]
             mod.__path__ = []
-            mod.__spec__ = types.SimpleNamespace(
-                name=fullname,
-                loader=None,
-                origin="stub",
-                has_location=False,
-                submodule_search_locations=[],
-            )
+            mod.__spec__ = ModuleSpec(fullname, loader=None, origin="stub", is_package=True)
             sys.modules[fullname] = mod
             return mod.__spec__
 

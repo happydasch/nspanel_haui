@@ -1,4 +1,4 @@
-import './dom-shim.mjs';
+import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,6 +9,7 @@ import {
   SimulatorFrameElement,
   setPanelRenderSource,
 } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/virtual/assets.js';
 
 const asset = (name) => JSON.parse(readFileSync(
@@ -23,7 +24,7 @@ loadIconMap(() => asset('icon_map.json'));
 test('simulator frame recalculates scale when its container width changes', () => {
   let width = 450;
   let updates = 0;
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   frame._containerWidth = null;
   frame._display = { layout: { visible_width: 450 } };
   frame._scale = null;
@@ -42,7 +43,7 @@ test('simulator frame recalculates scale when its container width changes', () =
 
 test('portrait previews stop growing once they reach the height cap', () => {
   let width = 640;
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   Object.assign(frame, {
     portrait: true,
     _containerWidth: null,
@@ -63,7 +64,7 @@ test('portrait previews stop growing once they reach the height cap', () => {
 
 test('simulator frame keeps the last usable size while its container is hidden', () => {
   let width = 450;
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   frame._containerWidth = null;
   frame._display = { layout: { visible_width: 450 } };
   frame._scale = null;
@@ -79,7 +80,7 @@ test('simulator frame keeps the last usable size while its container is hidden',
 });
 
 test('simulator frame rebuilds when what the hub renders with changes', () => {
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   const rebuilds = [];
   frame._started = true;
   frame._start = (force) => rebuilds.push(force);
@@ -94,7 +95,7 @@ test('simulator frame rebuilds when what the hub renders with changes', () => {
 
 function frameWith(render) {
   setPanelRenderSource(render);
-  const frame = Object.create(SimulatorFrameElement.prototype);
+  const frame = document.createElement('nspanel-simulator-frame');
   Object.assign(frame, {
     panel: { type: 'weather', key: 'weather_0' },
     portrait: false,
@@ -159,4 +160,47 @@ test('a slower older render never replaces a newer one', async () => {
   } finally {
     setPanelRenderSource(null);
   }
+});
+
+test('a new frame shows the card\'s last render until the hub answers', async () => {
+  const replies = [
+    { page: 6, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] },
+  ];
+  let answer;
+  replies.push(new Promise((resolve) => { answer = resolve; }));
+  const hass = { connection: { sendMessagePromise: async () => replies.shift() } };
+  const context = (ip) => ({
+    entryId: 'entry1',
+    device: 'kitchen',
+    deviceConfig: {},
+    panels: [],
+    deviceInfo: { ip },
+    api: createApiClient(() => hass),
+  });
+  const frame = (ip, shown) => {
+    const element = document.createElement('nspanel-simulator-frame');
+    Object.assign(element, {
+      context: context(ip),
+      panel: { type: 'weather', key: 'weather_0' },
+      portrait: false,
+      byKey: false,
+      _display: null,
+      _started: false,
+      _seq: 0,
+      _measure() {},
+      requestUpdate() { shown.push(this._display?.component('f1Name').attrs.txt); },
+    });
+    return element;
+  };
+
+  await frame('10.0.0.1', [])._start();
+
+  // A new address is a new render key: the hub is asked again.
+  const shown = [];
+  const started = frame('10.0.0.2', shown)._start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(shown, ['Old']);
+  answer({ page: 6, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] });
+  await started;
+  assert.deepEqual(shown, ['Old', 'New']);
 });

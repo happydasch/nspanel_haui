@@ -9,6 +9,7 @@ from .haui_config_access import HAUIConfigAccess
 
 if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
+    from ..mapping.color import Theme
 
 
 class HAUIPanel(HAUIConfigAccess):
@@ -34,6 +35,11 @@ class HAUIPanel(HAUIConfigAccess):
         self._default_config: dict = deepcopy(cfg)
 
     # public
+    @property
+    def theme(self) -> Theme:
+        """This panel's theme override, or the device theme."""
+        theme_id = self.get("theme_id", "")
+        return self.app.theme_library.theme(theme_id) if theme_id else self.app.theme
 
     def get_type(self) -> str:
         """Returns the type of this panel.

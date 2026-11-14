@@ -58,6 +58,22 @@ class PanelTypesView(HomeAssistantView):
         return self.json(descriptors)
 
 
+class PanelTemplatesView(HomeAssistantView):
+    """REST API view returning the starter templates of the *Add panel* catalog."""
+
+    url = "/api/nspanel_haui/panel_templates"
+    name = "api:nspanel_haui:panel_templates"
+    requires_auth = True
+
+    async def get(self, request):
+        """Return the starter templates, texts translated into ``language`` (default ``en``)."""
+        from ..haui.mapping.templates import get_panel_templates
+
+        lang = request.query.get("language", "en")
+        hass = request.app["hass"]
+        return self.json(await hass.async_add_executor_job(get_panel_templates, lang))
+
+
 class ColorDefaultsView(HomeAssistantView):
     """REST API view returning built-in color defaults for the frontend editor."""
 

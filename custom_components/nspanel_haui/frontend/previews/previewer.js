@@ -9,14 +9,25 @@
  * NextionDisplay built from the real layout. There is no second renderer in
  * the browser: entity values, translations, templates, dates and forecasts
  * are the hub's. A card without a render (no device selected yet) shows a
- * placeholder, not a guess.
+ * placeholder, not a guess. The browser keeps every card's last render, so a
+ * card opened after a reload shows it until the hub's new one arrives.
  */
+import { readStorage, writeStorage } from '../dom-helpers.js';
 import { NextionDisplay } from '../virtual/nextion-display.js';
 import { noopScheduler } from './simulator.js';
 
 const RENDERS = new Map();
 // Entity states move on; a card re-mounted within this window reuses its render.
 const RENDER_MAX_AGE_MS = 30_000;
+
+const LAST_RENDERS_KEY = 'haui_lastCardRenders';
+const LAST_RENDERS_MAX = 200;
+// The versioned asset path: a kept render replays only in the layout it was
+// drawn for, so an update of the frontend drops them.
+const ASSETS = new URL('..', import.meta.url).href;
+const LAST_RENDERS_SAVE_DELAY_MS = 500;
+let lastRenders = null;
+let lastRendersSave = null;
 
 // The device info a page draws (the About page, haui/page/about.py). The rest
 // of it (uptime, RSSI, last update) moves on every 5 s status poll and would
@@ -38,8 +49,10 @@ export function previewRenderKey(context) {
     context?.entryId,
     context?.device,
     context?.deviceConfig,
+    context?.theme,
     context?.panels,
     deviceInfo ? RENDERED_DEVICE_INFO.map((name) => deviceInfo[name]) : null,
+    context?.kwargs ?? null,
   ]);
 }
 
@@ -60,7 +73,10 @@ export function loadPanelRender(context, panel, byKey) {
   if (!api || !api.connection() || !context.entryId || !device || !panel) {
     return Promise.resolve(null);
   }
-  const target = byKey ? { key: panel.key } : { panel };
+  const target = {
+    ...(byKey ? { key: panel.key } : { panel }),
+    ...(context.kwargs ? { kwargs: context.kwargs } : {}),
+  };
   const key = JSON.stringify([previewRenderKey(context), target]);
   const now = Date.now();
   // Every edit or settings change keys new renders: drop the expired ones.
@@ -69,12 +85,78 @@ export function loadPanelRender(context, panel, byKey) {
   }
   const cached = RENDERS.get(key);
   if (cached) return cached.promise;
-  const promise = api.preview.render(context.entryId, device, target).catch((err) => {
+  // A render with the editor's sample is not the card's: the list keeps showing its own.
+  const card = context.kwargs ? null : cardId(context, panel, byKey);
+  const promise = api.preview.render(context.entryId, device, target).then((render) => {
+    if (card) keepRender(card, render);
+    return render;
+  }, (err) => {
     RENDERS.delete(key);
     throw new Error(err?.message || String(err));
   });
   RENDERS.set(key, { time: now, promise });
   return promise;
+}
+
+/**
+ * The render a card showed last, kept in the browser across reloads, or null.
+ * It may be out of date: a card shows it only until the hub's render arrives.
+ *
+ * @param {import('./types.js').PreviewContext} context
+ * @param {object} panel
+ * @param {boolean} byKey
+ * @returns {object|null}
+ */
+export function lastPanelRender(context, panel, byKey) {
+  const card = cardId(context, panel, byKey);
+  return card ? storedRenders().get(card) || null : null;
+}
+
+/**
+ * A card by what stays the same while its panel is edited or its device's
+ * settings change; null for a panel without a key (a catalog sample).
+ */
+function cardId(context, panel, byKey) {
+  if (!context?.entryId || !context.device || !panel?.key) return null;
+  return JSON.stringify([
+    context.entryId,
+    context.device,
+    context.deviceConfig?.display_model ?? null,
+    byKey,
+    panel.key,
+    panel.type ?? null,
+  ]);
+}
+
+/** @returns {Map<string, object>} card id → render, oldest first */
+function storedRenders() {
+  if (lastRenders) return lastRenders;
+  lastRenders = new Map();
+  const raw = readStorage(LAST_RENDERS_KEY, null);
+  if (!raw) return lastRenders;
+  try {
+    const stored = JSON.parse(raw);
+    if (stored.assets === ASSETS) lastRenders = new Map(stored.renders);
+  } catch (err) {
+    // Only a head start is lost: every card asks the hub anyway.
+    console.warn('NSPanel HAUI: dropping unreadable kept card renders:', err);
+  }
+  return lastRenders;
+}
+
+function keepRender(card, render) {
+  const renders = storedRenders();
+  renders.delete(card);
+  renders.set(card, render);
+  for (const oldest of renders.keys()) {
+    if (renders.size <= LAST_RENDERS_MAX) break;
+    renders.delete(oldest);
+  }
+  // A save renders every card again: write them once.
+  clearTimeout(lastRendersSave);
+  lastRendersSave = setTimeout(() => {
+    writeStorage(LAST_RENDERS_KEY, JSON.stringify({ assets: ASSETS, renders: [...renders] }));
+  }, LAST_RENDERS_SAVE_DELAY_MS);
 }
 
 /**

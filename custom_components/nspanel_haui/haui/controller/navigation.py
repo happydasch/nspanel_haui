@@ -84,7 +84,6 @@ class HAUINavigationController(HAUIBase):
         self._idle_panel: HAUIPanel | None = None  # current idle page
         self._idle_panels: list[HAUIPanel] = []  # carousel, cycles on each entry
         self._idle_panel_idx = 0  # next carousel index
-        self._idle_profile_night: bool | None = None
         # True while the idle page is the displayed panel. A stacked overlay
         # can suspend this session and resume it when the stack returns to idle.
         # The display off state itself lives in the firmware (brightness/state
@@ -153,22 +152,9 @@ class HAUINavigationController(HAUIBase):
         Resetting the carousel cursor when the configured list changes makes
         repeated reloads resume at the first entry instead of mid-list.
         """
-        is_night = self._idle_profile_night is True
-        profile = "Night" if is_night else "Day"
-        idle_key = "night_idle_panel" if is_night else "idle_panel"
-        use_auto_page_key = "night_use_auto_page" if is_night else "use_auto_page"
-        idle_keys = self.app.device.get(idle_key)
-        use_auto_page = self.app.device.get(use_auto_page_key)
-        if is_night:
-            extra = ""
-            other_idle_keys = self.app.device.get("idle_panel")
-            other_extra = self.app.device.get("idle_panel_extra")
-            other_profile = "Day"
-        else:
-            extra = self.app.device.get("idle_panel_extra")
-            other_idle_keys = self.app.device.get("night_idle_panel")
-            other_extra = ""
-            other_profile = "Night"
+        idle_keys = self.app.device.get("idle_panel")
+        use_auto_page = self.app.device.get("use_auto_page")
+        extra = self.app.device.get("idle_panel_extra")
         candidates: list[str] = []
         if isinstance(idle_keys, list):
             candidates = [k for k in idle_keys if k]
@@ -188,16 +174,16 @@ class HAUINavigationController(HAUIBase):
                     self.log(f"Idle panel key '{key}' not found", level="WARNING")
                 continue
             new_panels.append(panel)
-        if [p.get("key") for p in new_panels] != [p.get("key") for p in self._idle_panels]:
+        keys = [p.get("key") for p in new_panels]
+        current = 0
+        if keys != [p.get("key") for p in self._idle_panels]:
             self._idle_panel_idx = 0
+        elif self._idle_panel is not None:
+            # Same carousel, rebuilt panels (a save): keep the entry that is
+            # the idle panel, which may be on screen right now.
+            current = keys.index(self._idle_panel.get("key"))
         self._idle_panels = new_panels
-        self._idle_panel = self._idle_panels[0] if self._idle_panels else None
-        if not candidates and use_auto_page is True and (other_idle_keys or other_extra):
-            self.log(
-                f"{profile} idle page disabled: {idle_key} is empty; "
-                f"the {other_profile} idle page is not inherited",
-                level="WARNING",
-            )
+        self._idle_panel = self._idle_panels[current] if self._idle_panels else None
         if log and self._idle_panels:
             self.log(
                 "Idle panel carousel: "
@@ -213,13 +199,6 @@ class HAUINavigationController(HAUIBase):
         # home. It is started once here (not on connect) so a reconnect cannot
         # cancel it; cancel_timeouts() must leave it alone.
         self._idle_check_timer = self.app.run_every(self._check_inactivity, "now+1", 1)
-
-    def set_idle_profile(self, is_night: bool | None) -> None:
-        """Select the Day or Night idle destination without disturbing the current page."""
-        if self._idle_profile_night == is_night:
-            return
-        self._idle_profile_night = is_night
-        self._resolve_idle_panels(log=is_night is True)
 
     def stop_part(self) -> None:
         """Stops the part.
@@ -578,7 +557,9 @@ class HAUINavigationController(HAUIBase):
 
     def _page_timeout_callback(self, _kwargs: dict[str, Any]) -> None:
         """Last-resort fallback: page event never arrived within timeout."""
-        self._page_timeout = None
+        # The touch recovery calls this directly: the pending timer must not
+        # fire on top of it.
+        self._cancel_timer("_page_timeout")
         # Force re-send goto_page and render the current panel. This avoids
         # pushing a duplicate onto the navigation stack when the ESPHome page
         # ack doesn't arrive in time.
@@ -650,11 +631,20 @@ class HAUINavigationController(HAUIBase):
             return
         if self._idle_panel_active or self._idle_panel_suspended:
             return
-        if not self._idle_panels:
+        timeout_page = self._idle_timeout()
+        if timeout_page is None or age < timeout_page:
             return
-        prefix = "night_" if self._idle_profile_night else ""
-        use_auto_page = self.app.device.get(f"{prefix}use_auto_page")
-        timeout_page = self.app.device.get(f"{prefix}timeout_page")
+        if self.page is not None and self.page.suspends_auto_page():
+            return
+        self.log("Idle page due, opening the idle panel", level="INFO")
+        self.open_idle_panel(autostart=True)
+
+    def _idle_timeout(self) -> float | None:
+        """The idle-page timeout, or ``None`` while the idle page is off."""
+        if not self._idle_panels:
+            return None
+        use_auto_page = self.app.device.get("use_auto_page")
+        timeout_page = self.app.device.get("timeout_page")
         if (
             not isinstance(use_auto_page, bool)
             or type(timeout_page) not in (int, float)
@@ -662,19 +652,36 @@ class HAUINavigationController(HAUIBase):
             or timeout_page < 0
         ):
             self.log(
-                f"Idle page check skipped: invalid {prefix}use_auto_page or "
-                f"{prefix}timeout_page value",
+                "Idle page check skipped: invalid use_auto_page or timeout_page value",
                 level="WARNING",
             )
-            return
+            return None
         if not use_auto_page or timeout_page <= 0:
-            return
-        if age < timeout_page:
-            return
+            return None
+        return float(timeout_page)
+
+    def idle_status(self) -> dict[str, Any]:
+        """Where the idle page stands, for the editor's diagnostics.
+
+        ``state`` is ``active`` (the idle page is shown), ``suspended`` (an
+        overlay was opened from it), ``offline`` (the device is disconnected,
+        so the check waits for it), ``held`` (the current page holds it off),
+        ``pending`` (it opens after ``idle_in`` more seconds without an
+        interaction) or ``off`` (no idle page, or automatic switching is off).
+        """
+        if self._idle_panel_active:
+            return {"state": "active", "idle_in": None}
+        if self._idle_panel_suspended:
+            return {"state": "suspended", "idle_in": None}
+        if not self.app.device.connected:
+            return {"state": "offline", "idle_in": None}
+        timeout_page = self._idle_timeout()
+        if timeout_page is None:
+            return {"state": "off", "idle_in": None}
         if self.page is not None and self.page.suspends_auto_page():
-            return
-        self.log("Idle page due, opening the idle panel", level="INFO")
-        self.open_idle_panel(autostart=True)
+            return {"state": "held", "idle_in": None}
+        age = time.monotonic() - self._activity_ts
+        return {"state": "pending", "idle_in": max(0, round(timeout_page - age))}
 
     def _check_nav_home(self, age: float) -> None:
         """Auto-navigate-home, from the same activity clock as the idle page."""
@@ -816,7 +823,7 @@ class HAUINavigationController(HAUIBase):
             return
         self.open_panel(self._home_panel.id, autostart=autostart)
 
-    def open_idle_panel(self, autostart: bool = False) -> None:
+    def open_idle_panel(self, autostart: bool = False, key: str | None = None) -> None:
         """Open the configured idle page (automatic page switching).
 
         This is a pure page switch: it never turns the display off (that is
@@ -828,7 +835,17 @@ class HAUINavigationController(HAUIBase):
 
         Args:
             autostart (bool, optional): Should the page be autostarted. Defaults to False.
+            key (str, optional): Open this panel of the carousel instead of the
+                next one; the carousel continues after it.
+
+        Raises:
+            ValueError: If ``key`` is not one of the idle panels.
         """
+        if key is not None:
+            keys = [panel.get("key") for panel in self._idle_panels]
+            if key not in keys:
+                raise ValueError(f"Not an idle panel: {key!r}")
+            self._idle_panel_idx = keys.index(key)
         if not self._idle_panels:
             self._idle_panel = None
             self.log("No idle panel configured; staying on the current panel")
@@ -1066,7 +1083,7 @@ class HAUINavigationController(HAUIBase):
         ):
             return
         is_button = event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT)
-        if is_button and not self.app.device.get("reset_interaction_on_button", True):
+        if is_button and not self.app.device.get("reset_interaction_on_button"):
             return
         self.reset_activity()
 

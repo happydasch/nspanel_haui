@@ -341,6 +341,89 @@ def test_disconnect_records_reason_and_timestamp():
     assert ctrl.disconnected_since is None
 
 
+def _connected_controller():
+    app, cb, ctrl = make_controller()
+    ctrl._set_state(ConnectionState.HANDSHAKING)
+    ctrl._set_state(ConnectionState.CONNECTED)
+    return ctrl
+
+
+class TestConnectionHealth:
+    """The editor's diagnostics count drops and late heartbeats of the last 24 hours."""
+
+    def test_a_timeout_and_a_device_reconnect_count_as_drops(self):
+        ctrl = _connected_controller()
+        ctrl._set_state(ConnectionState.DISCONNECTED, reason="heartbeat timeout")
+        ctrl._set_state(ConnectionState.HANDSHAKING)
+        ctrl._set_state(ConnectionState.CONNECTED)
+        # The device rebooted or gave up on the hub: it asks for a new connection.
+        ctrl.process_event(HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}'))
+
+        health = ctrl.health()
+        assert health["drops_24h"] == 2
+        assert [drop["reason"] for drop in health["recent_drops"]] == [
+            "device reconnected",
+            "heartbeat timeout",
+        ]
+
+    def test_a_failed_handshake_is_no_drop(self):
+        _, _, ctrl = make_controller()
+        ctrl._set_state(ConnectionState.HANDSHAKING)
+        ctrl._set_state(ConnectionState.DISCONNECTED, reason="handshake timeout")
+        assert ctrl.health()["drops_24h"] == 0
+
+    def test_drops_older_than_a_day_are_left_out(self):
+        _, _, ctrl = make_controller()
+        ctrl._drops.append((time.time() - 90_000, "heartbeat timeout"))
+        assert ctrl.health()["drops_24h"] == 0
+        assert ctrl.health()["recent_drops"] == []
+
+    def test_late_heartbeats_are_measured_from_the_previous_one(self, monkeypatch):
+        clock = [1000.0]
+        monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+        ctrl = _connected_controller()
+        heartbeat = HAUIEvent(ServerRequest.HEARTBEAT, "")
+        for step in (0.0, 5.0, 9.0, 6.0):
+            clock[0] += step
+            ctrl.process_event(heartbeat)
+
+        health = ctrl.health()
+        assert health["late_heartbeats_24h"] == 1
+        assert health["longest_heartbeat_gap"] == 9.0
+
+    def test_the_gap_across_an_outage_is_no_late_heartbeat(self, monkeypatch):
+        clock = [1000.0]
+        monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+        ctrl = _connected_controller()
+        heartbeat = HAUIEvent(ServerRequest.HEARTBEAT, "")
+        ctrl.process_event(heartbeat)
+        ctrl._set_state(ConnectionState.DISCONNECTED, reason="heartbeat timeout")
+        ctrl._set_state(ConnectionState.HANDSHAKING)
+        ctrl._set_state(ConnectionState.CONNECTED)
+        clock[0] += 60.0
+        ctrl.process_event(heartbeat)
+
+        assert ctrl.health()["late_heartbeats_24h"] == 0
+
+    def test_a_reboot_without_a_timeout_is_no_late_heartbeat(self, monkeypatch):
+        clock = [1000.0]
+        monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+        ctrl = _connected_controller()
+        heartbeat = HAUIEvent(ServerRequest.HEARTBEAT, "")
+        ctrl.process_event(heartbeat)
+        # The device reboots and asks for a new connection before the hub's
+        # heartbeat timeout; it sends no heartbeats until it is connected again.
+        clock[0] += 3.0
+        ctrl.process_event(HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}'))
+        ctrl._set_state(ConnectionState.CONNECTED)
+        clock[0] += 20.0
+        ctrl.process_event(heartbeat)
+
+        health = ctrl.health()
+        assert health["drops_24h"] == 1
+        assert health["late_heartbeats_24h"] == 0
+
+
 class TestHubHeartbeat:
     """Regression: a busy app worker delayed the hub→device heartbeat, the
     device force-disconnected the hub and woke the display to full brightness
@@ -419,3 +502,27 @@ def test_controller_publishes_the_bare_heartbeat_action_name():
     assert proxy.detached == [("hub_heartbeat", "")]
     # Detached means detached: it must not go through the blocking publish path.
     assert proxy.published == []
+
+
+class TestConnectionCallback:
+    """Every reported connect after the first follows a reported disconnect."""
+
+    def _rebooted(self):
+        _, cb, ctrl = make_controller()
+        ctrl._set_state(ConnectionState.HANDSHAKING)
+        ctrl._set_state(ConnectionState.CONNECTED)
+        # The device rebooted without the hub timing out first.
+        ctrl.process_event(HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}'))
+        return cb, ctrl
+
+    def test_a_device_reboot_reports_a_disconnect_before_the_reconnect(self):
+        cb, ctrl = self._rebooted()
+        ctrl._set_state(ConnectionState.CONNECTED)
+
+        assert [call.args for call in cb.call_args_list] == [(True,), (False,), (True,)]
+
+    def test_a_reboot_whose_handshake_times_out_is_reported_disconnected_once(self):
+        cb, ctrl = self._rebooted()
+        ctrl._set_state(ConnectionState.DISCONNECTED, reason="handshake timeout")
+
+        assert [call.args for call in cb.call_args_list] == [(True,), (False,)]

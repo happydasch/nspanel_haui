@@ -15,7 +15,9 @@ import { pathToFileURL } from 'node:url';
 
 const TABS = 4;
 const STDERR_LIMIT = 8 * 1024;
-const STARTUP_TIMEOUT_MS = 15000;
+// A cold start on a slow hosted runner took longer than 15 s once while
+// Chrome was still making progress; a hung Chrome still fails here.
+const STARTUP_TIMEOUT_MS = 60000;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 export class DevTools {

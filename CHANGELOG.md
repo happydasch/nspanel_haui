@@ -9,7 +9,17 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-## [0.5.1] — unreleased
+## [0.5.2] — unreleased
+
+## [0.5.1] — 2026-11-14
+
+### Added
+
+- Fleet: filter **Latest events** to the last 24 hours, with improved keyboard accessibility.
+
+### Fixed
+
+- Clock panel item buttons now open the configured item; Clock, Weather and Clock Two component IDs match the display layouts ([#97](https://github.com/happydasch/nspanel_haui/issues/97)).
 
 ## [0.5.0] — 2026-11-14
 

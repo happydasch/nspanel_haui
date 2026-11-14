@@ -26,6 +26,8 @@ export const fleetStyles = css`
     padding: 12px 12px;
     border-bottom: 1px solid var(--divider-color);
   }
+  /* Long log lists shrink into their scroll area, never into the heading. */
+  .haui-event-list > header { flex-shrink: 0; }
   .haui-device-inventory h2,
   .haui-event-list h2 {
     margin: 0;

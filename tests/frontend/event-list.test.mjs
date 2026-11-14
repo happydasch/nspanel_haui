@@ -31,12 +31,17 @@ test('Latest events lists a repeated message once with its count, and no debug l
   // The limit counts different events; later repeats of a listed one still count.
   assert.deepEqual(latestEvents(events, 1).map((event) => event.count), [1]);
 
-  const text = templateText(eventList({ events: latest, onOpenLogs() {} }));
+  const root = render(eventList({ events: latest, onOpenLogs() {} }));
+  const text = root.innerHTML;
+  const header = root.querySelector('.haui-event-list > header');
+  assert.equal(header?.querySelector('h2')?.textContent, 'Latest events');
+  assert.equal(header?.querySelector('p')?.textContent, 'Last 24 hours');
+  assert.equal(header?.querySelector('.haui-badge-count')?.textContent, '3');
+  assert.ok(header?.querySelector('button')?.textContent.includes('Logs'));
   assert.match(text, /Repeated 2 times/);
   assert.match(text, /haui-event-repeat/);
   // The timeline shows an exception's first line; Logs has the traceback.
   assert.doesNotMatch(text, /Traceback/);
-  assert.match(text, /Logs/);
   assert.doesNotMatch(text, /View logs/);
 });
 

@@ -104,19 +104,19 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         has_header=False,
     )
 
-    # no header: the page has no function buttons, ids 3-6 are other widgets
+    # no header: the page has no function buttons
     COMPONENTS = ComponentRegistry(
-        t_time=Component(3, "tTime"),
-        t_date=Component(4, "tDate"),
-        t_main_icon=Component(5, "tMainIcon"),
-        t_main_text=Component(6, "tMainText"),
-        t_sub_text=Component(7, "tSubText"),
-        btn_entity_1=Component(8, "bEntity1"),
-        btn_entity_2=Component(9, "bEntity2"),
-        btn_entity_3=Component(10, "bEntity3"),
-        btn_entity_4=Component(11, "bEntity4"),
-        btn_entity_5=Component(12, "bEntity5"),
-        btn_entity_6=Component(13, "bEntity6"),
+        t_time=Component(2, "tTime"),
+        t_date=Component(3, "tDate"),
+        t_main_icon=Component(4, "tMainIcon"),
+        t_main_text=Component(5, "tMainText"),
+        t_sub_text=Component(6, "tSubText"),
+        btn_entity_1=Component(7, "bEntity1"),
+        btn_entity_2=Component(8, "bEntity2"),
+        btn_entity_3=Component(9, "bEntity3"),
+        btn_entity_4=Component(10, "bEntity4"),
+        btn_entity_5=Component(11, "bEntity5"),
+        btn_entity_6=Component(12, "bEntity6"),
     )
 
     NUM_ENTITIES = 6

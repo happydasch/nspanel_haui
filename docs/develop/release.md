@@ -712,6 +712,12 @@ prep.
   jobs start. The `master` ruleset requires `tests (3.14)`, `frontend`,
   `esphome`, `docs`, `hassfest` and `hacs`. Check
   [githubstatus.com](https://www.githubstatus.com) before a release.
+- **A failed docs deploy needs a new run, not a re-run** — when `deploy-docs`
+  fails with `No artifacts named "github-pages"`, the artifact list lagged the
+  upload ([actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451);
+  the job waits 10 s before deploying to avoid it). A re-run uploads a second
+  `github-pages` artifact, which the deploy refuses. Start a new run instead
+  (`gh workflow run ci.yml --ref dev`), or let the next push deploy.
 - **Do not dispatch a development build during release prep** — it pushes a bot
   commit onto `dev` (see [Branches and cadence](#branches-and-cadence)).
 

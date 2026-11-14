@@ -241,6 +241,13 @@ jobs:
         with:
           path: site/
 
+      # deploy-pages looks the artifact up by name, and the run's artifact list
+      # can lag the upload: a lookup a fraction of a second later finds nothing
+      # (actions/deploy-pages#451). Starter workflows dodge it by uploading in an
+      # earlier job; here the wait keeps build and deploy in one concurrency slot.
+      - name: Wait for the artifact list
+        run: sleep 10
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

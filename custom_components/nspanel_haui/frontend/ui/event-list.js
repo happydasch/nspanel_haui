@@ -31,6 +31,18 @@ export function eventsByTime(events) {
     .map(({ event }) => event);
 }
 
+/** Milliseconds in the Fleet activity window. */
+const EVENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Keep dated log entries from the previous 24 hours, excluding undated/future records. */
+export function eventsInLast24Hours(events, now = Date.now()) {
+  const cutoff = now - EVENT_WINDOW_MS;
+  return events.filter((event) => {
+    const time = Date.parse(parseEvent(event.line).timestamp);
+    return Number.isFinite(time) && time >= cutoff && time <= now;
+  });
+}
+
 /**
  * What Latest events lists: newest first, without debug lines, and a message
  * a device repeats once, with its count and its newest time. The hub writes some
@@ -41,7 +53,7 @@ export function eventsByTime(events) {
  * @param {number} [limit] - how many different events to keep
  * @returns {Array<T & { count: number }>}
  */
-export function latestEvents(events, limit = 8) {
+export function latestEvents(events, limit = Infinity) {
   /** @type {Map<string, T & { count: number }>} */
   const latest = new Map();
   for (const event of eventsByTime(events).reverse()) {
@@ -65,6 +77,7 @@ export function eventList({ events, deviceName, onOpenLogs }) {
   return html`<section class="haui-event-list">
     <header>${sectionHeading({
       title: t('Latest events'),
+      subtitle: t('Last 24 hours'),
       className: 'haui-section-heading',
       badge: events.length ? countBadge(events.length) : nothing,
     })}
@@ -72,7 +85,7 @@ export function eventList({ events, deviceName, onOpenLogs }) {
         label: t('Logs'), variant: 'quiet', className: 'haui-event-logs', onClick: onOpenLogs,
       }) : nothing}
     </header>
-    ${events.length ? html`<ol>
+    ${events.length ? html`<ol tabindex="0" aria-label=${t('Latest events')}>
       ${events.map((event) => {
         const parsed = parseEvent(event.line);
         const level = parsed.level === 'warning' ? 'warn' : parsed.level;

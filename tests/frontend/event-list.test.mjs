@@ -8,7 +8,7 @@ function templateText(template) {
   return render(template).innerHTML;
 }
 
-import { eventList, latestEvents, parseEvent } from '../../custom_components/nspanel_haui/frontend/ui/event-list.js';
+import { eventList, eventsInLast24Hours, latestEvents, parseEvent } from '../../custom_components/nspanel_haui/frontend/ui/event-list.js';
 
 test('Latest events lists a repeated message once with its count, and no debug lines', () => {
   const missing = "Entity 'cover.hall' not available for state";
@@ -57,4 +57,18 @@ test('event parser maps hub log levels and preserves unstructured lines', () => 
   assert.deepEqual(parseEvent('[2026-01-01T12:00:00Z] ERROR Template failed\n  at line 3'), {
     timestamp: '2026-01-01T12:00:00Z', level: 'error', message: 'Template failed\n  at line 3',
   });
+});
+
+test('the 24-hour event window includes its boundary and ignores older, future, and undated logs', () => {
+  const now = Date.parse('2026-11-14T12:00:00Z');
+  const entry = (time, line = 'INFO event') => ({ line: `[${time}] ${line}` });
+  const events = [
+    entry('2026-11-13T12:00:00Z'),
+    entry('2026-11-13T11:59:59.999Z'),
+    entry('2026-11-14T12:00:00Z'),
+    entry('2026-11-14T12:00:01Z'),
+    { line: 'unstructured event' },
+  ];
+
+  assert.deepEqual(eventsInLast24Hours(events, now), [events[0], events[2]]);
 });

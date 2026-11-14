@@ -9,6 +9,16 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.1] — 2026-11-14
+
+### Added
+
+- Fleet: filter **Latest events** to the last 24 hours, with improved keyboard accessibility.
+
+### Fixed
+
+- Clock panel item buttons now open the configured item; Clock, Weather and Clock Two component IDs match the display layouts ([#97](https://github.com/happydasch/nspanel_haui/issues/97)).
+
 ## [0.5.0] — 2026-11-14
 
 ### Breaking changes
@@ -528,6 +538,7 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
+[0.5.1]: https://github.com/happydasch/nspanel_haui/compare/v0.5.0...dev
 [0.5.0]: https://github.com/happydasch/nspanel_haui/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/happydasch/nspanel_haui/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/happydasch/nspanel_haui/compare/v0.4.5...v0.4.6

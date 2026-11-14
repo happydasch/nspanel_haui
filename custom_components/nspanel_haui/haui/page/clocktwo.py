@@ -315,7 +315,7 @@ class ClockTwoPage(HAUIPage):
     # components, skipping l1-110, s1-4; no header: the page has no function
     # buttons, ids 3-6 are letters
     COMPONENTS = ComponentRegistry(
-        t_notif=Component(117, "tNotif"),
+        t_notif=Component(116, "tNotif"),
     )
 
     # panel

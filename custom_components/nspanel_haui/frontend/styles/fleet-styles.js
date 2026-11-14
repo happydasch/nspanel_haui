@@ -135,17 +135,18 @@ export const fleetStyles = css`
   .haui-fleet-bar .is-unknown { background: color-mix(in srgb, var(--secondary-text-color) 40%, transparent); }
   .haui-stat-placeholder { display: block; width: 64px; height: 15px; margin: 4px 0; border-radius: var(--haui-radius-control); background: var(--secondary-background-color); }
   .haui-device-inventory, .haui-event-list { min-width: 0; }
-  /* The table is flush: its rows run to the card's edges. */
-  .haui-device-inventory { overflow: hidden; }
+  /* The table is flush: its rows run to the card's edges. The inventory sets the row's height,
+     up to its maximum; a longer device list scrolls under its column heads. */
+  .haui-device-inventory { display: flex; max-height: 720px; flex-direction: column; overflow: hidden; }
   .haui-inventory-update { min-height: 32px; padding: 0 12px; font-size: var(--ha-font-size-s, 12px); }
   .haui-inventory-update ha-icon { --mdc-icon-size: 16px; }
   /* The rows share the table's tracks (subgrid), so the values and actions take their widest
      cell's width in every row and the device name takes the rest. */
-  .haui-device-table { display: grid; grid-template-columns: minmax(200px, 1fr) repeat(3, max-content) auto; column-gap: 28px; }
+  .haui-device-table { display: grid; grid-template-columns: minmax(200px, 1fr) repeat(3, max-content) auto; column-gap: 28px; overflow: hidden auto; overscroll-behavior: contain; scrollbar-width: thin; }
   /* Roomy inventory rows keep device details easy to scan without making the table feel bulky. */
   .haui-device-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; min-height: 56px; padding: 0 20px; border-top: 1px solid var(--divider-color); font-size: var(--haui-text-label); }
   .haui-device-row:not(.haui-device-row-head):hover { background: color-mix(in srgb, var(--primary-text-color) 4%, transparent); }
-  .haui-device-row-head { min-height: 32px; background: color-mix(in srgb, var(--secondary-background-color) 60%, transparent); color: var(--secondary-text-color); font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .075em; text-transform: uppercase; }
+  .haui-device-row-head { position: sticky; z-index: 1; top: 0; min-height: 32px; background: color-mix(in srgb, var(--secondary-background-color) 60%, var(--haui-card-background)); color: var(--secondary-text-color); font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .075em; text-transform: uppercase; }
   .haui-device-row-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .haui-device-row-identity > div { min-width: 0; }
   .haui-device-row-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -156,12 +157,14 @@ export const fleetStyles = css`
   .haui-device-row-version.is-mismatch { display: grid; justify-items: start; gap: 4px; white-space: normal; }
   .haui-device-row-version.is-mismatch > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-row-version .haui-device-row-mismatch { padding: 4px 4px; font-size: var(--haui-text-eyebrow); }
-  .haui-event-list { align-self: start; }
+  /* The event list follows the inventory: it has no height of its own (size containment), so it
+     stretches to the row the inventory sets and scrolls inside it. */
+  .haui-event-list { display: flex; min-height: 320px; flex-direction: column; contain: size; }
   /* A quiet text action beside the event-list heading. */
   .haui-event-list > header .haui-event-logs { min-height: 30px; margin-inline-end: -8px; padding: 0 8px; border: 0; border-radius: var(--haui-radius-pill); color: var(--primary-color); background: transparent; font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500); }
   .haui-event-list > header .haui-event-logs:hover:not(:disabled) { background: color-mix(in srgb, var(--primary-color) 8%, transparent); }
   /* The events as a timeline: a rail through the level dots, so the eye follows time down. */
-  .haui-event-list ol { display: grid; max-height: 480px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px 12px 8px; list-style: none; scrollbar-width: thin; }
+  .haui-event-list ol { display: grid; min-height: 0; flex: 1 1 auto; align-content: start; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px 12px 8px; list-style: none; scrollbar-width: thin; }
   .haui-event-list li { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: start; gap: 8px; padding: 8px 0; border-top: 0; }
   .haui-event-list li::before { content: ''; position: absolute; top: 0; bottom: 0; left: 9px; width: 1px; background: color-mix(in srgb, var(--primary-text-color) 12%, transparent); }
   .haui-event-list li:first-child::before { top: 18px; }
@@ -185,7 +188,8 @@ export const fleetStyles = css`
   .haui-device-sort .haui-sort-handle { background: var(--card-background-color); }
   @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 12px; } .haui-fleet-lead > span, .haui-fleet-inventory-heading { display: none; } }
   @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } }
-  @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } }
+  /* Stacked, the event list has no neighbour to follow and takes its own height again. */
+  @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } .haui-event-list { min-height: 0; contain: none; } .haui-event-list ol { max-height: 480px; } }
   @container haui-editor (max-width: 720px) {
     .haui-inventory-overview { padding: 16px 12px 12px; }
     .haui-inventory-bar { padding: 0 12px 12px; }

@@ -160,11 +160,11 @@ function panelsOverview({
             aria-label=${label} title=${label}
             ?disabled=${!role.panelKey || !onSelectPanel}
             @click=${role.panelKey && onSelectPanel ? () => onSelectPanel(role.panelKey) : null}>
-            <span class="haui-panels-overview-role-heading">
-              <span class=${`haui-panel-role haui-panels-overview-role-icon haui-panel-role-${role.key}`}>${icon(role.iconName)}</span>
+            <span class=${`haui-panel-role haui-panels-overview-role-icon haui-panel-role-${role.key}`}>${icon(role.iconName)}</span>
+            <span class="haui-panels-overview-role-text">
               <span class="haui-panels-overview-role-label">${role.label}</span>
+              <span class="haui-panels-overview-role-value">${role.value}</span>
             </span>
-            <span class="haui-panels-overview-role-value">${role.value}</span>
           </button>`;
         })}
       </div>

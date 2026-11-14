@@ -36,10 +36,11 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-info-facts dt { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-panel-info-facts dd { margin: 0; overflow-wrap: anywhere; color: var(--primary-text-color); font-size: var(--haui-text-body); font-weight: 500; }
   .haui-panel-info-key { font-family: var(--haui-mono); font-size: var(--haui-text-caption); font-weight: 400; }
-  /* A narrow card holds one fact per row. */
+  /* A narrow card holds one fact per row, and the two role tiles stack so their value keeps its room. */
   @container haui-panel-info (max-width: 360px) {
     .haui-panel-info-facts { grid-template-columns: max-content minmax(0, 1fr); }
     .haui-panel-info-facts > div:nth-child(2n) > dt { padding-inline-start: 0; }
+    .haui-panels-overview-roles { grid-template-columns: minmax(0, 1fr); }
   }
   /* The actions mirror the row's menu; Delete reads as the destructive one. */
   .haui-panel-info .haui-card-actions .haui-button { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
@@ -59,11 +60,11 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panels-overview-hints ha-icon { --mdc-icon-size: 15px; }
   /* Home and Idle are the two roles the device assigns to panels. */
   .haui-panels-overview-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
-  .haui-panels-overview-role-tile { display: grid; min-width: 0; align-content: start; gap: 8px; padding: 8px; border: 0; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: background 120ms ease; }
+  .haui-panels-overview-role-tile { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; min-width: 0; gap: 8px; padding: 8px; border: 0; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); color: inherit; font: inherit; text-align: start; cursor: pointer; transition: background 120ms ease; }
   .haui-panels-overview-role-tile:hover:not(:disabled) { background: var(--haui-surface-strong); }
   .haui-panels-overview-role-tile:disabled { cursor: not-allowed; opacity: .6; }
-  .haui-panels-overview-role-heading { display: flex; min-width: 0; align-items: center; gap: 8px; }
-  .haui-panels-overview-role-icon { width: 22px; height: 22px; flex: 0 0 auto; box-shadow: none; }
+  .haui-panels-overview-role-text { display: grid; min-width: 0; gap: 4px; }
+  .haui-panels-overview-role-icon { width: 22px; height: 22px; box-shadow: none; }
   .haui-panels-overview-role-label { overflow: hidden; color: var(--secondary-text-color); font-size: var(--haui-text-caption); text-overflow: ellipsis; white-space: nowrap; }
   .haui-panels-overview-role-value { color: var(--primary-text-color); font-size: var(--haui-text-label); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
   .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
@@ -158,7 +159,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-diag-tile { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 8px 12px; border: 0; border-radius: var(--haui-radius-control); color: var(--primary-text-color); background: var(--haui-surface-soft); font: inherit; text-align: start; }
   button.haui-diag-tile { cursor: pointer; }
   .haui-diag-tile-label { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
-  .haui-diag-tile-value { display: flex; align-items: flex-end; gap: 4px; font-size: var(--haui-text-title); font-weight: 500; }
+  .haui-diag-tile-value { display: flex; align-items: flex-end; gap: 4px; font-size: var(--haui-text-body); font-weight: 500; }
   .haui-diag-tile-value .haui-rssi-bars { margin-bottom: 4px; }
   .haui-diag-check { display: flex; align-items: flex-start; gap: 8px; color: var(--primary-text-color); font-size: var(--haui-text-body); cursor: pointer; }
   .haui-diag-check input { flex: 0 0 auto; width: 18px; height: 18px; margin: 4px 0 0; accent-color: var(--primary-color); cursor: pointer; }

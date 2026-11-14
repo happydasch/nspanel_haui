@@ -1,4 +1,6 @@
-"""Timer page: the countdown keeps updating after the panel is reopened."""
+"""Timer page: the countdown across a reopened panel, and a finished timer."""
+
+import pytest
 
 from custom_components.nspanel_haui.haui.page.timer import TimerPage
 
@@ -101,16 +103,23 @@ def test_stopped_timer_has_no_display_updates_after_reopen():
     assert page.app.active_intervals() == []
 
 
-def test_show_notification_default_matches_descriptor():
-    """The editor shows the descriptor default for panels without the key."""
-    (option,) = [o for o in TimerPage.DESCRIPTOR.options if o.key == "show_notification"]
+@pytest.mark.parametrize("show_notification", [False, True])
+def test_a_finished_timer_stops_and_notifies_only_when_asked_to(show_notification):
     page = _timer_page()
-    page.set_panel(_Panel())
+    panel = _Panel()
+    panel.get = lambda key, default=None: (
+        show_notification if key == "show_notification" else default
+    )
+    page.set_panel(panel)
     opened = []
     page.app.controller["navigation"] = type(
-        "Nav", (), {"open_panel": lambda s, key, **kw: opened.append(key)}
+        "Navigation", (), {"open_panel": lambda self, key, **kwargs: opened.append(kwargs)}
     )()
+    page.callback_function_component(TimerPage.COMPONENTS.btn_start.name, "start_timer")
 
     page.callback_timer_ended({})
 
-    assert bool(opened) is option.default
+    assert page.app.active_intervals() == []
+    assert [kwargs["notification"] for kwargs in opened] == (
+        ["Timer has finished."] if show_notification else []
+    )

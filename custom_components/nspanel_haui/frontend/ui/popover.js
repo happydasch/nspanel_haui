@@ -100,7 +100,7 @@ export function menuSeparator() {
 /**
  * Render an anchored popover. Placement happens after render through
  * `placeOpenPopovers`; `staticPlacement` keeps a surface that positions
- * itself with CSS (the firmware popover).
+ * itself with CSS (the notifications popover).
  *
  * @param {{ open: boolean, id: string, label: string, content: unknown, role?: string, className?: string, anchorKey?: string|null, align?: 'start'|'end', staticPlacement?: boolean }} options
  */

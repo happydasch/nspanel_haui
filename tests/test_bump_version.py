@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.verify_nextion.check_hmi_bump import read_tft_version
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 NEXTION = ROOT / "nextion"
@@ -212,10 +214,15 @@ def test_read_tft_version_follows_a_bump(hmi_copies):
     assert bump_tft.read_tft_version(landscape) == new_version
 
 
-def test_committed_tfts_carry_the_hmi_version():
-    """The dev release ships the committed TFTs under the HMIs' tftVersion."""
-    version = bump_tft.shipped_tft_version()
-    assert version == bump_tft.read_tft_version(NEXTION / "nspanel_haui.HMI")
+def test_committed_display_assets_carry_the_configured_tft_version():
+    """Both HMIs and both compiled TFTs carry the tft_version the firmware requires.
+
+    The release manifest advertises the TFTs under ``tft_version``; a TFT that
+    reports another version is offered again after every install.
+    """
+    version_yaml = ROOT / "esphome" / "nspanel_haui" / "version.yaml"
+    configured = read_tft_version(version_yaml.read_text(encoding="utf-8"))
+    assert bump_tft.shipped_tft_version() == configured
 
 
 def test_shipped_tft_version_rejects_disagreeing_hmis(hmi_copies):

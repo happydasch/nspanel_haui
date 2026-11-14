@@ -1,8 +1,9 @@
 /**
  * NSPanel HAUI - the Logs sidebar's body.
  *
- * The hub's recent log lines of one device, or of every device (Fleet), newest
- * first and grouped by day, with a level filter, a search and Copy. The sidebar
+ * The hub's recent log lines of every device or of the one its device selector
+ * names, newest first and grouped by day, with a level filter, a search and Copy.
+ * The same on Fleet and on a device, which only preselects itself. The sidebar
  * frame carries the title and the close control.
  */
 import { html, nothing } from '../lit-import.js';
@@ -10,34 +11,47 @@ import { HauiDialog } from './haui-dialog.js';
 import { logsStyles } from '../styles/logs-styles.js';
 import { currentLanguage, t } from '../localize.js';
 import { icon } from '../ui/icon.js';
-import { countBadge } from '../ui/badge.js';
 import { iconButton } from '../ui/button.js';
+import { segmented } from '../ui/segmented.js';
 import { parseEvent } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
 
 /**
- * @typedef {{ line: string, deviceName: string, timestamp: string, level: string,
- *   message: string, time: Date|null }} LogEntry
+ * @typedef {{ line: string, device: string, deviceName: string, timestamp: string,
+ *   level: string, message: string, time: Date|null }} LogEntry
  */
 
 /**
  * Parse the hub's lines, newest first.
- * @param {Array<string|{ line: string, deviceName?: string }>} logs - oldest first
+ * @param {Array<string|{ line: string, device?: string, deviceName?: string }>} logs - oldest
+ *   first; `device` is the device's node name, `deviceName` the name shown
  * @returns {LogEntry[]}
  */
 export function logEntries(logs) {
   return logs.map((entry) => {
-    const { line, deviceName = '' } = typeof entry === 'string' ? { line: entry } : entry;
+    const { line, device = '', deviceName = '' } = typeof entry === 'string' ? { line: entry } : entry;
     const parsed = parseEvent(line);
     const time = parsed.timestamp ? new Date(parsed.timestamp) : null;
     return {
       ...parsed,
       line,
+      device,
       deviceName,
       level: parsed.level === 'warn' ? 'warning' : parsed.level,
       time: time && !Number.isNaN(time.getTime()) ? time : null,
     };
   }).reverse();
+}
+
+/**
+ * The entries of the selected device, without its name on every line, or every
+ * device's with theirs.
+ * @param {LogEntry[]} entries
+ * @param {string} device - a device's node name, or '' for every device
+ */
+export function deviceLogEntries(entries, device) {
+  if (!device) return entries;
+  return entries.filter((entry) => entry.device === device).map((entry) => ({ ...entry, deviceName: '' }));
 }
 
 /**
@@ -83,8 +97,12 @@ class LogsSidebar extends HauiDialog {
 
   static get properties() {
     return {
-      // Hub log lines, oldest first, or `{ line, deviceName }` when several devices are listed.
+      // Every device's hub log lines, oldest first: `{ line, device, deviceName }`.
       logs: { type: Array },
+      // The devices to choose from: `{ name, label }`.
+      devices: { type: Array },
+      // The selected device's node name, or '' for every device.
+      device: { type: String },
       _level: { state: true },
       _query: { state: true },
     };
@@ -93,6 +111,8 @@ class LogsSidebar extends HauiDialog {
   constructor() {
     super();
     this.logs = [];
+    this.devices = [];
+    this.device = '';
     this._level = 'all';
     this._query = '';
   }
@@ -109,20 +129,39 @@ class LogsSidebar extends HauiDialog {
     this._query = '';
   }
 
+  /**
+   * An icon in front of the search; the native select lies invisibly over it,
+   * so the browser's own list opens. The icon and its tint change when one
+   * device is selected, and the title names it.
+   */
+  _renderDevices() {
+    const selected = this.devices.find((device) => device.name === this.device);
+    return html`<label class=${`haui-logs-device ${selected ? 'is-filtered' : ''}`.trim()}
+      title=${selected ? selected.label : t('All devices')}>
+      ${icon(selected ? 'screen' : 'devices')}
+      <select aria-label=${t('Device')} .value=${this.device}
+        @change=${(event) => this._emit('device-selected', { device: event.currentTarget.value })}>
+        <option value="" ?selected=${!this.device}>${t('All devices')}</option>
+        ${this.devices.map((device) => html`<option value=${device.name}
+          ?selected=${device.name === this.device}>${device.label}</option>`)}
+      </select>
+    </label>`;
+  }
+
   _renderFilter(entries) {
     const count = (level) => entries.filter((entry) => entry.level === level).length;
-    const options = [
-      { value: 'all', label: t('All'), count: entries.length, tone: 'neutral' },
-      { value: 'warning', label: t('Warnings'), count: count('warning'), tone: 'warning' },
-      { value: 'error', label: t('Errors'), count: count('error'), tone: 'danger' },
-    ];
-    return html`<div class="haui-logs-filter" role="group" aria-label=${t('Log level')}>
-      ${options.map((option) => html`<button type="button" aria-pressed=${String(this._level === option.value)}
-        @click=${() => { this._level = option.value; }}>
-        <span>${option.label}</span>
-        ${countBadge(option.count, { tone: option.count ? option.tone : 'neutral' })}
-      </button>`)}
-    </div>`;
+    const warnings = count('warning');
+    const errors = count('error');
+    return segmented({
+      label: t('Log level'),
+      value: this._level,
+      options: [
+        { value: 'all', label: t('All'), count: entries.length },
+        { value: 'warning', label: t('Warnings'), count: warnings, tone: warnings ? 'warning' : 'neutral' },
+        { value: 'error', label: t('Errors'), count: errors, tone: errors ? 'danger' : 'neutral' },
+      ],
+      onSelect: (level) => { this._level = level; },
+    });
   }
 
   /** @param {LogEntry} entry */
@@ -150,11 +189,12 @@ class LogsSidebar extends HauiDialog {
 
   render() {
     if (!this.open) return nothing;
-    const entries = logEntries(this.logs);
+    const entries = deviceLogEntries(logEntries(this.logs), this.device);
     const visible = filterLogEntries(entries, this._level, this._query);
     return html`<div class="haui-logs-tools">
         <div class="haui-logs-search-row">
-          <label class="haui-logs-search">
+          ${this._renderDevices()}
+          <label class="haui-search-field haui-logs-search">
             ${icon('search')}
             <input type="search" .value=${this._query} placeholder=${t('Search logs')}
               aria-label=${t('Search logs')}

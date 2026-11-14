@@ -68,10 +68,6 @@ export const entryStyles = css`
   .haui-entry-body { display: grid; gap: 12px; padding: 12px 12px 12px; }
   .haui-entry-body .haui-field { margin: 0; }
   .haui-entry-body .haui-field-hint { margin-top: 4px; }
-  /* Two fields side by side, one above the other in a narrow column. */
-  .haui-field-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 12px; }
-  /* Paired fields keep a one-line label height without leaving a large gap above inputs. */
-  .haui-field-pair > .haui-field > label { min-height: 1.3em; }
   /* Schedule: a boundary is its kind (time, sunrise, sunset) beside the time or offset. */
   .haui-schedule-boundary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
   /* Gestures: the swipes are numbered pills that wrap, then the select that adds one. */

@@ -54,5 +54,5 @@ The [Screens overview](../screens.html) shows every panel type, also in the port
 
 - Browse all [panel types](panels/README.md)
 - Copy ideas from the [example configurations](examples.md)
-- Set a home panel and a screensaver in **Device Settings → Special pages**
+- Set a home panel and a screensaver in **Device Settings → Home & idle**
 - Check the [FAQ](faq.md) if something is not working

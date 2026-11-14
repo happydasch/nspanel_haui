@@ -60,7 +60,7 @@ const DIAGNOSTICS_DEMO = {
     },
     formatEntityState: (stateObj) => (stateObj.state === 'sunny' ? 'Sunny' : 'Unavailable'),
   },
-  onSettings: noop, onFirmware: noop, onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
+  onSettings: noop, onUpdates: noop, onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
 };
 
 class UiPrimitivesPreview extends LitElement {
@@ -84,7 +84,7 @@ class UiPrimitivesPreview extends LitElement {
       <div class="gallery-grid">
         <section class="gallery-card"><h2>Icons and buttons</h2>
           <div class="gallery-row">${icon('home')}${button({ label: 'Primary', iconName: 'check', variant: 'primary' })}${button({ label: 'Quiet', variant: 'quiet' })}${backButton({ label: 'Back', onClick: () => {} })}${iconButton({ label: 'Close', iconName: 'close' })}${iconButton({ label: 'Disabled', iconName: 'more', disabled: true })}</div>
-          <div class="gallery-row">${button({ label: 'Saving', busy: true })}${button({ label: 'Unavailable', disabled: true })}</div>
+          <div class="gallery-row">${button({ label: 'Saving', busy: true })}${button({ label: 'Unavailable', disabled: true })}${button({ label: 'Schedule', iconName: 'clock', detail: '2 entries' })}</div>
         </section>
         <section class="gallery-card"><h2>Badges and connection</h2>
           <div class="gallery-row">${['neutral', 'primary', 'success', 'warning', 'danger'].map((tone) => badge(tone, tone))}</div>
@@ -96,7 +96,7 @@ class UiPrimitivesPreview extends LitElement {
           ${sectionHeading({ title: 'Section heading', subtitle: 'Optional subtitle', badge: countBadge(2) })}
         </section>
         <section class="gallery-card"><h2>Segmented control</h2>
-          ${segmented({ label: 'Workspace view', value: 'preview', options: [{ label: 'Preview', value: 'preview' }, { label: 'Panels', value: 'panels', count: 3 }, { label: 'Disabled', value: 'disabled', disabled: true }], onSelect() {} })}
+          ${segmented({ label: 'Workspace view', value: 'preview', options: [{ label: 'Preview', value: 'preview' }, { label: 'Panels', value: 'panels', count: 3 }, { label: 'Errors', value: 'errors', count: 2, tone: 'danger' }, { label: 'Disabled', value: 'disabled', disabled: true }], onSelect() {} })}
         </section>
         <section class="gallery-card"><h2>Sorting</h2>
           ${sortHandle({ label: 'Kitchen device', onMoveUp() {}, onMoveDown() {} })}

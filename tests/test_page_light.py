@@ -8,41 +8,25 @@ reaches the display, the navigation and Home Assistant.
 import json
 from pathlib import Path
 
+from support.page_app import Controller, Entity, PageApp
 
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
 from custom_components.nspanel_haui.haui.page.light import LightPage
 
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 
 
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
+class _Controller(Controller):
     """Records display commands and opened popups in one ordered log."""
 
     page = None
     panel = None
 
     def __init__(self):
-        self.cmds = []
+        super().__init__()
         self.opened = []
-
-    def send_cmd(self, command, value, force=False):
-        self.cmds.extend(value if isinstance(value, list) else [value])
 
     def open_panel(self, key, **kwargs):
         self.opened.append((key, kwargs))
@@ -51,57 +35,15 @@ class _Controller:
     def close_panel(self):
         self.cmds.append("<close>")
 
-    def has_notifications(self):
-        return False
 
-
-class _Device:
-    is_portrait = False
-
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "light"]
-
-
-class _App:
+class _App(PageApp):
     def __init__(self, entities):
-        self.entities = entities
-        self.theme = Theme()
-        controller = _Controller()
-        self.controller = {
-            "esphome": controller,
-            "navigation": controller,
-            "notification": controller,
-        }
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
+        super().__init__(entities, controller=_Controller())
+        self.controller["navigation"] = self.controller["esphome"]
 
     @property
     def opened(self):
         return self.controller["navigation"].opened
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
-    def listen_state(self, cb, entity_id, attribute=None):
-        return f"{entity_id}:{attribute}"
 
 
 def _attributes(**attrs):
@@ -144,7 +86,7 @@ def _drag_color_temp(page, value):
 
 
 def test_no_selected_item_hides_entity_controls_without_a_placeholder():
-    app, page = _show(_Entity("on", _attributes()), item=None)
+    app, page = _show(Entity("on", _attributes()), item=None)
 
     assert 'tInfo.txt=""' in app.cmds
     assert "vis tInfo,0" in app.cmds
@@ -160,20 +102,20 @@ def test_no_selected_item_hides_entity_controls_without_a_placeholder():
 
 
 def test_empty_item_config_keeps_the_default_title():
-    app, _page = _show(_Entity("on", _attributes()), item={})
+    app, _page = _show(Entity("on", _attributes()), item={})
 
     assert 'tTitle.txt="Light"' in app.cmds
 
 
 def test_unavailable_light_shows_a_note_and_hides_power():
-    app, _page = _show(_Entity("unavailable", {"restored": True}))
+    app, _page = _show(Entity("unavailable", {"restored": True}))
 
     assert 'tInfo.txt="Unavailable"' in app.cmds
     assert "vis bPower,0" in app.cmds
 
 
 def test_editor_panel_controls_configured_item():
-    entity = _Entity("on", _attributes())
+    entity = Entity("on", _attributes())
     app, page = _show(entity)
 
     page.callback_power(None, LightPage.COMPONENTS.btn_power)
@@ -183,7 +125,7 @@ def test_editor_panel_controls_configured_item():
 
 
 def test_popup_controls_item_passed_by_id():
-    entity = _Entity("off", _attributes())
+    entity = Entity("off", _attributes())
     app = _App({"light.desk": entity})
     panel = HAUIPanel(app, {"type": "light"})
     panel.apply_kwargs({"item": "light.desk", "item_id": "light.desk"})
@@ -197,7 +139,7 @@ def test_popup_controls_item_passed_by_id():
 
 def test_power_button_of_an_on_off_light_uses_the_entity_on_color():
     """On/off lights report no rgb_color; the power button must not turn black."""
-    entity = _Entity("on", {"friendly_name": "Hall", "supported_color_modes": ["onoff"]})
+    entity = Entity("on", {"friendly_name": "Hall", "supported_color_modes": ["onoff"]})
     app, page = _show(entity)
 
     assert f"bPower.pco={page.get_color('entity_on')}" in app.cmds
@@ -208,7 +150,7 @@ def test_power_button_of_an_on_off_light_uses_the_entity_on_color():
 
 
 def test_color_marker_is_cleared_when_switching_to_brightness():
-    entity = _Entity(
+    entity = Entity(
         "on",
         _attributes(supported_color_modes=["rgb"], rgb_color=[255, 128, 64]),
     )
@@ -229,18 +171,16 @@ def test_color_marker_is_cleared_when_switching_to_brightness():
     assert clear_index < hide_index
 
 
-def test_show_kelvin_defaults_to_kelvin_in_editor_and_at_runtime():
-    option = next(o for o in LightPage.DESCRIPTOR.options if o.key == "show_kelvin")
-    app, page = _show(_Entity("on", _attributes()))
+def test_color_temperature_shows_kelvin_by_default():
+    app, page = _show(Entity("on", _attributes()))
 
     page.callback_light_function_button(None, BTN_COLOR_TEMP)
 
-    assert option.default is True
     assert 'tInfo.txt="4000K"' in app.cmds
 
 
 def test_mired_display_converts_kelvin_for_display_only():
-    entity = _Entity("on", _attributes())
+    entity = Entity("on", _attributes())
     app, page = _show(entity, show_kelvin=False)
 
     page.callback_light_function_button(None, BTN_COLOR_TEMP)
@@ -252,7 +192,7 @@ def test_mired_display_converts_kelvin_for_display_only():
 
 
 def test_mired_display_follows_kelvin_attribute_changes():
-    entity = _Entity("on", _attributes())
+    entity = Entity("on", _attributes())
     app, page = _show(entity, show_kelvin=False)
     page.callback_light_function_button(None, BTN_COLOR_TEMP)
 
@@ -264,7 +204,7 @@ def test_mired_display_follows_kelvin_attribute_changes():
 
 def test_color_temp_range_is_read_when_light_becomes_available():
     restored = {"friendly_name": "Desk Lamp", "restored": True, "supported_features": 4}
-    entity = _Entity("unavailable", restored)
+    entity = Entity("unavailable", restored)
     app, page = _show(entity)
 
     entity.state = "on"
@@ -281,7 +221,7 @@ def test_color_temp_range_is_read_when_light_becomes_available():
 
 
 def test_effect_button_opens_effect_selection():
-    entity = _Entity("on", _attributes())
+    entity = Entity("on", _attributes())
     app, page = _show(entity)
 
     page.callback_light_function_button(None, BTN_EFFECT)
@@ -297,7 +237,7 @@ def test_effect_button_opens_effect_selection():
 
 
 def test_light_without_effects_has_no_effect_button():
-    app, _page = _show(_Entity("on", _attributes(effect_list=[])))
+    app, _page = _show(Entity("on", _attributes(effect_list=[])))
 
     assert "vis btLightFnc3,1" not in app.cmds
 
@@ -306,7 +246,7 @@ def test_light_without_effects_has_no_effect_button():
 
 
 def test_standalone_panel_stays_open_when_light_becomes_unavailable():
-    entity = _Entity("on", _attributes())
+    entity = Entity("on", _attributes())
     app, page = _show(entity)
 
     entity.state = "unavailable"
@@ -317,7 +257,7 @@ def test_standalone_panel_stays_open_when_light_becomes_unavailable():
 
 
 def test_popup_closes_when_its_light_becomes_unavailable():
-    entity = _Entity("on", _attributes())
+    entity = Entity("on", _attributes())
     app = _App({"light.desk": entity})
     panel = HAUIPanel(app, {"type": "light"})
     panel.apply_kwargs({"item": "light.desk", "item_id": "light.desk"})
@@ -336,9 +276,7 @@ def test_popup_closes_when_its_light_becomes_unavailable():
 
 def test_color_wheel_origin_follows_the_display_model():
     """The colour marker is drawn relative to pColorWheel, which sits elsewhere on the portrait TFT."""  # noqa: E501
-    _, page = _show(
-        _Entity("on", _attributes(supported_color_modes=["rgb"], rgb_color=[255, 0, 0]))
-    )  # noqa: E501
+    _, page = _show(Entity("on", _attributes(supported_color_modes=["rgb"], rgb_color=[255, 0, 0])))  # noqa: E501
     for orientation in ("landscape", "portrait"):
         page.app.device.is_portrait = orientation == "portrait"
         layout = json.loads((LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))

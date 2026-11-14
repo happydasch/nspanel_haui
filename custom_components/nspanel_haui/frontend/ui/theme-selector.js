@@ -3,16 +3,30 @@ import { html, nothing } from '../lit-import.js';
 import { rgb565ToHex } from '../color-utils.js';
 import { t } from '../localize.js';
 import { button, iconButton } from './button.js';
+import { icon } from './icon.js';
 
-/** The colors the selector's palette chip shows, in order. */
-const SWATCHES = ['background', 'header_background', 'component_active', 'entity_on'];
+/** Theme colors a tile's miniature panel draws with: [CSS property, theme color key]. */
+const THUMB_COLORS = [
+  ['--vp-theme-thumb-header', 'header_background'],
+  ['--vp-theme-thumb-header-text', 'header_text'],
+  ['--vp-theme-thumb-background', 'background'],
+  ['--vp-theme-thumb-component', 'component_background'],
+  ['--vp-theme-thumb-active', 'component_active'],
+  ['--vp-theme-thumb-entity', 'entity_on'],
+];
+
+/** @param {Record<string, number>} colors */
+function thumbStyle(colors) {
+  return THUMB_COLORS.map(([prop, key]) => `${prop}:${rgb565ToHex(colors[key])}`).join(';');
+}
 
 /**
- * One selector for the whole theme library: predefined and custom themes in a
- * single dropdown with the selected palette's chip inside it, named by `label`
- * for assistive technology only (the sidebar shows no visible label), and the
- * library controls (new theme, export selected, import, plus the selected
- * theme's own actions) in one row underneath. Used by the Theme sidebar.
+ * One selector for the whole theme library: predefined and custom themes as
+ * tiles in one radio group, each with a miniature panel in its colors, named
+ * by `label` for assistive technology only (the sidebar shows no visible
+ * label), and the library controls (new theme, export selected, import, plus
+ * the selected theme's own actions) in one row underneath. Used by the Theme
+ * sidebar.
  *
  * @param {{
  *   builtins?: Record<string, any>,
@@ -54,7 +68,6 @@ export function themeSelector({
   onCancelName,
 }) {
   const customIds = Object.keys(custom);
-  const selected = custom[selectedId] || builtins[selectedId];
   /* The file input sits in the action row, so Import opens the picker next to it. */
   const openFilePicker = (event) => {
     event.currentTarget
@@ -62,31 +75,47 @@ export function themeSelector({
       ?.querySelector("input[type=file]")
       ?.click();
   };
+  const tile = (id, name, theme) => {
+    const selected = id === selectedId;
+    return html`
+      <label class="haui-theme-option ${selected ? "is-selected" : ""}">
+        <input
+          type="radio"
+          name="haui-theme"
+          .value=${id}
+          .checked=${selected}
+          @change=${() => onSelect(id)}
+        />
+        <span class="haui-theme-option-thumb" style=${thumbStyle(theme.colors)} aria-hidden="true">
+          <span class="haui-theme-option-thumb-header"><i></i></span>
+          <span class="haui-theme-option-thumb-body">
+            <i class="haui-theme-option-thumb-pill"></i>
+            <i class="haui-theme-option-thumb-pill is-active"></i>
+            <i class="haui-theme-option-thumb-dot"></i>
+          </span>
+        </span>
+        <span class="haui-theme-option-name">
+          <span>${name}</span>
+          ${selected ? icon("check", "haui-theme-option-check") : nothing}
+        </span>
+      </label>
+    `;
+  };
   return html`
     <div class="haui-theme-selector">
-      <div class="haui-theme-selector-field">
-        ${selected
-          ? html`<span class="haui-theme-selector-chip" aria-hidden="true">
-              ${SWATCHES.map((key) => html`<i style="--haui-theme-swatch-color:${rgb565ToHex(selected.colors[key])}"></i>`)}
-            </span>`
+      <div class="haui-theme-picker" role="radiogroup" aria-label=${label}>
+        <p class="haui-eyebrow haui-theme-picker-heading">${t("Predefined themes")}</p>
+        <div class="haui-theme-picker-grid">
+          ${Object.keys(builtins).map((id) => tile(id, builtinLabel(id), builtins[id]))}
+        </div>
+        ${customIds.length
+          ? html`
+              <p class="haui-eyebrow haui-theme-picker-heading">${t("Custom themes")}</p>
+              <div class="haui-theme-picker-grid">
+                ${customIds.map((id) => tile(id, custom[id].name, custom[id]))}
+              </div>
+            `
           : nothing}
-        <select
-          class="haui-select"
-          aria-label=${label}
-          .value=${selectedId}
-          @change=${(event) => onSelect(event.target.value)}
-        >
-          <optgroup label=${t("Predefined themes")}>
-            ${Object.keys(builtins).map((id) => html`
-              <option value=${id} ?selected=${id === selectedId}>${builtinLabel(id)}</option>`)}
-          </optgroup>
-          ${customIds.length
-            ? html`<optgroup label=${t("Custom themes")}>
-                ${customIds.map((id) => html`
-                  <option value=${id} ?selected=${id === selectedId}>${custom[id].name}</option>`)}
-              </optgroup>`
-            : nothing}
-        </select>
       </div>
       <div class="haui-theme-selector-actions">
         ${button({ label: t("New"), variant: "quiet", onClick: onNew, className: "haui-theme-selector-action" })}

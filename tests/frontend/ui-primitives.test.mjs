@@ -30,6 +30,14 @@ test('button primitives expose native disabled and accessible icon-only behavior
   assert.equal(close.disabled, true);
 });
 
+test('a button detail is shown after the label and is part of its name', () => {
+  const root = render(button({ label: 'Schedule', iconName: 'clock', detail: '2 entries' }));
+  const schedule = byRole(root, 'button', { name: 'Schedule 2 entries' });
+  assert.ok(schedule);
+  assert.ok(byText(schedule, '2 entries'));
+  assert.equal(byRole(render(button({ label: 'Save' })), 'button', { name: 'Save' }).textContent.trim(), 'Save');
+});
+
 test('badges and status dots preserve visible status and accessible names', () => {
   const root = render([badge('Update available', 'warning'), statusDot('offline', 'Disconnected')]);
   assert.ok(byText(root, 'Update available'));
@@ -69,6 +77,18 @@ test('segmented controls report selection and invoke the chosen option', () => {
   assert.equal(preview.getAttribute('aria-pressed'), 'false');
   preview.dispatchEvent(new Event('click', { bubbles: true }));
   assert.deepEqual(selected, ['preview']);
+});
+
+test('a segment count takes its option tone, neutral without one', () => {
+  const root = render(segmented({
+    label: 'Log level',
+    value: 'all',
+    options: [{ label: 'All', value: 'all', count: 4 }, { label: 'Errors', value: 'error', count: 2, tone: 'danger' }],
+  }));
+  const [all, errors] = root.querySelectorAll('.haui-badge-count');
+  assert.ok(all.classList.contains('haui-badge-neutral'));
+  assert.ok(errors.classList.contains('haui-badge-danger'));
+  assert.equal(errors.textContent, '2');
 });
 
 test('empty states and menu items expose their content and semantic roles', () => {

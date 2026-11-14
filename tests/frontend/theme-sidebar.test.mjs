@@ -16,7 +16,7 @@ const DIALOGS = [
   'nspanel-panel-editor',
   'nspanel-dialog-confirm',
   'nspanel-device-settings',
-  'nspanel-firmware-popover',
+  'nspanel-updates-sidebar',
   'nspanel-logs-sidebar',
   'nspanel-theme-sidebar',
 ];

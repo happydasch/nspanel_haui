@@ -1,7 +1,16 @@
-"""Tests for haui/mapping/color.py — COLORS dict, Theme, parse_color_value."""
+"""Tests for the colour tables, ``Theme``, colour parsing, palettes and item icon colours."""
 
 from __future__ import annotations
 
+import logging
+import random
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
+from custom_components.nspanel_haui.haui.config_models import validate_device_config
 from custom_components.nspanel_haui.haui.mapping.background import (
     BACKGROUND_VARIANTS,
     BACKGROUNDS,
@@ -18,7 +27,12 @@ from custom_components.nspanel_haui.haui.mapping.color import (
     WEATHER_COLORS_LIGHT,
     Theme,
 )
-from custom_components.nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb
+from custom_components.nspanel_haui.haui.utils.color import (
+    generate_color_palette,
+    parse_color_value,
+    rgb565_to_rgb,
+)
+from custom_components.nspanel_haui.haui.utils.item import get_item_color
 
 
 def test_backgrounds_have_an_explicit_contrast_variant() -> None:
@@ -151,8 +165,6 @@ class TestTheme:
     def test_custom_themes_are_validated_as_complete_rgb565_palettes(self) -> None:
         from copy import deepcopy
 
-        import pytest
-
         from custom_components.nspanel_haui.haui.mapping.color import (
             BUILTIN_THEMES,
             validate_themes,
@@ -210,49 +222,47 @@ class TestTheme:
 # ============================================================================
 
 
-class TestParseColorValue:
-    def test_returns_int_directly(self) -> None:
-        assert parse_color_value(65535) == 65535
-        assert parse_color_value(0) == 0
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (65535, 65535),
+        ([255, 255, 255], 65535),
+        ((255, 255, 255), 65535),
+        ("#FFFFFF", 65535),
+        ("#ffffff", 65535),
+        ("65535", 65535),
+    ],
+)
+def test_parse_color_value_reads_ints_rgb_triples_and_hex(value: Any, expected: int) -> None:
+    assert parse_color_value(value) == expected
 
-    def test_rgb_list(self) -> None:
-        # [255, 255, 255] -> rgb565
-        assert parse_color_value([255, 255, 255]) == 65535
 
-    def test_rgb_tuple(self) -> None:
-        assert parse_color_value((255, 255, 255)) == 65535
+# "[74,165,238]" is the pre-editor string format, which is no longer supported.
+@pytest.mark.parametrize("value", ["not-a-color", "#12345", "[74,165,238]", "", "  ", None])
+def test_an_invalid_color_is_black_and_reported(
+    value: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert parse_color_value(value) == 0
 
-    def test_hex_string(self) -> None:
-        assert parse_color_value("#FFFFFF") == 65535
-        assert parse_color_value("#000000") == 0
+    assert [r.levelno for r in caplog.records] == [logging.WARNING]
+    assert repr(value) in caplog.records[0].getMessage()
 
-    def test_hex_string_lowercase(self) -> None:
-        assert parse_color_value("#ffffff") == 65535
 
-    def test_int_string(self) -> None:
-        assert parse_color_value("65535") == 65535
-        assert parse_color_value("0") == 0
+@pytest.mark.parametrize("value", [0, "0", "#000000", (0, 0, 0)])
+def test_valid_black_is_not_reported(value: Any, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert parse_color_value(value) == 0
 
-    def test_empty_string_returns_zero(self) -> None:
-        assert parse_color_value("") == 0
-        assert parse_color_value("  ") == 0
+    assert caplog.records == []
 
-    def test_invalid_string_returns_zero(self) -> None:
-        assert parse_color_value("not-a-color") == 0
-        # the pre-editor "[r,g,b]" string format is no longer supported
-        assert parse_color_value("[74,165,238]") == 0
 
-    def test_none_value_returns_zero(self) -> None:
-        # parse_color_value doesn't accept None in its type hint, but we handle it
-        assert parse_color_value(None) == 0  # type: ignore[arg-type]
+def test_hex_roundtrip() -> None:
+    """Parsing rgb565 -> hex -> color -> rgb565 is idempotent."""
+    original = 55002  # a mid-range color
+    r, g, b = rgb565_to_rgb(original)
 
-    def test_hex_roundtrip(self) -> None:
-        """Parsing rgb565 -> hex -> color -> rgb565 is idempotent."""
-        original = 55002  # a mid-range color
-        r, g, b = rgb565_to_rgb(original)
-        hex_str = f"#{r:02x}{g:02x}{b:02x}"
-        result = parse_color_value(hex_str)
-        assert result == original
+    assert parse_color_value(f"#{r:02x}{g:02x}{b:02x}") == original
 
 
 # ============================================================================
@@ -260,18 +270,82 @@ class TestParseColorValue:
 # ============================================================================
 
 
-class TestThemeVariantValidation:
-    def test_theme_variant_defaults_to_dark_and_accepts_light(self) -> None:
-        from custom_components.nspanel_haui.haui.config_models import validate_device_config
+def test_theme_variant_defaults_to_dark_and_accepts_light() -> None:
+    assert validate_device_config({}).theme_variant == "dark"
+    assert validate_device_config({"theme_variant": "light"}).theme_variant == "light"
 
-        assert validate_device_config({}).theme_variant == "dark"
-        assert validate_device_config({"theme_variant": "light"}).theme_variant == "light"
 
-    def test_invalid_theme_variant_is_rejected(self) -> None:
-        import pytest
-        from pydantic import ValidationError
+def test_invalid_theme_variant_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        validate_device_config({"theme_variant": "sepia"})
 
-        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
-        with pytest.raises(ValidationError):
-            validate_device_config({"theme_variant": "sepia"})
+# ============================================================================
+# generated palettes
+# ============================================================================
+
+
+def test_palette_generation_leaves_global_rng_alone() -> None:
+    random.seed(42)
+    expected = random.random()
+
+    random.seed(42)
+    generate_color_palette((10, 20, 30), "vibrant", seed=5)
+    generate_color_palette((10, 20, 30), "pastel")
+
+    assert random.random() == expected
+
+
+def test_palette_is_reproducible_for_a_seed() -> None:
+    first = generate_color_palette((10, 20, 30), "vibrant", seed=938)
+    second = generate_color_palette((10, 20, 30), "vibrant", seed=938)
+
+    assert first == second
+
+
+# ============================================================================
+# item icon colours
+# ============================================================================
+
+
+class _Item:
+    def __init__(self, domain: str, state: str, variant: str) -> None:
+        self.app = SimpleNamespace(theme=Theme(variant))
+        self._entity = SimpleNamespace(attributes={})
+        self._domain = domain
+        self._state = state
+
+    def has_item(self) -> bool:
+        return True
+
+    def get_item(self) -> SimpleNamespace:
+        return self._entity
+
+    def get_item_type(self) -> str:
+        return self._domain
+
+    def get_item_state(self) -> str:
+        return self._state
+
+    def get_icon_color(self, domain: str, key: str, variant: str | None = None) -> int | None:
+        return self.app.theme.get_icon_color(domain, key, variant)
+
+
+@pytest.mark.parametrize(
+    ("domain", "state", "light_color"),
+    [
+        ("weather", "sunny", 39840),
+        ("climate", "heat", 47521),
+        ("alarm_control_panel", "armed_home", 49477),
+    ],
+)
+def test_domain_icon_colors_follow_light_variant(domain: str, state: str, light_color: int) -> None:
+    item = _Item(domain, state, "light")
+
+    assert get_item_color(item, default_color=123) == light_color
+
+
+def test_panel_background_hint_does_not_override_selected_theme_variant() -> None:
+    item = _Item("weather", "sunny", "light")
+
+    assert get_item_color(item, default_color=123, icon_variant="dark") == 65504

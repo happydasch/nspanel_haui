@@ -152,7 +152,7 @@ function renderItemOption(host, opt, val, feedback = {}) {
   return html`
     <div class="haui-field" id="fld-${opt.key}">
       <label title=${desc}>${opt.label || ""}</label>
-      ${desc ? html`<div class="haui-field-hint">${desc}</div>` : ""}
+      ${desc ? html`<div class="haui-field-hint is-persistent">${desc}</div>` : ""}
       ${fieldMessage(`fld-${opt.key}`, feedback)}
 
       ${isEditing

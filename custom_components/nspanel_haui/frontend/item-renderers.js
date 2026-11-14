@@ -180,7 +180,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
   return html`
     <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
-      ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
+      ${opt.description ? html`<div class="haui-field-hint is-persistent">${opt.description}</div>` : ""}
 
       <div class="haui-item-list">
         ${list.map((val, i) => {
@@ -276,7 +276,7 @@ export function renderItemListField(host, opt, currentValue, feedback = {}) {
   return html`
     <div class="haui-field" id=${id}>
       <label title=${opt.description}>${opt.label}</label>
-      ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
+      ${opt.description ? html`<div class="haui-field-hint is-persistent">${opt.description}</div>` : ""}
       ${fieldMessage(id, feedback)}
 
       <div class="haui-item-list">

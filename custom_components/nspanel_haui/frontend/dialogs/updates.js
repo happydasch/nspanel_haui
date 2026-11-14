@@ -108,16 +108,16 @@ export function updateSummary(update) {
 
 /** One row of the version list: what is installed, and what the release has for it. */
 function versionRow({ iconName, label, version, note, offered, skipped = false, disabled, onInstall }) {
-  return html`<div class="haui-firmware-row">
+  return html`<div class="haui-update-version">
     <dt>
-      <span class="haui-firmware-row-icon">${icon(iconName)}</span>
-      <span class="haui-firmware-row-name">${label}${offered
+      <span class="haui-update-version-icon">${icon(iconName)}</span>
+      <span class="haui-update-version-name">${label}${offered
         ? badge(t('Update available'), 'warning') : nothing}${skipped
         ? html`<span title=${t('Skipped: it installs only by hand.')}>${badge(t('Skipped'), 'neutral')}</span>`
         : nothing}${note ? html`<small>${note}</small>` : nothing}</span>
     </dt>
     <dd>
-      <span class="haui-firmware-row-version">${versionLabel(version)}</span>
+      <span class="haui-update-version-number">${versionLabel(version)}</span>
       ${onInstall ? html`<ha-button
         size="s"
         appearance=${offered ? 'outlined' : 'plain'}
@@ -175,7 +175,7 @@ function secondsSelect(host, { id, key, settings, choices, label }) {
     (next) => setSetting(host, key, Number(next)));
 }
 
-class FirmwarePopover extends HauiDialog {
+class UpdatesSidebar extends HauiDialog {
   static get properties() {
     return {
       deviceStatus: { type: Object },
@@ -185,7 +185,7 @@ class FirmwarePopover extends HauiDialog {
       config: { type: Object },
       _settingsDraft: { type: Object, state: true },
       _picker: { type: Object, state: true },
-      _popoverError: { type: String, state: true },
+      _checkError: { type: String, state: true },
       _actionBusy: { type: Boolean, state: true },
     };
   }
@@ -201,7 +201,7 @@ class FirmwarePopover extends HauiDialog {
     this._settingsDevice = null;
     this._settingsSaveTimer = null;
     this._picker = null;
-    this._popoverError = null;
+    this._checkError = null;
     this._actionBusy = false;
   }
 
@@ -258,12 +258,12 @@ class FirmwarePopover extends HauiDialog {
   async _checkForUpdates() {
     if (!this.deviceName || !this.entryId || this._actionBusy) return;
     this._actionBusy = true;
-    this._popoverError = null;
+    this._checkError = null;
     try {
       await this.api.updates.check(this.entryId, this.deviceName);
       this._emit('update-check');
     } catch (error) {
-      this._popoverError = error.message || t('Failed to check for updates');
+      this._checkError = error.message || t('Failed to check for updates');
     } finally {
       this._actionBusy = false;
     }
@@ -392,9 +392,9 @@ class FirmwarePopover extends HauiDialog {
             (value) => this._updatePicker({ choice: value, file: null, error: '' }),
             { disabled: uploading },
           )}
-          ${releases === null ? html`<div class="haui-field-hint">${t('Loading releases…')}</div>` : ''}
+          ${releases === null ? html`<div class="haui-field-hint is-persistent">${t('Loading releases…')}</div>` : ''}
           ${releasesError
-            ? html`<div class="haui-field-hint">${t('Releases unavailable: {error}').replace('{error}', releasesError)}</div>`
+            ? html`<div class="haui-field-hint is-persistent">${t('Releases unavailable: {error}').replace('{error}', releasesError)}</div>`
             : ''}
         </div>
         ${choice === 'url' ? html`
@@ -452,32 +452,27 @@ class FirmwarePopover extends HauiDialog {
 
   /* ── the sidebar's cards ──────────────────────────────────────────── */
 
-  /** The lead card: what the device's updates are doing, and the check action. */
-  _renderStatus(summary, updatesEnabled) {
-    return html`<section class=${`haui-firmware-hero haui-firmware-status-${summary.tone}`}>
-      <div class="haui-firmware-hero-body" role="status">
-        <span class="haui-firmware-status-icon">${icon(summary.iconName)}</span>
-        <div class="haui-firmware-hero-copy">
+  /** The compact status line above the installed versions. */
+  _renderStatus(summary) {
+    return html`<div class="haui-update-summary">
+      <div class=${`haui-update-summary-status haui-update-status-${summary.tone}`} role="status">
+        <span class="haui-update-status-icon">${icon(summary.iconName)}</span>
+        <div class="haui-update-summary-copy">
           <strong>${summary.title}</strong>
           ${summary.detail ? html`<p>${summary.detail}</p>` : nothing}
         </div>
       </div>
-      ${updatesEnabled ? button({
-        label: this._actionBusy ? t('Checking…') : t('Check for updates'),
-        iconName: 'refresh', variant: 'quiet', className: 'haui-firmware-hero-action',
-        busy: this._actionBusy, onClick: this._checkForUpdates,
-      }) : nothing}
-    </section>`;
+    </div>`;
   }
 
   /** The installed versions, one row each, with what the release offers. */
   _renderVersions({ status, info, update, requiredTft, updatesEnabled, installDisabled }) {
-    return html`<dl class="haui-surface haui-firmware-versions">
+    return html`<dl class="haui-update-versions">
       ${versionRow({
         iconName: 'info', label: t('Integration'), version: status.integration_version,
       })}
       ${versionRow({
-        iconName: 'chip', label: t('Firmware'), version: info.yaml_version,
+        iconName: 'chip', label: t('Firmware (YAML)'), version: info.yaml_version,
         note: update.firmware_update_version
           ? t('Latest release: {version}').replace('{version}', update.firmware_update_version) : '',
         offered: update.firmware_update_available,
@@ -498,23 +493,27 @@ class FirmwarePopover extends HauiDialog {
     </dl>`;
   }
 
-  /** The master switch, on its own strip under the card's heading. */
-  _renderMaster(settings) {
-    return html`<div class="haui-update-master">
-      <div class="haui-update-row-copy">
-        <label class="haui-update-row-label" for="update-enabled">${t('Enable updates')}</label>
-        <p class="haui-update-row-hint">${t('When off, checks, update entities, and manual firmware/display installs are disabled. An update already in progress will finish.')}</p>
-      </div>
-      ${renderToggle('update-enabled', Boolean(settingValue(settings, 'enabled')),
-        (checked) => setSetting(this, 'enabled', checked))}
-    </div>`;
+  /** The check action sits after the installed version rows. */
+  _renderCheckAction(updatesEnabled) {
+    return updatesEnabled ? html`<div class="haui-update-check-action">
+      <ha-button
+        size="s"
+        appearance="plain"
+        ?disabled=${this._actionBusy}
+        aria-busy=${this._actionBusy ? 'true' : nothing}
+        @click=${this._checkForUpdates}
+      >
+        <ha-icon slot="start" icon="mdi:refresh"></ha-icon>
+        ${this._actionBusy ? t('Checking…') : t('Check for updates')}
+      </ha-button>
+    </div>` : nothing;
   }
 
-  /** What an update needs decided: where versions come from, how often to look, what to do with a find. */
+  /** What an update needs decided: where versions come from, what to do with a find, how often to look. */
   _renderDecisions(settings) {
     const automatic = Boolean(settingValue(settings, 'firmware_auto_update'));
     return html`<section class="haui-update-group">
-      <div class="haui-update-field">
+      <div class="haui-update-choice">
         <span class="haui-update-row-label">${t('Update channel')}</span>
         ${segmented({
           label: t('Update channel'),
@@ -528,6 +527,18 @@ class FirmwarePopover extends HauiDialog {
           ? t('The custom manifest URL under Advanced overrides the channel for firmware.')
           : t('Stable releases, or published development builds, for firmware and display.')}</p>
       </div>
+      <div class="haui-update-choice">
+        <span class="haui-update-row-label">${t('When a new version is found')}</span>
+        ${segmented({
+          label: t('When a new version is found'),
+          options: [{ value: false, label: t('Manual') }, { value: true, label: t('Auto') }],
+          value: automatic,
+          onSelect: (value) => setSetting(this, 'firmware_auto_update', value),
+        })}
+        <p class="haui-update-row-hint">${automatic
+          ? t('A newer firmware installs by itself; the display file it needs follows after the restart.')
+          : t('A newer firmware waits until you press Install.')}</p>
+      </div>
       ${renderField({
         id: 'update-interval',
         label: t('Check for a new version'),
@@ -537,18 +548,6 @@ class FirmwarePopover extends HauiDialog {
           choices: UPDATE_INTERVAL_CHOICES, label: updateIntervalLabel,
         }),
       })}
-      <div class="haui-update-field">
-        <span class="haui-update-row-label">${t('When a new version is found')}</span>
-        ${segmented({
-          label: t('When a new version is found'),
-          options: [{ value: false, label: t('Wait for me') }, { value: true, label: t('Install automatically') }],
-          value: automatic,
-          onSelect: (value) => setSetting(this, 'firmware_auto_update', value),
-        })}
-        <p class="haui-update-row-hint">${automatic
-          ? t('A newer firmware installs by itself; the display file it needs follows after the restart.')
-          : t('A newer firmware waits until you press Install.')}</p>
-      </div>
     </section>`;
   }
 
@@ -659,14 +658,15 @@ class FirmwarePopover extends HauiDialog {
   _renderSettings() {
     if (!this.config) return nothing;
     const settings = this._settingsDraft || this.config.update || {};
-    return html`<section class="haui-surface haui-firmware-settings" aria-label=${t('Update settings')}>
+    return html`<section class="haui-surface haui-update-settings" aria-label=${t('Update settings')}>
       ${sectionHeading({
         title: t('Update settings'),
         subtitle: t('How this device finds and installs updates.'),
-        leading: html`<span class="haui-firmware-settings-icon">${icon('tune-variant')}</span>`,
+        leading: html`<span class="haui-update-settings-icon">${icon('tune-variant')}</span>`,
+        actions: renderToggle('update-enabled', Boolean(settingValue(settings, 'enabled')),
+          (checked) => setSetting(this, 'enabled', checked), { label: t('Enable updates') }),
         className: 'haui-update-header',
       })}
-      ${this._renderMaster(settings)}
       ${settingValue(settings, 'enabled')
         ? html`${this._renderDecisions(settings)}${this._renderAdvanced(settings)}`
         : html`<p class="haui-update-off-note">${t('Updates are disabled for this device.')}</p>`}
@@ -677,28 +677,31 @@ class FirmwarePopover extends HauiDialog {
     if (!this.open) return '';
     const status = this.deviceStatus;
     if (!status) {
-      return html`<div class="haui-firmware-sidebar">${this._renderSettings()}</div>`;
+      return html`<div class="haui-update-sidebar">${this._renderSettings()}</div>`;
     }
     const info = status.device_info || {};
     const update = status.update || {};
     const requiredTft = info.tft_required_version;
     const updatesEnabled = update.enabled !== false;
     const installing = update.firmware_installing || update.state === 'checking' || update.state === 'installing';
-    return html`<div class="haui-firmware-sidebar">
-      ${this._renderStatus(updateSummary(update), updatesEnabled)}
+    return html`<div class="haui-update-sidebar">
+      <section class="haui-surface haui-update-overview">
+        ${this._renderStatus(updateSummary(update))}
+        ${this._renderVersions({
+          status, info, update, requiredTft, updatesEnabled,
+          installDisabled: installing || this._actionBusy,
+        })}
+        ${this._renderCheckAction(updatesEnabled)}
+      </section>
       ${this._renderScheduled(update)}
       ${updateProgress({ progress: update.firmware_progress, label: t('Firmware update') })}
       ${updateProgress({ progress: update.tft_progress, label: t('Display update') })}
       ${this._renderRetry(update)}
-      ${this._renderVersions({
-        status, info, update, requiredTft, updatesEnabled,
-        installDisabled: installing || this._actionBusy,
-      })}
-      ${this._popoverError ? html`<p class="haui-update-error">${this._popoverError}</p>` : nothing}
+      ${this._checkError ? html`<p class="haui-update-error">${this._checkError}</p>` : nothing}
       ${this._renderSettings()}
       ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : nothing}
     </div>`;
   }
 }
 
-customElements.define('nspanel-firmware-popover', FirmwarePopover);
+customElements.define('nspanel-updates-sidebar', UpdatesSidebar);

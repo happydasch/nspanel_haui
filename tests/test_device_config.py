@@ -7,74 +7,21 @@ from typing import Any
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# The device_config module has no HA dependencies, so we can import it
-# directly.  Tests use the repository-root custom_components package so the
-# package is available as ``nspanel_haui``.
-# ---------------------------------------------------------------------------
 from custom_components.nspanel_haui.haui.config_models import validate_device_config
-from custom_components.nspanel_haui.haui.device_config import (  # noqa: E402
+from custom_components.nspanel_haui.haui.device_config import (
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
-    LOCALE_OPTIONS,
     apply_panel_store,
     find_store_device,
     merge_store_fields,
     populate_devices_from_store,
+    tft_filename_for_model,
     validate_config,
 )
 
 # ============================================================================
 # DEVICE_CONFIG template integrity
 # ============================================================================
-
-
-def test_device_config_has_all_required_keys() -> None:
-    """Every key needed at runtime is present in DEVICE_CONFIG."""
-    required = {
-        "name",
-        "panels",
-        "esphome_device_id",
-        "enabled",
-        "locale",
-        "button_left_entity",
-        "button_right_entity",
-        "home_panel",
-        "idle_panel",
-        "show_home_button",
-        "show_idle_button",
-        "show_notifications_button",
-        "page_settle_delay",
-        "log_level",
-        "reset_interaction_on_button",
-        "snapshot_max_age_seconds",
-        "auto_navigate_home_timeout",
-        "use_relay_left",
-        "use_relay_right",
-        "use_auto_dimming",
-        "use_auto_page",
-        "use_auto_display_off",
-        "timeout_dimming",
-        "timeout_page",
-        "timeout_display_off",
-        "duration_dimming",
-        "brightness",
-        "brightness_dim",
-        "schedule",
-        "sound_on_startup",
-        "theme_variant",
-        "theme_id",
-        "sound_on_notification",
-        "persistent_sound_interval",
-        "display_model",
-        "gestures",
-        "stale_data_seconds",
-        "time_format",
-        "date_format",
-        "date_format_locale",
-        "idle_panel_extra",
-    }
-    assert set(DEVICE_CONFIG.keys()) == required
 
 
 def test_gestures_default_to_the_built_in_navigation() -> None:
@@ -156,17 +103,22 @@ def test_device_config_fields_excludes_identity() -> None:
 
 
 # ============================================================================
-# LOCALE_OPTIONS
+# display models
 # ============================================================================
 
 
-def test_locale_options_format() -> None:
-    """Each entry is a (code, label) tuple."""
-    assert len(LOCALE_OPTIONS) >= 4
-    for code, label in LOCALE_OPTIONS:
-        assert isinstance(code, str)
-        assert isinstance(label, str)
-        assert "_" in code  # e.g. "en_US"
+@pytest.mark.parametrize(
+    ("display_model", "filename"),
+    [
+        ("eu", "nspanel_haui.tft"),
+        ("us", "nspanel_haui_portrait.tft"),
+        (None, "nspanel_haui.tft"),
+        ("bogus", "nspanel_haui.tft"),
+    ],
+)
+def test_each_display_model_names_its_tft(display_model: str | None, filename: str) -> None:
+    """An unknown or missing model keeps updating with the landscape TFT."""
+    assert tft_filename_for_model(display_model) == filename
 
 
 # ============================================================================

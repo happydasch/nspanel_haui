@@ -554,11 +554,15 @@ class HAUIDevice(HAUIBase):
 
         The pattern name (e.g. "full", "long", "medium", "short", "E", "EEEE")
         selects a locale-aware date layout.  An empty string disables locale
-        patterns so ``get_date_format()`` (strftime) is used instead.
+        patterns so ``get_date_format()`` (strftime) is used instead; it is
+        empty whenever the device sets a date format of its own, which the
+        layout is only the default for.
 
         Returns:
             str: Babel-style pattern name, e.g. "full"
         """
+        if self.get("date_format"):
+            return ""
         value = self.get("date_format_locale")
         if value:
             return value

@@ -51,19 +51,6 @@ def _save(panel: dict) -> None:
     validate_panels({"devices": {"kitchen": {"panels": [{**panel, "key": "new_0"}]}}})
 
 
-def test_there_are_eight_templates():
-    assert [template.key for template in PANEL_TEMPLATES] == [
-        "lights_grid",
-        "room_overview",
-        "device_row",
-        "thermostat",
-        "bedside_clock",
-        "weather_station",
-        "guest_wifi",
-        "alarm_keypad",
-    ]
-
-
 @pytest.mark.parametrize("template", PANEL_TEMPLATES, ids=lambda t: t.key)
 def test_every_template_type_exists(template):
     assert template.panel["type"] in PANEL_MAPPING

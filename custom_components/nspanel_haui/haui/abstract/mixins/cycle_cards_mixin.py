@@ -297,11 +297,8 @@ class CycleCardsMixin:
 
     def _date_text(self, timezone: str) -> str:
         device = self.app.device
-        babel_format = device.get_date_format_locale() or self.app.device_config.get(
-            "date_format_babel"
-        )
         return get_date_localized(
-            device.get_date_format(), babel_format, device.get_locale(), timezone
+            device.get_date_format(), device.get_date_format_locale(), device.get_locale(), timezone
         )
 
     def _temperature_texts(self, value: Any, unit: str) -> list[str]:

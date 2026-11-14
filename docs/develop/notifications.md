@@ -324,8 +324,7 @@ panel.
 Behaviour is covered by:
 
 - `tests/test_notification.py` — queue, replacement, force-show, queue player,
-  timers, persistent alerts, muted schedule entries, events;
+  timers, persistent alerts, sound and waking, muted schedule entries, events;
 - `tests/test_notification_blinker.py` — blink lifecycle;
 - `tests/test_notify_entity.py` — notify entities;
-- `tests/test_device_notify.py` — sound and waking;
 - `tests/test_page_notify.py` — text fitting, paging, and popup rendering.

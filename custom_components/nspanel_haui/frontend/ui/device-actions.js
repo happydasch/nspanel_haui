@@ -11,10 +11,10 @@ import { hasUpdateAvailable } from '../device-status.js';
  * one; otherwise adding a panel does. Checking for updates belongs to the
  * Connection & device card.
  *
- * @param {{ status: any, onSettings: () => void, onFirmware: () => void, onAdd: () => void,
+ * @param {{ status: any, onSettings: () => void, onUpdates: () => void, onAdd: () => void,
  *   management?: unknown }} data
  */
-export function deviceActions({ status, onSettings, onFirmware, onAdd, management }) {
+export function deviceActions({ status, onSettings, onUpdates, onAdd, management }) {
   const update = status?.update || {};
   const tool = iconButton({ label: t('Settings'), iconName: 'settings', onClick: onSettings });
   const addPanel = (variant) => button({ label: t('Add panel'), iconName: 'plus', variant, onClick: onAdd });
@@ -24,7 +24,7 @@ export function deviceActions({ status, onSettings, onFirmware, onAdd, managemen
       title: t('Update available'),
       subtitle: updateOfferLabel(update),
       tool,
-      primary: button({ label: t('Install update'), iconName: 'update', variant: 'primary', onClick: onFirmware }),
+      primary: button({ label: t('Install update'), iconName: 'update', variant: 'primary', onClick: onUpdates }),
       secondary: [addPanel()],
       stacked: true,
       management,

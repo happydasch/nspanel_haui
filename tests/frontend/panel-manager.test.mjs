@@ -6,7 +6,9 @@ import { render } from './support/render.mjs';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import {
+  panelActions, panelManager, deviceOptionPanel, deviceOptionSummaries,
+} from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
@@ -80,6 +82,26 @@ test('the Theme button names the selected theme and leaves the editing to the th
   // The summary is the tooltip: the button itself stays a plain button.
   assert.equal(themeButton.values.includes('Evening'), true);
   assert.doesNotMatch(templateText(view), /haui-device-theme|Edit theme/);
+});
+
+test('the option summaries name the theme, count the entries and sum up the update settings', () => {
+  const config = {
+    ...DEVICE_CONFIG_DEFAULTS,
+    theme_id: 'evening',
+    schedule: [{ start: '22:00', end: 'sunrise', sound: false }],
+    gestures: [
+      { swipes: ['swipe_left'], action: 'next_panel', timeframe: 3 },
+      { swipes: ['swipe_up'], action: 'sys_about', timeframe: 3 },
+    ],
+    update: { ...DEVICE_CONFIG_DEFAULTS.update, firmware_update_channel: 'stable', firmware_auto_update: false },
+  };
+  assert.deepEqual(deviceOptionSummaries({ config, customThemes: { evening: { name: 'Evening' } } }), {
+    theme: 'Evening', schedule: '1 entry', gestures: '2 entries', updates: 'Stable · Manual',
+  });
+  const automatic = { ...config, update: { ...config.update, firmware_update_channel: 'dev', firmware_auto_update: true } };
+  assert.equal(deviceOptionSummaries({ config: automatic }).updates, 'Development · Auto');
+  const off = { ...config, update: { ...config.update, enabled: false } };
+  assert.equal(deviceOptionSummaries({ config: off }).updates, 'Off');
 });
 
 const GESTURE_PANELS = [{ key: 'lights', title: 'Lights' }];

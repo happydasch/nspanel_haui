@@ -67,7 +67,7 @@ test('Device details only show facts reported by the device status', () => {
       connected: true, current_page: 'light', integration_version: '0.5.0',
       device_info: { ip: '192.0.2.11', tft_version: '53.3.1', rssi: -61, yaml_version: '0.5.0' },
     },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
   });
   const text = templateText(view);
   // Only Connection & device has collapsed content; Diagnostics keeps its status in the heading.
@@ -88,7 +88,7 @@ test('The Current page tile opens the page in the simulated preview when it can'
   const status = { connected: true, current_page: 'sleep (weather)', current_panel: 'sleep', device_info: {} };
   const opened = [];
   const view = deviceDetails({
-    name: 'kitchen', status, onFirmware() {}, onLogs() {}, onOpenPage: () => opened.push('page'),
+    name: 'kitchen', status, onUpdates() {}, onLogs() {}, onOpenPage: () => opened.push('page'),
   });
   const [tile] = templatesMatching(view, 'aria-describedby')
     .filter((template) => template.values.includes('haui-tile-card-page'));
@@ -98,7 +98,7 @@ test('The Current page tile opens the page in the simulated preview when it can'
   assert.match(templateText(view), /Click to show this page in the simulated preview/);
 
   // Live, or no panel to open: the tile only opens its card.
-  const plain = deviceDetails({ name: 'kitchen', status, onFirmware() {}, onLogs() {} });
+  const plain = deviceDetails({ name: 'kitchen', status, onUpdates() {}, onLogs() {} });
   const [plainTile] = templatesMatching(plain, 'aria-describedby')
     .filter((template) => template.values.includes('haui-tile-card-page'));
   assert.match(plainTile.strings.join(''), /aria-expanded/);
@@ -125,7 +125,7 @@ test('The expanded Connection & device card opens the updates', () => {
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: true, integration_version: '0.5.0', device_info: { tft_version: '0.4.5' } },
-    onLogs() {}, onFirmware: () => opened.push(true),
+    onLogs() {}, onUpdates: () => opened.push(true),
   });
   const root = render(view);
   const updates = [...root.querySelectorAll('button')].find((button) => button.textContent.includes('Updates'));
@@ -138,7 +138,7 @@ test('Device details mark reported values as stale while the device is offline',
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: false, device_info: { ip: '192.0.2.11' } },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
   });
   const text = templateText(view);
   assert.match(text, /haui-details-stale/);
@@ -150,14 +150,14 @@ test('An offline device says when it was last seen, never the raw connection sta
   const offline = templateText(deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: false, connection_state: 'disconnected', device_info: { disconnected_since: since } },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
   }));
   assert.match(offline, /Last seen 5 minutes ago/);
 
   const unknown = templateText(deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: false, connection_state: 'disconnected', device_info: {} },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
   }));
   assert.doesNotMatch(unknown, /Last seen/);
   assert.doesNotMatch(unknown, /Disconnected · disconnected/);
@@ -175,7 +175,7 @@ test('Device details carry the diagnostics sections and their actions', () => {
       active_timers: [{ callback_name: 'tick', type: 'repeat', interval: 30 }],
       active_timer_count: 1,
     },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
     onCopyReport() {},
   });
   const text = templateText(view);
@@ -206,7 +206,7 @@ test('Device details carry the diagnostics sections and their actions', () => {
       active_timers: [{ callback_name: 'tick', type: 'repeat', interval: 30 }],
       active_timer_count: 1,
     },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
     onCopyReport() {},
     diagnosticsExpanded: true,
   }));

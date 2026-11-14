@@ -5,92 +5,25 @@ display commands, state listeners and service calls, so assertions are on what
 reaches the display and Home Assistant.
 """
 
+from support.page_app import Entity, PageApp
+
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import VacuumFeatures
-from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.vacuum import VacuumPage
 from custom_components.nspanel_haui.haui.utils.icon import get_icon
-
-
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
-    def __init__(self):
-        self.cmds = []
-
-    def send_cmd(self, command, value):
-        self.cmds.extend(value if isinstance(value, list) else [value])
-
-    def has_notifications(self):
-        return False
-
-
-class _Device:
-    is_portrait = False
-
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "vacuum"]
-
-
-class _App:
-    def __init__(self, entities):
-        self.entities = entities
-        self.theme = Theme()
-        self.listeners = []
-        controller = _Controller()
-        self.controller = {"esphome": controller, "notification": controller}
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
-    def listen_state(self, cb, entity_id, attribute=None):
-        self.listeners.append((entity_id, attribute))
-        return f"{entity_id}:{attribute}"
-
 
 BASE_FEATURES = VacuumFeatures.START | VacuumFeatures.RETURN_HOME | VacuumFeatures.STATE
 
 
 def _vacuum(state="docked", features=BASE_FEATURES):
-    return _Entity(state, {"friendly_name": "Robo", "supported_features": features})
+    return Entity(state, {"friendly_name": "Robo", "supported_features": features})
 
 
 def _show(vacuum, battery=None, **panel_cfg):
-    entities = {"vacuum.robo": vacuum, "switch.mop": _Entity("off", {"friendly_name": "Mop"})}
+    entities = {"vacuum.robo": vacuum, "switch.mop": Entity("off", {"friendly_name": "Mop"})}
     if battery is not None:
         entities["sensor.battery"] = battery
-    app = _App(entities)
+    app = PageApp(entities)
     cfg = {"type": "vacuum", "item": {"item": "vacuum.robo"}}
     cfg.update(panel_cfg)
     panel = HAUIPanel(app, cfg)
@@ -136,7 +69,7 @@ def test_editor_panel_controls_configured_item_and_keeps_all_secondary_items():
 
 def test_popup_controls_item_passed_by_id():
     vacuum = _vacuum()
-    app = _App({"vacuum.robo": vacuum})
+    app = PageApp({"vacuum.robo": vacuum})
     panel = HAUIPanel(app, {"type": "vacuum"})
     panel.apply_kwargs({"item": "vacuum.robo", "item_id": "vacuum.robo"})
     page = VacuumPage(app, {"page_id": 15})
@@ -199,7 +132,7 @@ def _battery(level, icon=None):
     attributes = {"friendly_name": "Battery"}
     if icon:
         attributes["icon"] = icon
-    return _Entity(level, attributes)
+    return Entity(level, attributes)
 
 
 def test_battery_sensor_level_picks_the_header_icon():

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/views/device-settings.js';
 import { themeSelector } from '../../custom_components/nspanel_haui/frontend/ui/theme-selector.js';
-import { accessibleName, byLabel, byRole } from './support/queries.mjs';
+import { accessibleName, byLabel, byRole, byText } from './support/queries.mjs';
 import { mount, render } from './support/render.mjs';
 
 function theme(name, background) {
@@ -36,33 +36,22 @@ test('selecting a built-in or custom theme reports its id', () => {
     custom: { evening: theme('Evening', 3) },
     onSelect: (id) => selected.push(id),
   }));
-  const select = byRole(root, 'combobox', { name: 'Theme' });
+  const group = byRole(root, 'radiogroup', { name: 'Theme' });
+  const radios = [...group.querySelectorAll('input[type=radio]')];
 
-  assert.ok(select);
-  assert.equal(select.value, 'dark');
-  assert.deepEqual([...select.options].map((option) => option.value), ['dark', 'light', 'evening']);
-  assert.equal(select.querySelectorAll('optgroup').length, 2);
+  assert.deepEqual(radios.map((radio) => accessibleName(radio)), ['dark', 'light', 'Evening']);
+  assert.deepEqual(radios.filter((radio) => radio.checked).map((radio) => radio.value), ['dark']);
 
-  select.value = 'evening';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  byRole(group, 'radio', { name: 'Evening' }).dispatchEvent(new Event('change', { bubbles: true }));
   assert.deepEqual(selected, ['evening']);
 });
 
 test('the selector only offers the custom theme group when custom themes exist', () => {
   const root = render(selector());
-  const select = byRole(root, 'combobox', { name: 'Theme' });
 
-  assert.ok(select);
-  assert.deepEqual([...select.options].map((option) => option.value), ['dark', 'light']);
-  assert.equal(select.querySelectorAll('optgroup').length, 1);
-});
-
-test('the picker shows the selected palette in its own field', () => {
-  const root = render(selector());
-  const field = byRole(root, 'combobox', { name: 'Theme' }).closest('.haui-theme-selector-field');
-
-  assert.ok(field);
-  assert.equal(field.querySelectorAll('.haui-theme-selector-chip i').length, 4);
+  assert.ok(byText(root, 'Predefined themes'));
+  assert.equal(byText(root, 'Custom themes'), null);
+  assert.equal(root.querySelectorAll('input[type=radio]').length, 2);
 });
 
 test('theme library controls and selected-theme actions call their callbacks', () => {

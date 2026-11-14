@@ -17,7 +17,7 @@ NSPanel HAUI is configured in an editor inside Home Assistant. You do not edit Y
 2. The dashboard lists your devices. Select a device to open it. The round back button returns to the dashboard.
 3. A device opens on its **Preview**. Switch to **Panels** to see and edit its panels.
 
-Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view uses the full width for the panel list; configure the home and idle pages in **Device Settings → Special pages**.
+Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view uses the full width for the panel list; configure the home and idle pages in **Device Settings → Home & idle**.
 
 If the editor does not get past its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 
@@ -117,14 +117,15 @@ See [Item Configuration](items.md) for all options.
 
 | Section | Settings |
 |---------|----------|
-| **Language & region** | Display language, time and date formats |
-| **General Settings** | Display model, dimming, display off and automatic page switching with their timeouts, logging |
-| **Hardware Buttons** | Relays or entities for the two buttons |
-| **Display Buttons** | Home, idle and notifications buttons in the header |
-| **Notifications** | Sounds and quiet hours |
-| **Idle & Wake Behavior** | What the panel shows after waking up |
+| **General** | Display model, display language, time and date formats; opens the **Theme** |
+| **Screen** | Brightness, dimming and display off with their timeouts; opens the **Schedule** |
+| **Sounds** | Startup and notification sounds |
+| **Home & idle** | Home panel, automatic page switching, idle panels and what the panel shows after waking up |
+| **Screen buttons & gestures** | Home, idle and notifications buttons in the header; opens the **Gestures** |
+| **Hardware buttons** | Relays or entities for the two buttons |
+| **Advanced** | Logging, stale data marking and page settle delay; opens the **Updates** |
 
-See [Device Configuration](device.md) for every setting. The **Schedule**, **Gestures**, and **Theme** buttons are in **Manage this device** in the device's **Preview** view. Set the home and idle panel assignments in **Device Settings → Special pages**.
+See [Device Configuration](device.md) for every setting. The **Schedule**, **Gestures**, and **Theme** buttons are in **Manage this device** in the device's **Preview** view; the rows in the settings open the same sidebars. Set the home and idle panel assignments in **Device Settings → Home & idle**.
 
 ## The Theme Sidebar
 

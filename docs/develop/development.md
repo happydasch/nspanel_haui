@@ -19,11 +19,12 @@ Home Assistant development instances. Run `make` or `make help` to list them.
   lint, mypy, the frontend type check, the strict docs build, and read-only
   HMI/layout and preview-coverage checks. It does not run ESPHome validation
   or mutate generated assets.
-- Individual checks are available as `make test`, `make test-frontend`,
-  `make format`, `make format-check`, `make lint`, `make typecheck`,
-  `make typecheck-frontend`, `make docs`, and `make hmi-check`. `make format`
-  reformats Python code with Ruff; `make format-check` verifies the formatter
-  output, and `make lint` only reports lint errors.
+- `make test` runs both test suites (`make test-integration` for the backend
+  and `make test-frontend` for the editor tests). Individual checks are
+  available as `make format`, `make format-check`, `make lint`,
+  `make typecheck`, `make typecheck-frontend`, `make docs`, and `make hmi-check`.
+  `make format` reformats Python code with Ruff; `make format-check` verifies
+  the formatter output, and `make lint` only reports lint errors.
 - The frontend type check runs `tsc` over the modules marked `// @ts-check`.
   Install its tooling once with `npm ci`; the check itself is
   `make typecheck-frontend` (or `npm run typecheck:frontend`). See

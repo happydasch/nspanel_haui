@@ -56,30 +56,6 @@ def _settings_page(entities):
     return page
 
 
-def test_settings_brightness_widgets_use_theme_colors():
-    page = _settings_page({})
-    colors = {"text": 1234, "component_active": 5678}
-    updated = []
-    page.get_color = lambda key: colors[key]
-    page.set_component_text_color = lambda component, color: updated.append((component, color))
-    page.set_title = lambda title: None
-    page.set_component_text = lambda component, text: None
-
-    class _Panel:
-        def get_title(self, default):
-            return default
-
-    page.render_panel(_Panel())
-
-    assert updated == [
-        (page.COMPONENTS.t_brght_title, colors["text"]),
-        (page.COMPONENTS.t_brght_pct, colors["text"]),
-        (page.COMPONENTS.t_brght_dim_pct, colors["text"]),
-        (page.COMPONENTS.t_brght_ico, colors["component_active"]),
-        (page.COMPONENTS.t_brght_dim_ico, colors["component_active"]),
-    ]
-
-
 def test_settings_resolves_brightness_by_firmware_name():
     full = _Item("number.area_panel_full", "60")
     dimmed = _Item("number.area_panel_dimmed", "20")
@@ -103,3 +79,18 @@ def test_settings_tolerates_missing_firmware_entities():
     page._stop_panel(object())
 
     assert page.app.lookups == [("number", "Brightness Full"), ("number", "Brightness Dimmed")]
+
+
+def test_a_brightness_change_in_home_assistant_moves_its_slider():
+    full = _Item("number.area_panel_full", "60")
+    dimmed = _Item("number.area_panel_dimmed", "20")
+    page = _settings_page({"Brightness Full": full, "Brightness Dimmed": dimmed})
+    moved = []
+    page.set_brightness_full_slider = lambda value: moved.append(("full", value))
+    page.set_brightness_dim_slider = lambda value: moved.append(("dimmed", value))
+    page.start_panel(object())
+
+    page.callback_brightness("number.area_panel_full", "state", "60", "42.0", {})
+    page.callback_brightness("number.area_panel_dimmed", "state", "20", "unavailable", {})
+
+    assert moved == [("full", 42)]

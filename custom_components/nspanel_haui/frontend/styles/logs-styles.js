@@ -4,29 +4,26 @@ import { css } from '../lit-import.js';
 export const logsStyles = css`
   :host { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .haui-logs-tools { display: grid; flex: 0 0 auto; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
-  .haui-logs-search-row { display: flex; align-items: center; gap: 4px; }
-  .haui-logs-search {
-    display: flex; flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; min-height: 38px;
-    padding: 0 12px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-pill);
-    background: var(--haui-surface-soft); color: var(--secondary-text-color); --mdc-icon-size: 18px;
-  }
-  .haui-logs-search:focus-within { border-color: var(--primary-color); }
-  .haui-logs-search input {
-    flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent;
-    color: var(--primary-text-color); font: inherit; font-size: var(--haui-text-label);
-  }
+  .haui-logs-search-row { display: flex; align-items: center; gap: 8px; }
+  .haui-logs-search { flex: 1 1 auto; height: 36px; }
   .haui-logs-search-row .haui-icon-button { flex: 0 0 auto; color: var(--secondary-text-color); --mdc-icon-size: 20px; }
-  .haui-logs-filter { display: flex; flex-wrap: wrap; gap: 4px; }
-  .haui-logs-filter button {
-    display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 4px 0 12px;
-    border: 1px solid var(--divider-color); border-radius: var(--haui-radius-pill); background: transparent;
-    color: var(--secondary-text-color); font: inherit; font-size: var(--haui-text-caption); cursor: pointer;
+  /* The device selector: a round twin of the search pill, the native select invisible over it. */
+  .haui-logs-device {
+    position: relative; display: inline-grid; flex: 0 0 auto; box-sizing: border-box; width: 36px; height: 36px;
+    place-items: center; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-round);
+    background: var(--card-background-color); color: var(--secondary-text-color); cursor: pointer;
+    --mdc-icon-size: 18px; transition: border-color 150ms, background 150ms, color 150ms;
   }
-  .haui-logs-filter button:hover { background: var(--haui-surface-soft); }
-  .haui-logs-filter button[aria-pressed="true"] {
-    border-color: var(--primary-color); color: var(--primary-text-color);
+  .haui-logs-device select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; font: inherit; }
+  .haui-logs-device:hover, .haui-logs-device:focus-within { border-color: var(--primary-color); }
+  .haui-logs-device:has(select:focus-visible) { outline: var(--haui-focus-ring); outline-offset: var(--haui-focus-offset); }
+  .haui-logs-device.is-filtered {
+    border-color: var(--primary-color); color: var(--primary-color);
     background: color-mix(in srgb, var(--primary-color) 12%, var(--card-background-color));
   }
+  .haui-logs-tools .haui-segmented { display: flex; }
+  .haui-logs-tools .haui-segmented-option { flex: 1 1 0; justify-content: center; min-height: 30px; font-size: var(--haui-text-label); }
+  @media (prefers-reduced-motion: reduce) { .haui-logs-device { transition: none; } }
   .haui-logs-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
   .haui-logs-list h3 {
     position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 16px 4px;

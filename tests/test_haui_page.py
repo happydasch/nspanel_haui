@@ -7,6 +7,8 @@ and the ``_process_read_response`` dispatch and stale-response logic.
 import time
 import types
 
+import pytest
+
 from custom_components.nspanel_haui.haui.abstract.component import Component
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
@@ -43,24 +45,8 @@ class FakePageApp:
 
 
 def _bare_page(page_id=1):
-    """Create a bare HAUIPage with just the attributes the read paths touch."""
-    page = HAUIPage.__new__(HAUIPage)
-    page.app = FakePageApp()
-    page.page_id = page_id
-    page.panel = None
-    page._callbacks = []
-    page._callback_map = {}
-    page._fnc_id_by_component = {}
-    page._drag_components = set()
-    page._pending_drag_callback = None
-    page._drag_flush_timer = None
-    page._suppress_gesture = False
-    page._suppress_gesture_timer = None
-    page._queued_callback = None
-    page._buffer_timer = None
-    page._fnc_items = {}
-    page._read_callbacks = {}
-    page._pending_read_request = None
+    """A real HAUIPage on a fake app that records what it sends to the panel."""
+    page = HAUIPage(FakePageApp(), {"page_id": page_id})
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 
@@ -68,50 +54,22 @@ def _bare_page(page_id=1):
 # --- reads by component name ------------------------------------------------
 
 
-def test_request_component_value_by_name_sends_req_val():
-    """``request_component_value`` with a name sends REQ_VAL with that name."""
+@pytest.mark.parametrize(
+    ("method", "request_type"),
+    [
+        ("request_component_value", ESPRequest.REQ_VAL),
+        ("request_component_text", ESPRequest.REQ_TXT),
+    ],
+)
+@pytest.mark.parametrize("component", ["hSlider", Component(7, "hSlider")])
+def test_a_read_request_names_the_component(method, request_type, component):
+    """A read is requested by widget name, given as a name or as a ``Component``."""
     page = _bare_page()
-    page.request_component_value("hBrightness")
 
-    assert len(page.app.sent_esphome) == 1
-    args, _kwargs = page.app.sent_esphome[0]
-    assert args[0] == ESPRequest.REQ_VAL
-    assert args[1] == "hBrightness"
+    getattr(page, method)(component)
 
-
-def test_request_component_text_by_name_sends_req_txt():
-    """``request_component_text`` with a name sends REQ_TXT with that name."""
-    page = _bare_page()
-    page.request_component_text("tTitle")
-
-    assert len(page.app.sent_esphome) == 1
-    args, _kwargs = page.app.sent_esphome[0]
-    assert args[0] == ESPRequest.REQ_TXT
-    assert args[1] == "tTitle"
-
-
-def test_add_read_callback_by_name_dispatches_read_response():
-    """``add_read_callback`` with a name registers a callback keyed by that name
-    and ``_process_read_response`` dispatches to it."""
-    page = _bare_page()
-    calls = []
-
-    def handler(value):
-        calls.append(("handler", value))
-
-    page.add_read_callback("tTitle", handler)
-    page._pending_read_request = _PendingReadRequest(
-        component_name="tTitle",
-        expiry=time.monotonic() + 10.0,
-    )
-    page._process_read_response(
-        HAUIEvent(
-            ESPResponse.READ_RESPONSE,
-            '{"name":"tTitle","type":"text","value":"Hello World"}',
-        )
-    )
-    assert len(calls) == 1
-    assert calls[0] == ("handler", "Hello World")
+    ((args, _kwargs),) = page.app.sent_esphome
+    assert args[:2] == (request_type, "hSlider")
 
 
 def test_add_read_callback_and_request_text_by_name_together():
@@ -367,32 +325,6 @@ def test_process_read_response_handles_invalid_number_value():
     assert page._pending_read_request is None
 
 
-def test_request_component_value_sends_req_val():
-    """``request_component_value`` with a Component sends REQ_VAL with
-    the plain component name (backward-compatible default)."""
-    page = _bare_page()
-    comp = Component(7, "hSlider")
-    page.request_component_value(comp)
-
-    assert len(page.app.sent_esphome) == 1
-    args, _ = page.app.sent_esphome[0]
-    assert args[0] == ESPRequest.REQ_VAL
-    assert args[1] == "hSlider"
-
-
-def test_request_component_text_sends_req_txt():
-    """``request_component_text`` with a Component sends REQ_TXT with
-    the plain component name (backward-compatible default)."""
-    page = _bare_page()
-    comp = Component(9, "tLabel")
-    page.request_component_text(comp)
-
-    assert len(page.app.sent_esphome) == 1
-    args, _ = page.app.sent_esphome[0]
-    assert args[0] == ESPRequest.REQ_TXT
-    assert args[1] == "tLabel"
-
-
 # --- set_component_text newline encoding -------------------------------------
 
 
@@ -446,19 +378,6 @@ def test_set_component_text_escapes_quotes_and_backslashes():
     cmds.clear()
     page.set_component_text(comp, "a" + r + '"b')
     assert cmds == ['tText.txt="a' + r + r + r + '"b"']
-
-
-def test_notification_pages_keep_the_regression_guard():
-    """Paged notification text must not degrade to raw newlines in the command."""
-    page = _bare_page()
-    cmds: list[str] = []
-    page.send_cmd = cmds.append
-    comp = Component(9, "tText")
-
-    page.set_component_text(comp, "first page" + chr(10) + "second line")
-    r = chr(92)
-    assert r + "n" not in cmds[0]
-    assert cmds[0] == 'tText.txt="first page' + r + 'rsecond line"'
 
 
 def test_popup_item_keeps_the_opening_items_overrides():

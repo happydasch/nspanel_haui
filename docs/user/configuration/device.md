@@ -45,35 +45,23 @@ All device settings and panels are kept in Home Assistant's storage.
 
 ## Device Settings
 
-Open them with **Settings** in the device's **Connection & device** card, in the action card of its **Preview**, or in its row on the dashboard. The settings are grouped into sections.
+Open them with **Settings** in the device's **Connection & device** card, in the action card of its **Preview**, or in its row on the dashboard. The settings are grouped into sections. Four of them end with a row that opens a sidebar of its own and shows what it holds: **Theme** in **General**, **Schedule** in **Screen**, **Gestures** in **Screen buttons & gestures** and **Updates** in **Advanced**. Closing that sidebar returns to the settings with your unsaved changes; a save there is kept when you then save the settings.
 
-### Language & region
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `locale` | `en_US` | Display language: `en_US`, `de_DE`, `nl_NL`, `pl_PL`, `fr_FR` or `sk_SK` (Slovak). Sets the language of built-in texts and the format of dates, times and numbers. |
-| `time_format` | `%H:%M` | Time format on the Clock, ClockTwo and Weather panels. `%I:%M %p` gives the 12-hour form (`2:30 PM`). Choose **Custom strftime…** to type any [strftime](https://strftime.org/) format. |
-| `date_format` | `%A, %d. %B %Y` | Date format on the Clock and Weather panels. US examples: `%m/%d/%Y` (`03/14/2026`), `%B %d, %Y` (`March 14, 2026`). |
-
-For Slovak, select **Slovenčina** (`sk_SK`) on the device. The editor and Home Assistant integration dialogs follow your Home Assistant profile language; select Slovak there as well. Slovak dates use localized weekdays and month names, for example `štvrtok 12. novembra 2026`. The ClockTwo word matrix has its own separate language setting and currently supports English, German and Polish.
-
-### General Settings
+### General
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `display_model` | `eu` | `eu` for every panel mounted in landscape, `us` for a US panel mounted in portrait. After you change it, the editor asks whether to install the matching display file. See [Display Models](display-models.md). |
-| `log_level` | `INFO` | How much this device writes to the Home Assistant log: Critical, Error, Warning, Info or Debug. Debug adds state changes and the commands sent to the display. |
-| `stale_data_seconds` | `0` (off) | Marks old values on the **Row** panel: a value whose entity has not updated for this many seconds is dimmed and ends in `…`. Set it a little above the update interval of your slowest sensor, for example `300` for a sensor that updates every 5 minutes. |
+| `locale` | `en_US` | Display language: `en_US`, `de_DE`, `nl_NL`, `pl_PL`, `fr_FR` or `sk_SK` (Slovak). Sets the language of built-in texts and the format of dates, times and numbers. |
+| `time_format` | `%H:%M` | Time format on every panel: the clock and the times of entities. `%I:%M %p` gives the 12-hour form (`2:30 PM`). Choose **Custom strftime…** to type any [strftime](https://strftime.org/) format. |
+| `date_format` | `%A, %d. %B %Y` | Date format on every panel: the date line of the Clock and Weather panels and the dates of entities. US examples: `%m/%d/%Y` (`03/14/2026`), `%B %d, %Y` (`March 14, 2026`). Leave it at **Default** to use the locale-aware layout below. |
+| `date_format_locale` | `full` | **Locale-aware date layout**: a named date format (`full`, `long`, `medium`, `short`, `E`, `EEEE`) with translated day and month names, used while **Date format** is Default. |
 
-To see Debug messages in the Home Assistant log, Home Assistant must allow them too. Add this to your [logger configuration](https://www.home-assistant.io/integrations/logger/):
+Entities whose state is a date, a time or both show it in these formats on every panel: `date`, `time`, `datetime`, `input_datetime` and `event` entities, and sensors with the `date` or `timestamp` device class. A date and time is shown as the date followed by the time, in Home Assistant's time zone. A narrow field, such as the value of a row, cuts a long date; choose the **Short** layout or a numeric **Date format** for such entities. An item's own `value` template is shown as it renders.
 
-```yaml
-logger:
-  logs:
-    custom_components.nspanel_haui: debug
-```
+For Slovak, select **Slovenčina** (`sk_SK`) on the device. The editor and Home Assistant integration dialogs follow your Home Assistant profile language; select Slovak there as well. Slovak dates use localized weekdays and month names, for example `štvrtok 12. novembra 2026`. The ClockTwo word matrix has its own separate language setting and currently supports English, German and Polish.
 
-### Display dimming & off
+### Screen
 
 These settings only change the brightness. They never change the panel that is shown. See [Display states](../device.md#display-state-dimmed-off-and-on) for how they work together.
 
@@ -91,11 +79,12 @@ Good to know:
 
 - The two switches also exist on the panel as **Use Auto-Dimming** and **Use Auto Display-Off**. The integration sets them only when you change the setting here. Otherwise it leaves them alone, so an automation can control them. The exception is **Use Auto Display-Off** while a [schedule](#schedule) has entries: the integration then sets it itself.
 - With a `brightness` or `brightness_dim` value, the integration sets the panel's **Brightness Full** resp. **Brightness Dimmed** number on every connect and at every schedule boundary. A brightness changed on the panel's Settings page lasts only until then.
+- While `brightness` or `brightness_dim` is empty, its field in the editor shows the panel's current **Brightness Full** resp. **Brightness Dimmed** reading.
 - Without a connection to Home Assistant the display dims after the dimming timeout, even when auto-dimming is off, and it never turns off.
 
 ### Schedule
 
-The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. In the device's **Preview** view, open **Manage this device** and choose **Schedule**: its sidebar holds the whole schedule. Set the default brightness, dimming and display-off values there too: they apply outside every entry and are the fallback for entry fields left empty. The Schedule button's tooltip says how many entries there are, and each entry folds to its own summary row.
+The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. In the device's **Preview** view, open **Manage this device** and choose **Schedule**, or select **Schedule** in the **Screen** section of the device settings: its sidebar holds the entries. Outside every entry the device settings in [Screen](#screen) and [Sounds](#sounds) apply, and they are the fallback for entry fields left empty. The Schedule button's tooltip says how many entries there are, and each entry folds to its own summary row.
 
 Each entry has a time window and these settings:
 
@@ -111,7 +100,7 @@ Each entry has a time window and these settings:
 | `display_off` | **Screen off**: whether the display turns off during the entry. |
 | `timeout_display_off` | **Display-off timeout**: seconds without interaction until the display turns off, `0`–`3600`. |
 
-The entry's `sound` and `display_off` settings are always explicit. Its brightness, dimming timeout/duration and display-off timeout are optional: leave one empty and the matching default in the Schedule settings applies. The editor shows those fallback values; for brightness fields, when no hub value is set it also shows the panel's own **Brightness Full** or **Brightness Dimmed** reading, so the schedule never invents a brightness the panel does not use.
+The entry's `sound` and `display_off` settings are always explicit. Its brightness, dimming timeout/duration and display-off timeout are optional: leave one empty and the matching device setting in [Screen](#screen) applies. The editor shows those fallback values; for brightness fields, when no hub value is set it also shows the panel's own **Brightness Full** or **Brightness Dimmed** reading, so the schedule never invents a brightness the panel does not use.
 
 ```yaml
 brightness: 80
@@ -135,24 +124,41 @@ schedule:
 
 Good to know:
 
-- Outside every entry, the Schedule settings' **Notification sound** toggle controls whether notification sounds play; its brightness, dimming and display-off settings also apply. These are the same device settings available in [Display dimming & off](#display-dimming-off) and [Notifications](#notifications).
-- A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry, the Schedule settings take the panel's **Brightness Full** number as their default if no hub value is set; while either brightness default is empty, the settings show the panel's current reading.
+- Outside every entry, **Sound on notification** in [Sounds](#sounds) controls whether notification sounds play, and the brightness, dimming and display-off settings in [Screen](#screen) apply.
+- A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry while `brightness` is empty, the Schedule sidebar takes the panel's **Brightness Full** reading (100 when the panel reports none), says so, and saves it as `brightness` together with the schedule.
 - When entries overlap, the first one in the list wins.
 - Automatic page switching is not part of an entry. It always follows the normal settings.
 - `sunrise` and `sunset` are the times at Home Assistant's location. Where the sun does not rise or set on a day (polar day or night), an entry that uses it is not active that day and the log has a warning.
 - While the schedule has entries, the integration sets the panel's **Use Auto Display-Off** switch itself, from the active entry or from `use_auto_display_off`. An automation cannot control that switch then.
 - An entry that starts or ends does not count as a touch.
 
-### Automatic page switching
+### Sounds
 
 | Key | Default | Description |
 |-----|---------|-------------|
+| `sound_on_startup` | off | Play a short tone when the panel connects to Home Assistant after it started. A Wi-Fi reconnect stays silent. |
+| `sound_on_notification` | off | Play the sound of each notification. Also used for the Timer panel's alert; set the default in **Sounds** or in **Manage this device → Schedule**. |
+| `persistent_sound_interval` | `5` | Seconds between repeats of the sound while a persistent notification waits. The popup itself opens again about every 60 seconds. |
+
+To silence the panel at certain times, add a [schedule](#schedule) entry with sound off.
+
+### Home & idle
+
+The home panel, the idle panels that open after a while without interaction, and which panel comes back when you wake the panel. These settings only change the panel that is shown; they never dim the display or turn it off.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `home_panel` | empty | The panel shown when you navigate home. Empty: the first navigation panel. |
 | `use_auto_page` | on | Open the next idle panel after `timeout_page` seconds without interaction. This only changes the panel; it does not dim the display or turn it off. A touch leaves the idle panel again. |
 | `timeout_page` | `30` | Seconds until the next idle panel opens. `0` turns it off, the maximum is `3600`. |
+| `idle_panel` | empty | The first panel in the idle sequence. Empty with no `idle_panel_extra`: no panel is opened automatically. |
+| `idle_panel_extra` | empty | The remaining panels in the idle sequence. Each automatic page switch opens the next panel, cycling through the sequence. The editor shows both fields as one ordered **Idle panels** list. |
+| `snapshot_max_age_seconds` | `-1` | Which panel is shown after you leave the idle panel. **Always restore** (`-1`): the panel you were on. **Never restore** (`0`): the home panel. **Custom time limit…** (a number of seconds): the panel you were on if you left it less than that long ago, otherwise the home panel. |
+| `auto_navigate_home_timeout` | `0` (off) | Go back to the home panel after this many seconds without interaction. Set it shorter than the dimming and display-off timeouts. If the idle panel opens first, it stays, and leaving it goes to the home panel. |
 
-The idle panels themselves are set in **Device Settings → Special pages**. The panel's firmware no longer has the **Use Auto-Page** switch and the **Timeout Page** number.
+The panel's firmware no longer has the **Use Auto-Page** switch and the **Timeout Page** number.
 
-### Display Buttons
+### Screen buttons & gestures
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -164,7 +170,7 @@ On a panel without a free place on the right of the header, the notifications bu
 
 ### Gestures
 
-`gestures` sets what swipes from a screen edge do. It is a list: each gesture is one or more swipes in order and the action they run. In the device's **Preview** view, open **Manage this device** and choose **Gestures**. The editor works like the [Schedule](#schedule) editor: **Add gesture** adds an entry, each gesture folds to one row (its swipes and its action), and **Save** writes your changes to the device.
+`gestures` sets what swipes from a screen edge do. It is a list: each gesture is one or more swipes in order and the action they run. In the device's **Preview** view, open **Manage this device** and choose **Gestures**, or select **Gestures** in the **Screen buttons & gestures** section of the device settings. The editor works like the [Schedule](#schedule) editor: **Add gesture** adds an entry, each gesture folds to one row (its swipes and its action), and **Save** writes your changes to the device.
 
 | Field | Description |
 |-------|-------------|
@@ -192,27 +198,7 @@ How a swipe picks its gesture:
 Before 0.5.0 the single swipes were fixed and `gesture_sequences` held the sequences (`sequence`, `timeframe` and the panel to `open`). The integration converts saved sequences into gestures after the default ones when it loads the device settings, and when it imports a YAML file.
 
 
-### Notifications
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `sound_on_startup` | off | Play a short tone when the panel connects to Home Assistant after it started. A Wi-Fi reconnect stays silent. |
-| `sound_on_notification` | off | Play the sound of each notification. Also used for the Timer panel's alert; set the default in **Notifications** or in **Manage this device → Schedule**. |
-| `persistent_sound_interval` | `5` | Seconds between repeats of the sound while a persistent notification waits. The popup itself opens again about every 60 seconds. |
-
-To silence the panel at certain times, add a [schedule](#schedule) entry with sound off.
-
-### Panel Assignments
-
-| Key | Description |
-|-----|-------------|
-| `home_panel` | The panel shown when you navigate home. Empty: the first navigation panel. |
-| `idle_panel` | The first panel in the idle sequence. Empty with no `idle_panel_extra`: no panel is opened automatically. |
-| `idle_panel_extra` | The remaining panels in the idle sequence. Each automatic page switch opens the next panel, cycling through the sequence. The editor shows both fields as one ordered **Idle panels** list. |
-
-You can set these in **Device Settings → Special pages**.
-
-### Hardware Buttons
+### Hardware buttons
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -220,16 +206,25 @@ You can set these in **Device Settings → Special pages**.
 | `button_left_entity` / `button_right_entity` | empty | The entity the button toggles. Only shown when the relay is turned off for that button. |
 | `reset_interaction_on_button` | on | A button press also wakes the display and leaves the idle panel. When off, the button only switches its relay or entity. |
 
-### Idle & Wake Behavior
+### Advanced
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `snapshot_max_age_seconds` | `-1` | Which panel is shown after you leave the idle panel. **Always restore** (`-1`): the panel you were on. **Never restore** (`0`): the home panel. **Custom time limit…** (a number of seconds): the panel you were on if you left it less than that long ago, otherwise the home panel. |
-| `auto_navigate_home_timeout` | `0` (off) | Go back to the home panel after this many seconds without interaction. Set it shorter than the dimming and display-off timeouts. If the idle panel opens first, it stays, and leaving it goes to the home panel. |
+| `log_level` | `INFO` | How much this device writes to the Home Assistant log: Critical, Error, Warning, Info or Debug. Debug adds state changes and the commands sent to the display. |
+| `stale_data_seconds` | `0` (off) | Marks old values on the **Row** panel: a value whose entity has not updated for this many seconds is dimmed and ends in `…`. Set it a little above the update interval of your slowest sensor, for example `300` for a sensor that updates every 5 minutes. |
+| `page_settle_delay` | `0.1` | Seconds the hub waits after the display confirms a page change before it draws the page. Raise it only if the log shows invalid-variable errors right after a page change. |
+
+To see Debug messages in the Home Assistant log, Home Assistant must allow them too. Add this to your [logger configuration](https://www.home-assistant.io/integrations/logger/):
+
+```yaml
+logger:
+  logs:
+    custom_components.nspanel_haui: debug
+```
 
 ## Themes
 
-In the device's **Preview** view, open **Manage this device** and choose **Theme**: its sidebar selects the device's theme and edits semantic page colors and weather, alarm and climate state-icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
+In the device's **Preview** view, open **Manage this device** and choose **Theme**, or select **Theme** in the **General** section of the device settings: its sidebar selects the device's theme and edits semantic page colors and weather, alarm and climate state-icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
 
 See [Themes](themes.md) for predefined and custom themes, the icon variant, shared color editing and import/export.
 
@@ -260,7 +255,7 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. Changes save automatically; text fields save after you pause typing. Under the **Enable updates** switch it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and what happens **When a new version is found**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. **Updates** in the **Advanced** section of the device settings opens that sidebar too. Changes save automatically; text fields save after you pause typing. Below the **Enable updates** switch beside its title it shows the **Update channel** (stable or development releases for firmware and display), what happens **When a new version is found** and how often to **Check for a new version**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -269,7 +264,7 @@ The **Update settings** card in a device's **Updates** sidebar controls update c
 | `update_interval` | `3600` | Seconds between regular checks. The editor offers intervals from 15 minutes to one week. `0` (**Never**) turns them off. |
 | `firmware_update_channel` | `stable` | Selects the stable or development release channel for both firmware and display updates. |
 | `firmware_manifest_url` | empty | Optional firmware manifest URL that overrides the channel's firmware release, e.g. a [local test release](../../develop/release.md#test-firmware-updates-with-a-local-release); the display continues to follow the matching TFT. |
-| `firmware_auto_update` | off | **Install automatically**: install new firmware without asking. The display file follows after the restart. |
+| `firmware_auto_update` | off | **When a new version is found** set to **Auto**: install new firmware without asking. The display file follows after the restart. |
 | `install_delay` | `600` | Seconds an automatic firmware install waits before it starts (0 to 86400); `0` starts it right away. |
 | `auto_install` | on | Install the display file (TFT) without asking. When off, the panel asks first. |
 | `max_attempts` | `3` | Failed automatic attempts at one version before the automatic install stops (1 to 10). |
@@ -292,8 +287,6 @@ These settings exist but cannot be changed in the editor. They keep their defaul
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `page_settle_delay` | `0.1` | Seconds the hub waits after opening a page before it draws it. |
-| `date_format_locale` | `full` | A named date format (`full`, `long`, `medium`, `short`, `E`, `EEEE`) with translated day and month names. |
 | `on_connect_delay` | `60` | Seconds between a connect and the display file check. |
 | `heartbeat_interval` / `overdue_factor` | `5.0` / `2.0` | How often the hub and the panel check their connection, and after how many missed checks the connection counts as lost. |
 | `page_timeout` | `10.0` | Seconds the hub waits for the display to confirm a page change. |

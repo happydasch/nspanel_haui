@@ -47,6 +47,17 @@ export const fleetStyles = css`
     scroll-snap-type: x mandatory; scrollbar-width: thin;
   }
   .haui-fleet-carousel-wrap { position: relative; }
+  /* An edge with more cards beyond it fades out. A mask, not an overlay, so it fades into whatever
+     the theme puts behind the row; its second layer keeps the bottom padding, where the scrollbar
+     runs, opaque. */
+  .haui-fleet-carousel-wrap.is-clipped-start { --carousel-fade-start: transparent; }
+  .haui-fleet-carousel-wrap.is-clipped-end { --carousel-fade-end: transparent; }
+  .haui-fleet-carousel-wrap.is-clipped-start .haui-fleet-carousel,
+  .haui-fleet-carousel-wrap.is-clipped-end .haui-fleet-carousel {
+    mask:
+      linear-gradient(to right, var(--carousel-fade-start, #000), #000 40px, #000 calc(100% - 40px), var(--carousel-fade-end, #000)) top / 100% calc(100% - 16px) no-repeat,
+      linear-gradient(#000, #000) bottom / 100% 16px no-repeat;
+  }
   /* Centred on the preview of a 280px card: the row only scrolls once its cards have shrunk to that width. */
   .haui-carousel-arrow { position: absolute; z-index: 1; top: 90px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-round); color: var(--primary-text-color); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); --mdc-icon-size: 18px; line-height: 1; cursor: pointer; transition: opacity 150ms ease; }
   .haui-carousel-arrow.is-left { left: -4px; }

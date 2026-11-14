@@ -196,7 +196,7 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
       connected: false, current_page: 'grid', integration_version: '0.5.0',
       device_info: { ip: '192.0.2.11', rssi: -61, tft_version: '53.3.1', yaml_version: '0.5.0' },
     },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
   });
   const [facts] = templatesMatching(view, 'data-stale=');
   assert.ok(facts);
@@ -241,7 +241,7 @@ test('the connection icon shows the Wi-Fi strength while connected', () => {
   const view = deviceDetails({
     name: 'kitchen',
     status: { connected: true, device_info: { ip: '192.0.2.11', rssi: -50, ssid: 'HomeNet', connection_uptime: 660 } },
-    onSettings() {}, onFirmware() {}, onLogs() {},
+    onSettings() {}, onUpdates() {}, onLogs() {},
   });
   const [status] = templatesMatching(view, 'haui-conn-status-button');
   assert.equal(status.values[0], 'haui-conn-status online');

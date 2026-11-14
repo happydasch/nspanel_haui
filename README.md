@@ -29,7 +29,8 @@ Requires Home Assistant 2026.11 or later.
   alarm, QR code and popups
 - **Gestures**: tap, slide, swipe, configurable sequences and long press to go back
 - **Idle page and dimming**: clock or weather idle page, auto-dimming and schedules
-- **Notifications**: severity queue, persistent alerts, silent times and PIN-protected panels
+- **Notifications**: a queue with icon colours and sounds, persistent alerts, silent times and
+  PIN-protected panels
 - **Hardware buttons, themes and pictures**: relays or any entity, theme colours, backgrounds
 - **Updates**: firmware and display updates as Home Assistant entities
 - **Local and multilingual**: ESPHome native API, no cloud; six languages
@@ -63,43 +64,83 @@ interface—no YAML required. Panel design, preview and device management are al
 
 ## Editor
 
+The editor follows your Home Assistant theme. Each screen below is shown in the light and the dark theme.
+
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet.png" alt="NSPanel HAUI fleet dashboard with device cards, connection summary, inventory and recent events" width="100%"><br>
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with six device cards showing their home screens, the device inventory and recent events" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with six device cards showing their home screens, the device inventory and recent events" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
       <b>Fleet overview</b><br>
-      <sub>See device status, firmware, updates and recent events across the fleet.</sub>
+      <sub>See every panel's home screen, connection status, firmware, updates and recent events at a glance.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-light.png" alt="Living Room device in the light theme: a landscape grid panel preview beside connection, update, diagnostics and backup details" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview.png" alt="Living Room device workspace showing the simulated panel preview beside connection, update, diagnostics and backup details" width="100%"><br>
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-dark.png" alt="Bedroom device in the dark theme: a portrait clock panel preview beside connection, update, diagnostics and backup details" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
       <b>Device overview and preview</b><br>
-      <sub>Preview the selected device's panel alongside connection health, updates, diagnostics and backup actions.</sub>
+      <sub>Preview a device's panels, landscape or portrait, beside its connection, updates, diagnostics and backup.</sub>
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-panels.png" alt="Editor workspace showing navigation, hidden and popup panel groups, plus device settings" width="100%"><br>
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-panels-light.png" alt="Panel list in the light theme with navigation, hidden and popup groups and a preview of each panel" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-panels-dark.png" alt="Panel list in the dark theme with navigation, hidden and popup groups and a preview of each panel" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
       <b>Organise panels per device</b><br>
-      <sub>Reorder panels and manage navigation, hidden panels and popups alongside device settings.</sub>
-    </td>
-    <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-edit-panel.png" alt="Grid panel editor with a panel preview, title and editable item list" width="100%"><br>
-      <b>Edit a panel and its items</b><br>
-      <sub>Preview the layout while setting a panel title and configuring its items.</sub>
+      <sub>Reorder panels and manage navigation, hidden panels and popups, with each panel's preview in the list.</sub>
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings.png" alt="Device settings editor with language, theme, display, navigation, buttons and notification sections" width="100%"><br>
-      <b>Configure device behaviour</b><br>
-      <sub>Adjust language, theme, display, navigation, buttons, notifications and idle behaviour in one place.</sub>
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-edit-panel-light.png" alt="Grid panel editor in the light theme for a landscape device, with the panel preview, title and tile list" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <a href="https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html"><b>Explore the editor guide →</b></a><br>
-      <sub>See the full configuration walkthrough, including preview and device management.</sub>
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-edit-panel-dark.png" alt="Grid panel editor in the dark theme for a portrait device, with the panel preview, title and tile list" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Edit a panel and its items</b><br>
+      <sub>Set a panel's title and items while its preview follows every change.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-light.png" alt="Device settings in the light theme with general, screen, sounds, home and idle, screen buttons and gestures, hardware buttons and advanced sections" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme with general, screen, sounds, home and idle, screen buttons and gestures, hardware buttons and advanced sections" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Configure device behaviour</b><br>
+      <sub>Language, screen, sounds, home and idle panels, buttons and gestures, all in one place.</sub>
     </td>
   </tr>
 </table>
+
+<p align="center"><a href="https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html"><b>Explore the editor guide →</b></a><br>
+<sub>See the full configuration walkthrough, including preview and device management.</sub></p>
 
 ## Panels
 

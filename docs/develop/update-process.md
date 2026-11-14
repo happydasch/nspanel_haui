@@ -71,7 +71,7 @@ The manifests ship the universal image, so the hub runs the whole cycle:
 2. **A new release.** The next check reads the manifest: **HAUI Firmware** offers
    the release and the display shows the [release notice](#on-the-display).
 3. **Install.** Press **Install** on **HAUI Firmware** or beside **Firmware** in the
-   **Updates** sidebar, or let **Install automatically** do it.
+   **Updates** sidebar, or let **Auto** do it.
 4. **Flash and reboot.** The panel downloads the release's over-the-air image
    (`nspanel_haui_ota.bin`), flashes it and reboots with its Wi-Fi and API key
    unchanged. About a minute after the reconnect the hub installs the TFT the new
@@ -79,7 +79,7 @@ The manifests ship the universal image, so the hub runs the whole cycle:
 
 The same cycle runs for every development build on the **Development**
 channel, which is universal too. To stay on a version, leave
-**Wait for me** selected and skip the update in Home Assistant, or
+**Manual** selected and skip the update in Home Assistant, or
 install a specific release (the entity's `version`, or the **Updates** sidebar's release
 list).
 
@@ -90,7 +90,7 @@ custom build: it would replace your API and OTA credentials with the public
 ones. For a custom panel:
 
 - **HAUI Firmware** offers nothing. Its state is unknown and its release summary
-  names the variant mismatch; **Install automatically** does nothing.
+  names the variant mismatch; **Auto** does nothing.
 - The [release notice](#on-the-display) still appears when a new release is out:
   your cue to rebuild.
 - The **display TFT** is still updated by the hub, because both variants use the
@@ -119,7 +119,7 @@ Update a custom build in one of three ways:
    each build with a manifest: `scripts/dev_release.py --variant custom` writes
    the image and a `firmware-manifest.json` into Home Assistant's `www` folder.
    Set **Custom manifest URL** to that manifest; **HAUI Firmware** offers every
-   newer build and **Install automatically** installs it. Each build needs
+   newer build and **Auto** installs it. Each build needs
    a higher version than the last. See
    [Test firmware updates with a local release](release.md#test-firmware-updates-with-a-local-release).
 
@@ -133,8 +133,8 @@ universal panel.
 | When | What the hub does |
 |------|-------------------|
 | Home Assistant starts, or the device settings are saved | While the device is connected: reads the manifest and refreshes the two update entities (a panel that is not connected yet gets its first read at the connect check). Installs nothing and shows nothing on the display. |
-| 60 seconds after the device connects | Compares the display's TFT with the TFT the firmware needs and installs or offers it (always). With **Check for updates on connect**, it also installs a firmware update (when **Install automatically** is selected) and shows the release notice. |
-| Every **Check for a new version** interval (hourly by default) | Reads the manifest, installs a firmware update (when **Install automatically** is selected) and shows the release notice. The TFT is not checked here. |
+| 60 seconds after the device connects | Compares the display's TFT with the TFT the firmware needs and installs or offers it (always). With **Check for updates on connect**, it also installs a firmware update (when **Auto** is selected) and shows the release notice. |
+| Every **Check for a new version** interval (hourly by default) | Reads the manifest, installs a firmware update (when **Auto** is selected) and shows the release notice. The TFT is not checked here. |
 
 ```mermaid
 flowchart TD
@@ -155,7 +155,7 @@ The update entities do not poll: they show what the last check found.
 
 ### Firmware
 
-With **Install automatically** selected (`firmware_auto_update`, see
+With **Auto** selected (`firmware_auto_update`, see
 [Settings](#settings)), an automatic install is due when:
 
 - the manifest offers a newer version than the device runs, for the device's
@@ -196,7 +196,7 @@ flowchart TD
 ```
 
 With **Check for updates on connect** and periodic checks both off, nothing
-installs the firmware automatically. With **Wait for me** selected
+installs the firmware automatically. With **Manual** selected
 (the default), the **HAUI Firmware** entity offers the update and you
 [install it yourself](#installing-updates).
 
@@ -358,10 +358,10 @@ actions:
 
 | Setting in the editor | Key | Default | What it does |
 |-----------------------|-----|---------|--------------|
-| **Enable updates** | `enabled` | on | Master switch for checks, update entities and every install, see [When updates are disabled](#when-updates-are-disabled). |
+| **Enable updates** (the switch beside the card's title) | `enabled` | on | Master switch for checks, update entities and every install, see [When updates are disabled](#when-updates-are-disabled). |
 | **Update channel** | `firmware_update_channel` | **Stable** (`stable`) | Which manifest to follow when no custom URL is set: stable releases, or **Development** (`dev`, the published development firmware). Also decides whether the release notice considers prereleases. |
+| **When a new version is found** | `firmware_auto_update` | **Manual** (off) | **Auto** installs a newer firmware without asking, see [Firmware](#firmware). |
 | **Check for a new version** | `update_interval` | **Every hour** (`3600`) | Seconds between periodic checks; **Never** (`0`) turns them off. The editor offers 15 minutes to one week and keeps another stored value selectable; the hub does not limit the value. |
-| **When a new version is found** | `firmware_auto_update` | **Wait for me** (off) | **Install automatically** installs a newer firmware without asking, see [Firmware](#firmware). |
 | **Skip this version** | `skipped_firmware_version` | empty | A firmware version never installed automatically; a manual install is not affected. |
 
 Under **Advanced**:
@@ -503,10 +503,10 @@ version is marked **Skipped** on its row.
 
 **Check for updates** runs along the bottom edge of the status card, and the
 **Update settings** card below the versions holds this device's update
-preferences ([Settings](#settings)). Under the **Enable updates** switch come
-the three choices an update needs: the **Update channel**, how often to **Check
+preferences ([Settings](#settings)). Its title carries the **Enable updates**
+switch; below come the three choices an update needs: the **Update channel**, how often to **Check
 for a new version** (or **Never**), and what happens **When a new version is
-found** (**Wait for me** or **Install automatically**). Everything else is
+found** (**Manual** or **Auto**). Everything else is
 folded under **Advanced**, which opens by itself while a custom manifest URL is
 set.
 Changes save automatically; text fields save after you pause typing.
@@ -844,7 +844,7 @@ entity back, so automations keep working.
 [local test releases](release.md#test-firmware-updates-with-a-local-release)
 through the `firmware_manifest_url` substitution needs the same **Custom
 manifest URL** in the device editor before you update the integration — or
-**Wait for me** selected. Otherwise the hub reads the GitHub
+**Manual** selected. Otherwise the hub reads the GitHub
 manifest and installs a newer release over the test build.
 
 #### 12. Display TFT updates come from the firmware manifest
@@ -1022,7 +1022,7 @@ normal settings apply. See
 
 - **Nothing is converted.** The stored `day_night_*`, `day_*`, `night_*`,
   `use_do_not_disturb` and `quiet_hours_*` settings are ignored. Set
-  **Brightness** under **Display dimming & off** and add the entries again in
+  **Brightness** under **Screen** and add the entries again in
   the device settings.
 - `brightness` is a new device setting (default empty): the full brightness
   outside the schedule. Empty leaves the panel's **Brightness Full** number

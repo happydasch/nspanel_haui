@@ -136,7 +136,7 @@ data:
 
 Good to know:
 
-- **Sounds are off by default.** They only play when the device's `sound_on_notification` setting is on, see [Device settings → Notifications](configuration/device.md#notifications).
+- **Sounds are off by default.** They only play when the device's `sound_on_notification` setting is on, see [Device settings → Sounds](configuration/device.md#sounds).
 - **Persistent** notifications repeat their sound every `persistent_sound_interval` seconds and also open over the idle page. A [schedule](configuration/device.md#schedule) entry with sound off still keeps the display dark. A `timeout` also ends a persistent notification.
 - **The queue** holds up to 50 notifications. When it is full, the oldest one is dropped.
 - **Sending the same title and message again** replaces the waiting notification: its sound plays again and it moves to the end of the queue.

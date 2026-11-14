@@ -180,6 +180,19 @@ test('the carousel arrows follow the scroll extents and the summary waits for st
   assert.match(atEnd, /aria-label="Scroll devices right"/);
 });
 
+test('the carousel fades only the edges with cards beyond them', () => {
+  const deviceFor = (name) => ({ name, device: { friendlyName: name, config: {}, panels: [] }, status: null, updates: false });
+  const wrap = (carousel) => render(renderFleetView({
+    devices: [deviceFor('kitchen'), deviceFor('office')], events: [], version: '0.5.0',
+    onOpenDevice() {}, onReorderDevices() {}, carousel,
+  })).querySelector('.haui-fleet-carousel-wrap').classList;
+  assert.deepEqual([...wrap({ atStart: true, atEnd: true })], ['haui-fleet-carousel-wrap']);
+  assert.ok(wrap({ atStart: true, atEnd: false }).contains('is-clipped-end'));
+  assert.ok(!wrap({ atStart: true, atEnd: false }).contains('is-clipped-start'));
+  const middle = wrap({ atStart: false, atEnd: false });
+  assert.ok(middle.contains('is-clipped-start') && middle.contains('is-clipped-end'));
+});
+
 test('the carousel edges follow scroll position', () => {
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 1000, clientWidth: 400, scrollLeft: 0 }), { atStart: true, atEnd: false });
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 1000, clientWidth: 400, scrollLeft: 600 }), { atStart: false, atEnd: true });

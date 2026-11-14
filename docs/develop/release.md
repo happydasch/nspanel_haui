@@ -202,8 +202,8 @@ otherwise the Nextion Editor), set `tft_version` in
 A TFT change committed under an unchanged version never reaches a panel that
 already reports that version. CI enforces the bump: `ci.yml` runs
 `scripts/verify_nextion/check_hmi_bump.py` against the PR merge base (or the
-pushed-from commit) and fails when an HMI changed while `tft_version` did not
-advance.
+pushed-from commit) and fails when an HMI or a TFT changed while `tft_version`
+did not advance.
 
 Firmware and TFT serials are independent: `yaml_version` identifies the firmware build, while
 `tft_required_version` (the device's `tft_version` substitution) identifies the display image that
@@ -435,20 +435,22 @@ migration path.
 
 | Workflow | Triggers | What it enforces |
 |----------|----------|------------------|
-| `ci.yml` | pushes/PRs to `master`, `dev`; manual dispatch. A newer run on the same branch or PR cancels the previous one | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; HMI bump; Nextion asset gate (`verify_nextion.py --require-portrait`); `pytest tests/` (which also runs both `gen_layout.py` spec checks); `ruff format --check custom_components/ scripts/ tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation |
+| `ci.yml` | pushes/PRs to `master`, `dev`; manual dispatch. A newer run on the same branch or PR cancels the previous one | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; display TFT version bump (`check_hmi_bump.py`: an HMI or TFT changed, so `tft_version` must advance); `pytest tests/` (which also runs both `gen_layout.py` spec checks, touch settings and portrait parity included, and checks that both HMIs and both TFTs carry `tft_version`); `ruff format --check custom_components/ scripts/ tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation |
 | `ci.yml` → `deploy-docs` | every push to `master` or `dev`; a manual dispatch on either (each Development Firmware run dispatches one on `dev`) | reuses the `docs` artifact for the pushed branch and builds only the sibling, then deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
 | `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); the same run regenerates the screen overview, commits it with the version as one bot commit and dispatches `ci.yml` on `dev` to test it and deploy the docs. `screens_only` regenerates the screens without a build; never triggered by pushes |
-| `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; ESPHome compile; firmware manifest; prepared release notes; asset upload |
+| `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; ESPHome compile; firmware manifest (refuses a TFT that does not carry `tft_version`); prepared release notes; asset upload |
 
 **Release-only checks:** the tag-vs-`manifest.json` version check and the
 stable GitHub release with its asset upload run only in `release.yml` on a
 `v*` tag push or a manual dispatch on a `v*` ref. The ESPHome *compile*
 (push/PR CI only runs `esphome config`) and firmware-manifest generation run in
-both release workflows: `release.yml` and `dev-firmware.yml`. The Nextion
-gate runs in push/PR CI only; the tagged commit passed it on its release PR,
-whose `tests (3.14)` check `master` requires. Push/PR CI validates
-the Nextion assets, version consistency and the firmware config, but never
-compiles or publishes.
+both release workflows: `release.yml` and `dev-firmware.yml`; the manifest
+step refuses a TFT asset that does not embed `tft_version`, so neither
+workflow can publish a TFT under a version the display will not report. The
+HMI layout checks and the HMI/`version.yaml` comparison run in push/PR CI
+only; the tagged commit passed them on its release PR, whose `tests (3.14)`
+check `master` requires. Push/PR CI validates the Nextion assets, version
+consistency and the firmware config, but never compiles or publishes.
 
 ### Run the same gates locally
 
@@ -468,13 +470,13 @@ python -m scripts.translations.extract_translations && git diff --exit-code -- c
 VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
 python -m scripts.bump_version "$VERSION" --check  # add --tft-update for a TFT release
 python -m scripts.verify_nextion.check_hmi_bump --base origin/dev  # the branch you forked from
-python -m scripts.verify_nextion.verify_nextion --require-portrait
 python -m scripts.hmi_layout.gen_layout --check
 python -m scripts.hmi_layout.gen_layout --spec portrait --check
 python -m scripts.hmi_layout.gen_virtual_layout --check
 python -m scripts.check_preview_coverage
 
-# Backend, formatting, lint and type checks
+# Backend, formatting, lint and type checks (pytest also checks that both
+# HMIs and both TFTs carry tft_version)
 pytest tests/
 ruff format --check custom_components/ scripts/ tests/
 ruff check custom_components/ scripts/

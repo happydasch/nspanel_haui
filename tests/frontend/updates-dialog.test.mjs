@@ -16,7 +16,7 @@ const DIALOGS = [
   'nspanel-panel-editor',
   'nspanel-dialog-confirm',
   'nspanel-device-settings',
-  'nspanel-firmware-popover',
+  'nspanel-updates-sidebar',
   'nspanel-logs-sidebar',
   'nspanel-theme-sidebar',
 ];
@@ -30,8 +30,8 @@ function dialog(tag, props = {}) {
   return { dlg, events };
 }
 
-test('the firmware popover leads with its status, then versions, then settings', () => {
-  const { dlg } = dialog('nspanel-firmware-popover', {
+test('the Updates sidebar combines status and versions before its settings', () => {
+  const { dlg } = dialog('nspanel-updates-sidebar', {
     open: true,
     deviceName: 'kitchen',
     deviceStatus: {
@@ -45,14 +45,18 @@ test('the firmware popover leads with its status, then versions, then settings',
   });
 
   const markup = collectTemplateStrings(dlg.render()).join(' ');
-  const status = markup.indexOf('haui-firmware-hero');
-  const versions = markup.indexOf('haui-firmware-versions');
-  const settings = markup.indexOf('haui-firmware-settings');
-  assert.ok(status >= 0);
+  const overview = markup.indexOf('haui-update-overview');
+  const status = markup.indexOf('haui-update-summary');
+  const versions = markup.indexOf('haui-update-versions');
+  const checkAction = markup.indexOf('haui-update-check-action');
+  const settings = markup.indexOf('haui-update-settings');
+  assert.ok(overview >= 0);
+  assert.ok(status > overview);
   assert.ok(versions > status);
-  assert.ok(settings > versions);
-  assert.match(markup, /<section class="haui-surface haui-firmware-settings"/);
-  assert.doesNotMatch(markup, /<section class="haui-firmware-settings"/);
+  assert.ok(checkAction > versions);
+  assert.ok(settings > checkAction);
+  assert.match(markup, /<section class="haui-surface haui-update-settings"/);
+  assert.doesNotMatch(markup, /<section class="haui-update-settings"/);
   assert.equal(rowInstallActions(dlg.render()).length, 2);
   assert.doesNotMatch(markup, /Install update|Download firmware|Firmware download version/);
   assert.match(markup, /0\.4\.3/);
@@ -88,8 +92,8 @@ test('Redraw display calls the hub for the selected device', async () => {
   assert.deepEqual(host.toasts, [['success', 'Display refreshed for "kitchen"']]);
 });
 
-test('the install picker opens below the update settings in the popover', () => {
-  const { dlg } = dialog('nspanel-firmware-popover', {
+test('the install picker opens below the update settings in the sidebar', () => {
+  const { dlg } = dialog('nspanel-updates-sidebar', {
     open: true,
     deviceStatus: { device_info: {}, update: { enabled: true } },
     deviceName: 'kitchen',
@@ -103,7 +107,7 @@ test('the install picker opens below the update settings in the popover', () => 
   });
 
   const markup = collectTemplateStrings(dlg.render()).join(' ');
-  const settingsIndex = markup.indexOf('haui-firmware-settings');
+  const settingsIndex = markup.indexOf('haui-update-settings');
   const pickerIndex = markup.indexOf('haui-update-picker');
   assert.ok(settingsIndex >= 0);
   assert.ok(pickerIndex > settingsIndex);
@@ -136,7 +140,7 @@ function rowInstallActions(value, result = []) {
 }
 
 test('each firmware version row opens its matching install picker', async () => {
-  const { dlg, events } = dialog('nspanel-firmware-popover', {
+  const { dlg, events } = dialog('nspanel-updates-sidebar', {
     open: true,
     deviceName: 'haui',
     entryId: 'entry1',
@@ -157,7 +161,7 @@ test('each firmware version row opens its matching install picker', async () => 
 
   const actions = rowInstallActions(dlg.render());
   assert.equal(actions.length, 2);
-  assert.deepEqual(actions.map(({ ariaLabel }) => ariaLabel), ['Install Firmware', 'Install Display (TFT)']);
+  assert.deepEqual(actions.map(({ ariaLabel }) => ariaLabel), ['Install Firmware (YAML)', 'Install Display (TFT)']);
   assert.ok(actions.every(({ disabled }) => !disabled));
 
   await actions[0].onClick();
@@ -180,7 +184,7 @@ test('each firmware version row opens its matching install picker', async () => 
 });
 
 test('firmware row actions are unavailable when updates are disabled or busy', async () => {
-  const { dlg } = dialog('nspanel-firmware-popover', {
+  const { dlg } = dialog('nspanel-updates-sidebar', {
     open: true,
     deviceName: 'haui',
     deviceStatus: { device_info: {}, update: { enabled: false } },

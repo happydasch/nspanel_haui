@@ -10,13 +10,13 @@ import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app
 
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
 import { openThemeSidebar, saveTheme } from '../../custom_components/nspanel_haui/frontend/theme-editor.js';
-import { filterLogEntries, logEntries, logText } from '../../custom_components/nspanel_haui/frontend/dialogs/logs.js';
+import { deviceLogEntries, filterLogEntries, logEntries, logText } from '../../custom_components/nspanel_haui/frontend/dialogs/logs.js';
 
 const DIALOGS = [
   'nspanel-panel-editor',
   'nspanel-dialog-confirm',
   'nspanel-device-settings',
-  'nspanel-firmware-popover',
+  'nspanel-updates-sidebar',
   'nspanel-logs-sidebar',
   'nspanel-theme-sidebar',
 ];
@@ -74,6 +74,46 @@ test('the logs sidebar groups by day, tags problems, and hands Copy the visible 
   dlg._copy(filterLogEntries(logEntries(LOG_LINES), 'error', ''));
   assert.deepEqual(events.map((event) => event.type), ['copy-logs']);
   assert.match(events[0].detail.text, /^\[2026-11-11T12:00:05\+00:00\] ERROR Template failed/);
+});
+
+test('the logs sidebar lists every device or the selected one, without its name on each line', () => {
+  const entries = logEntries([
+    { line: LOG_LINES[0], device: 'kitchen', deviceName: 'Kitchen' },
+    { line: LOG_LINES[1], device: 'hall', deviceName: 'Hall' },
+  ]);
+  assert.deepEqual(deviceLogEntries(entries, '').map((entry) => entry.deviceName), ['Hall', 'Kitchen']);
+  const hall = deviceLogEntries(entries, 'hall');
+  assert.deepEqual(hall.map((entry) => entry.message), ['Slow render on grid']);
+  assert.equal(logText(hall), '[2026-11-11T12:00:00+00:00] WARNING Slow render on grid');
+});
+
+test('the logs sidebar offers every device and reports the one chosen', async () => {
+  const sidebar = document.createElement('nspanel-logs-sidebar');
+  Object.assign(sidebar, {
+    open: true,
+    devices: [{ name: 'kitchen', label: 'Kitchen' }, { name: 'hall', label: 'Hall' }],
+    device: 'hall',
+    logs: [
+      { line: LOG_LINES[0], device: 'kitchen', deviceName: 'Kitchen' },
+      { line: LOG_LINES[1], device: 'hall', deviceName: 'Hall' },
+    ],
+  });
+  const chosen = [];
+  sidebar.addEventListener('device-selected', (event) => chosen.push(event.detail.device));
+  document.body.append(sidebar);
+  await sidebar.updateComplete;
+
+  const select = sidebar.shadowRoot.querySelector('select');
+  assert.deepEqual([...select.options].map((option) => option.value), ['', 'kitchen', 'hall']);
+  assert.equal(sidebar.shadowRoot.querySelectorAll('.haui-log').length, 1);
+
+  select.value = '';
+  select.dispatchEvent(new Event('change'));
+  assert.deepEqual(chosen, ['']);
+  sidebar.device = '';
+  await sidebar.updateComplete;
+  assert.equal(sidebar.shadowRoot.querySelectorAll('.haui-log').length, 2);
+  sidebar.remove();
 });
 
 test('the logs sidebar tells an empty log from a search that matches nothing', () => {

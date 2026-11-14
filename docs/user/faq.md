@@ -35,7 +35,7 @@ See [TFT Upload Failures](troubleshooting.md#tft-upload-failures) and [Updating 
 
 The panel still follows the stable channel. Development builds belong to the *next* release (`0.4.5.dev123` while `0.4.4` is the stable one) and are only published on the dev channel.
 
-Open the device's **Updates** sidebar, set **Firmware update channel** to **Development** and leave **Custom manifest URL** empty. The hub then follows the newest [development release](../develop/release.md#published-development-firmware), which also includes the matching display TFT.
+Open the device's **Updates** sidebar, set **Update channel** to **Development** and leave **Custom manifest URL** empty. The hub then follows the newest [development release](../develop/release.md#published-development-firmware), which also includes the matching display TFT.
 
 Two older development builds need one manual step. Install a newer build once with **Install** beside **Firmware** in the **Updates** sidebar, then choose its version:
 
@@ -52,7 +52,7 @@ The entry is harmless. See [Display-Off Errors](troubleshooting.md#display-off-e
 
 ### The display should change its brightness over the day
 
-Use the **Schedule** option in **Manage this device** on the device's **Preview** view. Add an entry for each time window, from a time, sunrise or sunset (with an offset in minutes) to a time, sunrise or sunset, and set its brightness. Outside the entries, the Schedule settings' default **Brightness full** and **Brightness dimmed** apply. See [Schedule](configuration/device.md#schedule).
+Use the **Schedule** option in **Manage this device** on the device's **Preview** view. Add an entry for each time window, from a time, sunrise or sunset (with an offset in minutes) to a time, sunrise or sunset, and set its brightness. Outside the entries, **Brightness full** and **Brightness dimmed** in the **Screen** section of the device settings apply. See [Schedule](configuration/device.md#schedule).
 
 Without a schedule and without a **Brightness full** value, the brightness stays manual. An automation that sets `number.<device>_brightness_full` and `number.<device>_brightness_dimmed` works as before.
 
@@ -60,6 +60,6 @@ Without a schedule and without a **Brightness full** value, the brightness stays
 
 Turn **Auto display off** off in the device settings and add a **Schedule** entry for the night with **Screen off** on. See [Schedule](configuration/device.md#schedule).
 
-Without a schedule, a Home Assistant automation can switch `switch.<device>_use_auto_display_off` on in the evening and off in the morning. The integration does not change this switch on its own then, so the automation stays in control. See [Display dimming & off](configuration/device.md#display-dimming-off).
+Without a schedule, a Home Assistant automation can switch `switch.<device>_use_auto_display_off` on in the evening and off in the morning. The integration does not change this switch on its own then, so the automation stays in control. See [Screen](configuration/device.md#screen).
 
 While the panel has no connection to Home Assistant, the display never turns off; it only dims.

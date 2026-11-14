@@ -19,7 +19,7 @@ A US panel mounted in landscape works exactly like an EU panel, so it uses the d
 ## Selecting the model
 
 1. Open the device's **Settings**.
-2. Under **General Settings**, set **Display Model**.
+2. Under **General**, set **Display Model**.
 3. Select **Save**. The editor asks whether to install the matching display file (TFT) now.
 
 If you answer no, the display keeps its current layout until you install the TFT yourself with **Install** beside **Display** in the **Updates** sidebar. The display cannot report which layout it has, so the hub does not notice a wrong one on its own.

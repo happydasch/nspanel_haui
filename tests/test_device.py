@@ -2,6 +2,8 @@ import time
 from datetime import datetime
 from datetime import time as dt_time
 
+import pytest
+
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.device import HAUIDevice
 from custom_components.nspanel_haui.haui.mapping.const import ESPAction, ESPEvent
@@ -1175,3 +1177,49 @@ def test_stopping_the_device_cancels_the_schedule_timer() -> None:
     device.stop_part()
 
     assert app.cancelled == ["timer-1"]
+
+
+def test_a_malformed_schedule_entry_raises_instead_of_being_skipped():
+    """Saved settings are validated; an entry that slipped past must not be ignored."""
+    app = DummyApp()
+    device = HAUIDevice(app, {"schedule": [_entry("10pm", "07:00", sound=False)]})
+
+    with pytest.raises(ValueError, match="10pm"):
+        device.play_sound("notification")
+
+    assert app.controller["esphome"].esphome.publish_calls == []
+
+
+# --- time and date formats ----------------------------------------------------
+
+_FORMATS = [
+    ("time_format", "get_time_format", "%I:%M %p"),
+    ("date_format", "get_date_format", "%m/%d/%Y"),
+    ("date_format_locale", "get_date_format_locale", "short"),
+]
+
+
+def _format_device(device_cfg, hub_cfg):
+    app = DummyApp()
+    app.device_config = hub_cfg
+    return HAUIDevice(app, device_cfg)
+
+
+@pytest.mark.parametrize(("key", "getter", "value"), _FORMATS)
+def test_a_format_the_device_leaves_empty_takes_the_hub_default(key, getter, value):
+    device = _format_device({}, {key: value})
+
+    assert getattr(device, getter)() == value
+
+
+@pytest.mark.parametrize(("key", "getter", "value"), _FORMATS)
+def test_a_format_set_on_the_device_overrides_the_hub_default(key, getter, value):
+    device = _format_device({key: value}, {key: "hub default"})
+
+    assert getattr(device, getter)() == value
+
+
+def test_a_date_format_set_on_the_device_replaces_the_locale_date_layout():
+    device = _format_device({"date_format": "%m/%d/%Y"}, {"date_format_locale": "full"})
+
+    assert device.get_date_format_locale() == ""

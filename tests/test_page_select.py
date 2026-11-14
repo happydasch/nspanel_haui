@@ -79,6 +79,21 @@ def test_tapping_other_entry_reports_it():
     assert selections == ["high"]
 
 
+def test_a_multiple_selection_is_reported_once_its_delay_ends():
+    page, selections = _select_page(
+        items=["Kitchen", "Office", "Bath"], selected=["Kitchen"], multiple=True
+    )
+    timers = []
+    page.app.run_in = lambda callback, delay, **kwargs: timers.append(callback) or "timer"
+    page.app.cancel_timer = lambda handle: None
+
+    page.callback_select(None, SelectPage.COMPONENTS.btn_sel_2)
+    assert selections == []
+
+    timers[-1]({})
+    assert selections == [["Kitchen", "Office"]]
+
+
 def test_a_select_popup_does_not_inherit_the_previous_popups_options():
     """Media's group popup (multiple) and then its source popup (single) on one page."""
     page, _selections = _select_page(

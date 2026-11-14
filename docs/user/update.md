@@ -38,10 +38,10 @@ Update settings belong to each device. In the editor, open the device's **Update
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| **Enable updates** | on | Master switch. When off, the hub does not check for updates, installs nothing and refuses manual installs. |
+| **Enable updates** (the switch beside the card's title) | on | Master switch. When off, the hub does not check for updates, installs nothing and refuses manual installs. |
 | **Update channel** | **Stable** | Stable releases, or published **Development** builds, for both firmware and display. |
+| **When a new version is found** | **Manual** | **Auto** installs new firmware as soon as a release is out. This can happen before you have updated the integration or read the release notes. |
 | **Check for a new version** | **Every hour** | How often the hub looks for a newer release; **Never** turns the regular checks off. |
-| **When a new version is found** | **Wait for me** | **Install automatically** installs new firmware as soon as a release is out. This can happen before you have updated the integration or read the release notes. |
 
 The rest is folded under **Advanced**:
 
@@ -49,7 +49,7 @@ The rest is folded under **Advanced**:
 |---------|---------|--------------|
 | **Custom manifest URL** | empty | A firmware manifest to follow instead of the channel. |
 | **Check for updates on connect** | on | Also checks for a new release after the panel connects. |
-| **Wait before an automatic firmware install** | 10 minutes | Shown with **Install automatically**. The firmware install waits this long first. Until then the **Updates** sidebar offers **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**. |
+| **Wait before an automatic firmware install** | 10 minutes | Shown with **Auto**. The firmware install waits this long first. Until then the **Updates** sidebar offers **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**. |
 | **Install display updates automatically** | on | Installs the display file right after a firmware update. When off, the panel asks first. |
 | **Failed attempts before it stops** | 3 | After this many failed automatic attempts at one version, the device stops trying until you install it by hand or a newer version comes out. |
 | **Wait between attempts** | 1 hour | How long a failed automatic install waits before it tries again. |
@@ -88,7 +88,7 @@ Two things behave differently:
 
 ### Themes replace color schemes
 
-The **Device Colors** sidebar is now the **Theme** editor, opened with the **Theme** button of **Manage this device** on the device's **Preview**. Choose the device's theme there; the Appearance section has been removed from device settings. Home and idle page assignments are in **Device Settings → Special pages**.
+The **Device Colors** sidebar is now the **Theme** editor, opened with the **Theme** button of **Manage this device** on the device's **Preview**. Choose the device's theme there; the Appearance section has been removed from device settings. Home and idle page assignments are in **Device Settings → Home & idle**.
 
 When the integration loads the panel store, it does not migrate color schemes or per-device theme settings. Configure the device with `theme_id` and `theme_variant`, and add custom palettes to the shared theme library. Panel and item color settings are separate and unchanged. Use `theme_definition` for an included custom theme.
 
@@ -98,7 +98,7 @@ The **Day/Night Profiles** and the **quiet hours** (do not disturb) are gone. On
 
 Saved Day/Night and quiet-hours settings are **not converted**. After the update:
 
-1. Open the device settings and set **Brightness** under **Display dimming & off**. It is the brightness outside the schedule.
+1. Open the device settings and set **Brightness** under **Screen**. It is the brightness outside the schedule.
 2. Add a **Schedule** entry for each time window you had, for example one for the night with a low brightness, and one with **Sound** off for your former quiet hours.
 
 What changed:

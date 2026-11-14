@@ -112,22 +112,9 @@ class DummyApp:
         self._timer_handles.pop(handle, None)
 
 
-class DummyESPHome:
-    def __init__(self):
-        self.calls = []
-
-    def send_cmd(self, command, payload, force=False):
-        self.calls.append((command, payload, force))
-
-
 @pytest.fixture
 def dummy_app():
     return DummyApp()
-
-
-@pytest.fixture
-def dummy_esphome():
-    return DummyESPHome()
 
 
 def test_notification_controller_add_remove_clear_get(dummy_app):
@@ -179,8 +166,8 @@ def test_queued_notification_exposes_named_fields(dummy_app):
     assert dummy_app.fire_event_calls[-1][1]["force_show"] is True
 
 
-def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
-    """Ensure add_notification fires notif_add callback_event with correct data."""
+def test_add_notification_fires_the_notif_add_event(dummy_app):
+    """The pages and the device learn about a new notification from this event."""
     controller = HAUINotificationController(dummy_app, {})
 
     title = "Alert"
@@ -200,6 +187,21 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     assert event.value.notif_id
 
 
+def test_add_notification_defaults(dummy_app):
+    """A notification without optional fields gets the generic defaults."""
+    controller = HAUINotificationController(dummy_app, {})
+
+    notification = controller.add_notification("Default Notification")
+
+    assert notification.message == ""
+    assert notification.icon == ""
+    assert notification.persistent is False
+    assert notification.force_show is False
+    assert notification.icon_color is None
+    assert notification.sound == "notification"
+    assert notification.text_size == "auto"
+
+
 def test_notification_event_includes_timeout(dummy_app):
     """Automations can distinguish a timed notification from one that stays queued."""
     controller = HAUINotificationController(dummy_app, {})
@@ -208,10 +210,41 @@ def test_notification_event_includes_timeout(dummy_app):
 
     event_type, payload = dummy_app.fire_event_calls[-1]
     assert event_type == "nspanel_haui.notification"
+    assert payload["state"] == "added"
+    assert payload["device"] == "testdevice"
+    assert payload["title"] == "Door"
     assert payload["timeout"] == 15
     assert payload["icon_color"] is None
     assert payload["sound"] == "notification"
     assert payload["force_show"] is False
+
+
+def test_clearing_notifications_fires_a_removed_event_for_each(dummy_app):
+    controller = HAUINotificationController(dummy_app, {})
+    notification = controller.add_notification("Doorbell", "Someone is here", icon="mdi:bell")
+    dummy_app.fire_event_calls.clear()
+
+    controller.clear_notifications()
+
+    assert controller.get_notifications() == []
+    assert dummy_app.fire_event_calls == [
+        (
+            "nspanel_haui.notification",
+            {
+                "device": "testdevice",
+                "id": notification.notif_id,
+                "state": "removed",
+                "title": "Doorbell",
+                "message": "Someone is here",
+                "icon": "mdi:bell",
+                "icon_color": None,
+                "sound": "notification",
+                "persistent": False,
+                "force_show": False,
+                "timeout": None,
+            },
+        )
+    ]
 
 
 def test_empty_icon_color_and_none_sound_are_normalized(dummy_app):

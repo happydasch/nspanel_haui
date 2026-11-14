@@ -89,7 +89,7 @@ export function renderDeviceView({
           ${isPreview && preview
             ? previewControls({ preview, onMode, onIdle })
             : nothing}
-          ${!isPreview && panelSearch ? html`<label class="haui-panel-search">
+          ${!isPreview && panelSearch ? html`<label class="haui-search-field haui-panel-search">
             ${icon('search')}
             <input type="search" .value=${panelSearch.query} placeholder=${t('Search panels')}
               aria-label=${t('Search panels')}

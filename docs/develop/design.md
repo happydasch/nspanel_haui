@@ -315,7 +315,14 @@ The README's images (hero, editor and quick start) are generated too:
 `python -m scripts.readme_images.gen_readme_images` captures the HTML pages in
 `scripts/readme_images/src/` with headless Chrome and writes
 `docs/assets/readme/`. The two screens on the hero are the hub's renders of the
-sample panels in that script, taken through the card gallery. The README links
+sample panels in that script, taken through the card gallery. The editor
+screenshots, each screen in the light and the dark theme, come from
+`python -m scripts.readme_images.gen_editor_screenshots`: it starts a throwaway
+Home Assistant from `.venv_ha` on port 8124 (see
+[Development instance in a virtual environment](development.md#development-instance-in-a-virtual-environment))
+with the `demo` integration's entities and six sample devices, onboards it and
+captures the editor with headless Chrome. The devices have no ESPHome node, so
+they show as offline. The README links
 the images by absolute `raw.githubusercontent.com` URLs
 (`tests/test_marketplace_assets.py` checks that each one exists) and has no
 mermaid diagrams: the Home Assistant Marketplace shows the README, but does not

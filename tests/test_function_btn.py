@@ -1,4 +1,4 @@
-"""Header function-button auto-assignment tests.
+"""Header function buttons: auto-assignment, and how a button is drawn.
 
 Covers ``_auto_assign_fncs`` (which navigation / notification / sleep function
 each of the four header slots gets on a given panel) and the single-nav slot
@@ -6,6 +6,8 @@ swap.  Regression target: the sleep button must appear on the home panel
 whenever ``show_idle_button`` is set and the notifications button is not
 actively occupying the left-secondary slot.
 """
+
+import pytest
 
 from custom_components.nspanel_haui.haui.abstract.component import Component
 from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
@@ -325,3 +327,82 @@ def test_popup_gets_up_then_home():
         assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_UP, True), cfg
         assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_HOME, True), cfg
         assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True), cfg
+
+
+# --- drawing a function button ---------------------------------------------------
+
+BTN = Component(7, "bShuffle")
+
+
+class RecordingPage(FunctionButtonMixin):
+    """Records the touch state and text colour a button is drawn with."""
+
+    def __init__(self) -> None:
+        self._fnc_items = {}
+        self._fnc_id_by_component = {}
+        self.touch: list[tuple[str, bool]] = []
+        self.colors: list[tuple[str, int]] = []
+        self.color_map: dict[str, int] = {}
+
+    def log(self, *a, **k) -> None:
+        pass
+
+    def get_color(self, key: str) -> int:
+        return self.color_map.get(key, 0)
+
+    def set_component_touch(self, component: Component, state: bool) -> None:
+        self.touch.append((component.name, state))
+
+    def set_component_text_color(self, component: Component, color: int) -> None:
+        self.colors.append((component.name, color))
+
+    def _ignore(self, *a) -> None:
+        pass
+
+    set_component_value = set_component_text = _ignore
+    set_component_text_color_pressed = _ignore
+    set_component_back_color = set_component_back_color_pressed = _ignore
+    show_component = hide_component = _ignore
+
+
+def _recording_page() -> RecordingPage:
+    page = RecordingPage()
+    page.set_function_component(BTN, BTN.name)
+    return page
+
+
+def test_touch_kwarg_disables_button():
+    """Pages pass ``touch=`` to enable/disable a button."""
+    page = _recording_page()
+
+    page.update_function_component(BTN.name, touch=False)
+
+    assert page.touch == [("bShuffle", False)]
+
+
+def test_notification_indicator_uses_header_accent_color():
+    page = _recording_page()
+    page.color_map = {"header_accent": 123, "header_text": 456}
+    page.set_function_component(BTN, BTN.name, FncType.NAV_NOTIF)
+
+    page.update_function_component(BTN.name)
+
+    assert page.colors == [("bShuffle", 123)]
+
+
+def test_other_header_buttons_keep_header_text_color():
+    """Only the notification indicator defaults to the accent color."""
+    page = _recording_page()
+    page.color_map = {"header_accent": 123, "header_text": 456}
+
+    page.update_function_component(BTN.name)
+
+    assert page.colors == [("bShuffle", 456)]
+
+
+@pytest.mark.parametrize(("enabled", "back_pressed"), [(True, 11), (False, 22)])
+def test_only_an_enabled_content_button_lifts_when_pressed(enabled, back_pressed):
+    page = RecordingPage()
+    page.color_map = {"component_pressed": 11, "background": 22}
+
+    assert page.get_button_colors(enabled)[2] == back_pressed

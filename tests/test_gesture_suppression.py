@@ -8,7 +8,7 @@ The touch poller turns a slider drag into a ``swipe_*`` gesture.  Slider
 components are marked as "drag" controls so their release defers the value
 read briefly (flushed on TOUCH_END or a fallback timer, whichever first)
 and the spurious swipe gesture is suppressed (no panel navigation; the
-gesture controller's side is in ``test_core_gesture.py``).
+gesture controller's side is in ``test_gesture.py``).
 """
 
 import time
@@ -67,25 +67,8 @@ class FakePageApp:
 
 
 def _bare_page(page_id=1):
-    """A HAUIPage with just the attributes the event paths touch."""
-    page = HAUIPage.__new__(HAUIPage)
-    page.app = FakePageApp()
-    page.page_id = page_id
-    page._callbacks = []
-    page._callback_map = {}
-    page._fnc_id_by_component = {}
-    page._drag_components = set()
-    page._pending_drag_callback = None
-    page._drag_flush_timer = None
-    page._suppress_gesture = False
-    page._suppress_gesture_timer = None
-    page._queued_callback = None
-    page._buffer_timer = None
-    page._fnc_items = {}
-    page._read_callbacks = {}
-    page._pending_read_request = None
-    page._touch_started_at = None
-    page.panel = None
+    """A real HAUIPage on a fake app that records what it sends to the panel."""
+    page = HAUIPage(FakePageApp(), {"page_id": page_id})
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 

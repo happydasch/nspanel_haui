@@ -107,6 +107,24 @@ def read_tft_version(path: Path) -> str:
     return _read_text(raw, value_off, length_field_off)
 
 
+def check_tft_carries(tft: Path, version: str) -> None:
+    """Raise unless the compiled TFT at ``tft`` embeds ``system.tftVersion`` ``version``.
+
+    A display reports the version compiled into its TFT, and the hub installs a
+    TFT until the display reports the version the firmware requires. A TFT
+    published under a version it does not carry is therefore offered again
+    after every install.
+
+    Raises:
+        ValueError: The TFT does not carry the version.
+    """
+    # The compiled TFT stores the text as a NUL-terminated string.
+    if b"\0" + version.encode("iso_8859_1") + b"\0" not in tft.read_bytes():
+        raise ValueError(
+            f"{tft.name} does not carry {TARGET_WIDGET} {version!r}; recompile it from its HMI"
+        )
+
+
 def shipped_tft_version(hmis: tuple[Path, ...] = DEFAULT_HMIS) -> str:
     """Return the version the HMIs and the TFTs compiled from them carry.
 
@@ -129,13 +147,7 @@ def shipped_tft_version(hmis: tuple[Path, ...] = DEFAULT_HMIS) -> str:
     if re.fullmatch(r"\d+\.\d+\.\d+(?:\.dev\d+)?", version) is None:
         raise ValueError(f"{TARGET_WIDGET} {version!r} is not an X.Y.Z or X.Y.Z.devN version")
     for hmi in hmis:
-        tft = hmi.with_suffix(".tft")
-        # The compiled TFT stores the text as a NUL-terminated string.
-        if b"\0" + version.encode("iso_8859_1") + b"\0" not in tft.read_bytes():
-            raise ValueError(
-                f"{tft.name} does not carry {TARGET_WIDGET} {version!r}; recompile it "
-                f"from {hmi.name}"
-            )
+        check_tft_carries(hmi.with_suffix(".tft"), version)
     return version
 
 

@@ -1,10 +1,9 @@
 // @ts-check
-import { html } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { button, iconButton } from './button.js';
 import { actionCard } from './action-card.js';
 import { gestureEditor } from './gesture-editor.js';
-import { renderNumberInput, renderToggle } from '../form-fields.js';
 import { builtinThemeLabel } from '../theme-library.js';
 import { entryCount } from './entry-list.js';
 import { DEFAULT_SCHEDULE_BRIGHTNESS, scheduleEditor } from './schedule-editor.js';
@@ -28,6 +27,41 @@ export function panelActions({ panels, onAdd, onSettings }) {
 }
 
 /**
+ * The name of a device's theme: a custom theme's own name, or the predefined
+ * theme's label.
+ *
+ * @param {unknown} themeId
+ * @param {Record<string, any>} builtinThemes
+ * @param {Record<string, any>} customThemes
+ */
+function themeLabel(themeId, builtinThemes, customThemes) {
+  const id = String(themeId || 'dark');
+  return customThemes[id]?.name || (builtinThemes[id] ? builtinThemeLabel(id) : id);
+}
+
+/**
+ * What the device's theme, schedule, gestures and update settings hold, in a
+ * few words: the device settings show it on the row that opens each one.
+ *
+ * @param {{ config: any, builtinThemes?: Record<string, any>, customThemes?: Record<string, any> }} data
+ * @returns {{ theme: string, schedule: string, gestures: string, updates: string }}
+ */
+export function deviceOptionSummaries({ config, builtinThemes = {}, customThemes = {} }) {
+  const { update } = config;
+  return {
+    theme: themeLabel(config.theme_id, builtinThemes, customThemes),
+    schedule: entryCount(config.schedule.length),
+    gestures: entryCount(config.gestures.length),
+    updates: update.enabled
+      ? [
+        update.firmware_update_channel === 'dev' ? t('Development') : t('Stable'),
+        update.firmware_auto_update ? t('Auto') : t('Manual'),
+      ].join(' · ')
+      : t('Off'),
+  };
+}
+
+/**
  * The Device view's settings buttons: Theme, Schedule and Gestures, always three
  * in a row. Theme opens the shared theme editor; the other two open their editor
  * in the modal sidebar (deviceOptionPanel).
@@ -43,9 +77,6 @@ export function panelManager({
   config, scheduleDraft = null, gestureDraft = null,
   builtinThemes = {}, customThemes = {}, onOpen,
 }) {
-  const themeId = String(config.theme_id || 'dark');
-  const themeLabel = customThemes[themeId]?.name
-    || (builtinThemes[themeId] ? builtinThemeLabel(themeId) : themeId);
   const schedule = scheduleDraft?.schedule || config.schedule || [];
   const gestures = gestureDraft?.gestures || config.gestures || [];
   const option = (key, label, iconName, summary) => button({
@@ -54,7 +85,7 @@ export function panelManager({
   });
   return html`<section class="haui-device-option-controls" aria-label=${t('Device settings')}>
     <div class="haui-device-option-buttons">
-      ${option('theme', t('Theme'), 'color', themeLabel)}
+      ${option('theme', t('Theme'), 'color', themeLabel(config.theme_id, builtinThemes, customThemes))}
       ${option('schedule', t('Schedule'), 'clock', schedule.length
         ? entryCount(schedule.length)
         : t('Nothing scheduled: the device settings apply all day.'))}
@@ -80,8 +111,9 @@ function optionPanel(body, action) {
 }
 
 /**
- * The schedule option: the values that apply outside every entry, then the
- * entries themselves. A draft holds the edits until Save.
+ * The schedule option: its entries. Outside them the device settings apply,
+ * and an entry field left empty inherits the device setting. A draft holds the
+ * edits until Save.
  *
  * @param {{ config: any, saving?: boolean, scheduleDraft?: any,
  *   deviceBrightness?: { full?: number|null, dimmed?: number|null },
@@ -92,79 +124,28 @@ function scheduleOption({
   config, saving = false, scheduleDraft = null, deviceBrightness = {},
   onScheduleChange, onScheduleSave, onScheduleEntryToggle,
 }) {
-  const scheduleConfig = scheduleDraft || { ...config, schedule: config.schedule || [] };
+  const scheduleConfig = scheduleDraft || { schedule: config.schedule || [] };
   const changeSchedule = (schedule, fields = {}) => {
     if (!saving) onScheduleChange?.({ ...scheduleConfig, ...fields, schedule });
   };
-  const baseNumber = (id, key, label, hint, min, max, float = false) => html`
-    <div class="haui-field">
-      <label for=${id}>${label}</label>
-      ${renderNumberInput(id, scheduleConfig[key], (raw) => {
-        const value = float ? parseFloat(raw) : parseInt(raw, 10);
-        const next = Number.isNaN(value) ? min : Math.max(min, Math.min(value, max));
-        changeSchedule(scheduleConfig.schedule, { [key]: next });
-      }, { min, max, ...(float ? { step: 'any' } : {}) })}
-      <div class="haui-field-hint">${hint}</div>
-    </div>`;
-  const baseBrightness = (id, key, label, hint) => {
-    // What the panel itself uses, for the brightness no hub setting fixes.
-    const panel = deviceBrightness[key === 'brightness' ? 'full' : 'dimmed'];
-    return html`<div class="haui-field">
-      <label for=${id}>${label}</label>
-      ${renderNumberInput(id, scheduleConfig[key], (raw) => {
-        const value = parseInt(raw, 10);
-        const next = Number.isNaN(value) ? null : Math.max(0, Math.min(value, 100));
-        changeSchedule(scheduleConfig.schedule, { [key]: next });
-      }, {
-        min: 0, max: 100,
-        placeholder: panel == null
-          ? undefined
-          : t('Panel: {value}').replace('{value}', String(panel)),
-      })}
-      <div class="haui-field-hint">${hint}</div>
-    </div>`;
-  };
+  // A schedule needs a full brightness to restore when an entry ends. Without a
+  // hub setting, the first entry brings the panel's own along, saved with it.
+  const addedBrightness = config.brightness == null && scheduleConfig.schedule.length
+    ? scheduleConfig.brightness ?? null
+    : null;
   const body = html`
-    <p class="haui-config-section-intro">${t('Set display behavior by time of day. Choose fixed times or sunrise and sunset, and leave entry values empty to inherit the settings above.')}</p>
-    <div class="haui-field-pair">
-      ${baseBrightness('panel-schedule-base-brightness', 'brightness', t('Brightness full (%)'),
-        t("Brightness outside the schedule's entries."))}
-      ${baseBrightness('panel-schedule-base-brightness_dim', 'brightness_dim', t('Brightness dimmed (%)'),
-        t("Dimmed brightness outside the schedule's entries."))}
-    </div>
-    <div class="haui-field-pair">
-      ${baseNumber('panel-schedule-base-timeout_dimming', 'timeout_dimming', t('Dimming timeout (s)'),
-        t("Dimming timeout outside the schedule's entries."), 0, 3600)}
-      ${baseNumber('panel-schedule-base-duration_dimming', 'duration_dimming', t('Dimming duration (s)'),
-        t("Dimming duration outside the schedule's entries."), 0, 5, true)}
-    </div>
-    <div class="haui-checkbox-wrap">
-      <div class="haui-checkbox-row">
-        ${renderToggle('panel-schedule-base-use_auto_display_off', Boolean(scheduleConfig.use_auto_display_off), (checked) =>
-          changeSchedule(scheduleConfig.schedule, { use_auto_display_off: checked }))}
-        <label for="panel-schedule-base-use_auto_display_off">${t('Screen off')}</label>
-      </div>
-      <div class="haui-field-hint">${t("Turn the display off after the display-off timeout outside the schedule's entries. When off, the display stays on.")}</div>
-    </div>
-    ${baseNumber('panel-schedule-base-timeout_display_off', 'timeout_display_off', t('Display-off timeout (s)'),
-      t("Display-off timeout outside the schedule's entries."), 0, 3600)}
-    <div class="haui-checkbox-wrap">
-      <div class="haui-checkbox-row">
-        ${renderToggle('panel-schedule-base-sound_on_notification', Boolean(scheduleConfig.sound_on_notification), (checked) =>
-          changeSchedule(scheduleConfig.schedule, { sound_on_notification: checked }))}
-        <label for="panel-schedule-base-sound_on_notification">${t('Notification sound')}</label>
-      </div>
-      <div class="haui-field-hint">${t("Play sounds for notifications outside the schedule's entries.")}</div>
-    </div>
+    <p class="haui-config-section-intro">${t('Set display behavior by time of day. Choose fixed times or sunrise and sunset. Outside the entries the device settings apply, and entry values left empty inherit them.')}</p>
+    ${addedBrightness == null ? nothing : html`<p class="haui-field-hint is-persistent">${
+      t("Saving also sets the device's full brightness to {value}%: a schedule needs it outside its entries.")
+        .replace('{value}', String(addedBrightness))}</p>`}
     ${scheduleEditor({
       schedule: scheduleConfig.schedule,
-      // A field left empty inherits the value that applies outside the entries:
-      // the hub setting, or the panel's own brightness when the hub sets none.
+      // A field left empty inherits the device setting, or the panel's own
+      // brightness when the hub sets none.
       defaults: {
         ...config,
-        ...scheduleConfig,
-        brightness: scheduleConfig.brightness ?? deviceBrightness.full ?? null,
-        brightness_dim: scheduleConfig.brightness_dim ?? deviceBrightness.dimmed ?? null,
+        brightness: config.brightness ?? addedBrightness ?? deviceBrightness.full ?? null,
+        brightness_dim: config.brightness_dim ?? deviceBrightness.dimmed ?? null,
       },
       idPrefix: 'panel-schedule',
       expandedEntryIndex: scheduleConfig.expandedEntryIndex,
@@ -175,8 +156,10 @@ function scheduleOption({
       },
       onChange: (schedule) => changeSchedule(schedule),
       onAdd: (schedule) => changeSchedule(schedule, {
-        brightness: scheduleConfig.brightness ?? deviceBrightness.full ?? DEFAULT_SCHEDULE_BRIGHTNESS,
         expandedEntryIndex: schedule.length - 1,
+        ...(config.brightness == null && scheduleConfig.brightness == null
+          ? { brightness: deviceBrightness.full ?? DEFAULT_SCHEDULE_BRIGHTNESS }
+          : {}),
       }),
     })}`;
   return optionPanel(body, button({

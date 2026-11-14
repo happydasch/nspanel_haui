@@ -303,7 +303,8 @@ the result alongside the landscape TFT on every release.
   geometry expressed in `portrait_layout.py`. Be extra careful here: a widget
   missing on one side only fails on the device. Run `gen_layout.py --check`
   for landscape and `gen_layout.py --spec portrait --check` for portrait;
-  `verify_nextion/verify_nextion.py --require-portrait` checks sibling parity.
+  the portrait check also enforces sibling parity (same widgets, same
+  *Send Component ID*).
 - Both `.tft` files must be attached to every GitHub release. The hub's update
   controller downloads `nspanel_haui.tft` for `display_model: eu` (the default
   landscape layout) and `nspanel_haui_portrait.tft` for `display_model: us`
@@ -403,7 +404,6 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    ```bash
    python -m scripts.hmi_layout.gen_layout --check
    python -m scripts.hmi_layout.gen_layout --spec portrait --check
-   python -m scripts.verify_nextion.verify_nextion --require-portrait
    python -m scripts.hmi_layout.gen_virtual_layout --check
    python -m scripts.check_preview_coverage
    pytest tests/
@@ -413,14 +413,15 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    ```
 
    - `gen_layout.py --check` compares landscape widget coverage and every
-     value in the spec with the HMI; `--spec portrait` selects the portrait spec.
-   - `verify_nextion.py` checks that `clock.tTime` sends its component id and
-     that every widget's *Send Component ID* is identical in both HMIs. It also
-     checks that `system.tftVersion` in *both* HMIs matches the configured TFT
-     version in `esphome/nspanel_haui/version.yaml` (the TFT version can differ
-     from the firmware version) and that the portrait HMI and TFT exist. For a
-     one-off manual check, `--expected-version` can override the configured
-     value; release workflows use `version.yaml` as the source of truth.
+     value in the spec with the HMI, including that `clock.tTime` sends its
+     component id; `--spec portrait` selects the portrait spec, which also
+     requires the same widgets as the landscape HMI with an identical
+     *Send Component ID* on every widget.
+   - `pytest` checks that `system.tftVersion` in *both* HMIs matches the
+     configured TFT version in `esphome/nspanel_haui/version.yaml` (the TFT
+     version can differ from the firmware version) and that both compiled TFTs
+     carry it (`tests/test_bump_version.py`). The release manifest refuses a
+     TFT that does not carry it.
    - `pytest` replays a render of every panel in both layouts
      (`tests/test_card_renders.py`).
 9. **Test on a device of each model.** Every page renders completely, every

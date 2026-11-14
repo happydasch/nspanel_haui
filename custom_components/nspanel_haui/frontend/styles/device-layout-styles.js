@@ -4,8 +4,9 @@ export const deviceLayoutStyles = css`
   .haui-device-screen { display: flex; flex-direction: column; gap: 16px; }
   .haui-device-head { display: flex; align-items: center; gap: 12px 12px; min-width: 0; }
   .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-display); font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-back-button { flex: 0 0 auto; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--secondary-text-color); transition: border-color 150ms ease, color 150ms ease; }
-  .haui-back-button:hover { border-color: var(--primary-color); color: var(--primary-color); }
+  .haui-back-button { flex: 0 0 auto; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--secondary-text-color); transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
+  /* Outranks the generic grey icon-button hover, which clashed with the blue border and arrow. */
+  .haui-back-button:hover:not(:disabled) { border-color: var(--primary-color); color: var(--primary-color); background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color, #fff)); }
   /* The chips take the room the title leaves; when they do not fit, the shell
      collapses them into the dropdown. They stay laid out (hidden) while
      collapsed, so the next measurement can tell when they fit again. The chips
@@ -85,9 +86,9 @@ export const deviceLayoutStyles = css`
     outline: none;
     animation: haui-sidebar-in 180ms ease-out;
   }
-  .haui-sidebar-layer > :is(nspanel-panel-editor, nspanel-device-settings, nspanel-theme-sidebar, nspanel-firmware-popover) { display: block; overflow: hidden; }
+  .haui-sidebar-layer > :is(nspanel-panel-editor, nspanel-device-settings, nspanel-theme-sidebar, nspanel-updates-sidebar) { display: block; overflow: hidden; }
   /* Give the shadow-root scroll area a definite-height containing block. */
-  .haui-sidebar-layer > nspanel-firmware-popover {
+  .haui-sidebar-layer > nspanel-updates-sidebar {
     display: flex;
     height: 100%;
     min-height: 0;

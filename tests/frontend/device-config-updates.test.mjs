@@ -18,8 +18,8 @@ function dialog(fields) {
 /** An Updates sidebar with an isolated update-settings draft. */
 function updatesSidebar(fields) {
   const update = { ...(fields.update || {}) };
-  const FirmwarePopover = customElements.get('nspanel-firmware-popover');
-  return Object.assign(document.createElement('nspanel-firmware-popover'), {
+  const UpdatesSidebar = customElements.get('nspanel-updates-sidebar');
+  return Object.assign(document.createElement('nspanel-updates-sidebar'), {
     open: true,
     deviceName: 'kitchen',
     entryId: 'entry1',

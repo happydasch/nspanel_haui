@@ -15,14 +15,14 @@ import { createApiClient } from '../api/client.js';
 import { createStore } from '../store/store.js';
 import { StoreController } from '../store/controller.js';
 import { createRouter } from './router.js';
-import { renderFleetView } from '../views/fleet.js';
+import { renderFleetView, carouselEdgesFrom } from '../views/fleet.js';
 import { renderDeviceView } from '../views/device.js';
 import { modalSidebar } from '../ui/sidebar.js';
 import { railOverflows } from '../ui/device-rail.js';
 import { deviceDetails } from '../ui/device-details.js';
 import { diagnosticsReport } from '../ui/device-diagnostics.js';
 import { eventsByTime } from '../ui/event-list.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../ui/panel-manager.js';
+import { panelActions, panelManager, deviceOptionPanel, deviceOptionSummaries } from '../ui/panel-manager.js';
 import { panelSideCard } from '../ui/panel-info.js';
 import { deviceActions } from '../ui/device-actions.js';
 import { button } from '../ui/button.js';
@@ -39,7 +39,7 @@ import * as Toast from '../toast.js';
 import '../views/panel-editor.js';
 import '../dialogs/confirm.js';
 import '../views/device-settings.js';
-import '../dialogs/firmware.js';
+import '../dialogs/updates.js';
 import '../dialogs/logs.js';
 import '../dialogs/theme.js';
 import '../views/workspace.js';
@@ -464,6 +464,7 @@ class NSPanelEditor extends LitElement {
     }
     this._lockPageScroll(isSidebarOverlayKind(top?.kind));
     this._watchDeviceRail();
+    this._watchCarousel();
     // Fleet shows every device, and so do the Device screen's device chips;
     // with a single device the selected-device poller already covers it.
     const deviceCount = Object.keys(this._store.getState().devices.byName).length;
@@ -495,6 +496,31 @@ class NSPanelEditor extends LitElement {
   _measureDeviceRail() {
     const overflows = railOverflows(this.renderRoot);
     if (overflows !== null && overflows !== this._railCollapsed) this._railCollapsed = overflows;
+  }
+
+  /**
+   * Keep the carousel's edges (its arrows and fades) current when its width or its cards
+   * change, not only when it scrolls: a row that fits has nothing to scroll to.
+   */
+  _watchCarousel() {
+    const carousel = this.renderRoot?.querySelector?.('.haui-fleet-carousel');
+    if (carousel !== this.__carouselElement) {
+      this.__carouselObserver?.disconnect();
+      this.__carouselObserver = null;
+      this.__carouselElement = carousel || null;
+      if (carousel && typeof ResizeObserver === 'function') {
+        this.__carouselObserver = new ResizeObserver(() => this._setCarouselEdges(carouselEdgesFrom(carousel)));
+        this.__carouselObserver.observe(carousel);
+      }
+    }
+    if (carousel) this._setCarouselEdges(carouselEdgesFrom(carousel));
+  }
+
+  _setCarouselEdges(edges) {
+    const previous = this.__carousel;
+    if (previous && previous.atStart === edges.atStart && previous.atEnd === edges.atEnd) return;
+    this.__carousel = edges;
+    this.requestUpdate();
   }
 
   /**
@@ -657,7 +683,7 @@ class NSPanelEditor extends LitElement {
         if (route.panel) this._router?.navigate({ view: 'device', device: route.device, panelView: 'panels' }, { replace: true });
       }
     } else if (kind === 'panel-catalog') this._closeCatalog();
-    else if (kind === 'firmware') this._closeFirmware();
+    else if (kind === 'updates') this._closeUpdates();
     else if (kind === 'theme') this._closeThemeSidebar();
     else if (kind === 'device-schedule') this._closeDeviceOption('schedule');
     else if (kind === 'device-gestures') this._closeDeviceOption('gestures');
@@ -784,6 +810,21 @@ class NSPanelEditor extends LitElement {
     this._store.actions.pushOverlay({ kind, anchorKey: kind, subject: name, draft: null });
   }
 
+  /**
+   * Open a device option's sidebar from the device settings, over them: closing
+   * it returns to the settings with their unsaved edits.
+   * @param {string} name
+   * @param {'theme'|'schedule'|'gestures'|'updates'} option
+   */
+  _openSettingsOption(name, option) {
+    if (option === 'theme') this._openTheme();
+    else if (option === 'updates') this._openUpdates(name);
+    else {
+      this._captureSidebarFocus();
+      this._openDeviceOption(option);
+    }
+  }
+
   /** Close a device option's sidebar; an unsaved draft goes with it. @param {string} option */
   _closeDeviceOption(option) {
     if (option === 'schedule') this._scheduleDraft = null;
@@ -819,12 +860,6 @@ class NSPanelEditor extends LitElement {
       device: this._selectedDevice,
       schedule: clone(draft.schedule),
       brightness: draft.brightness,
-      brightness_dim: draft.brightness_dim,
-      sound_on_notification: draft.sound_on_notification,
-      timeout_dimming: draft.timeout_dimming,
-      duration_dimming: draft.duration_dimming,
-      use_auto_display_off: draft.use_auto_display_off,
-      timeout_display_off: draft.timeout_display_off,
       expandedEntryIndex: draft.expandedEntryIndex,
     };
   }
@@ -836,17 +871,10 @@ class NSPanelEditor extends LitElement {
   async _saveSchedule() {
     const draft = this._scheduleDraft;
     if (!draft || draft.device !== this._selectedDevice || this._saving) return;
-    const config = {
-      ...this._deviceConfig,
-      schedule: clone(draft.schedule),
-      brightness: draft.brightness,
-      brightness_dim: draft.brightness_dim,
-      sound_on_notification: draft.sound_on_notification,
-      timeout_dimming: draft.timeout_dimming,
-      duration_dimming: draft.duration_dimming,
-      use_auto_display_off: draft.use_auto_display_off,
-      timeout_display_off: draft.timeout_display_off,
-    };
+    // The other display values live in the device settings; the draft carries a
+    // full brightness only when its first entry needed one (see scheduleOption).
+    const config = { ...this._deviceConfig, schedule: clone(draft.schedule) };
+    if (draft.brightness != null && draft.schedule.length) config.brightness = draft.brightness;
     if (await this._saveDeviceConfig(config, t('Device configuration saved'))) {
       this._scheduleDraft = null;
       this._closeDeviceOption('schedule');
@@ -1060,8 +1088,8 @@ class NSPanelEditor extends LitElement {
     })));
     const versions = [...new Set(devices.map(({ status }) => status?.integration_version).filter(Boolean))];
     const hubVersion = versions.length === 1 ? versions[0] : versions.length > 1 ? t('Mixed versions') : t('Unknown');
-    // Logs is Fleet's one sidebar: every device's lines, or one device's from its menu.
-    const logs = state.ui.overlays.find((overlay) => overlay.kind === 'logs');
+    // Logs is Fleet's one sidebar.
+    const logsOpen = this._isOverlayOpen('logs');
     return html`<div class="haui-container">
       ${renderTitleHeader(this)}
       ${renderFleetView({
@@ -1070,12 +1098,7 @@ class NSPanelEditor extends LitElement {
         version: hubVersion,
         statusPending: devices.some(({ status }) => !status),
         carousel: this.__carousel || { atStart: true, atEnd: false },
-        onCarouselScroll: (edges) => {
-          const previous = this.__carousel;
-          if (previous && previous.atStart === edges.atStart && previous.atEnd === edges.atEnd) return;
-          this.__carousel = edges;
-          this.requestUpdate();
-        },
+        onCarouselScroll: (edges) => this._setCarouselEdges(edges),
         menu: this._deviceMenuModel(),
         onMenu: (name, anchorKey) => this._toggleDeviceMenu(name, anchorKey),
         onCloseMenu: () => this._closeAnchoredPopover('device-menu'),
@@ -1106,13 +1129,9 @@ class NSPanelEditor extends LitElement {
         @dialog-closed=${() => { this._confirmBulkUpdate = false; }}
         @dialog-confirmed=${this._installOfferedUpdates}
       ></nspanel-dialog-confirm>
-      ${logs ? modalSidebar({
-        label: logs.subject
-          ? `${t('Logs')} · ${state.devices.byName[logs.subject]?.friendlyName || logs.subject}`
-          : t('Logs'),
-        body: this._renderLogs(logs.subject
-          ? state.devices.byName[logs.subject]?.status?.logs || []
-          : eventsByTime(events)),
+      ${logsOpen ? modalSidebar({
+        label: t('Logs'),
+        body: this._renderLogs(),
         onClose: () => this._closeLogs(),
       }) : nothing}
       ${this._toast ? Toast.renderToast(this) : ''}
@@ -1171,14 +1190,21 @@ class NSPanelEditor extends LitElement {
         if (state.ui.route.panel) this._router?.navigate({ view: 'device', device: name, panelView: 'panels' }, { replace: true });
       }} @dialog-save=${this._save}
     ></nspanel-panel-editor>` : null;
+    // The settings follow the stored config, so a save in a sidebar opened from
+    // them (theme, schedule, gestures, updates) reaches their form.
     const deviceSettings = html`<nspanel-device-settings
       .hass=${this.hass} .open=${true}
-      .config=${this._deviceConfigForm}
+      .config=${device.config}
+      .summaries=${deviceOptionSummaries({
+        config: device.config, builtinThemes: this._builtinThemes, customThemes: this._customThemes,
+      })}
       .panels=${device.panels}
+      .deviceBrightness=${deviceBrightness(status, this.hass)}
       .saving=${this._saving}
       .api=${this.api} .entryId=${this.entryId}
       @dialog-closed=${this._closeDeviceConfig}
       @dialog-save=${this._onDeviceConfigSave}
+      @open-option=${(event) => this._openSettingsOption(name, event.detail.option)}
     ></nspanel-device-settings>`;
     const catalog = () => panelCatalog({
       panelTypes: this._panelTypes,
@@ -1234,8 +1260,8 @@ class NSPanelEditor extends LitElement {
       layer('device-schedule', () => deviceOptionPanel('schedule', managerOptions))}${
       layer('device-gestures', () => deviceOptionPanel('gestures', managerOptions))}${
       layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
-      layer('firmware', () => this._renderFirmware(name))}${layer('theme', theme)}${
-      layer('logs', () => this._renderLogs(status?.logs || []))}` : null;
+      layer('updates', () => this._renderUpdates(name))}${layer('theme', theme)}${
+      layer('logs', () => this._renderLogs())}` : null;
     const leadContent = route.panelView === 'panels'
       ? panelActions({
           panels: device.panels,
@@ -1245,7 +1271,7 @@ class NSPanelEditor extends LitElement {
       : deviceActions({
           status,
           onSettings: () => this._openSettings(),
-          onFirmware: () => this._openFirmware(name),
+          onUpdates: () => this._openUpdates(name),
           onAdd: () => this._openCatalog(),
           management: panelManager({
             ...managerOptions,
@@ -1262,7 +1288,7 @@ class NSPanelEditor extends LitElement {
             status,
             hass: this.hass,
             onLogs: () => this._openLogs(name),
-            onFirmware: () => this._openFirmware(name),
+            onUpdates: () => this._openUpdates(name),
             onCopyReport: () => this._copyDiagnostics(name, status),
             detailsExpanded: this._detailsExpanded,
             onToggleDetails: () => this._toggleDetails(),
@@ -1362,7 +1388,7 @@ class NSPanelEditor extends LitElement {
       'device-gestures': () => t('Gestures'),
       'panel-editor': () => this._panelEditorLabel(),
       'panel-catalog': () => t('Add panel'),
-      firmware: () => t('Updates'),
+      updates: () => t('Updates'),
       theme: () => t('Theme'),
       logs: () => t('Logs'),
     };
@@ -1884,26 +1910,26 @@ class NSPanelEditor extends LitElement {
   /* ── updates sidebar ──────────────────────────────────────────────── */
 
   /** The Updates sidebar's body: the device's updates and its update settings. @param {string} name */
-  _renderFirmware(name) {
+  _renderUpdates(name) {
     const state = this._store.getState();
     const device = state.devices.byName[name];
-    return html`<nspanel-firmware-popover
+    return html`<nspanel-updates-sidebar
       .hass=${this.hass} .api=${this.api} .open=${true}
       .deviceStatus=${device.status} .deviceName=${name} .entryId=${this.entryId}
       .config=${device.config}
-      @dialog-closed=${() => this._closeFirmware()}
+      @dialog-closed=${() => this._closeUpdates()}
       @update-check=${() => this._store.actions.pollSelectedStatus()}
       @save-update-settings=${(event) => this._saveUpdateSettings(event)}
       @update-tft=${(event) => DeviceEvents.installTft(this, event)}
       @update-firmware=${(event) => DeviceEvents.installFirmware(this, event)}
       @update-control=${(event) => this._controlUpdate(name, event.detail)}
-    ></nspanel-firmware-popover>`;
+    ></nspanel-updates-sidebar>`;
   }
 
   /** Open the Updates sidebar on the device's screen. @param {string} deviceName */
-  _openFirmware(deviceName) {
+  _openUpdates(deviceName) {
     this._captureSidebarFocus();
-    this._store.actions.pushOverlay({ kind: 'firmware', anchorKey: 'firmware', subject: deviceName, draft: null });
+    this._store.actions.pushOverlay({ kind: 'updates', anchorKey: 'updates', subject: deviceName, draft: null });
   }
 
   /**
@@ -1947,16 +1973,16 @@ class NSPanelEditor extends LitElement {
     }
   }
 
-  _closeFirmware() {
-    this._store.actions.closeOverlay('firmware', 'firmware');
+  _closeUpdates() {
+    this._store.actions.closeOverlay('updates', 'updates');
     this._restoreSidebarFocus();
   }
 
   /* ── logs sidebar ─────────────────────────────────────────────────── */
 
   /**
-   * Open the Logs sidebar on the screen shown: one device's lines, or every
-   * device's (`null`, Fleet's Latest events).
+   * Open the Logs sidebar on the screen shown, with one device selected or
+   * every device (`null`, Fleet's Latest events).
    * @param {string|null} deviceName
    */
   _openLogs(deviceName) {
@@ -1969,9 +1995,20 @@ class NSPanelEditor extends LitElement {
     this._restoreSidebarFocus();
   }
 
-  /** @param {Array<string|{ line: string, deviceName?: string }>} logs - oldest first */
-  _renderLogs(logs) {
-    return html`<nspanel-logs-sidebar .open=${true} .logs=${logs}
+  /** The Logs sidebar's device selection changed; '' is every device. @param {string} deviceName */
+  _selectLogsDevice(deviceName) {
+    this._store.actions.pushOverlay({ kind: 'logs', anchorKey: 'logs', subject: deviceName || null, draft: null });
+  }
+
+  /** Every device's lines and the device selector; the overlay's subject is the selected device. */
+  _renderLogs() {
+    const state = this._store.getState();
+    const selected = state.ui.overlays.find((overlay) => overlay.kind === 'logs')?.subject || '';
+    const devices = state.devices.order.map((name) => ({ name, label: state.devices.byName[name].friendlyName }));
+    const logs = eventsByTime(devices.flatMap(({ name, label }) => (
+      state.devices.byName[name].status?.logs || []).map((line) => ({ line, device: name, deviceName: label }))));
+    return html`<nspanel-logs-sidebar .open=${true} .logs=${logs} .devices=${devices} .device=${selected}
+      @device-selected=${(event) => this._selectLogsDevice(event.detail.device)}
       @copy-logs=${(event) => this._copyLogs(event.detail.text)}></nspanel-logs-sidebar>`;
   }
 

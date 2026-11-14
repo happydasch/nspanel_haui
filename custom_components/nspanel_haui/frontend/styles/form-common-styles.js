@@ -17,6 +17,10 @@ export const formCommonStyles = css`
     font-size: var(--haui-text-label);
     margin-bottom: 4px;
   }
+  /* Two fields side by side, one above the other in a narrow column. */
+  .haui-field-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 12px; }
+  /* Paired fields keep a one-line label height without leaving a large gap above inputs. */
+  .haui-field-pair > .haui-field > label { min-height: 1.3em; }
 
   /* ── inputs ──────────────────────── */
   textarea {
@@ -64,6 +68,17 @@ export const formCommonStyles = css`
   .haui-input::placeholder {
     color: var(--secondary-text-color, #666);
   }
+  /* ── search field ── */
+  /* The editor's one search field: a pill like Home Assistant's search input,
+     with a search icon in front and the border, colours and text size of the
+     other inputs. The placeholder is its label. Every search bar - the panel
+     list's, the panel catalog's and the logs' - uses it; only its box takes a
+     different share of its row. */
+  .haui-search-field { display: flex; box-sizing: border-box; min-width: 0; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-radius-pill); color: var(--secondary-text-color, #666); background: var(--card-background-color, #fff); --mdc-icon-size: 18px; transition: border-color 150ms; }
+  .haui-search-field:focus-within { border-color: var(--primary-color, #03a9f4); }
+  .haui-search-field > ha-icon { flex: 0 0 auto; }
+  .haui-search-field input { box-sizing: border-box; width: 100%; min-width: 0; flex: 1 1 auto; align-self: stretch; border: 0; outline: 0; padding: 8px 0; color: var(--primary-text-color, #212121); background: transparent; font: inherit; font-size: var(--haui-text-label); }
+  .haui-search-field input::placeholder { color: var(--secondary-text-color, #666); }
   /* ── native select (replaces ha-select) ── */
   .haui-select {
     display: block;
@@ -105,6 +120,37 @@ export const formCommonStyles = css`
     margin-top: 4px;
     margin-bottom: 0;
     line-height: 1.4;
+  }
+  /* Where a pointer can hover, a field's hint floats under the field while the
+     pointer rests on it or keyboard focus is in it. Out of the layout, it moves
+     nothing and lets clicks through; invisible, screen readers still read it.
+     is-persistent keeps status lines and list descriptions in place, and touch
+     screens, which cannot hover, keep every hint visible. */
+  @media (hover: hover) {
+    .haui-field,
+    .haui-checkbox-wrap {
+      position: relative;
+    }
+    .haui-field > .haui-field-hint:not(.is-persistent),
+    .haui-checkbox-wrap > .haui-field-hint:not(.is-persistent) {
+      position: absolute;
+      z-index: 1;
+      left: 0;
+      right: 0;
+      box-sizing: border-box;
+      padding: 8px 12px;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      border-radius: var(--haui-radius-control);
+      background: var(--card-background-color, #fff);
+      box-shadow: var(--haui-shadow-overlay);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .haui-field:is(:hover, :has(:focus-visible)) > .haui-field-hint,
+    .haui-checkbox-wrap:is(:hover, :has(:focus-visible)) > .haui-field-hint {
+      opacity: 1;
+      transition: opacity 120ms 300ms;
+    }
   }
 
   /* ── native toggle (replaces ha-switch) ── */

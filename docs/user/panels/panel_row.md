@@ -33,4 +33,4 @@ The control of a row depends on the entity type:
 - The panel remembers the page you were on and opens it again next time.
 - A name or value that is too long is cut and ends in `..`.
 - While a `number` entity is unavailable, its state is shown next to the slider instead of a value.
-- Old values can be marked: with the device setting [`stale_data_seconds`](../configuration/device.md#general-settings), a value that has not updated for a while is dimmed and ends in `…`.
+- Old values can be marked: with the device setting [`stale_data_seconds`](../configuration/device.md#advanced), a value that has not updated for a while is dimmed and ends in `…`.

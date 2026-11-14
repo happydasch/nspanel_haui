@@ -127,7 +127,7 @@ test('the device options are three buttons whose editors live in the sidebar', (
   });
   const rowText = templateText(row);
   assert.match(rowText, /haui-device-option-controls/);
-  assert.doesNotMatch(rowText, /panel-schedule-base-brightness|panel-gesture_add|haui-device-theme/);
+  assert.doesNotMatch(rowText, /panel-schedule_add|panel-gesture_add|haui-device-theme/);
   const buttons = templatesMatching(row, 'class=')
     .filter((entry) => entry.values.includes('haui-button haui-button-outline haui-device-option'));
   assert.equal(buttons.length, 3);
@@ -138,18 +138,18 @@ test('the device options are three buttons whose editors live in the sidebar', (
 
   // Each editor is its own sidebar, and carries nothing of the other.
   const schedulePanel = templateText(deviceOptionPanel('schedule', { config: { schedule: [] } }));
-  assert.match(schedulePanel, /panel-schedule-base-brightness/);
+  assert.match(schedulePanel, /panel-schedule_add/);
   assert.doesNotMatch(schedulePanel, /panel-gesture_add/);
   const gesturePanel = templateText(deviceOptionPanel('gestures', { config: { gestures: [] } }));
   assert.match(gesturePanel, /panel-gesture_add/);
-  assert.doesNotMatch(gesturePanel, /panel-schedule-base-brightness/);
+  assert.doesNotMatch(gesturePanel, /panel-schedule_add/);
   // The theme has no editor panel here: its button opens the shared theme sidebar.
   assert.throws(() => deviceOptionPanel('theme', { config: {} }), /Unknown device option: theme/);
 });
 
 test('the Device lead card places management controls below its primary action', () => {
   const view = deviceActions({
-    status: { update: {} }, onSettings() {}, onFirmware() {}, onAdd() {},
+    status: { update: {} }, onSettings() {}, onUpdates() {}, onAdd() {},
     management: html`<div class="haui-device-option-controls">Theme</div>`,
   });
   const text = templateText(view);
@@ -207,7 +207,7 @@ test('the Panels lead card counts the panels, adds one and opens the settings, a
 test('the Preview lead card leads with adding a panel, or with an offered update', () => {
   const calls = [];
   const callbacks = {
-    onSettings: () => calls.push('settings'), onFirmware: () => calls.push('update'),
+    onSettings: () => calls.push('settings'), onUpdates: () => calls.push('update'),
     onAdd: () => calls.push('add'),
   };
   const idle = deviceActions({ status: { connected: true, update: {} }, ...callbacks });

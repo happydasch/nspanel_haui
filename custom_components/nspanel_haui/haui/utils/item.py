@@ -10,6 +10,7 @@ from ..mapping.icon_mapping import (
     SIMPLE_TYPE_MAPPING,
 )
 from .color import rgb565_to_rgb, rgb_brightness, rgb_to_rgb565
+from .datetime import format_state_datetime
 from .icon import get_icon, get_icon_name_by_state
 from .value import format_number
 
@@ -336,7 +337,36 @@ def _value_vacuum(entity: Any, item_state: str | None, haui_item: HAUIItem) -> s
     return haui_item.translate("Clean") if entity.state == "docked" else haui_item.translate("Stop")
 
 
+def _value_datetime(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
+    device = haui_item.app.device
+    text = format_state_datetime(
+        item_state or "",
+        device.get_time_format(),
+        device.get_date_format(),
+        device.get_date_format_locale(),
+        device.get_locale(),
+        haui_item.app.get_timezone(),
+    )
+    # unknown and unavailable hold no date: shown translated like any state
+    return haui_item.translate_item_state() if text is None else text
+
+
+_DATETIME_SENSOR_CLASSES = frozenset(["date", "timestamp"])
+
+
+def _value_sensor(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
+    if entity.attributes.get("device_class") in _DATETIME_SENSOR_CLASSES:
+        return _value_datetime(entity, item_state, haui_item)
+    return haui_item.translate_item_state()
+
+
 _VALUE_DISPATCH = {
+    "sensor": _value_sensor,
+    "date": _value_datetime,
+    "time": _value_datetime,
+    "datetime": _value_datetime,
+    "input_datetime": _value_datetime,
+    "event": _value_datetime,
     "weather": _value_weather,
     "button": _value_button,
     "input_button": _value_button,

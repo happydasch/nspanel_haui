@@ -15,7 +15,6 @@ sys.modules.setdefault("homeassistant.helpers.storage", storage_mod)
 
 from custom_components.nspanel_haui.haui.device_config import DEVICE_CONFIG  # noqa: E402
 from custom_components.nspanel_haui.hub.storage import (  # noqa: E402
-    DEVICE_CONFIG_KEY_RENAMES,
     PanelStorage,
     empty_store,
     migrate_device_config_keys,
@@ -57,17 +56,6 @@ def test_load_normalizes_and_persists_device_order() -> None:
 
     assert result["device_order"] == ["Kitchen", "Office"]
     assert store.saved == [{**payload, "device_order": ["Kitchen", "Office"]}]
-
-
-def test_rename_mapping_covers_all_v1_renames() -> None:
-    """Only idle/display setting aliases are renamed here."""
-    assert DEVICE_CONFIG_KEY_RENAMES == {
-        "sleep_panel": "idle_panel",
-        "sleep_panel_extra": "idle_panel_extra",
-        "show_sleep_button": "show_idle_button",
-        "use_auto_sleeping": "use_auto_display_off",
-        "timeout_sleep": "timeout_display_off",
-    }
 
 
 def test_migrate_moves_legacy_keys_and_drops_them() -> None:

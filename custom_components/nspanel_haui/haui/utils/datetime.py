@@ -58,9 +58,7 @@ def get_date_localized(
     return format_datetime(dt, strftime_format, babel_format, locale)
 
 
-def format_datetime(
-    dt: datetime.datetime, strftime_format: str, babel_format: str, locale: str
-) -> str:
+def format_datetime(dt: datetime.date, strftime_format: str, babel_format: str, locale: str) -> str:
     """Returns a localized date string.
 
     Args:
@@ -90,3 +88,57 @@ def format_datetime(
 
     # Fallback to strftime
     return dt.strftime(strftime_format)
+
+
+def _parse_iso(state: str) -> datetime.date | datetime.time | None:
+    """A date, a time or a date and time in ISO 8601, as Home Assistant states hold them."""
+    try:
+        return datetime.date.fromisoformat(state)
+    except ValueError:
+        pass
+    try:
+        return datetime.time.fromisoformat(state)
+    except ValueError:
+        pass
+    try:
+        return datetime.datetime.fromisoformat(state)
+    except ValueError:
+        return None
+
+
+def format_state_datetime(
+    state: str,
+    time_format: str,
+    date_format: str,
+    babel_format: str,
+    locale: str,
+    timezone: str,
+) -> str | None:
+    """An entity state holding a date, a time or both, in the device's formats.
+
+    A date and time is shown as the date followed by the time; one with a UTC
+    offset (a timestamp) is first moved to Home Assistant's time zone.
+
+    Args:
+        state (str): entity state, e.g. "2026-11-14T09:30:00+00:00"
+        time_format (str): strftime time format
+        date_format (str): strftime date format, used when *babel_format* names no layout
+        babel_format (str): locale date layout ("full", "short", …) or ""
+        locale (str): locale
+        timezone (str): IANA time zone of Home Assistant
+
+    Returns:
+        str | None: The formatted state, None when it is no date or time
+            (``unknown``, ``unavailable``).
+    """
+    value = _parse_iso(state)
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(zoneinfo.ZoneInfo(timezone))
+        date = format_datetime(value, date_format, babel_format, locale)
+        return f"{date} {value.strftime(time_format)}"
+    if isinstance(value, datetime.date):
+        return format_datetime(value, date_format, babel_format, locale)
+    return value.strftime(time_format)

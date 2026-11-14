@@ -16,7 +16,7 @@ const DIALOGS = [
   'nspanel-panel-editor',
   'nspanel-dialog-confirm',
   'nspanel-device-settings',
-  'nspanel-firmware-popover',
+  'nspanel-updates-sidebar',
   'nspanel-logs-sidebar',
   'nspanel-theme-sidebar',
 ];
@@ -57,7 +57,7 @@ test('the TFT picker does not list the required version twice', () => {
 });
 
 function picker(kind, props = {}) {
-  return dialog('nspanel-firmware-popover', {
+  return dialog('nspanel-updates-sidebar', {
     deviceName: 'haui',
     deviceStatus: { device_info: {}, update: { enabled: true } },
     _picker: {

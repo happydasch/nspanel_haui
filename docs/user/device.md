@@ -70,7 +70,7 @@ When you leave the idle page, the display returns to the panel that was open bef
 - `snapshot_max_age_seconds` is greater than `0` and more than that many seconds have passed, or
 - `auto_navigate_home_timeout` passed while the idle page was shown.
 
-The default (`-1`) always returns to the previous panel. See [Idle & Wake Behavior](configuration/device.md#idle-wake-behavior).
+The default (`-1`) always returns to the previous panel. See [Home & idle](configuration/device.md#home-idle).
 
 ### Hardware Buttons
 

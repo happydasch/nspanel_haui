@@ -114,7 +114,7 @@ test('the Schedule button shows its entry count without opening the editor', () 
   assert.doesNotMatch(empty, /entries</);
 });
 
-test('the Schedule sidebar edits a draft and saves it explicitly', () => {
+test('the Schedule sidebar edits a draft of its entries and saves it explicitly', () => {
   const edits = [];
   const saves = [];
   const config = {
@@ -125,27 +125,27 @@ test('the Schedule sidebar edits a draft and saves it explicitly', () => {
     }],
   };
   const view = deviceOptionPanel('schedule', {
-    panels: [], config, scheduleDraft: { ...config, device: 'kitchen' }, onScheduleChange: (draft) => edits.push(draft),
+    panels: [], config, scheduleDraft: { schedule: config.schedule, device: 'kitchen' },
+    onScheduleChange: (draft) => edits.push(draft),
     onScheduleSave: () => saves.push(true),
   });
   const text = templateText(view);
   assert.match(text, /Set display behavior by time of day/);
-  assert.ok(text.indexOf('Set display behavior by time of day') < text.indexOf('panel-schedule-base-brightness'));
   assert.doesNotMatch(text, /YAML configuration/);
-  assert.match(text, /panel-schedule-base-brightness/);
+  // The values outside the entries are the device settings' own fields.
+  assert.doesNotMatch(text, /panel-schedule-base-/);
   assert.match(text, /panel-schedule_0_start_time/);
 
   const onInput = eventBinding(view, 'panel-schedule_0_start_time', '@input');
   onInput({ target: { value: '21:30' } });
   assert.equal(edits.at(-1).schedule[0].start, '21:30');
-  assert.equal(edits.at(-1).brightness, 80);
 
   const save = controlWith(view, '<button', 'Save');
   click(save);
   assert.deepEqual(saves, [true]);
 });
 
-test('the schedule outside-brightness comes from the panel when the hub sets none', () => {
+test('the first entry brings the panel brightness along when the hub sets none', () => {
   const edits = [];
   const view = deviceOptionPanel('schedule', {
     panels: [],
@@ -154,19 +154,21 @@ test('the schedule outside-brightness comes from the panel when the hub sets non
     onScheduleChange: (draft) => edits.push(draft),
   });
 
-  // The empty fields name the brightness the panel itself uses.
-  assert.equal(placeholderFor(view, 'panel-schedule-base-brightness'), 'Panel: 62');
-  assert.equal(placeholderFor(view, 'panel-schedule-base-brightness_dim'), 'Panel: 15');
-
   // A new entry takes the panel's full brightness, not an invented 100.
   eventBinding(view, 'panel-schedule_add', '@click')();
   assert.equal(edits[0].brightness, 62);
 
-  // A hub setting wins over the panel reading.
+  // The sidebar says that saving sets it.
+  const added = templateText(deviceOptionPanel('schedule', {
+    panels: [], config: { brightness: null, schedule: [] }, scheduleDraft: edits[0],
+  }));
+  assert.match(added, /full brightness to 62%/);
+
+  // A hub setting stays: the entry brings none of its own.
   eventBinding(deviceOptionPanel('schedule', {
     panels: [], config: { brightness: 40, schedule: [] }, deviceBrightness: { full: 62 }, onScheduleChange: (draft) => edits.push(draft),
   }), 'panel-schedule_add', '@click')();
-  assert.equal(edits.at(-1).brightness, 40);
+  assert.equal(edits.at(-1).brightness, undefined);
 });
 
 test('an entry inherit hint names the panel brightness when the hub sets none', () => {

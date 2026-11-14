@@ -19,7 +19,7 @@ import { deviceConnectionState } from '../device-status.js';
  * "Unknown", and while it is offline they are marked stale.
  *
  * @param {{ name: string, status: any, hass?: any,
- *   onLogs: () => void, onFirmware: () => void, onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
+ *   onLogs: () => void, onUpdates: () => void, onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
  *   diagnosticsExpanded?: boolean, onToggleDiagnostics?: () => void,
  *   yamlExpanded?: boolean, onToggleYaml?: () => void,
  *   onYamlImport?: () => void, onYamlExport?: () => void,
@@ -30,7 +30,7 @@ import { deviceConnectionState } from '../device-status.js';
  *   Current page tile runs it on a click.
  */
 export function deviceDetails({
-  name, status, hass, onLogs, onFirmware,
+  name, status, hass, onLogs, onUpdates,
   onCopyReport,
   detailsExpanded = true, onToggleDetails, diagnosticsExpanded = false, onToggleDiagnostics,
   yamlExpanded = false, onToggleYaml, onYamlImport, onYamlExport,
@@ -70,7 +70,7 @@ export function deviceDetails({
     actions: expandToggle(detailsExpanded, onToggleDetails),
     onToggle: onToggleDetails,
     body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' is-stale' : ''}`} data-stale=${stale ? 'true' : 'false'}>${tiles}</div>${
-      button({ label: t('Updates'), iconName: 'update', onClick: onFirmware, className: 'haui-details-updates' })}` : undefined,
+      button({ label: t('Updates'), iconName: 'update', onClick: onUpdates, className: 'haui-details-updates' })}` : undefined,
   })}${model ? surface({
     title: t('Diagnostics'),
     subtitle: diagnosticsSubtitle(model),

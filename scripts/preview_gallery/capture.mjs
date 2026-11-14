@@ -18,7 +18,7 @@ const STDERR_LIMIT = 8 * 1024;
 const STARTUP_TIMEOUT_MS = 15000;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
-class DevTools {
+export class DevTools {
   constructor(url) {
     this.socket = new WebSocket(url);
     this.nextId = 0;

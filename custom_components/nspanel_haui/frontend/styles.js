@@ -6,7 +6,7 @@ import { colorPickerStyles } from './styles/color-picker-styles.js';
 import { contentStyles } from './styles/content.js';
 import { dashboardComponentStyles } from './styles/dashboard-component-styles.js';
 import { dashboardTokens } from './styles/tokens.js';
-import { firmwareStyles } from './styles/firmware-styles.js';
+import { updatesStyles } from './styles/updates-styles.js';
 import { deviceLayoutStyles } from './styles/device-layout-styles.js';
 import { devicePanelStyles } from './styles/device-panel-styles.js';
 import { dropdownStyles } from './styles/dropdown-styles.js';
@@ -48,5 +48,5 @@ export const sharedStyles = css`
   ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${contentStyles}
 `;
 
-export const dialogStyles = css`${sharedStyles}${firmwareStyles}`;
+export const dialogStyles = css`${sharedStyles}${updatesStyles}`;
 export const editorStyles = css`${dialogStyles}${panelListStyles}${fleetStyles}${deviceLayoutStyles}${devicePanelStyles}`;

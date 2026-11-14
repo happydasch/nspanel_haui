@@ -25,6 +25,7 @@ export const dashboardComponentStyles = css`
   .haui-button-primary { border-color: var(--primary-color, #03a9f4); background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff); }
   .haui-button-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--primary-color, #03a9f4) 85%, #000); border-color: color-mix(in srgb, var(--primary-color, #03a9f4) 85%, #000); }
   .haui-button-quiet { border-color: transparent; background: transparent; }
+  .haui-button-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--secondary-text-color, #727272); }
   /* A plain surface tint is invisible on a white card, so the hover also tints the border. */
   .haui-button-outline:hover:not(:disabled), .haui-button-quiet:hover:not(:disabled) {
     background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color, #fff));
@@ -53,15 +54,12 @@ export const dashboardComponentStyles = css`
   button.haui-diag-tile:focus-visible,
   button.haui-diag-entity:focus-visible,
   .haui-conn-status-button:focus-visible,
-  .haui-logs-filter button:focus-visible,
-  .haui-switch:focus-visible,
-  .haui-firmware-hero-action:focus-visible {
+  .haui-switch:focus-visible {
     outline: var(--haui-focus-ring);
     outline-offset: var(--haui-focus-offset);
   }
   .haui-panel-row:focus-visible, .haui-item-row-main:focus-visible { outline-offset: -2px; }
   .haui-pill button:focus-visible { outline-offset: 1px; }
-  .haui-firmware-hero-action:focus-visible { outline-offset: -3px; }
   .haui-icon-button {
     display: inline-grid;
     width: 40px;
@@ -142,6 +140,8 @@ export const dashboardComponentStyles = css`
   }
   .haui-notification-header {
     position: sticky;
+    /* ha-icon is position: relative, so the list's icons paint over a header without a z-index. */
+    z-index: 1;
     top: 0;
     display: flex;
     align-items: center;

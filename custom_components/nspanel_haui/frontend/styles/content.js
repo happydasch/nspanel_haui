@@ -47,13 +47,15 @@ export const contentStyles = css`
     position: absolute;
     inset-block-start: 0;
     inset-inline-end: 0;
-    min-width: 16px;
-    padding: 4px 4px;
+    box-sizing: border-box;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 4px;
     border-radius: var(--haui-radius-control);
     background: var(--error-color);
     color: var(--text-primary-color);
     font-size: var(--haui-text-eyebrow);
-    line-height: 1.4;
+    line-height: 20px;
     text-align: center;
   }
 
@@ -229,11 +231,6 @@ export const contentStyles = css`
   .haui-rssi-bar.haui-wifi-good      { background: var(--haui-wifi-good); }
   .haui-rssi-bar.haui-wifi-fair      { background: var(--warning-color, #ffa600); }
   .haui-rssi-bar.haui-wifi-weak      { background: var(--error-color, #db4437); }
-  .haui-section-divider {
-    height: 1px;
-    background: var(--divider-color, #e0e0e0);
-    margin: 12px 0;
-  }
 
   /* ── responsive: tablet (container) ─── */
   @container haui-editor (max-width: 870px) {

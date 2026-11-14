@@ -51,8 +51,9 @@ jobs:
             exit 1
           fi
 
-      # The Nextion gate is not repeated here: the tagged commit came through a
-      # release PR whose required `tests (3.14)` check ran it.
+      # The HMI layout and version checks are not repeated here: the tagged
+      # commit came through a release PR whose required `tests (3.14)` check ran
+      # them. The manifest step still refuses TFTs that do not carry tft_version.
       - name: Compile the universal firmware binary
         # esphome compile validates the config first.
         run: bash scripts/release/compile_firmware.sh
@@ -69,7 +70,9 @@ jobs:
         # The ``tft`` block names the display TFT and its per-model assets.
         # Its version comes from esphome/nspanel_haui/version.yaml, which only
         # advances when this release includes a TFT update. The generator
-        # refuses a manifest without version, OTA image or TFT assets.
+        # refuses a manifest without version, OTA image or TFT assets, and a
+        # TFT that does not embed that version: a panel would keep reporting
+        # another version and be offered the TFT again after every install.
         run: python -m scripts.release.generate_firmware_manifest
 
       - name: Assemble the release notes

@@ -71,6 +71,7 @@ export function renderSelect(id, value, options, onChange, opts = {}) {
  * @param {object}  [opts]
  * @param {string}  [opts.className] - Additional CSS class
  * @param {boolean} [opts.disabled] - Disabled state
+ * @param {string}  [opts.label] - Accessible name, for a toggle without a visible `<label>`
  * @returns {import('lit-html').TemplateResult}
  */
 export function renderToggle(id, checked, onChange, opts = {}) {
@@ -80,6 +81,7 @@ export function renderToggle(id, checked, onChange, opts = {}) {
       id=${id}
       type="checkbox"
       class=${cls}
+      aria-label=${opts.label ?? nothing}
       ?checked=${Boolean(checked)}
       @change=${(e) => { onChange(e.target.checked); }}
       ?disabled=${opts.disabled}

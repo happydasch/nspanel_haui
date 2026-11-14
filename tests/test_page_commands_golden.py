@@ -2,8 +2,9 @@
 
 Each scenario runs a page's full ``set_panel`` lifecycle against a fake app
 and compares the exact commands, service calls and popup requests with
-``page_commands_golden.json``.  The golden file was recorded before the page
-de-duplication refactor, so it guards that the refactor changes no output.
+``page_commands_golden.json``.  It is the only test of several feature-gated
+branches (climate fan, preset and swing modes, row paging and cover rows, the
+timer buttons), so a changed command shows up as a diff of the golden file.
 
 Regenerate deliberately with ``PAGE_COMMANDS_REGEN=1 pytest tests/test_page_commands_golden.py``.
 """
@@ -13,6 +14,7 @@ import os
 from pathlib import Path
 
 import pytest
+from support.page_app import Entity, PageApp
 
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import FncType
@@ -22,7 +24,6 @@ from custom_components.nspanel_haui.haui.features import (
     MediaPlayerFeatures,
     VacuumFeatures,
 )
-from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
 from custom_components.nspanel_haui.haui.page.climate import ClimatePage
 from custom_components.nspanel_haui.haui.page.cover import CoverPage
@@ -38,30 +39,6 @@ GOLDEN = Path(__file__).with_name("page_commands_golden.json")
 _RECORDED: dict[str, object] = {}
 
 
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
-    def __init__(self):
-        self.cmds = []
-
-    def send_cmd(self, command, value):
-        self.cmds.extend(value if isinstance(value, list) else [value])
-
-    def has_notifications(self):
-        return False
-
-
 class _Navigation:
     page = None
     panel = None
@@ -74,69 +51,23 @@ class _Navigation:
         self.opened.append([str(key), shown])
 
 
-class _Device:
-    is_portrait = False
+class _App(PageApp):
+    """Also records the popups a page opens and the listeners it adds and removes."""
 
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "panel"]
-
-
-class _App:
     def __init__(self, entities):
-        self.entities = entities
-        self.theme = Theme()
-        controller = _Controller()
+        super().__init__(entities)
         self.navigation = _Navigation()
-        self.controller = {
-            "esphome": controller,
-            "notification": controller,
-            "navigation": self.navigation,
-        }
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-        self.listeners = []
+        self.controller["navigation"] = self.navigation
+        self.handles = []
         self.removed = []
 
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
     def listen_state(self, cb, entity_id, attribute=None, **kwargs):
-        handle = f"{entity_id}:{attribute}"
-        self.listeners.append(handle)
+        handle = super().listen_state(cb, entity_id, attribute)
+        self.handles.append(handle)
         return handle
 
     def cancel_listen_state(self, handle):
         self.removed.append(handle)
-
-    def get_temperature_unit(self):
-        return "°C"
-
-    def run_in(self, cb, delay, **kwargs):
-        return "timer"
-
-    def run_every(self, cb, start, interval, **kwargs):
-        return "interval"
-
-    def cancel_timer(self, handle):
-        pass
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -197,7 +128,7 @@ def _climate(state, features, **attrs):
         "swing_mode": "off",
     }
     attributes.update(attrs)
-    return _Entity(state, attributes)
+    return Entity(state, attributes)
 
 
 @pytest.mark.parametrize(
@@ -263,7 +194,7 @@ def test_cover_render(name, state, features, position):
     attrs = {"friendly_name": "Door", "supported_features": features}
     if position is not None:
         attrs["current_position"] = position
-    entity = _Entity(state, attrs)
+    entity = Entity(state, attrs)
     app, page = _show(
         CoverPage, 18, {"type": "cover", "item": {"item": "cover.d"}}, {"cover.d": entity}
     )
@@ -296,7 +227,7 @@ def test_cover_render(name, state, features, position):
     ],
 )
 def test_vacuum_render(name, state, features):
-    entity = _Entity(
+    entity = Entity(
         state,
         {
             "friendly_name": "Robo",
@@ -305,7 +236,7 @@ def test_vacuum_render(name, state, features):
             "fan_speed_list": ["low", "high"],
         },
     )
-    mop = _Entity("off", {"friendly_name": "Mop"})
+    mop = Entity("off", {"friendly_name": "Mop"})
     app, page = _show(
         VacuumPage,
         15,
@@ -331,7 +262,7 @@ def _media(state, features, **attrs):
         "source_list": ["a", "b"],
     }
     attributes.update(attrs)
-    return _Entity(state, attributes)
+    return Entity(state, attributes)
 
 
 _M = MediaPlayerFeatures
@@ -381,7 +312,7 @@ def test_media_render(name, state, features):
 
 def _items():
     return {
-        "cover.a": _Entity(
+        "cover.a": Entity(
             "open",
             {
                 "friendly_name": "Shutter",
@@ -389,7 +320,7 @@ def _items():
                 "current_position": 100,
             },
         ),
-        "cover.b": _Entity(
+        "cover.b": Entity(
             "closed",
             {
                 "friendly_name": "Door",
@@ -398,11 +329,11 @@ def _items():
                 "device_class": "garage",
             },
         ),
-        "light.c": _Entity("on", {"friendly_name": "Lamp"}),
-        "switch.d": _Entity("off", {"friendly_name": "Plug"}),
-        "input_number.e": _Entity("21", {"friendly_name": "Num", "min": 15, "max": 30, "step": 1}),
-        "sensor.f": _Entity("5", {"friendly_name": "Sensor"}),
-        "button.g": _Entity("unknown", {"friendly_name": "Btn"}),
+        "light.c": Entity("on", {"friendly_name": "Lamp"}),
+        "switch.d": Entity("off", {"friendly_name": "Plug"}),
+        "input_number.e": Entity("21", {"friendly_name": "Num", "min": 15, "max": 30, "step": 1}),
+        "sensor.f": Entity("5", {"friendly_name": "Sensor"}),
+        "button.g": Entity("unknown", {"friendly_name": "Btn"}),
     }
 
 
@@ -434,7 +365,7 @@ def test_row_and_grid_paging(cls):
     out = _out(app, page)
     out.update(
         steps=steps,
-        listeners=sorted(app.listeners),
+        listeners=sorted(app.handles),
         removed=sorted(app.removed),
         pending=sorted(page._pending_item_updates),
         handles=len(page._active_handles),
@@ -543,7 +474,7 @@ def test_timer_buttons():
     ],
 )
 def test_alarm_render(name, state, features):
-    entity = _Entity(state, {"friendly_name": "Home", "supported_features": features})
+    entity = Entity(state, {"friendly_name": "Home", "supported_features": features})
     app, page = _show(
         AlarmPage,
         17,

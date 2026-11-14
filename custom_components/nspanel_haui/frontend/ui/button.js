@@ -4,18 +4,20 @@ import { t } from '../localize.js';
 
 /**
  * Render a native button with shared dashboard classes and semantics.
- * `anchorKey` marks a control that owns an anchored popover.
+ * `anchorKey` marks a control that owns an anchored popover. `detail` is
+ * secondary text after the label, such as what the setting it opens holds.
  */
 export function button({
   label, iconName = null, variant = 'outline', onClick, disabled = false, busy = false,
-  type = 'button', className = '', title = '', anchorKey = null, id = null,
+  type = 'button', className = '', title = '', anchorKey = null, id = null, detail = '',
 }) {
   return html`<button type=${type} id=${id ?? nothing}
     class=${`haui-button ${variant ? `haui-button-${variant}` : ''} ${className}`.trim()}
     ?disabled=${disabled || busy} aria-busy=${busy ? 'true' : nothing}
     data-overlay-anchor=${anchorKey ?? nothing}
     title=${title || nothing} @click=${onClick || nothing}>
-    ${iconName ? icon(iconName) : nothing}<span>${label}</span></button>`;
+    ${iconName ? icon(iconName) : nothing}<span>${label}</span>${detail
+      ? html` <span class="haui-button-detail">${detail}</span>` : nothing}</button>`;
 }
 
 /**

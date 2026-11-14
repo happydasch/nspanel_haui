@@ -50,14 +50,14 @@ jobs:
 
       - name: Check version sources agree
         # manifest.json is the source of truth for firmware versions. Check its
-        # mirrors without --tft-update: the TFT version is independent and is
-        # checked separately against both HMIs below.
+        # mirrors without --tft-update: the TFT version is independent, and
+        # pytest checks it against both HMIs and both TFTs.
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
           python -m scripts.bump_version "$VERSION" --check
 
-      - name: Enforce a display TFT version bump when the Nextion HMI changed
-        # A screen change committed under an unchanged system.tftVersion never
+      - name: Enforce a display TFT version bump when a Nextion HMI or TFT changed
+        # A display change committed under an unchanged tft_version never
         # reaches a panel that already reports that version. Compare against the
         # PR merge base (base.sha) or the commit a push came from (before). A
         # manual dispatch has no change set to compare.
@@ -66,14 +66,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python -m scripts.verify_nextion.check_hmi_bump --base "$BASE_SHA"
 
-      - name: Validate Nextion assets
-        # Runs the release gate on every push/PR so stale HMI versions, touch
-        # settings or portrait assets fail early. version.yaml is the source of
-        # truth for the TFT version; it may differ from the firmware version.
-        run: python -m scripts.verify_nextion.verify_nextion --require-portrait
-
-      # Also runs the frontend style guard (tests/test_frontend_styles.py) and
-      # both layout spec checks (test_layout_cli.py, test_portrait_layout.py).
+      # Also runs the frontend style guard (tests/test_frontend_styles.py), both
+      # HMI layout spec checks with the touch settings and landscape/portrait
+      # parity (test_gen_layout.py), and the display version check: both HMIs
+      # and both TFTs carry version.yaml's tft_version (test_bump_version.py).
       - name: Run tests
         run: pytest tests/
 

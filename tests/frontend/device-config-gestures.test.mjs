@@ -9,6 +9,8 @@ import {
 } from '../../custom_components/nspanel_haui/frontend/ui/gesture-editor.js';
 import { deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { DEVICE_CONFIG_DEFAULTS, GESTURE_NAMES } from '../../custom_components/nspanel_haui/frontend/constants.js';
+import { render } from './support/render.mjs';
+import { byRole } from './support/queries.mjs';
 
 /** A dialog instance without Lit's constructor (which needs a real DOM). */
 function dialog(props = {}) {
@@ -32,7 +34,7 @@ function templates(value) {
   return [];
 }
 
-test('device settings include Special pages and save Home and Idle assignments', () => {
+test('device settings include the home and idle panels and save their assignments', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS, use_relay_left: false, use_relay_right: false };
   const panels = [
     { key: 'kitchen', title: 'Kitchen' },
@@ -52,7 +54,6 @@ test('device settings include Special pages and save Home and Idle assignments',
     const renderedKey = key === 'snapshot_max_age_seconds' ? 'snapshot_max_age_mode' : key;
     assert.ok(output.includes(renderedKey), `settings form exposes ${key}`);
   }
-  assert.match(output, /Special pages/);
   assert.match(output, /Home panel/);
   assert.match(output, /Idle panels/);
   assert.doesNotMatch(output, /Panel Assignments|<summary>Schedule|<summary>Gestures/);
@@ -74,11 +75,42 @@ test('device settings include Special pages and save Home and Idle assignments',
   });
 });
 
+test('the settings rows open the theme, schedule, gestures and updates sidebars', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS };
+  const summaries = { theme: 'Evening', schedule: '1 entry', gestures: '4 entries', updates: 'Stable · Manual' };
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels: [], summaries });
+  const root = render(dlg.render());
+  for (const [label, option] of [['Theme', 'theme'], ['Schedule', 'schedule'], ['Gestures', 'gestures'], ['Updates', 'updates']]) {
+    const row = byRole(root, 'button', { name: `${label} ${summaries[option]}` });
+    assert.ok(row, `${label} row shows its summary`);
+    row.dispatchEvent(new Event('click', { bubbles: true }));
+    assert.equal(events.at(-1).type, 'open-option');
+    assert.deepEqual(events.at(-1).detail, { option });
+  }
+});
+
+test('a save in a sidebar opened from the settings survives saving the settings', () => {
+  const before = { ...DEVICE_CONFIG_DEFAULTS, schedule: [] };
+  const { dlg, events } = dialog({ config: before, panels: [] });
+  dlg.willUpdate(new Map([['config', undefined]]));
+  const level = render(dlg.render()).querySelector('#dc-log_level');
+  level.value = 'DEBUG';
+  level.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // The schedule sidebar saved over the settings: the store hands them its new config.
+  const after = { ...before, schedule: [{ start: '22:00', end: 'sunrise', sound: false }], brightness: 40 };
+  dlg.config = after;
+  dlg.willUpdate(new Map([['config', before]]));
+  dlg._dispatchSave();
+
+  assert.deepEqual(events.at(-1).detail.config, { ...after, log_level: 'DEBUG' });
+});
+
 test('the gesture names offered match the Python GESTURES tuple', () => {
   assert.deepEqual(GESTURE_NAMES, ['swipe_left', 'swipe_right', 'swipe_up', 'swipe_down']);
 });
 
-test('Special pages preserves idle order and lets panels be reordered by dragging', () => {
+test('the idle panels keep their order and can be reordered by dragging', () => {
   const config = {
     ...DEVICE_CONFIG_DEFAULTS, home_panel: 'light', idle_panel: 'clock',
     idle_panel_extra: 'weather, photo',

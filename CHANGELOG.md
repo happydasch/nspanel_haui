@@ -18,6 +18,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
+- The device settings sidebar has seven sections instead of nine: **General**, **Screen**, **Home & idle**, **Screen buttons & gestures**, **Hardware buttons**, **Sounds** and **Advanced**; rows in them open the **Theme**, **Schedule**, **Gestures** and **Updates** sidebars and show what each holds ([Device Configuration](docs/user/configuration/device.md#device-settings)).
 - Editor saves now use scoped endpoints for one device's settings or panels, and a separate device-order endpoint; saving preserves other devices' data and reordering does not reload the hub.
 - **Themes** are a shared library of predefined and custom palettes: the Theme sidebar on Preview selects one per device, edits shared semantic and state-icon colors, and imports or exports the library; applying a theme leaves panel and item colors as explicit overrides ([Themes](docs/user/configuration/themes.md)).
 - Every panel, including editable popups, can override its color theme; an empty selection follows the device, and the selected theme colors the page, items and icons ([Panels](docs/user/configuration/panels.md), [Themes](docs/user/configuration/themes.md)).
@@ -27,6 +28,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The **Schedule** card in the device's **Panels** view supports multiple time windows, including sunrise/sunset offsets and windows across midnight, with per-window sound, brightness, dimming and display-off settings ([Schedule](docs/user/configuration/device.md#schedule)).
 - The ESPHome firmware now caps dimmed brightness at the active full-brightness value, so a schedule entry with a low brightness cannot brighten the display when dimming begins.
 - Frontend translations now cover all editor strings in English, German, French, Dutch and Polish, including the theme, schedule and gesture controls.
+- Editor field hints show only while the pointer rests on the field or keyboard focus is in it, floating over the form instead of taking space; touch screens keep them visible.
 - The documentation is split into a user guide (`docs/user/`) and a developer guide (`docs/develop/`), so page addresses changed (`install.html` is now `user/install.html`); the user pages are rewritten in plainer language and **Custom Integration** is merged into [Installation](docs/user/install.md).
 - The sidebar editor is a Fleet/Device dashboard with linkable routes; the **Device Manager** and **Device Info** dialogs and the header's ⋯ menu are gone ([frontend](docs/develop/frontend.md#target-v05-dashboard)).
 - Fleet scans for new panels when it opens, enables, disables and removes devices from their inventory row, installs every device's updates at once and lists the dated hub log of every device under **Latest events**, a repeated message once with its count.
@@ -58,6 +60,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   the `0.4.8` patch line; the cycle base is committed with
   `scripts/bump_version.py` and the Development Firmware workflow keeps it when
   it writes its run number.
+- Release checks: stable and development releases refuse a TFT that does not carry the configured `tft_version`, CI requires a `tft_version` bump when a compiled TFT changes as well as an HMI, and the redundant `verify_nextion.py` gate is folded into the layout spec checks and the test suite ([Release process](docs/develop/release.md#ci-gates-and-local-checks)).
 - Development firmware builds run CI on the version commit they push to `dev`, which also deploys its screen overview to the dev docs; the commit no longer carries a skip-CI trailer ([Release process](docs/develop/release.md#published-development-firmware)).
 - **Add panel** offers eight starter templates under **Start from a template**; a template opens in the editor with the entities it needs marked ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
 - The panel editor and the hub check each panel option against its type (entity domain, required entity, number range, choices, item limit, colour); a new or changed panel that breaks a rule cannot be saved, an unknown entity only warns, and older panels show **Check settings** ([The Panel Editor](docs/user/configuration/README.md#the-panel-editor)).
@@ -65,9 +68,11 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - An automatic firmware install waits 10 minutes first; the Updates sidebar can install it now, put it off by an hour or a day, or skip the version ([Update Process](docs/develop/update-process.md#firmware)).
 - **Install updates** on Fleet installs one device at a time on the hub, stops at the first failure and can cancel the devices still queued ([Update Process](docs/develop/update-process.md#installing-every-device-one-at-a-time)).
 - A running firmware or display install shows its step and an estimate of the time left in the Updates sidebar and on Fleet ([Update Process](docs/develop/update-process.md#progress)).
+- The device's time and date formats apply to every panel: date, time, date-and-time, `input_datetime` and `event` entities and timestamp and date sensors show their state in them instead of as ISO text ([Device Configuration](docs/user/configuration/device.md#general)).
 
 ### Fixed
 
+- Device settings: a **Date format** other than Default now takes effect; the default **Locale-aware date layout** overrode it.
 - Gestures: the last swipe of a gesture sequence no longer also runs its own swipe action, which navigated away from the panel the sequence had just opened.
 - Unlock popup: the keypad takes the code again; since 0.4.5 it ignored every key, on the panel and in the preview, so a locked panel could not be opened.
 - Device settings: a number field no longer snaps to its minimum (or loses an unfinished entry) while it is being edited.

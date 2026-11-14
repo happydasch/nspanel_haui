@@ -11,6 +11,7 @@ import { renderField, renderNumberInput, renderSelect, renderToggle, renderToggl
 import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
+import { button } from '../ui/button.js';
 import { idlePanelConfig, idlePanelKeys, panelPills } from '../ui/panel-pills.js';
 
 /**
@@ -84,6 +85,29 @@ function intField(host, id, key, cfg, label, fallback, min, max, hint) {
 }
 
 /**
+ * Render a brightness field (0-100, empty = the hub leaves the panel's value).
+ * The empty field names the brightness the panel itself uses, when known.
+ */
+function brightnessField(host, key, cfg, label, panelValue, hint) {
+  const id = `dc-${key}`;
+  return renderField({
+    id,
+    label,
+    control: renderNumberInput(id, cfg[key], (raw) => {
+      const value = parseInt(raw, 10);
+      host._deviceConfigForm = {
+        ...host._deviceConfigForm,
+        [key]: Number.isNaN(value) ? null : Math.max(0, Math.min(value, 100)),
+      };
+    }, {
+      min: 0, max: 100,
+      placeholder: panelValue == null ? undefined : t("Panel: {value}").replace("{value}", String(panelValue)),
+    }),
+    hint,
+  });
+}
+
+/**
  * Render a preset select with an optional free-text strftime field.
  *
  * The select carries the preset options plus a "__custom__" entry; picking it
@@ -139,6 +163,8 @@ class DeviceSettings extends HauiDialog {
       api: { type: Object },
       entryId: { type: String },
       panels: { type: Array },
+      summaries: { type: Object },
+      deviceBrightness: { type: Object },
     };
   }
 
@@ -159,6 +185,8 @@ class DeviceSettings extends HauiDialog {
       overscroll-behavior: contain;
     }
     .haui-device-settings-snapshot-custom { margin-top: 8px; }
+    .haui-device-settings-option { width: 100%; margin-top: 8px; justify-content: flex-start; }
+    .haui-device-settings-option .haui-button-detail { margin-left: auto; }
   `];
 
   constructor() {
@@ -168,13 +196,37 @@ class DeviceSettings extends HauiDialog {
     this.api = null;
     this.entryId = "";
     this.panels = [];
+    this.summaries = null;
+    /** The panel's own brightness readings: `{ full, dimmed }`, null when unknown. */
+    this.deviceBrightness = null;
     this._deviceConfigForm = null;
   }
 
   willUpdate(changed) {
-    if (changed.has("config")) {
-      this._deviceConfigForm = this.config ? { ...this.config } : null;
-    }
+    if (!changed.has("config")) return;
+    // A save in a sidebar opened from here (theme, schedule, gestures, updates)
+    // brings a new config: the unsaved edits stay on top of it, so saving this
+    // form does not undo that save.
+    const previous = changed.get("config");
+    const edits = previous && this._deviceConfigForm
+      ? Object.fromEntries(Object.entries(this._deviceConfigForm).filter(([key, value]) =>
+        JSON.stringify(value) !== JSON.stringify(previous[key])))
+      : {};
+    this._deviceConfigForm = this.config ? { ...this.config, ...edits } : null;
+  }
+
+  /**
+   * A row that opens a device option's own sidebar over this one, with what
+   * the option holds beside its name.
+   * @param {'theme'|'schedule'|'gestures'|'updates'} option
+   * @param {string} label
+   * @param {string} iconName
+   */
+  _optionRow(option, label, iconName) {
+    return button({
+      label, iconName, detail: this.summaries?.[option], className: "haui-device-settings-option",
+      onClick: () => this._emit("open-option", { option }),
+    });
   }
 
   render() {
@@ -196,11 +248,13 @@ class DeviceSettings extends HauiDialog {
           </p>
 
           <details class="haui-config-section">
-            <summary>${t("Language & region")}</summary>
+            <summary>${t("General")}</summary>
             <div class="haui-config-section-body">
               <p class="haui-config-section-intro">
-                ${t("The display language and its regional formats. Time and date formats apply to the clock, clock-two and weather pages; leave them at Default to follow the language.")}
+                ${t("The display model, the display language and its regional formats. Time and date formats apply to every panel, including the dates and times of entities; leave them at Default to follow the language.")}
               </p>
+              ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
+                t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. Saving a changed model asks before the matching TFT is installed."))}
               ${selectField(this, "dc-locale", "locale", cfg, t("Language"), LOCALE_OPTIONS, (v) => v,
                 t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
               ${formatSelectField(this, "dc-time_format", "time_format", cfg, t("Time format"), TIME_FORMAT_OPTIONS,
@@ -216,94 +270,64 @@ class DeviceSettings extends HauiDialog {
                 { value: "E", label: t("Weekday (short)") },
                 { value: "EEEE", label: t("Weekday (full)") },
               ], (v) => v, t("Used when Date format is Default. The selected layout follows the device language."))}
+              ${this._optionRow("theme", t("Theme"), "color")}
             </div>
           </details>
 
           <details class="haui-config-section">
-            <summary>${t("General Settings")}</summary>
-            <div class="haui-config-section-body">
-              <p class="haui-config-section-intro">
-                ${t("General device behavior: display model, diagnostic logging verbosity and the stale-data indicator.")}
-              </p>
-                ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
-                  t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. Saving a changed model asks before the matching TFT is installed."))}
-
-              ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
-                  t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
-              ${intField(this, "dc-stale_data_seconds", "stale_data_seconds", cfg, t("Stale data threshold (seconds)"), 0, 0, 86400,
-                t("When a sensor value has not updated for this many seconds, the row page shows it dimmed with a … suffix so an old value is not mistaken for current. 0 = off."))}
-              <div class="haui-field">
-                <label for="dc-page_settle_delay">${t("Page settle delay (seconds)")}</label>
-                ${renderNumberInput("dc-page_settle_delay", cfg.page_settle_delay, (raw) => {
-                  const v = parseFloat(raw);
-                  this._deviceConfigForm = { ...this._deviceConfigForm, page_settle_delay: isNaN(v) ? 0 : Math.max(0, Math.min(v, 2)) };
-                }, { min: 0, max: 2, step: "any" })}
-                <div class="haui-field-hint">${t("How long the hub waits after the display confirms a page change before it draws the page. Raise it only if the log shows invalid-variable errors right after a page change.")}</div>
-              </div>
-            </div>
-          </details>
-
-          <details class="haui-config-section">
-            <summary>${t("Display dimming & off")}</summary>
+            <summary>${t("Screen")}</summary>
             <div class="haui-config-section-body">
               <p class="haui-config-section-intro">
                 ${t("Controls the display brightness over time. These settings only dim and turn the screen off - they never switch pages. Turning the display off never requires an idle page.")}
               </p>
-                <div class="haui-field">
-                  <label for="dc-brightness">${t("Brightness full (%)")}</label>
-                  ${renderNumberInput("dc-brightness", cfg.brightness, (raw) => {
-                    const v = parseInt(raw, 10);
-                    this._deviceConfigForm = { ...this._deviceConfigForm, brightness: isNaN(v) ? null : Math.max(0, Math.min(v, 100)) };
-                  }, { min: 0, max: 100 })}
-                  <div class="haui-field-hint">${t("Full display brightness. Leave empty to keep the brightness set on the panel. A schedule needs a value here: it is the brightness outside the schedule's entries.")}</div>
-                </div>
-                <div class="haui-field">
-                  <label for="dc-brightness_dim">${t("Brightness dimmed (%)")}</label>
-                  ${renderNumberInput("dc-brightness_dim", cfg.brightness_dim, (raw) => {
-                    const v = parseInt(raw, 10);
-                    this._deviceConfigForm = { ...this._deviceConfigForm, brightness_dim: isNaN(v) ? null : Math.max(0, Math.min(v, 100)) };
-                  }, { min: 0, max: 100 })}
-                  <div class="haui-field-hint">${t("Brightness the display dims to. Leave empty to keep the value set on the panel.")}</div>
+                <div class="haui-field-pair">
+                  ${brightnessField(this, "brightness", cfg, t("Brightness full (%)"), this.deviceBrightness?.full,
+                    t("Full display brightness. Leave empty to keep the brightness set on the panel. A schedule needs a value here: it is the brightness outside the schedule's entries."))}
+                  ${brightnessField(this, "brightness_dim", cfg, t("Brightness dimmed (%)"), this.deviceBrightness?.dimmed,
+                    t("Brightness the display dims to. Leave empty to keep the value set on the panel."))}
                 </div>
                 ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
                   t("When enabled, the display dims automatically after the dimming timeout. Disable to keep full brightness. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
-                ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (seconds)"), 10, 0, 3600,
-                  t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
-                <div class="haui-field">
-                  <label for="dc-duration_dimming">${t("Dimming duration (seconds)")}</label>
-                  ${renderNumberInput("dc-duration_dimming", cfg.duration_dimming, (raw) => {
-                    const v = parseFloat(raw);
-                    this._deviceConfigForm = { ...this._deviceConfigForm, duration_dimming: isNaN(v) ? 0 : Math.max(0, Math.min(v, 5)) };
-                  }, { min: 0, max: 5, step: "any" })}
-                  <div class="haui-field-hint">${t("How long the fade between full and dimmed brightness takes (0-5 seconds).")}</div>
+                <div class="haui-field-pair">
+                  ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (s)"), 10, 0, 3600,
+                    t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
+                  <div class="haui-field">
+                    <label for="dc-duration_dimming">${t("Dimming duration (s)")}</label>
+                    ${renderNumberInput("dc-duration_dimming", cfg.duration_dimming, (raw) => {
+                      const v = parseFloat(raw);
+                      this._deviceConfigForm = { ...this._deviceConfigForm, duration_dimming: isNaN(v) ? 0 : Math.max(0, Math.min(v, 5)) };
+                    }, { min: 0, max: 5, step: "any" })}
+                    <div class="haui-field-hint">${t("How long the fade between full and dimmed brightness takes (0-5 seconds).")}</div>
+                  </div>
                 </div>
-
                 ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
                   t("When enabled, the display turns off (brightness to zero) after the display-off timeout. Disable to prevent automatic off. Automations may control this switch; HAUI does not reapply it on reconnects or page changes. With a schedule, HAUI sets it from the active entry or from this setting."))}
-                ${intField(this, "dc-timeout_display_off", "timeout_display_off", cfg, t("Display-off timeout (seconds)"), 120, 0, 3600,
+                ${intField(this, "dc-timeout_display_off", "timeout_display_off", cfg, t("Display-off timeout (s)"), 120, 0, 3600,
                   t("Seconds of inactivity before the display turns off (0 = disabled, max 3600)."))}
-
+                ${this._optionRow("schedule", t("Schedule"), "clock")}
             </div>
           </details>
 
           <details class="haui-config-section">
-            <summary>${t("Automatic page switching")}</summary>
+            <summary>${t("Sounds")}</summary>
             <div class="haui-config-section-body">
               <p class="haui-config-section-intro">
-                ${t("Switches to the idle page after inactivity. This only changes the shown page - use Auto display-off to also turn the display off.")}
+                ${t("Configure audible alerts for startup and incoming notifications. To silence sounds during specific hours, add a Schedule entry with sound off.")}
               </p>
-                ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
-                  t("When enabled, the hub switches to the configured idle page after the page timeout. The next touch or button press returns to the panel you were on."))}
-                ${intField(this, "dc-timeout_page", "timeout_page", cfg, t("Page timeout (seconds)"), 30, 0, 3600,
-                  t("Seconds of inactivity before the idle page opens (0 = disabled, max 3600)."))}
+              ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, t("Sound on startup"),
+                t("Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle"))}
+              ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, t("Sound on notification"),
+                t("Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display"))}
+              ${intField(this, "dc-persistent_sound_interval", "persistent_sound_interval", cfg, t("Persistent sound interval (seconds)"), 5, 1, 600,
+                t("How often the alert sound repeats while a persistent notification waits to be dismissed (min 1, max 600)."))}
             </div>
           </details>
 
           <details class="haui-config-section">
-            <summary>${t("Special pages")}</summary>
+            <summary>${t("Home & idle")}</summary>
             <div class="haui-config-section-body">
               <p class="haui-config-section-intro">
-                ${t("Choose the page opened by Home and the ordered pages shown while the device is idle.")}
+                ${t("The panel Home opens, the idle panels that open after inactivity, and which panel returns when you wake the device. This only changes the shown panel - use Auto display off to also turn the display off.")}
               </p>
               <div class="haui-field">
                 <label for="dc-home-panel">${t("Home panel")}</label>
@@ -318,6 +342,10 @@ class DeviceSettings extends HauiDialog {
                 })}
                 <div class="haui-field-hint">${t("If no home panel is set, the first panel in navigation is used.")}</div>
               </div>
+              ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
+                t("When enabled, the hub switches to the configured idle page after the page timeout. The next touch or button press returns to the panel you were on."))}
+              ${intField(this, "dc-timeout_page", "timeout_page", cfg, t("Page timeout (seconds)"), 30, 0, 3600,
+                t("Seconds of inactivity before the idle page opens (0 = disabled, max 3600)."))}
               <div class="haui-field">
                 <label for="dc-idle-panels">${t("Idle panels")}</label>
                 ${panelPills({
@@ -333,67 +361,9 @@ class DeviceSettings extends HauiDialog {
                   ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
                 </div>
                 ${idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra).length ? "" : html`
-                  <div class="haui-field-hint">${t("Nothing opens automatically until you add a panel.")}</div>
+                  <div class="haui-field-hint is-persistent">${t("Nothing opens automatically until you add a panel.")}</div>
                 `}
               </div>
-            </div>
-          </details>
-
-          <details class="haui-config-section">
-            <summary>${t("Hardware Buttons")}</summary>
-            <div class="haui-config-section-body">
-              <p class="haui-config-section-intro">
-                ${t("Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.")}
-              </p>
-              ${renderHardwareButton(this, cfg, "left")}
-
-              <div class="haui-section-divider"></div>
-
-              ${renderHardwareButton(this, cfg, "right")}
-              <div class="haui-section-divider"></div>
-            <div class="haui-section-divider"></div>
-              ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
-                t("Interact on button press"),
-                t("When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or turning off. Disable to allow buttons to work without delaying the display-off."))}
-            </div>
-          </details>
-
-          <details class="haui-config-section">
-            <summary>${t("Display Buttons")}</summary>
-            <div class="haui-config-section-body">
-              <p class="haui-config-section-intro">
-                ${t("Toggle visibility of on-screen navigation buttons on panels.")}
-              </p>
-              ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, t("Show home button"),
-                t("Show a home navigation button on panels so users can tap to return to the configured home panel from any page"))}
-              ${checkbox(this, "dc-show_idle_button", "show_idle_button", cfg, t("Show idle button"),
-                t("Show a button that manually opens the idle page (the configured idle panel)"))}
-              ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, t("Show notifications button"),
-                t("Show a notifications button on supported panels that indicates and provides access to any pending notifications"))}
-            </div>
-          </details>
-
-          <details class="haui-config-section">
-            <summary>${t("Notifications")}</summary>
-            <div class="haui-config-section-body">
-              <p class="haui-config-section-intro">
-                ${t("Configure audible alerts for startup and incoming notifications. To silence sounds during specific hours, add a Schedule entry with sound off.")}
-              </p>
-              ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, t("Sound on startup"),
-                t("Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle"))}
-              ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, t("Sound on notification"),
-                t("Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display"))}
-              ${intField(this, "dc-persistent_sound_interval", "persistent_sound_interval", cfg, t("Persistent sound interval (seconds)"), 5, 1, 600,
-                t("How often the alert sound repeats while a persistent notification waits to be dismissed (min 1, max 600)."))}
-            </div>
-          </details>
-
-          <details class="haui-config-section">
-            <summary>${t("Idle & Wake Behavior")}</summary>
-            <div class="haui-config-section-body">
-              <p class="haui-config-section-intro">
-                ${t("Controls what happens when the idle page is shown and what is restored when the user wakes the device again.")}
-              </p>
               <div class="haui-field">
                 <label>${t("Snapshot max age")}</label>
                 ${renderSelect("dc-snapshot_max_age_mode", snapMode, [
@@ -427,6 +397,58 @@ class DeviceSettings extends HauiDialog {
               </div>
               ${intField(this, "dc-auto_navigate_home_timeout", "auto_navigate_home_timeout", cfg, t("Return to the home panel after (seconds)"), 0, 0, 86400,
                 t("Go back to the home panel after this many seconds without interaction on another panel. Set it shorter than the dimming and display-off timeouts. 0 = off."))}
+            </div>
+          </details>
+
+          <details class="haui-config-section">
+            <summary>${t("Screen buttons & gestures")}</summary>
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
+                ${t("Toggle visibility of on-screen navigation buttons on panels.")}
+              </p>
+              ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, t("Show home button"),
+                t("Show a home navigation button on panels so users can tap to return to the configured home panel from any page"))}
+              ${checkbox(this, "dc-show_idle_button", "show_idle_button", cfg, t("Show idle button"),
+                t("Show a button that manually opens the idle page (the configured idle panel)"))}
+              ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, t("Show notifications button"),
+                t("Show a notifications button on supported panels that indicates and provides access to any pending notifications"))}
+              ${this._optionRow("gestures", t("Gestures"), "gesture")}
+            </div>
+          </details>
+
+          <details class="haui-config-section">
+            <summary>${t("Hardware buttons")}</summary>
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
+                ${t("Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.")}
+              </p>
+              ${renderHardwareButton(this, cfg, "left")}
+              ${renderHardwareButton(this, cfg, "right")}
+              ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
+                t("Interact on button press"),
+                t("When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or turning off. Disable to allow buttons to work without delaying the display-off."))}
+            </div>
+          </details>
+
+          <details class="haui-config-section">
+            <summary>${t("Advanced")}</summary>
+            <div class="haui-config-section-body">
+              <p class="haui-config-section-intro">
+                ${t("Diagnostics and fine-tuning: log verbosity, the stale-data indicator and the page settle delay.")}
+              </p>
+              ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
+                t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
+              ${intField(this, "dc-stale_data_seconds", "stale_data_seconds", cfg, t("Stale data threshold (seconds)"), 0, 0, 86400,
+                t("When a sensor value has not updated for this many seconds, the row page shows it dimmed with a … suffix so an old value is not mistaken for current. 0 = off."))}
+              <div class="haui-field">
+                <label for="dc-page_settle_delay">${t("Page settle delay (seconds)")}</label>
+                ${renderNumberInput("dc-page_settle_delay", cfg.page_settle_delay, (raw) => {
+                  const v = parseFloat(raw);
+                  this._deviceConfigForm = { ...this._deviceConfigForm, page_settle_delay: isNaN(v) ? 0 : Math.max(0, Math.min(v, 2)) };
+                }, { min: 0, max: 2, step: "any" })}
+                <div class="haui-field-hint">${t("How long the hub waits after the display confirms a page change before it draws the page. Raise it only if the log shows invalid-variable errors right after a page change.")}</div>
+              </div>
+              ${this._optionRow("updates", t("Updates"), "update")}
             </div>
           </details>
 

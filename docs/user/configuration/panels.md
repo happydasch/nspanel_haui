@@ -90,7 +90,7 @@ Good to know:
 
 ## Home and Idle Panels
 
-Which panel is the home panel and which panels appear while idle are device settings, not settings of individual panels. Configure them in the **Special pages** section of **Device Settings** (open the device's Preview and select its Settings cog). The **Panels** view no longer has a side area; it uses the full width for panel management.
+Which panel is the home panel and which panels appear while idle are device settings, not settings of individual panels. Configure them in the **Home & idle** section of **Device Settings** (open the device's Preview and select its Settings cog). The **Panels** view no longer has a side area; it uses the full width for panel management.
 
 | Setting | Key | Description |
 |---------|-----|-------------|

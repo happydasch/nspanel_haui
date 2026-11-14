@@ -1,3 +1,5 @@
+"""``HAUIConfig``: the validated config, its panels and the popup overrides."""
+
 import pytest
 
 from custom_components.nspanel_haui.haui.abstract.haui_config import HAUIConfig
@@ -79,3 +81,17 @@ def test_hub_driven_override_ignores_pin_and_auto_close():
         assert panel.get("unlock_code", "") == "", key
         assert panel.get("close_timeout", 0) == 0, key
         assert panel.get("title") == "T", key
+
+
+def test_validation_keeps_unvalidated_device_keys():
+    cfg = HAUIConfig(DummyApp(), {"device": {"name": "panel", "page_settle_delay": 0.3}})
+
+    device = cfg.get("device")
+    assert device["name"] == "panel"
+    assert device["page_settle_delay"] == 0.3
+    assert device["panels"] == [{"type": "clock"}]
+
+
+def test_invalid_device_config_raises():
+    with pytest.raises(ValueError):
+        HAUIConfig(DummyApp(), {"device": {"timeout_display_off": "soon"}})

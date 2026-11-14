@@ -4,7 +4,8 @@
 The ``tft_version`` in ``esphome/nspanel_haui/version.yaml`` tracks the TFT
 version separately from the firmware tag. The release uploads the TFT assets,
 but the manifest must advertise the embedded TFT version when a release does
-not include a TFT update.
+not include a TFT update. Both TFT assets must carry that version, or the
+generator refuses to write the manifest.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import os
 import re
 from pathlib import Path
 from typing import Any
+
+from scripts.bump_tft_version import check_tft_carries
 
 VERSION_YAML = Path("esphome/nspanel_haui/version.yaml")
 
@@ -59,7 +62,13 @@ def build_manifest(
     us_tft: Path,
     tft_version: str,
 ) -> dict[str, Any]:
-    """Build a release manifest with the TFT version required by its firmware."""
+    """Build a release manifest with the TFT version required by its firmware.
+
+    Raises:
+        ValueError: A TFT asset does not carry ``tft_version``.
+    """
+    for tft in (eu_tft, us_tft):
+        check_tft_carries(tft, tft_version)
     version = tag.removeprefix("v")
     release_url = f"https://github.com/{repo}/releases/download/{tag}"
     return build_manifest_from_assets(

@@ -769,6 +769,27 @@ def test_open_panel_different_page_waits_for_event():
     assert nav._page_timeout is not None  # run_in returns "handle"
 
 
+def test_opening_a_panel_fires_the_page_changed_event():
+    """Automations follow the shown panel through ``nspanel_haui.page_changed``."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=5)
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=5),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl("p1")
+
+    ((event_type, data),) = nav.app.fire_event_calls
+    assert event_type == "nspanel_haui.page_changed"
+    assert (data["device"], data["action"], data["panel"], data["type"]) == (
+        "Fake Panel",
+        "opened",
+        "test",
+        "grid",
+    )
+
+
 def test_page_timeout_callback_forces_goto_and_displays():
     """_page_timeout_callback re-sends goto_page (force=True) and displays."""
     panel = OpenPanel("p1", panel_type="grid")
@@ -1202,3 +1223,48 @@ def test_a_reload_keeps_the_shown_carousel_panel_as_the_idle_panel() -> None:
 
     assert nav._idle_panel is rebuilt_b
     assert nav.idle_panel_active is True
+
+
+# --- idle page carousel ------------------------------------------------------
+
+
+def _carousel_nav(keys, **device_cfg):
+    """A nav whose config holds one panel per key; ``nav.opened`` lists the panels it opens."""
+    app = FakeApp(FakeDevice(use_auto_page=True, **device_cfg))
+    app.device_config = FakeDeviceConfig({key: DummyPanel(f"id-{key}", key) for key in keys})
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._resolve_idle_panels()
+    nav.create_snapshot = lambda: None
+    nav.opened = []
+    nav.open_panel = lambda panel_id, **kw: nav.opened.append(panel_id)
+    return nav
+
+
+def test_the_carousel_cycles_the_idle_panel_and_its_extras_without_repeats():
+    nav = _carousel_nav(
+        ["clock", "clocktwo", "weather", "grid"],
+        idle_panel="clock",
+        idle_panel_extra="weather, clocktwo, weather",
+    )
+
+    for _ in range(4):
+        nav.open_idle_panel()
+
+    assert nav.opened == ["id-clock", "id-weather", "id-clocktwo", "id-clock"]
+
+
+def test_a_changed_carousel_starts_over_and_an_unchanged_one_continues():
+    nav = _carousel_nav(
+        ["clock", "clocktwo", "weather"], idle_panel="clock", idle_panel_extra="clocktwo"
+    )
+    nav.open_idle_panel()
+
+    nav._resolve_idle_panels()  # a save that leaves the carousel as it is
+    nav.open_idle_panel()
+    assert nav.opened == ["id-clock", "id-clocktwo"]
+
+    nav.app.device._cfg["idle_panel_extra"] = "weather"
+    nav._resolve_idle_panels()
+    nav.open_idle_panel()
+    assert nav.opened == ["id-clock", "id-clocktwo", "id-clock"]

@@ -3,12 +3,12 @@ import './support/browser.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { updateStateLabel, updateSummary } from'../../custom_components/nspanel_haui/frontend/dialogs/firmware.js';
+import { updateStateLabel, updateSummary } from'../../custom_components/nspanel_haui/frontend/dialogs/updates.js';
 import { render } from './support/render.mjs';
 
 function element(props = {}) {
-  const FirmwarePopover = customElements.get('nspanel-firmware-popover');
-  return Object.assign(document.createElement('nspanel-firmware-popover'), {
+  const UpdatesSidebar = customElements.get('nspanel-updates-sidebar');
+  return Object.assign(document.createElement('nspanel-updates-sidebar'), {
     open: true,
     deviceName: 'kitchen',
     entryId: 'entry1',
@@ -33,9 +33,15 @@ function flatten(value) {
   return '';
 }
 
-test('the Updates sidebar shows current and required versions with available actions', () => {
+test('the Updates sidebar combines update status and installed versions in one compact card', () => {
   const view = flatten(element().render());
-  assert.match(view, /haui-firmware-sidebar/);
+  const root = render(element().render());
+  const overview = root.querySelector('.haui-update-overview');
+  assert.match(view, /haui-update-sidebar/);
+  assert.ok(overview);
+  assert.ok(overview.querySelector('.haui-update-summary'));
+  assert.ok(overview.querySelector('.haui-update-versions'));
+  assert.equal(root.querySelectorAll('.haui-update-overview').length, 1);
   // The sidebar frame carries the title and the close control.
   assert.doesNotMatch(view, /haui-popover|mdi:close/);
   assert.match(view, /0\.5\.0/);
@@ -44,7 +50,7 @@ test('the Updates sidebar shows current and required versions with available act
   assert.match(view, /Check for updates/);
   assert.equal((view.match(/>\s*Install\s*</g) || []).length, 2);
   assert.doesNotMatch(view, /Install update/);
-  assert.match(view, /haui-firmware-status-warning/);
+  assert.match(view, /haui-update-status-warning/);
   assert.match(view, /A display update is ready to install\./);
   assert.doesNotMatch(view, />idle</);
 });
@@ -106,7 +112,7 @@ test('the Updates sidebar shows update check errors', async () => {
     _emit() { assert.fail('failed update checks must not report success'); },
   });
   await view._checkForUpdates();
-    assert.equal(view._popoverError, 'offline');
+    assert.equal(view._checkError, 'offline');
 });
 
 function settingsSidebar(update) {
@@ -142,9 +148,9 @@ test('a new version waits for the user or installs automatically', () => {
   const root = render(sidebar.render());
 
   assert.equal(root.querySelector('[aria-label="When a new version is found"] [aria-pressed="true"]').textContent.trim(),
-    'Wait for me');
+    'Manual');
   assert.equal(root.querySelector('#update-install-delay'), null, 'no wait while nothing installs by itself');
-  choose(root, 'Install automatically');
+  choose(root, 'Auto');
 
   assert.deepEqual(sidebar._saved, [['save-update-settings', { update: { enabled: true, firmware_auto_update: true } }]]);
   assert.equal(render(sidebar.render()).querySelector('#update-install-delay option[selected]').value, '600');

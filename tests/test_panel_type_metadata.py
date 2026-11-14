@@ -1,6 +1,6 @@
-"""Panel-type descriptors expose the physical HMI page the editor's simulator
-preview jumps to (page_id), for user panel types, system panel entries and
-popup aliases."""
+"""What the hub serves the editor about each panel type: its physical HMI page
+(``page_id``), catalog category, components and options, for user panel types,
+system panel entries and popup aliases."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from custom_components.nspanel_haui.haui.mapping.panel import (
     get_system_panel_entries,
     get_user_panel_type_descriptors,
 )
+from custom_components.nspanel_haui.haui.page.blank import BlankPage
 
 
 def _valid_page_id(pid) -> bool:
@@ -116,3 +117,53 @@ def test_only_popup_system_panels_are_editable():
     fixed = {e["key"] for e in entries if not e["editable"]}
     assert editable == {e["key"] for e in entries if e["key"].startswith("popup_")}
     assert fixed == {"sys_system", "sys_blank", "sys_settings", "sys_about"}
+
+
+# Clock, weather and clocktwo have no ``bFnc*`` widgets: the ids 3-6 belong to
+# other widgets on those Nextion pages, and the component list is served to the editor.
+@pytest.mark.parametrize("type_key", ["clock", "weather", "clocktwo"])
+def test_headerless_page_components_have_no_header_buttons(type_key):
+    (descriptor,) = [d for d in get_user_panel_type_descriptors() if d["type_key"] == type_key]
+    components = descriptor["components"]
+
+    assert descriptor["has_header"] is False
+    assert [c["name"] for c in components if c["name"].startswith("bFnc")] == []
+    ids = [c["id"] for c in components]
+    assert len(ids) == len(set(ids))
+
+
+def test_blank_page_declares_only_its_own_widget():
+    assert [c.name for c in BlankPage.COMPONENTS.values()] == ["hBlank"]
+
+
+@pytest.mark.parametrize(
+    ("type_key", "options_key", "color_keys"),
+    [
+        (
+            "alarm",
+            "options",
+            {
+                "keypad_bg_color",
+                "keypad_text_color",
+                "arm_button_color",
+                "arm_button_back_color",
+                "disarm_button_color",
+                "disarm_button_back_color",
+            },
+        ),
+        ("clocktwo", "options", {"off_color", "letter_color", "special_color"}),
+        (
+            "grid",
+            "item_options",
+            {"text_color", "back_color", "color_pressed", "back_color_pressed", "power_color"},
+        ),
+    ],
+)
+def test_pages_with_colors_of_their_own_serve_them_as_color_options(
+    type_key, options_key, color_keys
+):
+    (descriptor,) = [d for d in get_user_panel_type_descriptors("pl") if d["type_key"] == type_key]
+    options = {option["key"]: option for option in descriptor[options_key]}
+
+    assert color_keys <= options.keys()
+    assert all(options[key]["kind"] == "color" for key in color_keys)

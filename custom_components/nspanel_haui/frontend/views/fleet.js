@@ -141,7 +141,7 @@ export function renderFleetView(data) {
 
   return html`<main class="haui-dashboard-content">
     <section class="haui-fleet-carousel-region" aria-label=${t('Your devices')}>
-      ${cards.length ? html`<div class="haui-fleet-carousel-wrap">
+      ${cards.length ? html`<div class="haui-fleet-carousel-wrap${atStart ? '' : ' is-clipped-start'}${atEnd ? '' : ' is-clipped-end'}">
         ${cards.length > 1 ? html`
           ${iconButton({
             label: t('Scroll devices left'), iconName: 'chevronLeft',

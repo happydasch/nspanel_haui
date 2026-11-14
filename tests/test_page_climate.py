@@ -5,79 +5,12 @@ display commands and service calls, so assertions are on what reaches the
 display and Home Assistant.
 """
 
+from support.page_app import Entity, PageApp
+
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import ClimateFeatures
 from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.climate import ClimatePage
-
-
-class _Entity:
-    def __init__(self, state, attributes):
-        self.state = state
-        self.attributes = attributes
-        self.calls = []
-
-    def get_state(self):
-        return self.state
-
-    def call_service(self, service, **kwargs):
-        self.calls.append((service, kwargs))
-
-
-class _Controller:
-    def __init__(self):
-        self.cmds = []
-
-    def send_cmd(self, command, value):
-        self.cmds.extend(value if isinstance(value, list) else [value])
-
-    def has_notifications(self):
-        return False
-
-
-class _Device:
-    is_portrait = False
-
-    def get(self, key, default=None):
-        return {}.get(key, default)
-
-    def get_locale(self):
-        return "en_US"
-
-
-class _DeviceConfig:
-    def get_panels(self, nav_only):
-        return ["home", "climate"]
-
-
-class _App:
-    def __init__(self, entities, temperature_unit="°C"):
-        self.entities = entities
-        self.theme = Theme()
-        self.temperature_unit = temperature_unit
-        controller = _Controller()
-        self.controller = {"esphome": controller, "notification": controller}
-        self.device = _Device()
-        self.device_config = _DeviceConfig()
-
-    @property
-    def cmds(self):
-        return self.controller["esphome"].cmds
-
-    def log(self, msg, **kwargs):
-        pass
-
-    def item_exists(self, entity_id):
-        return entity_id in self.entities
-
-    def get_item(self, entity_id):
-        return self.entities[entity_id]
-
-    def listen_state(self, cb, entity_id, attribute=None):
-        return f"{entity_id}:{attribute}"
-
-    def get_temperature_unit(self):
-        return self.temperature_unit
 
 
 def _climate(state="heat", **attrs):
@@ -91,11 +24,11 @@ def _climate(state="heat", **attrs):
         "max_temp": 35,
     }
     attributes.update(attrs)
-    return _Entity(state, attributes)
+    return Entity(state, attributes)
 
 
 def _show(entity, *, unit="°C", variant="dark", **panel_cfg):
-    app = _App({"climate.living": entity}, temperature_unit=unit)
+    app = PageApp({"climate.living": entity}, temperature_unit=unit)
     app.theme = Theme(variant)
     cfg = {"type": "climate", "item": {"item": "climate.living"}}
     cfg.update(panel_cfg)
@@ -131,7 +64,7 @@ def test_editor_panel_controls_configured_item():
 
 def test_popup_controls_item_passed_by_id():
     entity = _climate()
-    app = _App({"climate.living": entity})
+    app = PageApp({"climate.living": entity})
     panel = HAUIPanel(app, {"type": "climate"})
     panel.apply_kwargs({"item": "climate.living", "item_id": "climate.living"})
     page = ClimatePage(app, {"page_id": 16})

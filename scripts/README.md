@@ -47,8 +47,7 @@ Some tools have extra requirements:
 | `hmi_layout/gen_virtual_layout.py` | Regenerate the editor's virtual layouts, pictures, icon map, font metrics and theme code |
 | `hmi_layout/portrait_layout.py`, `hmi_layout/landscape_layout.py`, `hmi_layout/theme.py` | Spec and attribute data — imported by the tools above, not run directly |
 | `nextion2text/Nextion2Text.py` | Dump an `.HMI` project to readable text (widgets, attributes, event code) |
-| `verify_nextion/verify_nextion.py` | Release gate for the HMI/TFT files |
-| `verify_nextion/check_hmi_bump.py` | Fail when an HMI changed without a TFT version bump |
+| `verify_nextion/check_hmi_bump.py` | Fail when an HMI or TFT changed without a TFT version bump |
 
 ### Display images
 
@@ -88,6 +87,7 @@ Some tools have extra requirements:
 | `preview_gallery/gallery.html`, `preview_gallery/gallery.js` | The browser gallery |
 | `preview_gallery/capture.mjs` | Headless Chrome capture used by `--png`/`--docs` |
 | `readme_images/gen_readme_images.py` | Capture the README hero and step images into `docs/assets/readme/` |
+| `readme_images/gen_editor_screenshots.py`, `readme_images/capture_editor.mjs` | Capture the README's editor screenshots (light and dark) from a throwaway Home Assistant |
 
 ### Translations, versions and tooling
 
@@ -137,18 +137,8 @@ page in both HMIs.
 
 ### `verify_nextion/`
 
-`verify_nextion/verify_nextion.py` is the release gate: it checks that
-`clock.tTime` reports touches, that `system.tftVersion` matches
-`esphome/nspanel_haui/version.yaml` in both HMIs, and — with
-`--require-portrait` — that the portrait HMI/TFT exist and report the same touch
-settings as the landscape one.
-
-```bash
-python -m scripts.verify_nextion.verify_nextion --require-portrait
-```
-
 `verify_nextion/check_hmi_bump.py` is the CI guard that fails a change which
-modifies an HMI without advancing the TFT version:
+modifies an HMI or a compiled TFT without advancing the TFT version:
 
 ```bash
 python -m scripts.verify_nextion.check_hmi_bump --base origin/dev
@@ -249,6 +239,17 @@ python -m scripts.check_preview_coverage
 python -m scripts.readme_images.gen_readme_images [--chrome PATH]
 ```
 
+`readme_images/gen_editor_screenshots.py` captures the README's editor
+screenshots in the light and the dark theme. It starts a throwaway Home
+Assistant from `.venv_ha` in a temporary directory on port 8124 (so a
+development instance on 8123 keeps running), with the `demo` integration's
+entities and six sample NSPanel devices, onboards a test user and drives the
+editor with headless Chrome (`capture_editor.mjs`, Node 22+):
+
+```bash
+python -m scripts.readme_images.gen_editor_screenshots [--hass PATH] [--chrome PATH] [--port 8124] [--only PREFIX ...]
+```
+
 ## Translations
 
 Extraction is the routine step. It scans Python `self.translate("…")` calls,
@@ -323,8 +324,9 @@ hub keeps re-offering it.
   `nspanel_haui_ota.bin`; both release workflows run it.
 - `generate_firmware_manifest.py` builds the release manifest from
   `nspanel_haui_ota.bin` and both TFT assets, with the TFT version from
-  `version.yaml`, and refuses one without version, OTA image or TFT assets. It
-  requires `GITHUB_REPOSITORY` and takes the tag from `--tag` or
+  `version.yaml`, and refuses one without version, OTA image or TFT assets, or
+  with a TFT that does not carry that version. It requires
+  `GITHUB_REPOSITORY` and takes the tag from `--tag` or
   `GITHUB_REF_NAME`; the release workflow runs it for `v*` tags, the
   dev-firmware workflow with `--tag <dev version> --name "NSPanel HAUI
   Development"`.
@@ -385,7 +387,6 @@ node --test 'tests/frontend/*.test.mjs'
 ruff check custom_components/ scripts/
 mypy
 zensical build --strict
-python -m scripts.verify_nextion.verify_nextion --require-portrait
 python -m scripts.hmi_layout.gen_virtual_layout --check
 python -m scripts.hmi_layout.gen_layout --check
 python -m scripts.hmi_layout.gen_layout --spec portrait --check

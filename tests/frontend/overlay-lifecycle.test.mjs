@@ -114,8 +114,8 @@ test('Updates and Theme open as sidebars from the device preview', () => {
   editor.renderRoot = { querySelector: () => null, activeElement: null };
   const kinds = () => editor.store.getState().ui.overlays.map(({ kind }) => kind);
 
-  editor._openFirmware('kitchen');
-  assert.deepEqual(kinds(), ['firmware']);
+  editor._openUpdates('kitchen');
+  assert.deepEqual(kinds(), ['updates']);
   editor._closeSidebar();
   assert.deepEqual(kinds(), []);
 
@@ -174,7 +174,8 @@ test('the Schedule and Gestures buttons open their sidebar and closing it drops 
   assert.equal(editor._scheduleDraft, null);
 });
 
-test('Logs opens as a sidebar for one device or every device and closes like the others', () => {  const editor = host();
+test('Logs opens as a sidebar for one device or every device and closes like the others', () => {
+  const editor = host();
   Object.setPrototypeOf(editor, NSPanelEditor.prototype);
   editor._store = editor.store;
   editor._selectDevice = () => {};
@@ -191,6 +192,12 @@ test('Logs opens as a sidebar for one device or every device and closes like the
   const model = editor._deviceMenuModel();
   editor._closeAnchoredPopover('device-menu');
   model.items.find((item) => item.label === 'Logs').onSelect();
+  assert.deepEqual(overlays(), [['logs', 'kitchen']]);
+
+  // The sidebar's device selector changes the device in place.
+  editor._selectLogsDevice('');
+  assert.deepEqual(overlays(), [['logs', null]]);
+  editor._selectLogsDevice('kitchen');
   assert.deepEqual(overlays(), [['logs', 'kitchen']]);
 });
 
@@ -317,7 +324,7 @@ test('Back to Fleet closes the open sidebar', () => {
   const editor = routedEditor(TWO_DEVICES);
   editor._store.actions.setRoute({ view: 'device', device: 'kitchen', panelView: 'preview' });
   editor._store.actions.stopSelectedStatusPolling();
-  editor._store.actions.pushOverlay({ kind: 'firmware', anchorKey: 'firmware', subject: 'kitchen', draft: null });
+  editor._store.actions.pushOverlay({ kind: 'updates', anchorKey: 'updates', subject: 'kitchen', draft: null });
 
   editor._store.actions.setRoute({ view: 'fleet' });
 

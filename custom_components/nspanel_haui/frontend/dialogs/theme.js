@@ -562,8 +562,8 @@ class ThemeSidebar extends HauiDialog {
     const changed = this._changedCount();
     return html`
       <div class="haui-theme-sidebar">
-        ${this._renderPreview()}
         <div class="haui-dialog-body">
+          ${this._renderPreview()}
           <section class="haui-theme-section" aria-label=${t("Theme")}>
             <p class="haui-config-section-intro">
               ${t("Choose a predefined theme or create a custom theme for this device.")}
@@ -593,42 +593,44 @@ class ThemeSidebar extends HauiDialog {
             })}
           </section>
 
-          <details class="haui-config-section">
-            <summary>${t("Icon colors")}</summary>
-            <div class="haui-config-section-body">
-              <p class="haui-config-section-intro">
-                ${t("Colors the display uses for weather, alarm and climate state icons.")}
-              </p>
-              <div class="haui-field">
-                <label for="cp-icon-theme">${t("Default icon color variant")}</label>
-                ${renderSelect("cp-icon-theme", this.themeVariant, [
-                  { value: "dark", label: t("Dark background") },
-                  { value: "light", label: t("Light background") },
-                ], (value) => { this.themeVariant = value; })}
+          <div class="haui-theme-colors">
+            <details class="haui-config-section">
+              <summary>${t("Icon colors")}</summary>
+              <div class="haui-config-section-body">
+                <p class="haui-config-section-intro">
+                  ${t("Colors the display uses for weather, alarm and climate state icons.")}
+                </p>
+                <div class="haui-field">
+                  <label for="cp-icon-theme">${t("Default icon color variant")}</label>
+                  ${renderSelect("cp-icon-theme", this.themeVariant, [
+                    { value: "dark", label: t("Dark background") },
+                    { value: "light", label: t("Light background") },
+                  ], (value) => { this.themeVariant = value; })}
+                </div>
+                <div class="haui-field">
+                  <label for="cp-icon-variant">${t("Edit icon colors for")}</label>
+                  ${renderSelect("cp-icon-variant", this.iconVariant, [
+                    { value: "dark", label: t("Dark backgrounds") },
+                    { value: "light", label: t("Light backgrounds") },
+                  ], (value) => { this.iconVariant = value; })}
+                </div>
+                ${getIconColorGroups(this._icons, this.iconVariant).map((group) => this._renderGroup(group, "theme"))}
               </div>
-              <div class="haui-field">
-                <label for="cp-icon-variant">${t("Edit icon colors for")}</label>
-                ${renderSelect("cp-icon-variant", this.iconVariant, [
-                  { value: "dark", label: t("Dark backgrounds") },
-                  { value: "light", label: t("Light backgrounds") },
-                ], (value) => { this.iconVariant = value; })}
-              </div>
-              ${getIconColorGroups(this._icons, this.iconVariant).map((group) => this._renderGroup(group, "theme"))}
-            </div>
-          </details>
+            </details>
 
-          <details class="haui-config-section">
-            <summary>${t("Theme colors")}</summary>
-            <div class="haui-config-section-body">
-              ${this._isBuiltin()
-                ? html`<p class="haui-config-section-intro">${t("Built-in themes cannot be edited. Changing a color creates a custom theme.")}</p>`
-                : nothing}
-              <p class="haui-config-section-intro">
-                ${t("Changes update the selected theme and are shared by devices using it.")}
-              </p>
-              ${getColorGroups().map((group) => this._renderGroup(group))}
-            </div>
-          </details>
+            <details class="haui-config-section">
+              <summary>${t("Theme colors")}</summary>
+              <div class="haui-config-section-body">
+                ${this._isBuiltin()
+                  ? html`<p class="haui-config-section-intro">${t("Built-in themes cannot be edited. Changing a color creates a custom theme.")}</p>`
+                  : nothing}
+                <p class="haui-config-section-intro">
+                  ${t("Changes update the selected theme and are shared by devices using it.")}
+                </p>
+                ${getColorGroups().map((group) => this._renderGroup(group))}
+              </div>
+            </details>
+          </div>
         </div>
 
         <div class="haui-footer-wrapper">

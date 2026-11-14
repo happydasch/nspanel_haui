@@ -146,7 +146,7 @@ export function panelCatalog({
     <div class="haui-panel-catalog-controls">
       <div class="haui-panel-catalog-controls-row">
         <div class="haui-panel-catalog-search">
-          <span class="haui-panel-catalog-search-field">
+          <span class="haui-search-field haui-panel-catalog-search-field">
             ${icon('search')}
             <input type="search" aria-label=${t('Search panels')} placeholder=${t('Search panels')}
               .value=${query} @input=${(event) => onQuery(event.currentTarget.value)}>

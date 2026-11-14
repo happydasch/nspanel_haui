@@ -13,8 +13,9 @@ export const fleetStyles = css`
     flex: 1 0 auto;
     color: var(--primary-text-color);
   }
-  /* Section headers: one quiet rank for both cards, with the count as a badge. */
-  .haui-section-heading.haui-surface-heading { justify-content: flex-start; gap: 8px; padding: 0; border: 0; }
+  /* Section headers: one quiet rank for both cards, with the count as a badge. The badge sits on
+     the title's baseline, not centred on the title and subtitle together. */
+  .haui-section-heading.haui-surface-heading { justify-content: flex-start; align-items: baseline; gap: 8px; padding: 0; border: 0; }
   .haui-section-heading h2 { margin: 0; }
   .haui-inventory-overview > header,
   .haui-event-list > header {

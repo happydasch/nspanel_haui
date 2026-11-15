@@ -230,20 +230,20 @@ test('diagnostics count offline, mismatch, display, signal and log problems as i
   assert.match(connection, /Status[\s\S]*Offline/);
   assert.ok(connection.includes('heartbeat timeout'));
   assert.ok(expanded.includes('Mismatch'));
-  assert.ok(expanded.includes('Hub details'));
-  // Copy report closes the Hub details; the Hub log tile opens the logs.
-  assert.match(expanded, /Hub details[\s\S]*Copy report[\s\S]*<\/details>/);
+  assert.ok(expanded.includes('Integration details'));
+  // Copy report closes the Integration details; the Integration log tile opens the logs.
+  assert.match(expanded, /Integration details[\s\S]*Copy report[\s\S]*<\/details>/);
   assert.ok(!expanded.includes('>Logs<'));
 });
 
-test('the Diagnostics tiles: Versions shows its details on hover or tap, Hub log opens the logs', () => {
+test('the Diagnostics tiles: Versions shows its details on hover or tap, Integration log opens the logs', () => {
   const opened = [];
   const status = { ...healthy, device_info: { ...healthy.device_info, ssid: 'HomeNet', ip: '192.0.2.11' } };
   const view = deviceDiagnostics({ status, expanded: true, onLogs: () => opened.push('logs') });
   const text = markup(view);
   assert.ok(!text.includes('haui-diag-tile-detail'));
   assert.equal(text.match(/class="haui-tile-info"/g).length, 2);
-  // The Firmware tile toggles its card on a tap; the Hub log tile opens the logs instead.
+  // The Firmware tile toggles its card on a tap; the Integration log tile opens the logs instead.
   assert.equal(text.match(/aria-expanded="false"/g).length, 1);
   // Uptime and Wi-Fi are tiles of the Connection & device card.
   assert.ok(!text.includes('HomeNet'));
@@ -270,7 +270,7 @@ test('the expanded Diagnostics card has the Show entities checkbox below the til
     status: healthy, expanded: true, showEntities, onShowEntities: (show) => shown.push(show),
   });
   const text = markup(view(false));
-  assert.match(text, /haui-diag-tiles[\s\S]*type="checkbox"[\s\S]*Show entities in the preview[\s\S]*Hub details/);
+  assert.match(text, /haui-diag-tiles[\s\S]*type="checkbox"[\s\S]*Show entities in the preview[\s\S]*Integration details/);
   assert.ok(text.includes('Hover over a widget in the preview'));
   // Collapsed, and without a handler, the card has no checkbox.
   assert.ok(!markup(deviceDiagnostics({ status: healthy, onShowEntities: () => {} })).includes('checkbox'));
@@ -323,7 +323,7 @@ test('watched entities group the listeners per entity with their live state', ()
   ]);
 });
 
-test('hub details show the display, the idle page and the watched entities', () => {
+test('integration details show the display, the idle page and the watched entities', () => {
   const status = {
     ...healthy,
     device_info: { ...healthy.device_info, display_state: 'on' },

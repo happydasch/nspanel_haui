@@ -14,6 +14,7 @@ import { renderFooter } from '../../custom_components/nspanel_haui/frontend/tool
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
 import { sidebarFrame } from '../../custom_components/nspanel_haui/frontend/ui/sidebar.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
+import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
 import { updateProgress } from '../../custom_components/nspanel_haui/frontend/ui/update-progress.js';
 import { rolloutCard } from '../../custom_components/nspanel_haui/frontend/ui/rollout-card.js';
 
@@ -131,6 +132,12 @@ class UiPrimitivesPreview extends LitElement {
         </section>
         <section class="gallery-card"><h2>Device details and diagnostics expanded</h2>
           ${deviceDetails({ ...DIAGNOSTICS_DEMO, diagnosticsExpanded: true })}
+        </section>
+        <section class="gallery-card"><h2>Value tiles: value with detail, muted off</h2>
+          <dl class="haui-diag-tiles">
+            ${valueTile({ label: 'Brightness', iconName: 'brightness', value: '80%', detail: 'Dimmed: 15%' })}
+            ${valueTile({ label: 'Auto dimming', iconName: 'dimming', value: 'Off', muted: true })}
+          </dl>
         </section>
         <section class="gallery-card"><h2>Update progress: transferring, past its estimate, failed</h2>
           ${updateProgress({ label: 'Display update', progress: {

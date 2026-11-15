@@ -40,24 +40,6 @@ function updatesSidebar(fields) {
   });
 }
 
-/** The click handlers of the rendered segmented control, in DOM order. */
-function segmentedHandlers(dlg) {
-  const handlers = [];
-  const walk = (value) => {
-    if (Array.isArray(value)) { value.forEach(walk); return; }
-    if (!value?.strings) return;
-    const isOption = value.strings.some((part) => part.trimEnd().endsWith('@click=')) &&
-      value.values.some((item) => typeof item === 'string' && item.startsWith('haui-segmented-option'));
-    if (isOption) {
-      handlers.push(value.values[value.strings.findIndex((part) => part.trimEnd().endsWith('@click='))]);
-      return;
-    }
-    value.values.forEach(walk);
-  };
-  walk(dlg.render());
-  return handlers;
-}
-
 /** The placeholder, value and @input handler bound to the input with ``id``. */
 function field(dlg, id) {
   const findBinding = (tpl, marker) => {
@@ -164,6 +146,7 @@ test('the master update toggle hides subordinate settings and preserves them', (
   assert.equal(includesTemplateContent(dlg.render(), 'Enable updates'), true);
   assert.equal(field(dlg, 'update-enabled').value, undefined);
   assert.equal(includesTemplateContent(dlg.render(), 'Check for updates on connect'), false);
+  assert.equal(includesTemplateContent(dlg.render(), 'Update channel'), false);
 
   eventHandler(dlg, 'update-enabled', '@change')({ target: { checked: true } });
   assert.equal(dlg._settingsDraft.enabled, true);
@@ -179,18 +162,17 @@ test('the master update toggle hides subordinate settings and preserves them', (
 test('the firmware update channel selects the dev manifest and stores the channel', () => {
   const dlg = updatesSidebar({ update: { firmware_auto_update: true } });
 
-  // The URL placeholder follows the channel; the segmented control stores it.
+  // The URL placeholder follows the channel; the channel list stores it.
   assert.equal(field(dlg, 'update-firmware-manifest-url').placeholder, DEFAULT_FIRMWARE_MANIFEST_URL);
 
-  const options = segmentedHandlers(dlg);
-  options[1]();
+  eventHandler(dlg, 'update-channel', '@change')({ target: { value: 'dev' } });
   assert.equal(dlg._settingsDraft.firmware_update_channel, 'dev');
   // The dev channel has no fixed manifest URL to show.
   assert.equal(field(dlg, 'update-firmware-manifest-url').placeholder, '');
   // The URL stays empty: the channel decides, the store holds no URL.
   assert.equal(dlg._settingsDraft.firmware_manifest_url, undefined);
 
-  segmentedHandlers(dlg)[0]();
+  eventHandler(dlg, 'update-channel', '@change')({ target: { value: 'stable' } });
   assert.equal(dlg._settingsDraft.firmware_update_channel, 'stable');
   assert.equal(field(dlg, 'update-firmware-manifest-url').placeholder, DEFAULT_FIRMWARE_MANIFEST_URL);
 });

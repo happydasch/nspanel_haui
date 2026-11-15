@@ -384,7 +384,9 @@ def test_device_config_model_accepts_the_dimming_settings_of_an_entry() -> None:
         "timeout_dimming": 5,
         "duration_dimming": 1.5,
     }
-    model = validate_device_config({**_device_config_base(), "brightness": 80, "schedule": [entry]})
+    model = validate_device_config(
+        {**_device_config_base(), "brightness": 80, "brightness_dim": 20, "schedule": [entry]}
+    )
 
     assert model.model_dump(exclude_unset=True)["schedule"] == [entry]
 
@@ -437,6 +439,28 @@ def test_device_config_model_requires_brightness_for_a_schedule() -> None:
         validate_device_config(
             {**_device_config_base(), "brightness": None, "schedule": [_SCHEDULE_ENTRY]}
         )
+
+
+def test_an_entry_dimmed_brightness_needs_the_device_dimmed_brightness() -> None:
+    """Without it the hub has no dimmed brightness to restore when the entry ends."""
+    import pytest
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    entry = {**_SCHEDULE_ENTRY, "brightness_dim": 5}
+    with pytest.raises(Exception, match="brightness_dim"):
+        validate_device_config(
+            {**_device_config_base(), "brightness": 80, "brightness_dim": None, "schedule": [entry]}
+        )
+    # Entries that leave it out keep the panel's own dimmed brightness.
+    validate_device_config(
+        {
+            **_device_config_base(),
+            "brightness": 80,
+            "brightness_dim": None,
+            "schedule": [_SCHEDULE_ENTRY],
+        }
+    )
 
 
 def test_device_config_model_accepts_valid_log_levels() -> None:

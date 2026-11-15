@@ -16,6 +16,7 @@ import { button } from './button.js';
 import { icon } from './icon.js';
 import { infoTile } from './info-tile.js';
 import { deviceConnectionState } from '../device-status.js';
+import { entityDisplayName } from '../haui-entity.js';
 
 const LOG_PROBLEM = /^\[([^\]]*)\]\s+(WARNING|ERROR|CRITICAL)\b/;
 // From this many drops in 24 hours the connection counts as an issue.
@@ -159,7 +160,7 @@ export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} 
     }),
     infoTile({
       key: 'wifi', label: t('Wi-Fi'),
-      value: html`${fmtRssi(info.rssi)}${signalBars(info.rssi)}`, heading: fmtRssi(info.rssi),
+      value: fmtRssi(info.rssi), aside: signalBars(info.rssi),
       tone: model.weakSignal ? 'is-warning' : '',
       facts: [[t('SSID'), info.ssid || unknown], [t('IP address'), info.ip || unknown]],
     }),
@@ -184,7 +185,7 @@ function tiles(model, status, onLogs) {
       ],
     })}
     ${infoTile({
-      key: 'diag-log', label: t('Hub log'), value: logValue, tone: model.logProblems ? 'is-warning' : '',
+      key: 'diag-log', label: t('Integration log'), value: logValue, tone: model.logProblems ? 'is-warning' : '',
       note: t('in the last 24 h'), onClick: onLogs,
     })}
   </div>`;
@@ -231,7 +232,7 @@ export function watchedEntities(listeners, hass) {
       entityId,
       attributes,
       stateObj,
-      name: stateObj?.attributes?.friendly_name || entityId,
+      name: entityDisplayName(hass, entityId) || entityId,
       value: !hass ? '' : missing ? t('Not found') : hass.formatEntityState(stateObj),
       problem: missing || stateObj?.state === 'unavailable',
     };
@@ -302,7 +303,7 @@ function hubDetails(model, status, hass, onCopyReport) {
     ...(model.health ? [dropsRow(model), lateHeartbeatsRow(model.health)] : []),
   ];
   return html`<details class="haui-details-more haui-diag-internals">
-    <summary>${t('Hub details')} · ${entities.length === 1 ? t('1 watched entity')
+    <summary>${t('Integration details')} ·${entities.length === 1 ? t('1 watched entity')
       : t('{count} watched entities').replace('{count}', String(entities.length))}${problems
       ? html` · <span class="is-warning">${problems === 1 ? t('1 unavailable')
         : t('{count} unavailable').replace('{count}', String(problems))}</span>` : nothing}</summary>
@@ -421,7 +422,7 @@ export function diagnosticsReport(name, status, now = new Date()) {
     `Timers (${status?.active_timer_count ?? timers.length}):`,
     ...timers.map((timer) => `  ${timer.callback_name} (${timer.type} ${fmtInterval(timer.interval)})`),
     '',
-    `Recent hub log (${model.logs.length} lines):`,
+    `Recent integration log (${model.logs.length} lines):`,
     ...model.logs.map(scrubLogLine),
   ];
   return `${lines.join('\n')}\n`;

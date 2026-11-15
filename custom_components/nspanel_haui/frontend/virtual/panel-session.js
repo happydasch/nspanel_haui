@@ -42,6 +42,10 @@ export class PanelSession {
     this.relays = { left: 'unknown', right: 'unknown' };
     // State of the entity a button switches instead of its relay; null in relay mode.
     this.buttonEntityStates = { left: null, right: null };
+    // The entity each button switches (its entity, else its relay), for the entity hover.
+    this.buttonEntityIds = { left: null, right: null };
+    // Widget name -> entity id on the current page, for the hover tooltip.
+    this.entityMap = {};
     this.iconChars = {};
     this._queue = [];
     this._unsubscribe = null;
@@ -159,6 +163,13 @@ export class PanelSession {
         this.relays = { left: message.left, right: message.right };
         this.buttonEntityStates = message.entities;
         this.onUpdate();
+        break;
+      case 'buttons':
+        this.buttonEntityIds = { left: message.left, right: message.right };
+        this.onUpdate();
+        break;
+      case 'entities':
+        this.entityMap = message.map;
         break;
       default:
         if (!this._applyMode(message)) this.onError(`unknown message type ${message.type}`);

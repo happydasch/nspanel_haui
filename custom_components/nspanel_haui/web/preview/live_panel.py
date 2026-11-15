@@ -8,11 +8,12 @@ normal Home Assistant service calls, so a live viewer acts on real entities.
 The sandbox preview (``virtual_panel.py``) shares nothing with it.
 
 - ``nspanel_haui/live_panel/subscribe`` attaches a viewer to the device's
-  app and streams its display output and status until the subscription is
-  closed. The first message is ``{"type": "started", ...}``. Attaching
-  replays what the current page was sent since it loaded (its
-  ``load_commands``, then the ESPHome controller's ``page_commands``), so the
-  viewer gets every widget without the panel drawing anything again.
+  app and streams its display output, its status and the entity each widget
+  shows (for the editor's entity hover) until the subscription is closed.
+  The first message is ``{"type": "started", ...}``. Attaching replays what
+  the current page was sent since it loaded (its ``load_commands``, then the
+  ESPHome controller's ``page_commands``), so the viewer gets every widget
+  without the panel drawing anything again.
 - ``nspanel_haui/live_panel/event`` passes a touch, swipe or hardware button.
 - ``nspanel_haui/live_panel/action`` toggles the idle page (opening it, or
   waking the panel back to the panel it covered or home) or resets the
@@ -43,6 +44,7 @@ from .button_lights import (
     RELAY_ENTITY_NAMES,
     ButtonLight,
     button_entity_ids,
+    buttons_message,
     light_state,
     lights_message,
 )
@@ -81,6 +83,8 @@ class LivePanel:
         self._untrack_lights: Callable[[], None] | None = None
         self._light_entities: dict[ButtonLight, str] = {}
         self._lights: dict[ButtonLight, str] = {}
+        # Widget name -> entity id, as last sent to the viewer (app worker only).
+        self._entities: dict[str, str] = {}
         self._stopped = False
 
     async def async_start(self, session_id: str) -> None:
@@ -161,6 +165,7 @@ class LivePanel:
             commands = source.controller["esphome"].page_commands()
             if commands:
                 self._sink({"type": "commands", "commands": commands})
+        self._report_entities()
         return unsubscribes, button_entity_ids(source.device)
 
     def _on_state(self, state: dict[str, Any]) -> None:
@@ -182,6 +187,19 @@ class LivePanel:
             self._sink({"type": "commands", "commands": list(value)})
         elif command == "goto_page":
             self._sink({"type": "page", "page": int(value)})
+        self._report_entities()
+
+    def _report_entities(self) -> None:
+        """Tell the viewer which widgets show which entity, when that changes.
+
+        A page's entities only change when it draws, so checking after every
+        display output catches each change.
+        """
+        page = self._source.controller["navigation"].page
+        entities = page.entity_map() if page is not None and page.panel is not None else {}
+        if entities != self._entities:
+            self._entities = entities
+            self._sink({"type": "entities", "map": entities})
 
     # event loop
 
@@ -194,6 +212,7 @@ class LivePanel:
             self._untrack_lights = None
         self._light_entities = {key: eid for key, eid in entity_ids.items() if eid}
         self._lights = {key: self._light(eid) for key, eid in self._light_entities.items()}
+        self._sink(buttons_message(self._light_entities))
         self._sink(lights_message(self._lights))
         if not self._light_entities:
             return

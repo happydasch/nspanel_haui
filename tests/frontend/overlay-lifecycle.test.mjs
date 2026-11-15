@@ -174,6 +174,27 @@ test('the Schedule and Gestures buttons open their sidebar and closing it drops 
   assert.equal(editor._scheduleDraft, null);
 });
 
+test("the schedule's defaults open the settings above it, and closing them keeps the draft", async () => {
+  const editor = host();
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  editor._selectedDevice = 'kitchen';
+  editor._deviceConfig = {};
+  editor._scheduleDraft = { device: 'kitchen', schedule: [] };
+  editor._route = { view: 'device', device: 'kitchen' };
+  editor.renderRoot = { querySelector: () => null, activeElement: null };
+  const kinds = () => editor.store.getState().ui.overlays.map(({ kind }) => kind);
+
+  editor._openDeviceOption('schedule');
+  editor._openSettings(['screen', 'sounds']);
+  await flush();
+  assert.deepEqual(kinds(), ['device-schedule', 'device-settings']);
+
+  editor._closeSidebar();
+  assert.deepEqual(kinds(), ['device-schedule']);
+  assert.deepEqual(editor._scheduleDraft, { device: 'kitchen', schedule: [] });
+});
+
 test('Logs opens as a sidebar for one device or every device and closes like the others', () => {
   const editor = host();
   Object.setPrototypeOf(editor, NSPanelEditor.prototype);

@@ -172,6 +172,13 @@ def _ensure_models() -> None:
                     "a schedule needs the brightness setting: it is the brightness "
                     "outside the schedule's windows"
                 )
+            if self.brightness_dim is None and any(
+                entry.brightness_dim is not None for entry in self.schedule
+            ):
+                raise ValueError(
+                    "a schedule entry that sets brightness_dim needs the brightness_dim "
+                    "setting: it is the dimmed brightness outside the entry"
+                )
             return self
 
         @field_validator("log_level")

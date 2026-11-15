@@ -119,6 +119,7 @@ class NSPanelEditor extends LitElement {
       _deviceConfig: { type: Object, state: true },
       _editingDeviceConfig: { type: Boolean, state: true },
       _deviceConfigForm: { type: Object, state: true },
+      _deviceSettingsSections: { type: Array, state: true },
       _scheduleDraft: { type: Object, state: true },
       _gestureDraft: { type: Object, state: true },
       _deviceStatus: { type: Object, state: true },
@@ -132,6 +133,7 @@ class NSPanelEditor extends LitElement {
       _confirmBulkUpdate: { type: Boolean, state: true },
       _panelSearch: { type: String, state: true },
       _selectedPanelKey: { type: String, state: true },
+      _fleetSelection: { type: String, state: true },
       _panelPreviewCollapsed: { type: Boolean, state: true },
       _collapsedPanelGroups: { type: Array, state: true },
       _railCollapsed: { type: Boolean, state: true },
@@ -186,6 +188,8 @@ class NSPanelEditor extends LitElement {
     this._deviceConfig = null;
     this._editingDeviceConfig = false;
     this._deviceConfigForm = null;
+    /** The device settings sections to open, e.g. Screen and Sounds from the schedule. */
+    this._deviceSettingsSections = [];
     this._scheduleDraft = null;
     this._gestureDraft = null;
     this._itemListData = {};
@@ -202,6 +206,7 @@ class NSPanelEditor extends LitElement {
     this._confirmBulkUpdate = false;
     this._panelSearch = '';
     this._selectedPanelKey = null;
+    this._fleetSelection = null;
     this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
     this._collapsedPanelGroups = [];
     this._railCollapsed = false;
@@ -291,6 +296,7 @@ class NSPanelEditor extends LitElement {
       )) {
       this._selectedPanelKey = null;
     }
+    if (this._fleetSelection && !state.devices.byName[this._fleetSelection]) this._fleetSelection = null;
     this._deviceConfig = state.devices.selected
       ? this._store.selectors.configFor(state.devices.selected)
       : null;
@@ -873,6 +879,7 @@ class NSPanelEditor extends LitElement {
       device: this._selectedDevice,
       schedule: clone(draft.schedule),
       brightness: draft.brightness,
+      brightness_dim: draft.brightness_dim,
       expandedEntryIndex: draft.expandedEntryIndex,
     };
   }
@@ -885,9 +892,13 @@ class NSPanelEditor extends LitElement {
     const draft = this._scheduleDraft;
     if (!draft || draft.device !== this._selectedDevice || this._saving) return;
     // The other display values live in the device settings; the draft carries a
-    // full brightness only when its first entry needed one (see scheduleOption).
+    // full brightness only when its first entry needed one, and a dimmed one only
+    // while an entry dims (see scheduleOption).
     const config = { ...this._deviceConfig, schedule: clone(draft.schedule) };
     if (draft.brightness != null && draft.schedule.length) config.brightness = draft.brightness;
+    if (draft.brightness_dim != null && draft.schedule.some((entry) => entry.brightness_dim != null)) {
+      config.brightness_dim = draft.brightness_dim;
+    }
     if (await this._saveDeviceConfig(config, t('Device configuration saved'))) {
       this._scheduleDraft = null;
       this._closeDeviceOption('schedule');
@@ -947,20 +958,27 @@ class NSPanelEditor extends LitElement {
   }
   _closeDeviceConfig() {
     DeviceConfig.closeDeviceConfig(this);
+    this._deviceSettingsSections = [];
     this.requestUpdate();
     this._restoreSidebarFocus();
   }
 
   /* ── device settings and YAML ─────────────────────────────────────── */
 
-  /** Open the selected device's settings in the sidebar, on its Device screen. */
-  _openSettings() {
+  /**
+   * Open the selected device's settings in the sidebar, on its Device screen.
+   * Opened from another sidebar (the schedule's defaults), they go on top of it
+   * with `sections` open; closing them returns there.
+   * @param {string[]} [sections] - the settings sections to open, e.g. ['screen', 'sounds']
+   */
+  _openSettings(sections = []) {
     const name = this._selectedDevice;
     if (!name) return;
     // A new history entry: Back returns to Fleet, where the sidebar was opened.
     if (this._route?.view !== 'device' || this._route.device !== name) {
       this._router?.navigate({ view: 'device', device: name, panelView: 'preview' });
     }
+    this._deviceSettingsSections = sections;
     this._loadDeviceConfig(name);
     this._openDeviceConfig();
     this.requestUpdate();
@@ -1116,6 +1134,8 @@ class NSPanelEditor extends LitElement {
         onMenu: (name, anchorKey) => this._toggleDeviceMenu(name, anchorKey),
         onCloseMenu: () => this._closeAnchoredPopover('device-menu'),
         onOpenDevice: (name) => this._navigateToDevice(name),
+        selectedDevice: this._fleetSelection,
+        onSelectDevice: (name) => { this._fleetSelection = this._fleetSelection === name ? null : name; },
         onReorderDevices: (order) => this._store.actions.reorderDevices(order),
         discovered: this._discoveredDevices(),
         scanning: this._scanning,
@@ -1213,6 +1233,7 @@ class NSPanelEditor extends LitElement {
       })}
       .panels=${device.panels}
       .deviceBrightness=${deviceBrightness(status, this.hass)}
+      .openSections=${this._deviceSettingsSections}
       .saving=${this._saving}
       .api=${this.api} .entryId=${this.entryId}
       @dialog-closed=${this._closeDeviceConfig}
@@ -1263,6 +1284,7 @@ class NSPanelEditor extends LitElement {
       onScheduleChange: (draft) => this._changeSchedule(draft),
       onScheduleEntryToggle: (index, isOpen) => this._onScheduleEntryToggle(index, isOpen),
       onScheduleSave: () => this._saveSchedule(),
+      onOpenDeviceSettings: () => this._openSettings(['screen', 'sounds']),
       gestureDraft: this._gestureDraft?.device === name ? this._gestureDraft : null,
       onGestureChange: (draft) => this._changeGestures(draft),
       onGestureEntryToggle: (index, isOpen) => this._onGestureEntryToggle(index, isOpen),

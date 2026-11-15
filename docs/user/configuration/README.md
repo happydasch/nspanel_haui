@@ -38,18 +38,18 @@ The icon in the header is a green check while all is good, or an alert with the 
 - a display update is pending or failed
 - the Wi-Fi signal is weak
 - the connection dropped three or more times in 24 hours
-- the hub log has warnings or errors
+- the integration log has warnings or errors
 
 Expand the card for more:
 
-- **Firmware** and **Hub log** tiles. A tap on **Hub log** opens the logs.
-- **Hub details** — the display state (on, dimmed, off), when the idle page opens, the disconnects of the last 24 hours and the entities the current page uses. Select an entity to open it in Home Assistant.
+- **Firmware** and **Integration log** tiles. A tap on **Integration log** opens the logs.
+- **Integration details** — the display state (on, dimmed, off), when the idle page opens, the disconnects of the last 24 hours and the entities the current page uses. Select an entity to open it in Home Assistant.
 - **Copy report** — copies a text report for a bug report. It contains versions, connection history and the recent log, but no network name, IP address or entity ids.
 - The preview's tools, see [The Live Preview](#the-live-preview).
 
 ### Logs
 
-The **Logs** sidebar shows the 50 most recent messages of the hub for a device, newest first and grouped by day. Open it with the **Hub log** tile of the Diagnostics card or with **Logs** in the device's **More** menu. Filter them with **All**, **Warnings** and **Errors** or with the search box. The copy button copies the lines shown, for a bug report.
+The **Logs** sidebar shows the 50 most recent messages of the integration for a device, newest first and grouped by day. Open it with the **Integration log** tile of the Diagnostics card or with **Logs** in the device's **More** menu. Filter them with **All**, **Warnings** and **Errors** or with the search box. The copy button copies the lines shown, for a bug report.
 
 On the dashboard, **Logs** beside **Latest events** shows the messages of all devices.
 

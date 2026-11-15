@@ -230,7 +230,7 @@ test('Device details carry the diagnostics sections and their actions', () => {
   assert.match(diagnosticsText, /Online for 2m/);
   assert.doesNotMatch(diagnosticsText, /Wi-Fi|HomeNet|-54 dBm/);
   assert.equal(templatesMatching(diagnosticsCard, 'haui-surface-body').length, 0);
-  // Collapsed, the card has no buttons: the report is in the expanded Hub details.
+  // Collapsed, the card has no buttons: the report is in the expanded Integration details.
   assert.doesNotMatch(text, /Logs/);
   assert.doesNotMatch(text, /Copy report/);
   // Acting on the panel belongs to the live preview's tools.
@@ -254,8 +254,8 @@ test('Device details carry the diagnostics sections and their actions', () => {
   }));
   assert.match(expanded, /haui-diag-tiles/);
   assert.match(expanded, /HomeNet/);
-  assert.match(expanded, /Hub log/);
-  assert.match(expanded, /Hub details/);
+  assert.match(expanded, /Integration log/);
+  assert.match(expanded, /Integration details/);
   assert.match(expanded, /Copy report/);
   assert.match(expanded, /light\.kitchen/);
   // Timers are developer detail: the card counts them, the report lists them.

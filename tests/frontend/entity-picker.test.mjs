@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  entityDisplayName,
   fillEntityDropdown,
   matchEntities,
   renderEntityPicker,
@@ -43,6 +44,19 @@ test('the entity picker exposes combobox and listbox semantics', () => {
 });
 
 const entity = (entityId, name = entityId) => ({ entityId, name, search: `${entityId}\n${name}`.toLowerCase() });
+
+test('entity labels prefer the registry name without Home Assistant\'s device prefix', () => {
+  const hass = {
+    entities: { 'light.kitchen': { name: 'Lampa Kuchnia' } },
+    states: {
+      'light.kitchen': { attributes: { friendly_name: 'NSPanel Salon Lampa Kuchnia' } },
+    },
+  };
+
+  assert.equal(entityDisplayName(hass, 'light.kitchen'), 'Lampa Kuchnia');
+  assert.equal(entityDisplayName(HASS, 'light.a'), 'Light A');
+  assert.equal(entityDisplayName(HASS, 'switch.b'), '');
+});
 
 test('entity matches follow the query and the domain, and are capped with the total kept', () => {
   const entities = [

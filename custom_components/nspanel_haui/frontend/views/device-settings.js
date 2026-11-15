@@ -165,6 +165,7 @@ class DeviceSettings extends HauiDialog {
       panels: { type: Array },
       summaries: { type: Object },
       deviceBrightness: { type: Object },
+      openSections: { type: Array },
     };
   }
 
@@ -199,6 +200,8 @@ class DeviceSettings extends HauiDialog {
     this.summaries = null;
     /** The panel's own brightness readings: `{ full, dimmed }`, null when unknown. */
     this.deviceBrightness = null;
+    /** The sections that open unfolded: Screen and Sounds when opened from the schedule. */
+    this.openSections = [];
     this._deviceConfigForm = null;
   }
 
@@ -274,41 +277,37 @@ class DeviceSettings extends HauiDialog {
             </div>
           </details>
 
-          <details class="haui-config-section">
+          <details class="haui-config-section" ?open=${this.openSections.includes("screen")}>
             <summary>${t("Screen")}</summary>
             <div class="haui-config-section-body">
               <p class="haui-config-section-intro">
                 ${t("Controls the display brightness over time. These settings only dim and turn the screen off - they never switch pages. Turning the display off never requires an idle page.")}
               </p>
-                <div class="haui-field-pair">
-                  ${brightnessField(this, "brightness", cfg, t("Brightness full (%)"), this.deviceBrightness?.full,
-                    t("Full display brightness. Leave empty to keep the brightness set on the panel. A schedule needs a value here: it is the brightness outside the schedule's entries."))}
-                  ${brightnessField(this, "brightness_dim", cfg, t("Brightness dimmed (%)"), this.deviceBrightness?.dimmed,
-                    t("Brightness the display dims to. Leave empty to keep the value set on the panel."))}
+                ${brightnessField(this, "brightness", cfg, t("Brightness full (%)"), this.deviceBrightness?.full,
+                  t("Full display brightness. Leave empty to keep the brightness set on the panel. A schedule needs a value here: it is the brightness outside the schedule's entries."))}
+                ${brightnessField(this, "brightness_dim", cfg, t("Brightness dimmed (%)"), this.deviceBrightness?.dimmed,
+                  t("Brightness the display dims to. Leave empty to keep the value set on the panel. A schedule entry that dims needs a value here: it is the dimmed brightness outside the entry."))}
+                ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (s)"), 10, 0, 3600,
+                  t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
+                <div class="haui-field">
+                  <label for="dc-duration_dimming">${t("Dimming duration (s)")}</label>
+                  ${renderNumberInput("dc-duration_dimming", cfg.duration_dimming, (raw) => {
+                    const v = parseFloat(raw);
+                    this._deviceConfigForm = { ...this._deviceConfigForm, duration_dimming: isNaN(v) ? 0 : Math.max(0, Math.min(v, 5)) };
+                  }, { min: 0, max: 5, step: "any" })}
+                  <div class="haui-field-hint">${t("How long the fade between full and dimmed brightness takes (0-5 seconds).")}</div>
                 </div>
-                ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
-                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep full brightness. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
-                <div class="haui-field-pair">
-                  ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (s)"), 10, 0, 3600,
-                    t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
-                  <div class="haui-field">
-                    <label for="dc-duration_dimming">${t("Dimming duration (s)")}</label>
-                    ${renderNumberInput("dc-duration_dimming", cfg.duration_dimming, (raw) => {
-                      const v = parseFloat(raw);
-                      this._deviceConfigForm = { ...this._deviceConfigForm, duration_dimming: isNaN(v) ? 0 : Math.max(0, Math.min(v, 5)) };
-                    }, { min: 0, max: 5, step: "any" })}
-                    <div class="haui-field-hint">${t("How long the fade between full and dimmed brightness takes (0-5 seconds).")}</div>
-                  </div>
-                </div>
-                ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
-                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. Disable to prevent automatic off. Automations may control this switch; HAUI does not reapply it on reconnects or page changes. With a schedule, HAUI sets it from the active entry or from this setting."))}
                 ${intField(this, "dc-timeout_display_off", "timeout_display_off", cfg, t("Display-off timeout (s)"), 120, 0, 3600,
                   t("Seconds of inactivity before the display turns off (0 = disabled, max 3600)."))}
+                ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
+                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep full brightness. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
+                ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
+                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. Disable to prevent automatic off. Automations may control this switch; HAUI does not reapply it on reconnects or page changes. With a schedule, HAUI sets it from the active entry or from this setting."))}
                 ${this._optionRow("schedule", t("Schedule"), "clock")}
             </div>
           </details>
 
-          <details class="haui-config-section">
+          <details class="haui-config-section" ?open=${this.openSections.includes("sounds")}>
             <summary>${t("Sounds")}</summary>
             <div class="haui-config-section-body">
               <p class="haui-config-section-intro">
@@ -330,33 +329,33 @@ class DeviceSettings extends HauiDialog {
                 ${t("The panel Home opens, the idle panels that open after inactivity, and which panel returns when you wake the device. This only changes the shown panel - use Auto display off to also turn the display off.")}
               </p>
               <div class="haui-field">
-                <label for="dc-home-panel">${t("Home panel")}</label>
-                ${panelPills({
-                  id: "dc-home-panel", panels: this.panels || [],
-                  keys: cfg.home_panel ? [String(cfg.home_panel)] : [], single: true,
-                  addLabel: t("Set panel"), disabled: this.saving,
-                  onChange: (keys) => {
-                    this._deviceConfigForm = { ...this._deviceConfigForm, home_panel: keys[0] || "" };
-                    this.requestUpdate();
-                  },
-                })}
+                <div class="haui-field-inline">
+                  <label for="dc-home-panel">${t("Home panel")}</label>
+                  ${panelPills({
+                    id: "dc-home-panel", panels: this.panels || [],
+                    keys: cfg.home_panel ? [String(cfg.home_panel)] : [], single: true,
+                    addLabel: t("Set panel"), disabled: this.saving,
+                    onChange: (keys) => {
+                      this._deviceConfigForm = { ...this._deviceConfigForm, home_panel: keys[0] || "" };
+                      this.requestUpdate();
+                    },
+                  })}
+                </div>
                 <div class="haui-field-hint">${t("If no home panel is set, the first panel in navigation is used.")}</div>
               </div>
-              ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
-                t("When enabled, the hub switches to the configured idle page after the page timeout. The next touch or button press returns to the panel you were on."))}
-              ${intField(this, "dc-timeout_page", "timeout_page", cfg, t("Page timeout (seconds)"), 30, 0, 3600,
-                t("Seconds of inactivity before the idle page opens (0 = disabled, max 3600)."))}
               <div class="haui-field">
-                <label for="dc-idle-panels">${t("Idle panels")}</label>
-                ${panelPills({
-                  id: "dc-idle-panels", panels: this.panels || [],
-                  keys: idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra),
-                  numbered: true, reorderable: true, disabled: this.saving,
-                  onChange: (keys) => {
-                    this._deviceConfigForm = { ...this._deviceConfigForm, ...idlePanelConfig(keys) };
-                    this.requestUpdate();
-                  },
-                })}
+                <div class="haui-field-inline">
+                  <label for="dc-idle-panels">${t("Idle panels")}</label>
+                  ${panelPills({
+                    id: "dc-idle-panels", panels: this.panels || [],
+                    keys: idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra),
+                    numbered: true, reorderable: true, disabled: this.saving,
+                    onChange: (keys) => {
+                      this._deviceConfigForm = { ...this._deviceConfigForm, ...idlePanelConfig(keys) };
+                      this.requestUpdate();
+                    },
+                  })}
+                </div>
                 <div class="haui-field-hint">
                   ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
                 </div>
@@ -364,6 +363,10 @@ class DeviceSettings extends HauiDialog {
                   <div class="haui-field-hint is-persistent">${t("Nothing opens automatically until you add a panel.")}</div>
                 `}
               </div>
+              ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
+                t("When enabled, the hub switches to the configured idle page after the page timeout. The next touch or button press returns to the panel you were on."))}
+              ${intField(this, "dc-timeout_page", "timeout_page", cfg, t("Page timeout (seconds)"), 30, 0, 3600,
+                t("Seconds of inactivity before the idle page opens (0 = disabled, max 3600)."))}
               <div class="haui-field">
                 <label>${t("Snapshot max age")}</label>
                 ${renderSelect("dc-snapshot_max_age_mode", snapMode, [
@@ -457,11 +460,11 @@ class DeviceSettings extends HauiDialog {
 
         <div slot="footer" class="haui-footer-wrapper">
           <div class="haui-footer-toggle-wrapper">
+            <label for="dc-enabled">${t("Device Enabled")}</label>
             ${renderToggle("dc-enabled", Boolean(cfg.enabled), (checked) => {
               this._deviceConfigForm = { ...this._deviceConfigForm, enabled: checked };
               this.requestUpdate();
             })}
-            <label for="dc-enabled">${t("Device Enabled")}</label>
           </div>
           <ha-dialog-footer>
             <ha-button slot="secondaryAction" variant="neutral" appearance="plain" @click=${this._dispatchClose}>

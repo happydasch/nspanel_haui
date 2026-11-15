@@ -52,6 +52,7 @@ from .button_lights import (
     RELAY_ENTITY_NAMES,
     ButtonLight,
     button_entity_ids,
+    buttons_message,
     light_state,
     lights_message,
 )
@@ -386,6 +387,7 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         """
         for key, entity_id in button_entity_ids(self.device).items():
             self._track_button_state(key, entity_id)
+        self._sink(buttons_message(self._button_entity_ids))
         self._publish_relay_states()
 
     def _track_button_state(self, key: ButtonLight, entity_id: str | None) -> None:

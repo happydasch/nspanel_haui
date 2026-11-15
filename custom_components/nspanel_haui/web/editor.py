@@ -68,6 +68,9 @@ async def async_register_frontend(hass) -> None:
         sidebar_icon="haui:home-assistant",
         require_admin=True,
         embed_iframe=False,
+        # Home Assistant would pad the panel with the page background; the editor pads
+        # the insets itself so its header colour fills the status bar strip.
+        handle_safe_area=True,
     )
 
     hass.data["nspanel_haui_frontend_registered"] = True

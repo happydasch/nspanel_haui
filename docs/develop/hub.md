@@ -189,7 +189,7 @@ For an enabled device, the API gathers mutable runtime details (connection, curr
 listeners and timers) on that device app's worker. It reads Wi-Fi readings from the linked
 ESPHome entities on Home Assistant's event loop and combines them into the response. Disabled
 devices have no running app, so the API returns a minimal status using only available HA entity
-readings. **Diagnostics → Hub details** shows the display state (`on`, `dim` or `off`) apart from the
+readings. **Diagnostics → Integration details** shows the display state (`on`, `dim` or `off`) apart from the
 idle page, which is a hub-side page switch: shown, paused by an overlay opened from it, held off by
 the current page, due in a given time, or off (`HAUINavigationController.idle_status()`). It counts
 the drops of the last 24 hours (`HAUIConnectionController.health()`): every time an established

@@ -11,6 +11,8 @@ import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
 import { DEVICE_CONFIG_DEFAULTS } from '../../custom_components/nspanel_haui/frontend/constants.js';
+import { render } from './support/render.mjs';
+import { byRole } from './support/queries.mjs';
 
 function templateText(template) {
   return `${template?.strings?.join(' ') || ''} ${template?.values?.map((value) => {
@@ -145,6 +147,43 @@ test('the Schedule sidebar edits a draft of its entries and saves it explicitly'
   assert.deepEqual(saves, [true]);
 });
 
+test('the Schedule sidebar shows the settings outside its entries read-only and opens the device settings', () => {
+  const opened = [];
+  const panel = (config, extra = {}) => render(deviceOptionPanel('schedule', {
+    panels: [], config: { ...DEVICE_CONFIG_DEFAULTS, schedule: [], ...config },
+    onOpenDeviceSettings: () => opened.push(true), ...extra,
+  }));
+  /** Each tile's label and what describes it: its value, then its detail line. */
+  const tiles = (root) => {
+    const defaults = byRole(root, 'heading', { name: 'Outside the entries' }).closest('section');
+    assert.equal(defaults.querySelector('input, select, textarea'), null);
+    return Object.fromEntries([...defaults.querySelectorAll('dt')].map((term) => [
+      term.textContent.trim(),
+      [...term.parentElement.querySelectorAll('dd')].map((value) => value.textContent.trim()),
+    ]));
+  };
+
+  const root = panel(
+    { brightness: 80, brightness_dim: null, use_auto_dimming: false, timeout_display_off: 90, sound_on_notification: true },
+    { deviceBrightness: { dimmed: 15 } },
+  );
+  const shown = tiles(root);
+  assert.match(shown.Brightness[0], /80/);
+  // Without a hub value the panel's own reading applies, as in the entries' hints.
+  assert.match(shown.Brightness[1], /15/);
+  assert.deepEqual(shown['Auto dimming'], ['Off']);
+  assert.match(shown['Auto display off'][0], /90/);
+  assert.deepEqual(shown['Notification sound'], ['On']);
+
+  // A timeout of 0 turns the switch off as well.
+  const off = tiles(panel({ use_auto_dimming: true, timeout_dimming: 0, sound_on_notification: false }));
+  assert.deepEqual(off['Auto dimming'], ['Off']);
+  assert.deepEqual(off['Notification sound'], ['Off']);
+
+  byRole(root, 'button', { name: 'Edit in device settings' }).click();
+  assert.deepEqual(opened, [true]);
+});
+
 test('the first entry brings the panel brightness along when the hub sets none', () => {
   const edits = [];
   const view = deviceOptionPanel('schedule', {
@@ -169,6 +208,36 @@ test('the first entry brings the panel brightness along when the hub sets none',
     panels: [], config: { brightness: 40, schedule: [] }, deviceBrightness: { full: 62 }, onScheduleChange: (draft) => edits.push(draft),
   }), 'panel-schedule_add', '@click')();
   assert.equal(edits.at(-1).brightness, undefined);
+});
+
+test('an entry that dims brings the panel dimmed brightness along when the hub sets none', () => {
+  const edits = [];
+  const entry = { start: '22:00', end: '07:00', sound: true, brightness: 20, display_off: true };
+  const view = deviceOptionPanel('schedule', {
+    panels: [],
+    config: { brightness: 80, brightness_dim: null, schedule: [entry] },
+    scheduleDraft: { schedule: [entry] },
+    deviceBrightness: { full: 80, dimmed: 15 },
+    onScheduleChange: (draft) => edits.push(draft),
+  });
+
+  // The entry's dimmed brightness needs one to return to when it ends.
+  eventBinding(view, 'panel-schedule_0_brightness_dim', '@input')({ target: { value: '2' } });
+  assert.equal(edits.at(-1).brightness_dim, 15);
+
+  const added = templateText(deviceOptionPanel('schedule', {
+    panels: [], config: { brightness: 80, brightness_dim: null, schedule: [entry] }, scheduleDraft: edits.at(-1),
+  }));
+  assert.match(added, /dimmed brightness to 15%/);
+
+  // A hub setting stays, and an entry that leaves it empty needs none.
+  eventBinding(deviceOptionPanel('schedule', {
+    panels: [], config: { brightness: 80, brightness_dim: 30, schedule: [entry] },
+    deviceBrightness: { dimmed: 15 }, onScheduleChange: (draft) => edits.push(draft),
+  }), 'panel-schedule_0_brightness_dim', '@input')({ target: { value: '2' } });
+  assert.equal(edits.at(-1).brightness_dim, undefined);
+  eventBinding(view, 'panel-schedule_0_start_time', '@input')({ target: { value: '21:30' } });
+  assert.equal(edits.at(-1).brightness_dim, undefined);
 });
 
 test('an entry inherit hint names the panel brightness when the hub sets none', () => {

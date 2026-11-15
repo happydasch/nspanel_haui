@@ -224,6 +224,9 @@ class NSPanelHAUI(HAAdapter):
             changed_auto_settings = {
                 key for key in auto_settings if self.device.get(key) != device_cfg[key]
             }
+            if self.device.get("schedule") and not device_cfg["schedule"]:
+                # The schedule set the display-off switch; hand it back to the setting.
+                changed_auto_settings.add("use_auto_display_off")
             for field in DEVICE_CONFIG_FIELDS:
                 self.device.config[field] = device_cfg[field]
         self._apply_themes(device_cfg, new_config.get("themes"))

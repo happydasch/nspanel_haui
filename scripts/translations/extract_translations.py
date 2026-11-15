@@ -27,8 +27,9 @@ TRANSLATIONS_DIR = os.path.join(PYTHON_DIR, "haui", "locale")
 EN_JSON = os.path.join(TRANSLATIONS_DIR, "en.json")
 OUTPUT_TRANSLATE = os.path.join(SCRIPT_DIR, "translate.json")
 
-# Match self.translate("...") or self.translate('...') in Python
-PY_PATTERN = re.compile(r"\.translate\((['\"])(.*?)\1\)")
+# Match self.translate("...") or self.translate('...') in Python; a string too long for one
+# line is wrapped by ruff onto its own line, with its line-length waiver comment after it.
+PY_PATTERN = re.compile(r"\.translate\(\s*(['\"])(.*?)\1\s*(?:#[^\n]*\s*)?\)")
 
 # Match _("...") or _('...') — descriptor string marker
 PY_DESCRIPTOR_PATTERN = re.compile(r"(?<![.\w])_\((['\"])(.*?)\1\)")

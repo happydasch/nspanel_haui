@@ -140,6 +140,28 @@ def test_a_live_viewer_replays_the_apps_commands_and_routes_input(env):
         _run(env, source.async_stop())
 
 
+def test_a_live_viewer_names_the_entity_each_widget_shows(env):
+    light_panel = {"type": "light", "key": "light_0", "item": {"item": "light.lamp"}}
+    source = _source(env, _config([light_panel]))
+    viewer, messages = _live(env, source)
+
+    try:
+        assert {"type": "entities", "map": {"g1Overlay": "light.lamp"}} in messages
+
+        marker = len(messages)
+        _run(env, viewer.async_event(ESPEvent.COMPONENT, f"{GRID_PAGE_ID},11,1"))
+        _run(env, viewer.async_event(ESPEvent.COMPONENT, f"{GRID_PAGE_ID},11,0"))
+        _wait(
+            lambda: any(
+                message["type"] == "entities" and message["map"].get("#page") == "light.lamp"
+                for message in messages[marker:]
+            )
+        )
+    finally:
+        _stop(env, viewer)
+        _run(env, source.async_stop())
+
+
 def test_live_attach_sets_system_background_before_loading_the_current_page(env):
     clock = {"type": "clock", "key": "clock_0", "background": "modern"}
     config = _config([clock])
@@ -593,6 +615,27 @@ def test_live_button_lights_follow_a_save(env):
             "right": "unknown",
             "entities": {"left": "off", "right": None},
         } in messages[marker:]
+    finally:
+        _stop(env, viewer)
+        _run(env, source.async_stop())
+
+
+def test_a_live_viewer_names_the_entity_each_button_switches(env):
+    source = _source(env, _config())
+    relays = {"Relay Left": "switch.kitchen_relay_left"}
+    source.app.device.find_esphome_entity_id = lambda domain, name: relays.get(name)
+    viewer, messages = _live(env, source)
+
+    def save_left_button_for_the_lamp():
+        source.app.device.config["use_relay_left"] = False
+        source.app.device.config["button_left_entity"] = "light.lamp"
+
+    try:
+        assert {"type": "buttons", "left": "switch.kitchen_relay_left", "right": None} in messages
+        _run(env, source.app.async_run_on_worker(save_left_button_for_the_lamp))
+        marker = len(messages)
+        _run(env, viewer.async_reload_lights())
+        assert {"type": "buttons", "left": "light.lamp", "right": None} in messages[marker:]
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())

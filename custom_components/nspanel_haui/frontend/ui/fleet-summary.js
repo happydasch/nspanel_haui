@@ -9,7 +9,7 @@ function deviceTone(status) {
   return `is-${deviceConnectionState(status).tone}`;
 }
 
-/** A labelled figure on the strip's right: updates pending, hub version. */
+/** A labelled figure on the strip's right: updates pending, integration version. */
 function fact(label, value) {
   return html`<div><dt>${label}</dt><dd>${value}</dd></div>`;
 }
@@ -41,7 +41,7 @@ export function fleetSummary({ total, online, updates, version, heading, action,
       </div>
       <dl class="haui-fleet-facts">
         ${fact(t('Updates'), value(String(updates)))}
-        ${fact(t('Hub version'), value(version))}
+        ${fact(t('Integration version'), value(version))}
       </dl>
       ${action}
     </div>

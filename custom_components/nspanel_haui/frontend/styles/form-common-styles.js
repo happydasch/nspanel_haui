@@ -21,6 +21,10 @@ export const formCommonStyles = css`
   .haui-field-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 12px; }
   /* Paired fields keep a one-line label height without leaving a large gap above inputs. */
   .haui-field-pair > .haui-field > label { min-height: 1.3em; }
+  /* A label with its control at the row's right edge, like a switch row; a control too wide to share the row wraps under the label and keeps that edge. */
+  .haui-field-inline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+  .haui-field-inline > label { margin-bottom: 0; }
+  .haui-field-inline > .haui-pill-list { flex: 1 1 auto; justify-content: flex-end; }
 
   /* ── inputs ──────────────────────── */
   textarea {
@@ -187,14 +191,16 @@ export const formCommonStyles = css`
     transform: translateX(16px);
   }
 
-  /* ── checkbox / switch row ───────── */
+  /* ── checkbox / switch row: the label fills the row, the switch keeps its right edge ── */
   .haui-checkbox-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     margin-bottom: 8px;
   }
   .haui-checkbox-row label {
+    flex: 1 1 auto;
+    min-width: 0;
     margin-bottom: 0;
     font-weight: 500;
     font-size: var(--haui-text-label);

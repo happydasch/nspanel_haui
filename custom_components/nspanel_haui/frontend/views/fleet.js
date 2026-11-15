@@ -19,6 +19,17 @@ export function carouselEdgesFrom(carousel) {
   return { atStart: left <= 1, atEnd: left >= max - 1 };
 }
 
+/** Scroll the carousel sideways until the card at `index` is in view; the page itself stays put. */
+function revealCard(from, index) {
+  const carousel = from.closest('.haui-dashboard-content')?.querySelector('.haui-fleet-carousel');
+  const card = carousel?.querySelectorAll('.haui-device-card')[index];
+  if (!carousel || !card) return;
+  const view = carousel.getBoundingClientRect();
+  const box = card.getBoundingClientRect();
+  if (box.left >= view.left && box.right <= view.right) return;
+  carousel.scrollBy({ left: box.left + box.width / 2 - (view.left + view.width / 2), behavior: 'smooth' });
+}
+
 /**
  * Build Fleet from prepared store data; all changes are sent back as callbacks.
  * @param {{ devices: any[], events: any[], version: string, statusPending?: boolean,
@@ -26,6 +37,7 @@ export function carouselEdgesFrom(carousel) {
  *   onCarouselScroll?: (edges: {atStart: boolean, atEnd: boolean}) => void,
  *   onMenu?: ((name: string, anchorKey: string) => void)|null, onCloseMenu?: () => void,
  *   onOpenDevice: (name: string) => void,
+ *   selectedDevice?: string|null, onSelectDevice?: (name: string) => void,
  *   onReorderDevices: (order: string[]) => void,
  *   discovered?: any[], scanning?: boolean, scanError?: string, statusError?: string|null, onScan?: () => void,
  *   onAddDevices?: (devices: any[]) => void,
@@ -77,9 +89,17 @@ export function renderFleetView(data) {
   const onCarouselScroll = (event) => data.onCarouselScroll?.(carouselEdgesFrom(event.currentTarget));
   const menu = data.menu || null;
   const discovered = data.discovered || [];
+  // Cards and rows follow the same device order, so a row's index is its card's.
+  const selectDevice = data.onSelectDevice ? (event, name, index) => {
+    const selecting = data.selectedDevice !== name;
+    data.onSelectDevice?.(name);
+    if (selecting) revealCard(event.currentTarget, index);
+  } : null;
   const cards = data.devices.map((item) => deviceCard({
     ...item,
-    onSelect: () => data.onOpenDevice(item.name),
+    selected: item.name === data.selectedDevice,
+    onOpen: () => data.onOpenDevice(item.name),
+    onSelect: data.onSelectDevice ? () => data.onSelectDevice?.(item.name) : null,
     ...dragActions(item.name, '.haui-device-card'),
   }));
   const deviceMenu = menu?.key
@@ -129,9 +149,11 @@ export function renderFleetView(data) {
             <span role="columnheader">${t('Device')}</span><span role="columnheader">${t('IP address')}</span>
             <span role="columnheader">${t('YAML')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"></span>
           </div>
-          ${data.devices.map((item) => deviceRow({
+          ${data.devices.map((item, index) => deviceRow({
             ...item,
             menuOpen: menu?.key === item.name,
+            selected: item.name === data.selectedDevice,
+            onSelect: selectDevice ? (event) => selectDevice(event, item.name, index) : null,
             onMenu: data.onMenu ? () => data.onMenu(item.name, overlayAnchor('device-menu-row', item.name)) : null,
             onOpen: () => data.onOpenDevice(item.name),
             ...dragActions(item.name, '.haui-device-row'),

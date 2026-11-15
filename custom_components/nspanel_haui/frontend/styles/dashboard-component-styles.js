@@ -40,7 +40,9 @@ export const dashboardComponentStyles = css`
   .haui-row-action:focus-visible,
   .haui-device-rail-item:focus-visible,
   .haui-device-card-select:focus-visible,
+  .haui-device-card-info:focus-visible,
   .haui-device-row-name:focus-visible,
+  .haui-device-row:focus-visible,
   .haui-panel-row:focus-visible,
   .haui-panel-thumb:focus-visible,
   .haui-event-list > header button:focus-visible,
@@ -58,7 +60,7 @@ export const dashboardComponentStyles = css`
     outline: var(--haui-focus-ring);
     outline-offset: var(--haui-focus-offset);
   }
-  .haui-panel-row:focus-visible, .haui-item-row-main:focus-visible { outline-offset: -2px; }
+  .haui-device-card-info:focus-visible, .haui-device-row:focus-visible, .haui-panel-row:focus-visible, .haui-item-row-main:focus-visible { outline-offset: -2px; }
   .haui-pill button:focus-visible { outline-offset: 1px; }
   .haui-icon-button {
     display: inline-grid;

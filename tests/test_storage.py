@@ -207,6 +207,39 @@ def test_load_migrates_legacy_keys_and_persists() -> None:
     assert store.saved and store.saved[-1]["devices"]["Salon"]["config"]["idle_panel"] == "blank"
 
 
+def test_load_gives_a_schedule_dimmed_brightness_the_panel_default_to_restore() -> None:
+    """0.5.0 saved an entry's dimmed brightness without a device one to return to."""
+    entry = {"start": "22:00", "end": "07:00", "sound": True, "display_off": True}
+    payload = {
+        "version": 1,
+        "devices": {
+            "Salon": {
+                "config": {"brightness": 80, "schedule": [{**entry, "brightness_dim": 2}]},
+                "panels": [],
+            },
+            "Kasia": {"config": {"brightness": 80, "schedule": [entry]}, "panels": []},
+            "Hall": {
+                "config": {
+                    "brightness": 80,
+                    "brightness_dim": 30,
+                    "schedule": [{**entry, "brightness_dim": 2}],
+                },
+                "panels": [],
+            },
+        },
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    # The firmware's own default dimmed brightness.
+    assert result["devices"]["Salon"]["config"]["brightness_dim"] == 20
+    assert store.saved[-1]["devices"]["Salon"]["config"]["brightness_dim"] == 20
+    # No entry dims, or the device already sets it: nothing to fill in.
+    assert "brightness_dim" not in result["devices"]["Kasia"]["config"]
+    assert result["devices"]["Hall"]["config"]["brightness_dim"] == 30
+
+
 def test_load_does_not_save_when_nothing_to_migrate() -> None:
     payload = {
         "version": 1,

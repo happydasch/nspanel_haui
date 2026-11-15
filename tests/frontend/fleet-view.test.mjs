@@ -227,6 +227,42 @@ test('an open device menu renders its actions for that device', () => {
   assert.match(text, /device-menu:kitchen/);
 });
 
+test('an inventory row selects its device on Fleet and brings its card into view', () => {
+  const deviceFor = (name) => ({
+    name, device: { friendlyName: name, config: {}, panels: [] }, status: { connected: true, logs: [] }, updates: false,
+  });
+  const chosen = [];
+  const view = (selectedDevice) => renderFleetView({
+    devices: [deviceFor('kitchen'), deviceFor('office')],
+    events: [], version: '0.5.0', selectedDevice,
+    onSelectDevice: (name) => chosen.push(name), onOpenDevice() {}, onReorderDevices() {},
+  });
+  const root = render(view(null));
+  const carousel = root.querySelector('.haui-fleet-carousel');
+  const scrolled = [];
+  carousel.scrollBy = (options) => scrolled.push(options.left);
+  carousel.getBoundingClientRect = () => ({ left: 0, right: 400, width: 400 });
+  const officeCard = [...root.querySelectorAll('.haui-device-card')].find((card) => card.textContent.includes('office'));
+  officeCard.getBoundingClientRect = () => ({ left: 600, right: 900, width: 300 });
+  const officeRow = [...root.querySelectorAll('.haui-device-row[tabindex]')].find((row) => row.textContent.includes('office'));
+  officeRow.querySelector('.haui-device-row-ip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  assert.deepEqual(chosen, ['office']);
+  assert.equal(scrolled.length, 1);
+  assert.ok(scrolled[0] > 0);
+
+  render(view('office'), root);
+  const current = [...root.querySelectorAll('[aria-current="true"]')];
+  assert.equal(current.length, 2);
+  assert.ok(current.every((node) => node.textContent.includes('office')));
+  // Selecting the selected device again clears it without moving the carousel.
+  officeRow.querySelector('.haui-device-row-ip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  assert.deepEqual(chosen, ['office', 'office']);
+  assert.equal(scrolled.length, 1);
+  // The strip under a card selects the same device.
+  officeCard.querySelector('.haui-device-card-info').click();
+  assert.deepEqual(chosen, ['office', 'office', 'office']);
+});
+
 test('Fleet lists the newest events of every device first', () => {
   const start = Date.now() - 60 * 60 * 1000;
   const line = (minute, message) => `[${new Date(start + minute * 60_000).toISOString()}] INFO ${message}`;

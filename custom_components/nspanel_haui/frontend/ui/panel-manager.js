@@ -2,11 +2,14 @@
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { button, iconButton } from './button.js';
+import { surface } from './surface.js';
+import { icon } from './icon.js';
+import { valueTile } from './info-tile.js';
 import { actionCard } from './action-card.js';
 import { gestureEditor } from './gesture-editor.js';
 import { builtinThemeLabel } from '../theme-library.js';
 import { entryCount } from './entry-list.js';
-import { DEFAULT_SCHEDULE_BRIGHTNESS, scheduleEditor } from './schedule-editor.js';
+import { DEFAULT_SCHEDULE_BRIGHTNESS, DEFAULT_SCHEDULE_BRIGHTNESS_DIM, scheduleEditor } from './schedule-editor.js';
 
 /**
  * The lead card of the Panels view: the panel counts, the Add panel action and
@@ -111,18 +114,68 @@ function optionPanel(body, action) {
 }
 
 /**
+ * The device settings that apply outside the schedule's entries and fill the
+ * entry fields left empty: brightness, auto dimming, auto display off and the
+ * notification sound. They are read-only here; the button below them opens the
+ * device settings, where they are edited.
+ *
+ * @param {any} defaults - the values the entries inherit
+ * @param {(() => void)|undefined} onOpenDeviceSettings
+ */
+function scheduleDefaults(defaults, onOpenDeviceSettings) {
+  const percent = (/** @type {unknown} */ value) => (value == null || value === '' ? t('Not set') : `${value}%`);
+  /** A timeout behind its switch; a timeout of 0 turns it off too. */
+  const after = (/** @type {unknown} */ enabled, /** @type {unknown} */ seconds) => (enabled && Number(seconds) > 0
+    ? t('After {seconds} s').replace('{seconds}', String(seconds))
+    : null);
+  const dimming = after(defaults.use_auto_dimming, defaults.timeout_dimming);
+  const displayOff = after(defaults.use_auto_display_off, defaults.timeout_display_off);
+  const sound = Boolean(defaults.sound_on_notification);
+  return surface({
+    title: t('Outside the entries'),
+    subtitle: t('Entries inherit the values they leave empty.'),
+    leading: html`<span class="haui-schedule-defaults-icon" aria-hidden="true">${icon('screen')}</span>`,
+    className: 'haui-schedule-defaults',
+    body: html`<dl class="haui-diag-tiles">
+        ${valueTile({
+          label: t('Brightness'), iconName: 'brightness', value: percent(defaults.brightness),
+          detail: t('Dimmed: {value}').replace('{value}', percent(defaults.brightness_dim)),
+        })}
+        ${valueTile({
+          label: t('Auto dimming'), iconName: 'dimming', value: dimming ?? t('Off'), muted: !dimming,
+          detail: dimming && defaults.duration_dimming != null
+            ? t('{seconds} s fade').replace('{seconds}', String(defaults.duration_dimming)) : '',
+        })}
+        ${valueTile({
+          label: t('Auto display off'), iconName: 'displayOff', value: displayOff ?? t('Off'), muted: !displayOff,
+        })}
+        ${valueTile({
+          label: t('Notification sound'), iconName: sound ? 'sound' : 'mute', value: sound ? t('On') : t('Off'),
+          muted: !sound,
+        })}
+      </dl>
+      ${button({
+        label: t('Edit in device settings'), iconName: 'settings', className: 'haui-schedule-defaults-edit',
+        disabled: !onOpenDeviceSettings, onClick: onOpenDeviceSettings,
+      })}`,
+  });
+}
+
+/**
  * The schedule option: its entries. Outside them the device settings apply,
- * and an entry field left empty inherits the device setting. A draft holds the
- * edits until Save.
+ * and an entry field left empty inherits the device setting; the sidebar shows
+ * those settings read-only above the entries. A draft holds the edits until
+ * Save.
  *
  * @param {{ config: any, saving?: boolean, scheduleDraft?: any,
  *   deviceBrightness?: { full?: number|null, dimmed?: number|null },
  *   onScheduleChange?: (draft: any) => void, onScheduleSave?: () => void,
- *   onScheduleEntryToggle?: (index: number, open: boolean) => void }} data
+ *   onScheduleEntryToggle?: (index: number, open: boolean) => void,
+ *   onOpenDeviceSettings?: () => void }} data
  */
 function scheduleOption({
   config, saving = false, scheduleDraft = null, deviceBrightness = {},
-  onScheduleChange, onScheduleSave, onScheduleEntryToggle,
+  onScheduleChange, onScheduleSave, onScheduleEntryToggle, onOpenDeviceSettings,
 }) {
   const scheduleConfig = scheduleDraft || { schedule: config.schedule || [] };
   const changeSchedule = (schedule, fields = {}) => {
@@ -133,20 +186,34 @@ function scheduleOption({
   const addedBrightness = config.brightness == null && scheduleConfig.schedule.length
     ? scheduleConfig.brightness ?? null
     : null;
+  // Likewise an entry's dimmed brightness: the panel's own comes along with it.
+  const dims = (schedule) => schedule.some((entry) => entry.brightness_dim != null);
+  const addedBrightnessDim = config.brightness_dim == null && dims(scheduleConfig.schedule)
+    ? scheduleConfig.brightness_dim ?? null
+    : null;
+  const brightnessDimFields = (schedule) => (
+    config.brightness_dim == null && scheduleConfig.brightness_dim == null && dims(schedule)
+      ? { brightness_dim: deviceBrightness.dimmed ?? DEFAULT_SCHEDULE_BRIGHTNESS_DIM }
+      : {});
+  // A field left empty inherits the device setting, or the panel's own
+  // brightness when the hub sets none.
+  const defaults = {
+    ...config,
+    brightness: config.brightness ?? addedBrightness ?? deviceBrightness.full ?? null,
+    brightness_dim: config.brightness_dim ?? addedBrightnessDim ?? deviceBrightness.dimmed ?? null,
+  };
   const body = html`
-    <p class="haui-config-section-intro">${t('Set display behavior by time of day. Choose fixed times or sunrise and sunset. Outside the entries the device settings apply, and entry values left empty inherit them.')}</p>
+    <p class="haui-config-section-intro">${t('Set display behavior by time of day. Choose fixed times or sunrise and sunset.')}</p>
+    ${scheduleDefaults(defaults, onOpenDeviceSettings)}
     ${addedBrightness == null ? nothing : html`<p class="haui-field-hint is-persistent">${
       t("Saving also sets the device's full brightness to {value}%: a schedule needs it outside its entries.")
         .replace('{value}', String(addedBrightness))}</p>`}
+    ${addedBrightnessDim == null ? nothing : html`<p class="haui-field-hint is-persistent">${
+      t("Saving also sets the device's dimmed brightness to {value}%: an entry that dims needs it outside the entry.")
+        .replace('{value}', String(addedBrightnessDim))}</p>`}
     ${scheduleEditor({
       schedule: scheduleConfig.schedule,
-      // A field left empty inherits the device setting, or the panel's own
-      // brightness when the hub sets none.
-      defaults: {
-        ...config,
-        brightness: config.brightness ?? addedBrightness ?? deviceBrightness.full ?? null,
-        brightness_dim: config.brightness_dim ?? deviceBrightness.dimmed ?? null,
-      },
+      defaults,
       idPrefix: 'panel-schedule',
       expandedEntryIndex: scheduleConfig.expandedEntryIndex,
       onEntryToggle: (index, isOpen) => {
@@ -154,7 +221,7 @@ function scheduleOption({
           onScheduleEntryToggle?.(index, isOpen);
         }
       },
-      onChange: (schedule) => changeSchedule(schedule),
+      onChange: (schedule) => changeSchedule(schedule, brightnessDimFields(schedule)),
       onAdd: (schedule) => changeSchedule(schedule, {
         expandedEntryIndex: schedule.length - 1,
         ...(config.brightness == null && scheduleConfig.brightness == null
@@ -216,6 +283,7 @@ function gestureOption({
  *   deviceBrightness?: { full?: number|null, dimmed?: number|null },
  *   onScheduleChange?: (draft: any) => void, onScheduleSave?: () => void,
  *   onScheduleEntryToggle?: (index: number, open: boolean) => void,
+ *   onOpenDeviceSettings?: () => void,
  *   onGestureChange?: (draft: any) => void, onGestureSave?: () => void,
  *   onGestureEntryToggle?: (index: number, open: boolean) => void }} data
  */

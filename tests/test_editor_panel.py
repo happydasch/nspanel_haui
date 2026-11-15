@@ -73,6 +73,11 @@ def test_frontend_urls_carry_the_integration_version(registered):
     assert registered.extra_js == [f"{base}/iconset.js"]
 
 
+def test_panel_handles_the_safe_area_itself(registered):
+    """Home Assistant's own padding would paint the status bar strip with the page background."""
+    assert registered.panel["handle_safe_area"] is True
+
+
 def test_version_is_read_off_the_event_loop(registered):
     """Version and asset digest require file I/O, so both are read off-loop."""
     assert editor_panel._frontend_asset_version in registered.hass.executor_jobs

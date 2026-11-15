@@ -55,6 +55,57 @@ test('the Updates sidebar combines update status and installed versions in one c
   assert.doesNotMatch(view, />idle</);
 });
 
+test('the integration version ends the check row, also with updates off', () => {
+  const versions = (props) => {
+    const overview = render(element(props).render()).querySelector('.haui-update-overview');
+    const checkRow = overview.querySelector('.haui-update-check-action');
+    return {
+      list: overview.querySelector('.haui-update-versions').textContent,
+      checkRow: checkRow.textContent,
+      checkButton: Boolean(checkRow.querySelector('ha-button')),
+    };
+  };
+  const on = versions();
+  assert.doesNotMatch(on.list, /Integration|0\.5\.0/);
+  assert.match(on.checkRow, /Check for updates[\s\S]*Integration\s*0\.5\.0/);
+  const off = versions({
+    deviceStatus: { integration_version: '0.5.0', device_info: {}, update: { enabled: false } },
+  });
+  assert.equal(off.checkButton, false);
+  assert.match(off.checkRow, /Integration\s*0\.5\.0/);
+});
+
+test('an offered update shows as the version, with the version it updates to', () => {
+  const firmwareRow = (update) => {
+    const root = render(element({
+      deviceStatus: {
+        integration_version: '0.5.0',
+        device_info: { yaml_version: '0.5.0', tft_version: '1.2.3' },
+        update: { enabled: true, state: 'idle', firmware_update_version: '0.5.1', ...update },
+      },
+    }).render());
+    const row = root.querySelector('.haui-update-versions .haui-update-version');
+    return { text: row.textContent, badges: [...row.querySelectorAll('.haui-badge')].map((b) => b.textContent) };
+  };
+  const offered = firmwareRow({ firmware_update_available: true });
+  assert.deepEqual(offered.badges.map((text) => text.replace(/\s+/g, '')), ['0.5.0→0.5.1']);
+  assert.doesNotMatch(offered.text, /Update available|Latest release/);
+  const current = firmwareRow({ firmware_update_available: false });
+  assert.deepEqual(current.badges, []);
+  assert.match(current.text, /Latest release: 0\.5\.1[\s\S]*0\.5\.0/);
+});
+
+test('the actions keep their full names where a narrow card shortens their labels', () => {
+  const overview = render(element().render()).querySelector('.haui-update-overview');
+  const checkRow = overview.querySelector('.haui-update-check-action');
+  assert.equal(checkRow.querySelector('ha-button').getAttribute('aria-label'), 'Check for updates');
+  assert.equal(checkRow.querySelector('.haui-update-integration').getAttribute('title'), 'Integration');
+  assert.deepEqual(
+    [...overview.querySelectorAll('.haui-update-versions ha-button')].map((b) => b.getAttribute('aria-label')),
+    ['Install Firmware (YAML)', 'Install Display (TFT)'],
+  );
+});
+
 test('the Updates sidebar leads with one status', () => {
   const summary = (update) => {
     const { tone, title, detail } = updateSummary({ enabled: true, state: 'idle', ...update });
@@ -123,20 +174,33 @@ function settingsSidebar(update) {
   return sidebar;
 }
 
-function choose(root, label) {
-  [...root.querySelectorAll('.haui-segmented-option')].find((option) => option.textContent.trim() === label).click();
-}
+test('the master switch sits in the settings heading and hides the rest while off', () => {
+  const on = render(settingsSidebar({ enabled: true }).render());
+  const toggle = on.querySelector('#update-enabled');
+  assert.ok(on.querySelector('.haui-update-header').contains(toggle));
+  assert.equal(toggle.getAttribute('aria-label'), 'Enable updates');
+
+  const off = render(settingsSidebar({ enabled: false }).render());
+  assert.ok(off.querySelector('.haui-update-header #update-enabled'));
+  assert.equal(off.querySelector('#update-channel'), null);
+  assert.match(off.querySelector('.haui-update-settings').textContent, /Updates are disabled for this device\./);
+});
 
 test('the settings lead with the three decisions and fold the rest away', () => {
   const root = render(settingsSidebar({ enabled: true }).render());
   const advanced = root.querySelector('details.haui-update-advanced');
 
   assert.equal(advanced.open, false);
-  for (const id of ['update-interval', 'update-enabled']) {
-    assert.equal(advanced.contains(root.querySelector(`#${id}`)), false, `${id} is a main setting`);
+  for (const id of ['update-enabled', 'update-channel', 'update-firmware-auto', 'update-interval']) {
+    const control = root.querySelector(`#${id}`);
+    assert.ok(control, `${id} is shown`);
+    assert.equal(advanced.contains(control), false, `${id} is a main setting`);
   }
-  assert.ok(root.querySelector('[aria-label="Update channel"]'));
-  assert.ok(root.querySelector('[aria-label="When a new version is found"]'));
+  // Where versions come from and how often to look, then whether a find installs by itself.
+  assert.deepEqual(
+    [...root.querySelectorAll('#update-firmware-auto, #update-channel, #update-interval')].map((c) => c.id),
+    ['update-channel', 'update-interval', 'update-firmware-auto'],
+  );
   for (const id of ['update-firmware-manifest-url', 'update-check-on-connect', 'update-tft-auto',
     'update-max-attempts', 'update-retry-interval']) {
     assert.ok(advanced.querySelector(`#${id}`), `${id} is an advanced setting`);
@@ -147,10 +211,11 @@ test('a new version waits for the user or installs automatically', () => {
   const sidebar = settingsSidebar({ enabled: true });
   const root = render(sidebar.render());
 
-  assert.equal(root.querySelector('[aria-label="When a new version is found"] [aria-pressed="true"]').textContent.trim(),
-    'Manual');
+  const automatic = root.querySelector('#update-firmware-auto');
+  assert.equal(automatic.checked, false);
   assert.equal(root.querySelector('#update-install-delay'), null, 'no wait while nothing installs by itself');
-  choose(root, 'Auto');
+  automatic.checked = true;
+  automatic.dispatchEvent(new Event('change', { bubbles: true }));
 
   assert.deepEqual(sidebar._saved, [['save-update-settings', { update: { enabled: true, firmware_auto_update: true } }]]);
   assert.equal(render(sidebar.render()).querySelector('#update-install-delay option[selected]').value, '600');

@@ -380,10 +380,11 @@ class _Navigation:
         self.reloads.append(self.app.theme.get("background"))
 
 
-def _reload(saved_config: dict):
+def _reload(saved_config: dict, running_config: dict | None = None):
     app = NSPanelHAUI.__new__(NSPanelHAUI)
     app.device_config = _DeviceConfig()
     app.device = _Device()
+    app.device.config.update(running_config or {})
     app.controller = {"navigation": _Navigation(app)}
     app.theme = Theme()
     app._runtime_device_name = "kitchen"
@@ -429,6 +430,15 @@ def test_reload_config_applies_only_auto_switch_settings_that_changed():
 
     assert app.device.synced == [{"use_auto_display_off"}]
     assert app.device.config["use_auto_display_off"] is False
+
+
+def test_removing_the_schedule_hands_the_display_off_switch_back_to_the_setting():
+    """The schedule set the switch from its entries; without it the setting applies again."""
+    entry = {"start": "22:00", "end": "07:00", "sound": True, "display_off": False}
+
+    app = _reload({}, running_config={"schedule": [entry]})
+
+    assert app.device.synced == [{"use_auto_display_off"}]
 
 
 # --- app lifecycle on the app's worker --------------------------------------

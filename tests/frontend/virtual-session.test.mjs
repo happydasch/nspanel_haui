@@ -427,6 +427,17 @@ test('relay-state messages update the hardware indicators', async () => {
   assert.equal(updates.length, updateCount + 1);
 });
 
+test('a buttons message names the entity each hardware button switches', async () => {
+  const { push, resolveLayout, session } = await started();
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+
+  push({ type: 'buttons', left: 'light.lamp', right: null });
+
+  assert.deepEqual(session.buttonEntityIds, { left: 'light.lamp', right: null });
+});
+
 test('stop unsubscribes and ignores later output', async () => {
   const { hass, push, resolveLayout, session } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });

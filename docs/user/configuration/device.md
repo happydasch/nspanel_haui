@@ -19,6 +19,7 @@ The dashboard is the editor's start screen. It shows every device as a card and 
 
 **What you can do.**
 
+- **Select a device** — select a row anywhere outside its name and buttons, or the name strip under a card: the row and the card are highlighted, and selecting a row scrolls the cards to it. Select it again to clear it. The card's screen still opens the device.
 - **Reorder** — drag a card or a row by its grip.
 - **Settings** — at the end of each row.
 - **More** menu — **Open device**, **Panels**, **Settings**, **Firmware and display updates**, **Logs**, **Enable** / **Disable** and **Remove**.
@@ -68,7 +69,7 @@ These settings only change the brightness. They never change the panel that is s
 | Key | Default | Description |
 |-----|---------|-------------|
 | `brightness` | empty | Full display brightness, 0–100 %. Empty: the integration does not set it, and the brightness set on the panel stays. A [schedule](#schedule) needs a value here. |
-| `brightness_dim` | empty | Brightness the display dims to, 0–100 %. Empty: the integration does not set it, and the value set on the panel stays. |
+| `brightness_dim` | empty | Brightness the display dims to, 0–100 %. Empty: the integration does not set it, and the value set on the panel stays. A [schedule](#schedule) entry that sets `brightness_dim` needs a value here. |
 | `use_auto_dimming` | on | Dim the display after `timeout_dimming` seconds without interaction. |
 | `timeout_dimming` | `10` | Seconds until the display dims. `0` turns it off, the maximum is `3600`. |
 | `duration_dimming` | `2` | Seconds the fade between full and dimmed brightness takes, `0`–`5`. |
@@ -84,7 +85,7 @@ Good to know:
 
 ### Schedule
 
-The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. In the device's **Preview** view, open **Manage this device** and choose **Schedule**, or select **Schedule** in the **Screen** section of the device settings: its sidebar holds the entries. Outside every entry the device settings in [Screen](#screen) and [Sounds](#sounds) apply, and they are the fallback for entry fields left empty. The Schedule button's tooltip says how many entries there are, and each entry folds to its own summary row.
+The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. In the device's **Preview** view, open **Manage this device** and choose **Schedule**, or select **Schedule** in the **Screen** section of the device settings: its sidebar holds the entries. Outside every entry the device settings in [Screen](#screen) and [Sounds](#sounds) apply, and they are the fallback for entry fields left empty. The sidebar shows those settings read-only under **Outside the entries**: brightness (full and dimmed), auto dimming, auto display off and the notification sound. **Edit in device settings** opens the device settings with their **Screen** and **Sounds** sections unfolded; closing them returns to the schedule with your unsaved entries. The Schedule button's tooltip says how many entries there are, and each entry folds to its own summary row.
 
 Each entry has a time window and these settings:
 
@@ -126,10 +127,11 @@ Good to know:
 
 - Outside every entry, **Sound on notification** in [Sounds](#sounds) controls whether notification sounds play, and the brightness, dimming and display-off settings in [Screen](#screen) apply.
 - A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry while `brightness` is empty, the Schedule sidebar takes the panel's **Brightness Full** reading (100 when the panel reports none), says so, and saves it as `brightness` together with the schedule.
+- For the same reason, an entry that sets `brightness_dim` needs a `brightness_dim` device setting. When you give an entry a dimmed brightness while `brightness_dim` is empty, the Schedule sidebar takes the panel's **Brightness Dimmed** reading (20 when the panel reports none), says so, and saves it with the schedule.
 - When entries overlap, the first one in the list wins.
 - Automatic page switching is not part of an entry. It always follows the normal settings.
 - `sunrise` and `sunset` are the times at Home Assistant's location. Where the sun does not rise or set on a day (polar day or night), an entry that uses it is not active that day and the log has a warning.
-- While the schedule has entries, the integration sets the panel's **Use Auto Display-Off** switch itself, from the active entry or from `use_auto_display_off`. An automation cannot control that switch then.
+- While the schedule has entries, the integration sets the panel's **Use Auto Display-Off** switch itself, from the active entry or from `use_auto_display_off`. An automation cannot control that switch then. When you remove every entry, the integration sets the switch once from `use_auto_display_off`; after that, it belongs to automations again.
 - An entry that starts or ends does not count as a touch.
 
 ### Sounds
@@ -255,7 +257,7 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. **Updates** in the **Advanced** section of the device settings opens that sidebar too. Changes save automatically; text fields save after you pause typing. Below the **Enable updates** switch beside its title it shows the **Update channel** (stable or development releases for firmware and display), what happens **When a new version is found** and how often to **Check for a new version**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. **Updates** in the **Advanced** section of the device settings opens that sidebar too. Changes save automatically; text fields save after you pause typing. Its title carries the **Enable updates** switch; below, it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and **Install firmware updates automatically**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -264,7 +266,7 @@ The **Update settings** card in a device's **Updates** sidebar controls update c
 | `update_interval` | `3600` | Seconds between regular checks. The editor offers intervals from 15 minutes to one week. `0` (**Never**) turns them off. |
 | `firmware_update_channel` | `stable` | Selects the stable or development release channel for both firmware and display updates. |
 | `firmware_manifest_url` | empty | Optional firmware manifest URL that overrides the channel's firmware release, e.g. a [local test release](../../develop/release.md#test-firmware-updates-with-a-local-release); the display continues to follow the matching TFT. |
-| `firmware_auto_update` | off | **When a new version is found** set to **Auto**: install new firmware without asking. The display file follows after the restart. |
+| `firmware_auto_update` | off | **Install firmware updates automatically**: install new firmware without asking. The display file follows after the restart. |
 | `install_delay` | `600` | Seconds an automatic firmware install waits before it starts (0 to 86400); `0` starts it right away. |
 | `auto_install` | on | Install the display file (TFT) without asking. When off, the panel asks first. |
 | `max_attempts` | `3` | Failed automatic attempts at one version before the automatic install stops (1 to 10). |

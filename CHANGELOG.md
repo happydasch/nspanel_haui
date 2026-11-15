@@ -11,6 +11,39 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.2] — unreleased
 
+### Breaking changes
+
+- Schedule: an entry with its own dimmed brightness needs the device's **Brightness dimmed**; stored devices without one get 20 % ([Upgrading](docs/user/update.md#a-schedule-entry-that-dims-needs-a-dimmed-brightness)).
+
+### Added
+
+- Editor: a dashboard device can be selected from its **Device inventory** row or the name strip under its card, which highlights both (a row also scrolls the cards to it); selecting it again clears it.
+- Editor: the **Schedule** sidebar shows the settings that apply outside its entries (brightness, dimming, display off, notification sound) read-only, with a link to the device settings.
+
+### Changed
+
+- Editor: entities go by their Home Assistant name without the device name in front (entity picker, item lists, **Diagnostics**, the preview's entity tooltip); the picker still finds them by the full name.
+- Editor: every switch sits at the right end of its row, after its label.
+- Editor: the **Update settings** card picks the channel from a list and turns updates and automatic firmware installs on with switches, like the other forms.
+- Editor: the device settings show one field per row, with the **Home panel** and **Idle panels** pickers at the right edge like the switches.
+- Updates: an offered update shows as one badge from the installed to the new version, the integration's version moved to the end of the **Check for updates** row, and a narrow sidebar shortens the labels.
+- Fleet: the dashboard fills wide windows, a long **Device inventory** scrolls under its column headings, and **Latest events** takes the inventory's height.
+- Device screen: the **Connection & device** and **Diagnostics** tiles show their values in smaller text, with the Wi-Fi signal bars at the tile's edge.
+- Editor: **Hub version**, **Hub log** and **Hub details** on Fleet and in **Diagnostics** are now **Integration version**, **Integration log** and **Integration details**, as in the copied report.
+- Panels: the overview's **Home panel** and **Idle panel** tiles show the role's icon beside its name and panel, and stack on a narrow card.
+
+### Fixed
+
+- Schedule: an entry's dimmed brightness no longer stays after the entry ends when the device left it to the panel.
+- Schedule: saving **Auto display off** while an entry is active no longer overrides the entry, and removing the schedule restores the setting on the panel's switch.
+- Schedule: an entry starts on time on the day the clocks change, and sunrise/sunset entries resume after polar night without a reconnect.
+- Editor: in the Home Assistant app the status bar above the title bar takes the header colour instead of the page background.
+- Editor: with **Show entities in the preview** on, a Row panel's buttons, switches and sliders show their row's entity too.
+- Editor: with **Show entities in the preview** on, hovering a hardware button shows the entity it switches (its entity, or its relay).
+- Editor: with **Show entities in the preview** on, the Live preview names the entity under the mouse too; it raised an error on every mouse move.
+- Editor: with **Show entities in the preview** on, a widget whose entity Home Assistant does not have is named too, and the tooltip says when an entity is not found or unavailable.
+- Updates: the reasons a firmware update is withheld or refused (build variant mismatch, missing or invalid firmware version) and the panel's "firmware is installing" notice are translated.
+
 ## [0.5.1] — 2026-11-14
 
 ### Added
@@ -540,7 +573,8 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
-[0.5.1]: https://github.com/happydasch/nspanel_haui/compare/v0.5.0...dev
+[0.5.2]: https://github.com/happydasch/nspanel_haui/compare/v0.5.1...dev
+[0.5.1]: https://github.com/happydasch/nspanel_haui/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/happydasch/nspanel_haui/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/happydasch/nspanel_haui/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/happydasch/nspanel_haui/compare/v0.4.5...v0.4.6

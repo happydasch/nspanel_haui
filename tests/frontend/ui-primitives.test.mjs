@@ -8,6 +8,8 @@ import { badge, countBadge, statusDot } from '../../custom_components/nspanel_ha
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { popover, menuItem } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
+import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
+import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { render } from './support/render.mjs';
 import { byRole, byText } from './support/queries.mjs';
 import { assertAccessibleName, assertRole } from './support/a11y.mjs';
@@ -98,4 +100,15 @@ test('empty states and menu items expose their content and semantic roles', () =
 
   const menu = render([popover({ open: true, id: 'menu', label: 'Device actions', content: 'Actions' }), menuItem({ label: 'Remove', danger: true })]);
   assert.ok(byRole(menu, 'menuitem', { name: 'Remove' }));
+});
+
+test('a value tile pairs its label with its value and detail, and offers no control', () => {
+  const root = render(html`<dl>${valueTile({ label: 'Brightness', value: '80%', detail: 'Dimmed: 15%', iconName: 'brightness' })}${
+    valueTile({ label: 'Notification sound', value: 'Off', muted: true })}</dl>`);
+  const terms = [...root.querySelectorAll('dt')];
+  assert.deepEqual(terms.map((term) => term.textContent.trim()), ['Brightness', 'Notification sound']);
+  assert.deepEqual([...terms[0].parentElement.querySelectorAll('dd')].map((value) => value.textContent.trim()),
+    ['80%', 'Dimmed: 15%']);
+  assert.equal(terms[0].querySelector('ha-icon').getAttribute('aria-hidden'), 'true');
+  assert.equal(root.querySelector('button'), null);
 });

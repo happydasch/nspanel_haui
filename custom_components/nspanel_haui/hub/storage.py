@@ -122,6 +122,39 @@ def migrate_gesture_settings(device_config: dict) -> bool:
     return True
 
 
+# The firmware's initial "Brightness Dimmed" (esphome/nspanel_haui/number.yaml).
+FIRMWARE_BRIGHTNESS_DIM = 20
+
+
+def migrate_schedule_brightness_dim(device_name: str, device_config: dict) -> bool:
+    """Give a schedule that dims a dimmed brightness to restore when its entries end.
+
+    0.5.0 let an entry set ``brightness_dim`` while the device left it to the
+    panel, so the entry's value stayed after the entry ended. A device setting
+    is required now; such a device takes the firmware's default.
+
+    Args:
+        device_name: Name of the device, for the log.
+        device_config: The device's stored settings.
+
+    Returns:
+        True when the setting was added.
+    """
+    if device_config.get("brightness_dim") is not None:
+        return False
+    schedule = device_config.get("schedule") or []
+    if not any(entry.get("brightness_dim") is not None for entry in schedule):
+        return False
+    device_config["brightness_dim"] = FIRMWARE_BRIGHTNESS_DIM
+    _LOGGER.warning(
+        "Set the dimmed brightness of %s to %s %%: its schedule dims the display and "
+        "needs a dimmed brightness to restore when an entry ends",
+        device_name,
+        FIRMWARE_BRIGHTNESS_DIM,
+    )
+    return True
+
+
 def drop_fixed_sys_overrides(device_name: str, device_data: dict) -> bool:
     """Remove stored edits of system panels that can no longer be edited.
 
@@ -289,8 +322,11 @@ class PanelStorage:
             if not isinstance(dev_data, dict):
                 continue
             config = dev_data.get("config")
-            if isinstance(config, dict) and migrate_device_config_keys(config):
-                modified = True
+            if isinstance(config, dict):
+                if migrate_device_config_keys(config):
+                    modified = True
+                if migrate_schedule_brightness_dim(dev_name, config):
+                    modified = True
             if drop_fixed_sys_overrides(dev_name, dev_data):
                 modified = True
 

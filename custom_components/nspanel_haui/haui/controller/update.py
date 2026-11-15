@@ -498,19 +498,23 @@ class HAUIUpdateController(HAUIBase):
             return None
         device_variant = (self.app.device.device_info or {}).get("firmware_variant")
         if not device_variant:
-            return (
-                "The panel's firmware does not report its build variant; flash the "
-                "offered release once manually (ESPHome or Install firmware → From URL) "
-                "and the hub can update it afterwards"
-            )
+            return self._unreported_variant_reason()
         if not manifest_variant:
-            return (
-                "The firmware manifest names no build variant; point "
-                "firmware_manifest_url at the manifest of a recent release"
+            return self.translate(
+                "The firmware manifest names no build variant; point firmware_manifest_url at the manifest of a recent release"  # noqa: E501
             )
         return (
-            f"The firmware manifest offers the {manifest_variant!r} build but this "
-            f"panel runs the {device_variant!r} one; they are not interchangeable"
+            self.translate(
+                "The firmware manifest offers the '{manifest}' build but this panel runs the '{device}' one; they are not interchangeable"  # noqa: E501
+            )
+            .replace("{manifest}", manifest_variant)
+            .replace("{device}", device_variant)
+        )
+
+    def _unreported_variant_reason(self) -> str:
+        """Explain that a panel without a reported build variant needs one manual flash."""
+        return self.translate(
+            "The panel's firmware does not report its build variant; flash the offered release once manually (ESPHome or Install firmware → From URL) and the hub can update it afterwards"  # noqa: E501
         )
 
     def _invalid_installed_reason(self) -> str | None:
@@ -528,13 +532,10 @@ class HAUIUpdateController(HAUIBase):
         if self._try_parse_version(installed) is not None:
             return None
         if not installed:
-            return "The panel has not reported its firmware version yet"
-        return (
-            f"The panel reports an invalid firmware version {installed!r}; "
-            "Home Assistant cannot compare it (it would offer an update on every "
-            "check), so the hub withholds the offer. Reinstall the firmware with a "
-            "parseable version (a release or a next-patch X.Y.(Z+1).devN build)"
-        )
+            return self.translate("The panel has not reported its firmware version yet")
+        return self.translate(
+            "The panel reports an invalid firmware version '{version}'; Home Assistant cannot compare it (it would offer an update on every check), so the hub withholds the offer. Reinstall the firmware with a parseable version (a release or a next-patch X.Y.(Z+1).devN build)"  # noqa: E501
+        ).replace("{version}", installed)
 
     def _firmware_update_reason(self) -> str | None:
         """Explain why the manifest's firmware is not offered on this panel.
@@ -2131,14 +2132,20 @@ class HAUIUpdateController(HAUIBase):
     def _release_variant_error(self, version: str, manifest_variant: str) -> str:
         """Explain why the release ``version`` cannot be flashed onto this panel's build."""
         device_variant = (self.app.device.device_info or {}).get("firmware_variant")
-        tip = (
-            "; the variants are not interchangeable"
-            if manifest_variant
-            else "; its manifest names no variant"
-        )
+        if not device_variant:
+            return self._unreported_variant_reason()
+        if not manifest_variant:
+            reason = self.translate(
+                "Release {version} names no build variant; this panel runs the '{device}' build"
+            )
+        else:
+            reason = self.translate(
+                "Release {version} is a '{manifest}' build but this panel runs the '{device}' one; they are not interchangeable"  # noqa: E501
+            )
         return (
-            f"Release {version} is a {manifest_variant or 'unknown-variant'} build but this "
-            f"panel runs {device_variant or 'an unknown build'}{tip}"
+            reason.replace("{version}", version)
+            .replace("{manifest}", manifest_variant)
+            .replace("{device}", device_variant)
         )
 
     def _complete_async_firmware_install(

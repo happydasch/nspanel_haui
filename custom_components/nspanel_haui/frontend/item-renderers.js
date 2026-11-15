@@ -8,7 +8,7 @@
  */
 import { html, nothing } from './lit-import.js';
 import { t } from './localize.js';
-import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
+import { ENTITY_OVERRIDE_FIELDS, entityDisplayName, renderEntityPicker } from './haui-entity.js';
 import {
   detectItemType,
   parseItemValue,
@@ -62,7 +62,7 @@ export function renderItemListRow(host, item, actions, drag = null) {
   const secondary = itemSecondaryText(item);
   // An entity without a name of its own goes by its Home Assistant name, as on the panel.
   const entityName = !item?.name && type === ITEM_TYPE.ENTITY_ID
-    ? host?.hass?.states?.[secondary]?.attributes?.friendly_name
+    ? entityDisplayName(host?.hass, secondary)
     : '';
   const primary = entityName || itemPrimaryText(item);
   // The entity id below already tells an entity apart; other kinds name theirs.
@@ -405,8 +405,8 @@ function renderItemOptionField(host, opt, currentValue) {
       return html`
         <div class="haui-checkbox-wrap">
           <div class="haui-checkbox-row">
-            ${renderToggle(id, val, setVal)}
             <label for=${id} title=${opt.description}>${opt.label}</label>
+            ${renderToggle(id, val, setVal)}
           </div>
           ${opt.description ? html`<div class="haui-field-hint">${opt.description}</div>` : ""}
         </div>

@@ -33,7 +33,14 @@ export const haStyle = css`
 `;
 
 export const editorContainerStyles = css`
-  :host { container-type: inline-size; container-name: haui-editor; min-height: 100dvh; display: flex; flex-direction: column; }
+  /* The panel handles the safe area itself (handle_safe_area in web/editor.py): the
+     title header takes the top inset, the host keeps the sides and the home indicator. */
+  :host {
+    container-type: inline-size; container-name: haui-editor; min-height: 100dvh; display: flex; flex-direction: column;
+    box-sizing: border-box;
+    padding: 0 var(--safe-area-content-inset-right, var(--safe-area-inset-right, 0px))
+      var(--safe-area-inset-bottom, 0px) var(--safe-area-content-inset-left, var(--safe-area-inset-left, 0px));
+  }
 `;
 
 export const haStyleDialog = css`

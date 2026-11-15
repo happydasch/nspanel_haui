@@ -24,6 +24,17 @@ test('an empty brightness field names the brightness the panel uses', () => {
   assert.equal(root.querySelector('#dc-brightness_dim').placeholder, 'Panel: 15');
 });
 
+test('opened from the schedule, the settings unfold only their Screen and Sounds sections', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS };
+  const sections = (props) => [...render(settings({ config, _deviceConfigForm: config, ...props }).render())
+    .querySelectorAll('details.haui-config-section')]
+    .filter((section) => section.open)
+    .map((section) => section.querySelector('summary').textContent.trim());
+
+  assert.deepEqual(sections({ openSections: ['screen', 'sounds'] }), ['Screen', 'Sounds']);
+  assert.deepEqual(sections({}), []);
+});
+
 test('a brightness field without a panel reading has no placeholder', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS, brightness: 80, brightness_dim: null };
   const root = render(settings({ config, _deviceConfigForm: config }).render());

@@ -84,7 +84,7 @@ export const dashboardComponentStyles = css`
     border-radius: var(--haui-radius-pill);
     background: var(--secondary-background-color, #f5f5f5);
     font-size: var(--haui-text-caption);
-    line-height: 1.3;
+    line-height: var(--haui-line-height-tight);
   }
   /* Tinted rather than filled, so a count shows on a hovered or open row as well;
      the tones below still colour it. */
@@ -116,11 +116,12 @@ export const dashboardComponentStyles = css`
   .haui-field-warning { display: block; margin-top: 4px; color: var(--haui-warn); font-size: var(--haui-text-caption); }
   .haui-empty-state { display: grid; justify-items: center; gap: 8px; padding: 32px 20px; color: var(--secondary-text-color, #666); text-align: center; }
   .haui-empty-state h2, .haui-empty-state p { margin: 0; }
+  .haui-empty-state h2 { font-size: var(--haui-text-title); }
   .haui-empty-state-icon { display: block; --mdc-icon-size: 28px; }
   .haui-empty-state-compact { display: block; padding: 20px 16px; font-size: var(--haui-text-caption); }
   .haui-empty-state-compact p { color: var(--secondary-text-color, #666); }
   .haui-empty-state-inset { display: block; padding: 12px; border: 1px dashed var(--divider-color, #e0e0e0); border-radius: var(--haui-radius-control); font-size: var(--haui-text-caption); }
-  .haui-empty-state-horizontal { display: flex; min-height: 72px; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; font-size: var(--haui-text-label); font-weight: var(--ha-font-weight-medium, 500); }
+  .haui-empty-state-horizontal { display: flex; min-height: 72px; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; font-size: var(--haui-text-label); font-weight: 500; }
   .haui-empty-state-horizontal .haui-empty-state-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: var(--haui-radius-round); color: var(--haui-good); background: var(--haui-good-soft); --mdc-icon-size: 16px; }
   .haui-popover { position: fixed; z-index: 30; box-sizing: border-box; max-width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: 0 8px 28px #0003; }
   .haui-popover[role="menu"] { display: grid; gap: 4px; width: max-content; min-width: min(236px, calc(100vw - 24px)); padding: 4px; }

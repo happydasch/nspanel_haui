@@ -118,7 +118,7 @@ export const previewStyles = css`
     background: var(--haui-bezel);
     color: var(--text-primary-color, #fff);
     font-size: var(--haui-text-caption);
-    line-height: 1.35;
+    line-height: var(--haui-line-height-copy);
     pointer-events: none;
     white-space: nowrap;
     overflow: hidden;

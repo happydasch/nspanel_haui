@@ -30,6 +30,30 @@ def test_guard_reports_off_scale_values_and_raw_colors(tmp_path: Path) -> None:
     assert any("raw color #abc" in error for error in errors)
 
 
+def test_guard_rejects_font_shorthand_and_raw_line_heights(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "bad.js"
+    css = ".bad { font: 11px/1.4 monospace; line-height: 1.35; }"
+
+    errors = check_css_sources([(style, css)], frontend, root)
+
+    assert any("not the font shorthand" in error for error in errors)
+    assert any("line-height must use a --haui-line-height token" in error for error in errors)
+
+
+def test_guard_allows_line_height_tokens_and_box_values(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "safe.js"
+    css = (
+        ".safe { font: inherit; line-height: var(--haui-line-height-copy); }"
+        ".safe { line-height: 1; }.safe { line-height: 20px; }"
+    )
+
+    assert check_css_sources([(style, css)], frontend, root) == []
+
+
 def test_guard_allows_theme_fallback_colors_and_pinned_fills(tmp_path: Path) -> None:
     root = tmp_path
     frontend = root / "frontend"

@@ -21,6 +21,10 @@ export const haStyle = css`
   :host { display: block; }
   .haui-container { display: flex; flex: 1; flex-direction: column; padding-bottom: var(--haui-space-6); }
   ha-icon-button { color: var(--secondary-text-color, #666); }
+  /* Native controls would use the browser's UI font, and headings and strong text its 700 bold,
+     which is off the 400/500/600 scale. */
+  button, input, select, textarea { font: inherit; }
+  h1, h2, h3, strong, b { font-weight: 500; }
   .haui-w-full { width: 100%; }
   .haui-text-caption { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-text-label { font-size: var(--haui-text-label); }

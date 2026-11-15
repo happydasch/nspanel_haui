@@ -3,13 +3,17 @@ import { css } from '../lit-import.js';
 /** Shared aliases for the Home Assistant theme and measured editor scale. */
 export const dashboardTokens = css`
   :host {
-    --haui-text-eyebrow: var(--ha-font-size-xs, 10px);
-    --haui-text-caption: var(--ha-font-size-s, 12px);
-    --haui-text-label: 13px;
-    --haui-text-body: var(--ha-font-size-m, 14px);
-    --haui-text-title: var(--ha-font-size-l, 16px);
+    /* Steps Home Assistant lacks follow its font size setting like the others. */
+    --haui-text-eyebrow: calc(11px * var(--ha-font-size-scale, 1));
+    --haui-text-caption: calc(13px * var(--ha-font-size-scale, 1));
+    --haui-text-label: var(--ha-font-size-m, 14px);
+    --haui-text-body: var(--ha-font-size-l, 16px);
+    --haui-text-title: calc(18px * var(--ha-font-size-scale, 1));
+    --haui-text-headline: var(--ha-font-size-xl, 20px);
     --haui-text-display: var(--ha-font-size-2xl, 24px);
     --haui-line-height: var(--ha-line-height-normal, 1.6);
+    --haui-line-height-tight: var(--ha-line-height-condensed, 1.2);
+    --haui-line-height-copy: 1.4;
     --haui-space-1: var(--ha-space-1, 4px);
     --haui-space-2: var(--ha-space-2, 8px);
     --haui-space-3: var(--ha-space-3, 12px);

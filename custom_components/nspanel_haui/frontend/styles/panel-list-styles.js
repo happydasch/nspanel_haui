@@ -14,7 +14,7 @@ export const panelListStyles = css`
     background: var(--haui-surface-soft);
     border-bottom: 1px solid var(--divider-color);
   }
-  .haui-panel-group-heading h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 600; }
+  .haui-panel-group-heading h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }
   .haui-panel-group-heading span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-panel-group-toggle { width: 28px; height: 28px; flex: 0 0 auto; --mdc-icon-size: 20px; }
   .haui-panel-list { display: flex; min-height: 48px; flex-direction: column; }

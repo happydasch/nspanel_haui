@@ -17,8 +17,10 @@ HEX_COLOR = re.compile(r"#[\da-fA-F]{3,8}\b")
 COLOR_FUNCTION = re.compile(r"\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\s*\(", re.IGNORECASE)
 PX = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))px\b")
 NON_PX_LENGTH = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))(?:rem|em)\b")
-FONT_SIZES = {"10", "12", "13", "14", "16", "20", "24"}
+FONT_SIZES = {"11", "13", "14", "16", "18", "20", "24"}
 FONT_WEIGHTS = {"400", "500", "600"}
+# 0 and 1 collapse a line box to its content (icons, count bubbles); text uses the tokens.
+LINE_HEIGHTS = {"0", "1", "normal", "inherit"}
 SPACING = {"0", "4", "8", "12", "16", "20", "24", "28", "32", "40"}
 SPACING_PROPERTIES = {
     "padding",
@@ -240,6 +242,12 @@ def check_css_sources(
                 weights = re.findall(r"(?<![\w.-])\d+(?:\.\d+)?(?![\w.-])", value)
                 if any(weight not in FONT_WEIGHTS for weight in weights):
                     errors.append(f"{where}: off-scale font-weight {value.strip()!r}")
+            elif prop == "font" and value.strip() != "inherit":
+                errors.append(f"{where}: use font-family and font-size, not the font shorthand")
+            elif prop == "line-height" and not (
+                "var(" in value or pixels or value.strip() in LINE_HEIGHTS
+            ):
+                errors.append(f"{where}: line-height must use a --haui-line-height token")
             elif prop == "border-radius":
                 if any(number not in {"0", "8", "12", "999", "9999"} for number in pixels):
                     errors.append(f"{where}: off-scale border-radius {value.strip()!r}")

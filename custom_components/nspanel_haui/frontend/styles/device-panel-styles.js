@@ -24,7 +24,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-info-preview-toggle { position: absolute; top: 4px; right: 4px; display: grid; width: 20px; height: 20px; place-items: center; border-radius: var(--haui-radius-round); background: color-mix(in srgb, var(--card-background-color) 82%, transparent); box-shadow: var(--haui-shadow-card); color: var(--secondary-text-color); --mdc-icon-size: 14px; }
   .haui-panel-info-preview.is-portrait .haui-panel-info-preview-toggle { top: 3px; right: 3px; width: 16px; height: 16px; --mdc-icon-size: 12px; }
   .haui-panel-info-preview nspanel-simulator-frame { display: block; width: 100%; height: 100%; pointer-events: none; }
-  .haui-panel-info-description { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.45; }
+  .haui-panel-info-description { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   /* The facts are label/value rows: two pairs per row, each value beside its own
      label, with no fill or frame of its own. */
   .haui-panel-info-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr); align-items: baseline; gap: 8px 16px; margin: 0; padding: 0; }
@@ -56,7 +56,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panels-overview-groups ha-icon { color: var(--secondary-text-color); --mdc-icon-size: 16px; }
   .haui-panels-overview-groups > li > span:not(.haui-badge) { overflow: hidden; font-size: var(--haui-text-label); text-overflow: ellipsis; white-space: nowrap; }
   .haui-panels-overview-hints { display: grid; gap: 8px; margin: 0; padding: 8px 12px; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); list-style: none; }
-  .haui-panels-overview-hints > li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.45; }
+  .haui-panels-overview-hints > li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-panels-overview-hints ha-icon { --mdc-icon-size: 15px; }
   /* Home and Idle are the two roles the device assigns to panels. */
   .haui-panels-overview-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
@@ -66,7 +66,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panels-overview-role-text { display: grid; min-width: 0; gap: 4px; }
   .haui-panels-overview-role-icon { width: 22px; height: 22px; box-shadow: none; }
   .haui-panels-overview-role-label { overflow: hidden; color: var(--secondary-text-color); font-size: var(--haui-text-caption); text-overflow: ellipsis; white-space: nowrap; }
-  .haui-panels-overview-role-value { color: var(--primary-text-color); font-size: var(--haui-text-label); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .haui-panels-overview-role-value { color: var(--primary-text-color); font-size: var(--haui-text-label); font-weight: 500; line-height: var(--haui-line-height-tight); overflow-wrap: anywhere; }
   .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
   .haui-preview-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
   /* The panel list's search (.haui-search-field) shares the row with the view toggle at every width: it takes what the toggle leaves, up to its full size. */
@@ -113,7 +113,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-catalog.is-compact-previews .haui-panel-catalog-preview { grid-column: auto; grid-row: 1; width: 64px; aspect-ratio: 450 / 320; }
   .haui-panel-catalog.is-compact-previews .haui-panel-catalog-preview.is-portrait { width: 48px; max-width: none; aspect-ratio: 320 / 480; margin-inline: 0 auto; }
   .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) { display: grid; gap: 4px; }
-  .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) > span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.35; }
+  .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) > span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-panel-catalog-option:hover { border-color: var(--primary-color); }
   /* Collapsible catalog sections and the device groups inside the copy section,
      drawn like the panel editor's config sections: a heading row in the content
@@ -226,7 +226,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-conn-card-head h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }
   .haui-conn-card-head p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-device-details .haui-conn-card dl > div { padding: 4px 0; }
-  .haui-conn-card .haui-details-stale { margin: 0; color: var(--haui-warn); font-size: var(--haui-text-caption); line-height: 1.4; }
+  .haui-conn-card .haui-details-stale { margin: 0; color: var(--haui-warn); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-device-details dl { display: grid; gap: 0; margin: 0; }
   .haui-device-details dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-device-details dl > div:last-child { border-bottom: 0; }
@@ -273,14 +273,14 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-action-card-inner.is-with-management:not(.is-with-note) { grid-template-areas: "icon copy tool" "actions actions actions" "management management management"; }
   .haui-action-card-icon { display: grid; width: 40px; height: 40px; grid-area: icon; place-items: center; border-radius: var(--haui-radius-round); background: var(--primary-color); color: var(--text-primary-color, #fff); --mdc-icon-size: 22px; }
   .haui-action-card-copy { min-width: 0; grid-area: copy; }
-  .haui-action-card-copy h2 { margin: 0; font-size: var(--haui-text-title); font-weight: 600; }
-  .haui-action-card-copy p { margin: 4px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-label); line-height: 1.4; }
+  .haui-action-card-copy h2 { margin: 0; font-size: var(--haui-text-title); font-weight: 500; }
+  .haui-action-card-copy p { margin: 4px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-label); line-height: var(--haui-line-height-copy); }
   /* The settings cog at the end of the heading; pulled into the card's padding so its glyph lines up with the edge. */
   .haui-action-card-tool { grid-area: tool; align-self: start; margin: -4px -8px 0 0; }
   .haui-action-card-actions { display: grid; min-width: 0; grid-area: actions; gap: 8px; }
   .haui-action-card-secondary .haui-button, .haui-details-updates, .haui-schedule-defaults-edit { min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
   .haui-action-card-secondary > :only-child { grid-column: 1 / -1; }
-  .haui-action-card-note { grid-area: note; margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: 1.45; }
+  .haui-action-card-note { grid-area: note; margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-action-card-management { grid-area: management; min-width: 0; }
   .haui-device-option-controls { display: grid; gap: 12px; min-width: 0; }
   /* Three options, always one row: plain buttons, tinted with the lead card's own

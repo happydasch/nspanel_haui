@@ -218,7 +218,7 @@ meanings HA lacks.
 | Token group | Rule |
 |---|---|
 | Color | HA primary/text/secondary/disabled/surface/divider/error/warning/success tokens. Add a small `--haui-*` alias layer only for missing meanings (good/warn/bad soft fills, soft surface, strong border, screen/bezel gradient, live-preview tint), each with a fallback. Respect HA's active theme. |
-| Typography | HA body font; 10/12/13/14/16/20/24px scale; 400/500/600 weights; monospace for node, key, IP and versions. `styles/tokens.js` defines `--haui-text-eyebrow`, `--haui-text-caption`, `--haui-text-label` (13px), `--haui-text-body`, `--haui-text-title`, `--haui-text-display` and `--haui-line-height`. |
+| Typography | HA body font, which `styles.js` also gives native buttons and inputs; monospace (`--haui-mono`, HA's code font) for node, key, IP and versions. Sizes are the 11/13/14/16/18/20/24px scale, each step following HA's font size setting: `--haui-text-eyebrow` (11px uppercase labels), `--haui-text-caption` (13px secondary text, hints, meta), `--haui-text-label` (14px form labels, inputs, the description under a heading), `--haui-text-body` (16px names and sub-headings), `--haui-text-title` (18px card, section and sidebar headings), `--haui-text-headline` (20px toolbar title) and `--haui-text-display` (24px page title). Weights: 400 for text, 500 for headings, names, labels, values and `strong` (`styles.js` replaces the browser's 700 bold), 600 only for 11–13px uppercase labels and count bubbles. Uppercase labels track `.05em`. Line heights: `--haui-line-height-tight` (headings, values, badges), `--haui-line-height-copy` (secondary text that wraps) and `--haui-line-height` (HA's normal). |
 | Spacing | 4/8/12/16/20/24/28/32/40px (`--haui-space-*`). |
 | Radius | `--haui-radius-control` for 8px controls/thumbs, `--haui-card-radius` for 12px cards, `--haui-radius-pill` for pills and `--haui-radius-round` for dots. |
 | Elevation | `--haui-shadow-card` for cards; `--haui-shadow-overlay` for popovers/sidebars; device preview shadows remain distinct inside the bezel. |
@@ -231,8 +231,8 @@ Typography utility classes in `styles.js` (`.haui-text-caption`, `.haui-text-lab
 choices consistent. The shared interactive-component rules use the same focus ring. Spacing aliases (`--haui-space-1` through `--haui-space-8` and `--haui-space-10`) map the
 measured spacing ladder onto HA's spacing variables where available.
 
-The `scripts/check_frontend_styles.py` guard checks the scale, raw colors, alias ownership, duplicate
-selectors, repeated style adoption, and reduced-motion overrides; `tests/test_frontend_styles.py` covers both valid styles and
+The `scripts/check_frontend_styles.py` guard checks the scale (the `font` shorthand and raw line heights
+included), raw colors, alias ownership, duplicate selectors, repeated style adoption, and reduced-motion overrides; `tests/test_frontend_styles.py` covers both valid styles and
 intentional violations. Run it directly with `python scripts/check_frontend_styles.py` when changing
 frontend CSS. Every selector with a transition or animation needs a `prefers-reduced-motion` override
 in its own file, unless `styles.js` composes that file into a sheet together with the universal

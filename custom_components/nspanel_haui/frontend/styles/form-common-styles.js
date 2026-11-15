@@ -123,7 +123,7 @@ export const formCommonStyles = css`
     color: var(--secondary-text-color, #666);
     margin-top: 4px;
     margin-bottom: 0;
-    line-height: 1.4;
+    line-height: var(--haui-line-height-copy);
   }
   /* Where a pointer can hover, a field's hint floats under the field while the
      pointer rests on it or keyboard focus is in it. Out of the layout, it moves
@@ -227,7 +227,7 @@ export const formCommonStyles = css`
     cursor: pointer;
     padding: 12px 16px 12px 8px;
     font-weight: 500;
-    font-size: var(--haui-text-title);
+    font-size: var(--haui-text-body);
     color: var(--primary-text-color, #212121);
     display: flex;
     align-items: center;
@@ -260,7 +260,8 @@ export const formCommonStyles = css`
   }
   .haui-config-section-intro {
     margin: 0 0 16px;
-    font-size: var(--haui-text-title);
+    font-size: var(--haui-text-label);
+    line-height: var(--haui-line-height-copy);
     color: var(--secondary-text-color, #666);
   }
   .haui-config-section-body .haui-field:last-child,

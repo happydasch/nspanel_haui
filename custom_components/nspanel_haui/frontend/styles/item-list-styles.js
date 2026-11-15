@@ -96,7 +96,7 @@ export const itemListStyles = css`
     flex-shrink: 0;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: .05em;
     border-radius: var(--haui-radius-control);
     color: var(--secondary-text-color, #666);
   }
@@ -135,12 +135,12 @@ export const itemListStyles = css`
     list-style: none;
     cursor: pointer;
     font-size: var(--haui-text-caption);
+    font-weight: 500;
     color: var(--primary-color, #03a9f4);
     display: flex;
     align-items: center;
     gap: 4px;
     user-select: none;
-    text-transform: uppercase;
     padding: 4px 0;
     border-radius: var(--haui-radius-control);
   }

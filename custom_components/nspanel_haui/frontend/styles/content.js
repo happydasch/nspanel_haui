@@ -28,13 +28,13 @@ export const contentStyles = css`
   }
 
   .haui-toolbar-title {
-    line-height: var(--ha-line-height-normal);
+    line-height: var(--haui-line-height);
     flex-grow: 1;
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
     min-width: 0;
-    font-size: var(--ha-font-size-xl, 20px);
+    font-size: var(--haui-text-headline);
     font-weight: 400;
     margin-inline-start: var(--ha-space-6);
   }
@@ -271,7 +271,7 @@ export const contentStyles = css`
     color: var(--primary-text-color, #212121);
     font-size: var(--haui-text-caption);
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: .05em;
     text-transform: uppercase;
   }
   .footer-link {

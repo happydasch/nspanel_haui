@@ -28,6 +28,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Editor: the device settings show one field per row, with the **Home panel** and **Idle panels** pickers at the right edge like the switches.
 - Updates: an offered update shows as one badge from the installed to the new version, the integration's version moved to the end of the **Check for updates** row, and a narrow sidebar shortens the labels.
 - Fleet: the dashboard fills wide windows, a long **Device inventory** scrolls under its column headings, and **Latest events** takes the inventory's height.
+- Editor: larger text and one type scale everywhere (secondary text 13px, labels and inputs 14px, names 16px, headings 18px): headings, names and labels in one weight, intro text at description size, every size following Home Assistant's font size setting.
 - Device screen: the **Connection & device** and **Diagnostics** tiles show their values in smaller text, with the Wi-Fi signal bars at the tile's edge.
 - Editor: **Hub version**, **Hub log** and **Hub details** on Fleet and in **Diagnostics** are now **Integration version**, **Integration log** and **Integration details**, as in the copied report.
 - Panels: the overview's **Home panel** and **Idle panel** tiles show the role's icon beside its name and panel, and stack on a narrow card.

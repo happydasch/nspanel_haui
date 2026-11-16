@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { render } from './support/render.mjs';
 
 import { renderFleetView, carouselEdgesFrom } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
+import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
+import { makeHost } from './fake-host.mjs';
 
 function templateText(template) {
   return render(template).innerHTML;
@@ -261,6 +263,52 @@ test('an inventory row selects its device on Fleet and brings its card into view
   // The strip under a card selects the same device.
   officeCard.querySelector('.haui-device-card-info').click();
   assert.deepEqual(chosen, ['office', 'office', 'office']);
+});
+
+test('Fleet comes back with the selected device centred in the carousel', () => {
+  const editor = makeHost({
+    device_order: ['kitchen', 'hall', 'office'],
+    devices: {
+      kitchen: { config: {}, panels: [] }, hall: { config: {}, panels: [] }, office: { config: {}, panels: [] },
+    },
+  }, () => { throw new Error('unexpected request'); });
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  const deviceFor = (name) => ({
+    name, device: { friendlyName: name, config: {}, panels: [] }, status: { connected: true, logs: [] }, updates: false,
+  });
+  const row = render(renderFleetView({
+    devices: ['kitchen', 'hall', 'office'].map(deviceFor),
+    events: [], version: '0.5.0', selectedDevice: 'office',
+    onOpenDevice() {}, onReorderDevices() {},
+  }));
+  const carousel = row.querySelector('.haui-fleet-carousel');
+  const scrolled = [];
+  carousel.scrollBy = (options) => scrolled.push(options);
+  carousel.getBoundingClientRect = () => ({ left: 0, right: 480, width: 480 });
+  [...row.querySelectorAll('.haui-device-card')].forEach((card, index) => {
+    card.getBoundingClientRect = () => ({ left: index * 320, right: index * 320 + 320, width: 320 });
+  });
+  editor.renderRoot = row;
+
+  // Nothing is selected: the row stays at its first card.
+  editor._watchCarousel();
+  assert.deepEqual(scrolled, []);
+
+  // The device screen is shown instead: Fleet's row is gone.
+  editor.renderRoot = { querySelector: () => null };
+  editor._watchCarousel();
+  assert.deepEqual(scrolled, []);
+
+  // Back on Fleet the selection is kept, and its card comes back to the middle in one jump.
+  editor.renderRoot = row;
+  editor._fleetSelection = 'office';
+  editor._watchCarousel();
+  assert.deepEqual(scrolled, [{ left: 640 + 160 - 240, behavior: 'auto' }]);
+
+  // A row that stays on screen is measured, never scrolled again.
+  editor._watchCarousel();
+  assert.equal(scrolled.length, 1);
 });
 
 test('Fleet lists the newest events of every device first', () => {

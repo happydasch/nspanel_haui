@@ -322,6 +322,19 @@ def test_live_attach_shows_the_forecast_the_app_drew(env, tmp_path):
             page.render_forecast()
 
     _run(env, source.app.async_run_on_worker(draw_forecast))
+
+    def forecast_was_drawn():
+        return _run(
+            env,
+            source.app.async_run_on_worker(
+                lambda: any(
+                    'f1Val.txt="11°C"' in command
+                    for command in source.app.controller["esphome"].page_commands()
+                )
+            ),
+        )
+
+    _wait(forecast_was_drawn)
     viewer, messages = _live(env, source)
 
     try:

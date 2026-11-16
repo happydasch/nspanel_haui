@@ -15,7 +15,7 @@ import { createApiClient } from '../api/client.js';
 import { createStore } from '../store/store.js';
 import { StoreController } from '../store/controller.js';
 import { createRouter } from './router.js';
-import { renderFleetView, carouselEdgesFrom } from '../views/fleet.js';
+import { renderFleetView, carouselEdgesFrom, centerCard } from '../views/fleet.js';
 import { renderDeviceView } from '../views/device.js';
 import { modalSidebar } from '../ui/sidebar.js';
 import { railOverflows } from '../ui/device-rail.js';
@@ -533,6 +533,10 @@ class NSPanelEditor extends LitElement {
         this.__carouselObserver = new ResizeObserver(() => this._setCarouselEdges(carouselEdgesFrom(carousel)));
         this.__carouselObserver.observe(carousel);
       }
+      // Fleet keeps its selection across a visit to the selected device's screen, and a
+      // fresh row starts at its first card: show the selection in the middle again.
+      const index = this._store.getState().devices.order.indexOf(this._fleetSelection);
+      if (carousel && index >= 0) centerCard(carousel, index, 'auto');
     }
     if (carousel) this._setCarouselEdges(carouselEdgesFrom(carousel));
   }

@@ -423,7 +423,9 @@ separate accessibility contract.
   same tint and a primary ring (its border plus an outer shadow, since the positioned cover would
   paint over an inset outline). A row selection scrolls the carousel sideways until the card is in
   view. Selecting it again clears the selection. The shell keeps the name in `_fleetSelection` and
-  drops it when the device is removed; it is not part of the route.
+  drops it when the device is removed; it is not part of the route. Coming back to Fleet keeps the
+  selection, and the shell centres its card in the fresh row (`views/fleet.js:centerCard`) before the
+  row is painted, so the way back shows the device the user left.
 - Device: a head with the back button to Fleet, the device name and the device rail (shown with more
   than one device; its chips collapse into a dropdown while they do not fit beside the title, measured
   by the shell with `ui/device-rail.js:railOverflows`), a workspace header with the Preview/Panels segmented control plus the Live

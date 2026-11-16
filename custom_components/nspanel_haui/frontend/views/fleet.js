@@ -19,6 +19,18 @@ export function carouselEdgesFrom(carousel) {
   return { atStart: left <= 1, atEnd: left >= max - 1 };
 }
 
+/**
+ * Scroll the carousel sideways until the card at `index` is centred; the page itself stays put.
+ * A fresh `'auto'` jump places a restored selection before the row is painted.
+ */
+export function centerCard(carousel, index, behavior = 'smooth') {
+  const card = carousel?.querySelectorAll('.haui-device-card')[index];
+  if (!carousel || !card) return;
+  const view = carousel.getBoundingClientRect();
+  const box = card.getBoundingClientRect();
+  carousel.scrollBy({ left: box.left + box.width / 2 - (view.left + view.width / 2), behavior });
+}
+
 /** Scroll the carousel sideways until the card at `index` is in view; the page itself stays put. */
 function revealCard(from, index) {
   const carousel = from.closest('.haui-dashboard-content')?.querySelector('.haui-fleet-carousel');
@@ -27,7 +39,7 @@ function revealCard(from, index) {
   const view = carousel.getBoundingClientRect();
   const box = card.getBoundingClientRect();
   if (box.left >= view.left && box.right <= view.right) return;
-  carousel.scrollBy({ left: box.left + box.width / 2 - (view.left + view.width / 2), behavior: 'smooth' });
+  centerCard(carousel, index);
 }
 
 /**

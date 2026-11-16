@@ -67,16 +67,55 @@ export function menuItem({ label, iconName, onSelect, danger = false, disabled =
 }
 
 /**
+ * An expandable menu entry with its own nested menu.
+ * @param {{ id: string, label: string, iconName?: string, items: unknown, open: boolean, onToggle: () => void }} options
+ */
+export function menuSubmenu({ id, label, iconName, items, open, onToggle }) {
+  return html`<div class="haui-menu-submenu" role="none">
+    <button type="button" class="haui-menu-item haui-menu-submenu-trigger" role="menuitem"
+      aria-haspopup="menu" aria-expanded=${String(open)} aria-controls=${id}
+      @click=${onToggle}>${iconName ? icon(iconName) : nothing}<span>${label}</span>
+      ${icon('chevronRight', 'haui-menu-submenu-chevron')}</button>
+    <div id=${id} class="haui-menu-submenu-items" role="menu" aria-label=${label}
+      ?hidden=${!open} @keydown=${menuKeydown}>${items}</div>
+  </div>`;
+}
+
+/**
  * Arrow, Home and End keys move between the items of a menu popover.
  * @param {KeyboardEvent} event - a keydown on the menu (its `currentTarget`)
  */
 export function menuKeydown(event) {
+  const menu = /** @type {any} */ (event.currentTarget);
+  if (event.key === 'ArrowLeft' && menu.classList.contains('haui-menu-submenu-items')) {
+    event.preventDefault();
+    event.stopPropagation();
+    const trigger = menu.parentElement?.querySelector('.haui-menu-submenu-trigger');
+    trigger?.focus();
+    trigger?.click();
+    return;
+  }
+  if (event.key === 'ArrowRight') {
+    const trigger = /** @type {any} */ (event.target).closest?.('[aria-haspopup="menu"]');
+    if (trigger && menu.contains(trigger)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (trigger.getAttribute('aria-expanded') === 'true') {
+        const submenuId = trigger.getAttribute('aria-controls');
+        menu.querySelector(`#${submenuId} [role="menuitem"]`)?.focus();
+      } else {
+        trigger.click();
+      }
+    }
+    return;
+  }
   const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
   if (step === undefined && event.key !== 'Home' && event.key !== 'End') return;
-  const menu = /** @type {any} */ (event.currentTarget);
-  const items = [...menu.querySelectorAll('[role^="menuitem"]:not([disabled])')];
+  const items = [...menu.querySelectorAll('[role^="menuitem"]:not([disabled])')]
+    .filter((item) => item.closest('[role="menu"]') === menu);
   if (!items.length) return;
   event.preventDefault();
+  event.stopPropagation();
   const root = menu.getRootNode?.();
   const current = items.indexOf(root?.activeElement);
   const next = event.key === 'Home' ? 0

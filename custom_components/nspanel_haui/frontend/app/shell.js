@@ -133,6 +133,7 @@ class NSPanelEditor extends LitElement {
       _confirmBulkUpdate: { type: Boolean, state: true },
       _panelSearch: { type: String, state: true },
       _selectedPanelKey: { type: String, state: true },
+      _panelSubmenuKey: { type: String, state: true },
       _fleetSelection: { type: String, state: true },
       _panelPreviewCollapsed: { type: Boolean, state: true },
       _collapsedPanelGroups: { type: Array, state: true },
@@ -206,6 +207,7 @@ class NSPanelEditor extends LitElement {
     this._confirmBulkUpdate = false;
     this._panelSearch = '';
     this._selectedPanelKey = null;
+    this._panelSubmenuKey = null;
     this._fleetSelection = null;
     this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
     this._collapsedPanelGroups = [];
@@ -730,6 +732,7 @@ class NSPanelEditor extends LitElement {
    */
   _closeAnchoredPopover(kind, restoreFocus = false) {
     const overlay = this._store.getState().ui.overlays.find((entry) => entry.kind === kind);
+    if (kind === 'panel-menu') this._panelSubmenuKey = null;
     this._store.actions.closeOverlay(kind);
     if (!restoreFocus) return;
     const restore = () => focusAnchor(this.renderRoot, overlay?.anchorKey);
@@ -1621,11 +1624,14 @@ class NSPanelEditor extends LitElement {
       .filter((name) => name !== context.device && state.devices.byName[name])
       .map((name) => ({ name, label: state.devices.byName[name].friendlyName || name }));
     const moveItems = (panel) => (otherDevices.length
-      ? ['divider', ...otherDevices.map((target) => ({
-        label: t('Move to {device}').replace('{device}', target.label),
+      ? ['divider', {
+        label: t('Move to…'),
         iconName: 'folder-move-outline',
-        onSelect: () => Crud.movePanelToDevice(this, panel.key, target.name),
-      }))]
+        submenu: otherDevices.map((target) => ({
+          label: target.label,
+          onSelect: () => Crud.movePanelToDevice(this, panel.key, target.name),
+        })),
+      }]
       : []);
 
     /**
@@ -1730,8 +1736,10 @@ class NSPanelEditor extends LitElement {
       ]),
       portrait,
       menuKey: state.ui.overlays.at(-1)?.kind === 'panel-menu' ? state.ui.overlays.at(-1)?.subject : null,
+      submenuKey: state.ui.overlays.at(-1)?.kind === 'panel-menu' ? this._panelSubmenuKey : null,
       selectedKey: this._selectedPanelKey,
       onToggleMenu: (key) => this._togglePanelMenu(key),
+      onToggleSubmenu: (key) => this._togglePanelSubmenu(key),
       onCloseMenu: () => this._closePanelMenu(),
       onToggleGroup: (groupId) => this._togglePanelGroup(groupId),
       onSelect: (key) => this._togglePanelSelection(key),
@@ -1850,6 +1858,7 @@ class NSPanelEditor extends LitElement {
 
   /** @param {string} key */
   _togglePanelMenu(key) {
+    this._panelSubmenuKey = null;
     const top = this._store.getState().ui.overlays.at(-1);
     if (top?.kind === 'panel-menu' && top.subject === key) {
       this._closePanelMenu();
@@ -1861,6 +1870,17 @@ class NSPanelEditor extends LitElement {
       subject: key,
       draft: null,
     });
+  }
+
+  /** @param {string} key */
+  _togglePanelSubmenu(key) {
+    const opening = this._panelSubmenuKey !== key;
+    this._panelSubmenuKey = opening ? key : null;
+    if (opening && this.updateComplete) {
+      void this.updateComplete.then(() => {
+        this.renderRoot?.querySelector(`#haui-panel-submenu-${key} [role="menuitem"]`)?.focus();
+      });
+    }
   }
 
   /** @param {boolean} [restoreFocus] */

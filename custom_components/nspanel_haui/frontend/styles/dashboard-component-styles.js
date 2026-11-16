@@ -131,6 +131,20 @@ export const dashboardComponentStyles = css`
   .haui-menu-item { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; padding: 4px 8px; border: 0; border-radius: var(--haui-radius-control); background: transparent; text-align: left; cursor: pointer; }
   .haui-menu-item:hover { background: var(--secondary-background-color, #f5f5f5); }
   .haui-menu-item.danger { color: var(--haui-bad-text); }
+  .haui-menu-item > span { flex: 1 1 auto; }
+  .haui-menu-submenu { display: grid; gap: 4px; }
+  .haui-menu-submenu-items {
+    display: grid;
+    max-height: 240px;
+    gap: 4px;
+    overflow-y: auto;
+    margin-inline-start: 24px;
+    padding-inline-start: 8px;
+    border-inline-start: 1px solid var(--divider-color, #e0e0e0);
+  }
+  .haui-menu-submenu-items[hidden] { display: none; }
+  .haui-menu-submenu-chevron { margin-inline-start: auto; --mdc-icon-size: 18px; }
+  .haui-menu-submenu-trigger[aria-expanded="true"] .haui-menu-submenu-chevron { transform: rotate(90deg); }
 
   .haui-notification-popover {
     position: fixed;

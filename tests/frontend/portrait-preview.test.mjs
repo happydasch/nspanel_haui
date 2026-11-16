@@ -85,3 +85,33 @@ test('the panel list builder hands the view a menu for user panels only', () => 
   assert.equal(state.devices.selected, 'kitchen');
   assert.equal(typeof NSPanelEditor.prototype._panelListModel, 'function');
 });
+
+test('panel move destinations are one submenu containing the other device names', async () => {
+  const panels = {
+    device_order: ['kitchen', 'salon', 'guest'],
+    devices: {
+      kitchen: { friendly_name: 'Kitchen', config: {}, panels: [{ type: 'clock', key: 'clock_0', items: [] }] },
+      salon: { friendly_name: 'Living room', config: {}, panels: [] },
+      guest: { friendly_name: 'Guest room', config: {}, panels: [] },
+    },
+  };
+  const host = makeHost(panels, () => { throw new Error('no fetch'); });
+  Object.setPrototypeOf(host, NSPanelEditor.prototype);
+  host._store = host.store;
+  host._panelTypes = [{ type_key: 'clock', label: 'Clock', page_id: 3 }];
+  host._collapsedPanelGroups = [];
+  const state = host.store.getState();
+  const model = host._panelListModel(
+    { name: 'kitchen', panels: panels.devices.kitchen.panels, config: {} },
+    state.devices.byName.kitchen.status,
+  );
+  const userEntry = model.groups[0].entries[0];
+  const moveEntries = userEntry.menu.filter((item) => item !== 'divider' && item.label.startsWith('Move'));
+  assert.equal(moveEntries.length, 1);
+  assert.equal(moveEntries[0].label, 'Move to…');
+  assert.deepEqual(moveEntries[0].submenu.map((item) => item.label), ['Living room', 'Guest room']);
+  const moved = [];
+  host.store.actions.movePanel = async (request) => { moved.push(request); return true; };
+  await moveEntries[0].submenu[1].onSelect();
+  assert.deepEqual(moved, [{ key: 'clock_0', to: 'guest', deviceName: 'kitchen' }]);
+});

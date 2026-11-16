@@ -7,6 +7,7 @@ import {
   focusAnchor,
   menuItem,
   menuSeparator,
+  menuSubmenu,
   overlayAnchor,
   popover,
   popoverSurface,
@@ -56,6 +57,38 @@ test('open popovers expose menu semantics and checkable menu items', () => {
   assert.equal(item.getAttribute('aria-checked'), 'true');
 });
 
+test('a submenu enters with ArrowRight and returns to its trigger with ArrowLeft', () => {
+  const toggles = [];
+  const root = render(popover({
+    open: true,
+    id: 'panel-actions',
+    label: 'Panel actions',
+    role: 'menu',
+    content: menuSubmenu({
+      id: 'panel-destinations',
+      label: 'Move to…',
+      iconName: 'folder-move-outline',
+      items: menuItem({ label: 'Office' }),
+      open: true,
+      onToggle: () => toggles.push('toggle'),
+    }),
+  }));
+  document.body.append(root);
+  const trigger = root.querySelector('.haui-menu-submenu-trigger');
+  const destination = root.querySelector('#panel-destinations [role="menuitem"]');
+  assert.equal(trigger.getAttribute('aria-haspopup'), 'menu');
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+
+  destination.focus();
+  destination.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  assert.equal(document.activeElement, trigger);
+  assert.deepEqual(toggles, ['toggle']);
+
+  trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  assert.equal(document.activeElement, destination);
+  document.body.removeChild(root);
+});
+
 test('a closed popover is omitted', () => {
   assert.equal(typeof popover({ open: false, id: 'x', label: 'Actions', content: '' }), 'symbol');
 });
@@ -64,18 +97,25 @@ test('arrow, Home and End keys move through the enabled items of a menu', async 
   const { menuKeydown, focusMenu } = await import('../../custom_components/nspanel_haui/frontend/ui/popover.js');
   const focused = [];
   const root = { activeElement: null };
-  const items = ['Edit', 'Rename', 'Delete'].map((label) => ({
-    label,
-    focus() { focused.push(label); root.activeElement = this; },
-  }));
   const menu = {
     dataset: {},
     querySelectorAll: () => items,
     querySelector: () => items[0],
     getRootNode: () => root,
   };
+  const items = ['Edit', 'Rename', 'Delete'].map((label) => ({
+    label,
+    closest: () => menu,
+    focus() { focused.push(label); root.activeElement = this; },
+  }));
   const press = (key) => {
-    const event = { key, currentTarget: menu, prevented: false, preventDefault() { this.prevented = true; } };
+    const event = {
+      key,
+      currentTarget: menu,
+      prevented: false,
+      preventDefault() { this.prevented = true; },
+      stopPropagation() {},
+    };
     menuKeydown(event);
     return event.prevented;
   };

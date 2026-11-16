@@ -444,3 +444,66 @@ def test_two_starts_at_once_run_one_rollout():
 
     assert sum(isinstance(result, ValueError) for result in results) == 1
     assert [entry for entry in log if entry[1] == "firmware"] == [("kitchen", "firmware")]
+
+
+def test_a_device_whose_app_stops_mid_install_fails_at_once():
+    log = []
+    installing = [_snapshot(connected=False, firmware_installing=True)]
+    apps = {
+        "kitchen": _Device(log, "kitchen", _snapshot(firmware=True), installing),
+        "office": _Device(log, "office", _snapshot(firmware=True), FIRMWARE_OK),
+    }
+    rollout, hass = _rollout(apps)
+
+    async def run():
+        await rollout.async_start(["kitchen", "office"])
+        await asyncio.sleep(0)
+        # Disabling the device stops its app and drops it from the running apps.
+        del hass.data["nspanel_haui"][ENTRY]["kitchen"]
+        await rollout._task
+        return rollout.snapshot()
+
+    snapshot = asyncio.run(run())
+
+    assert snapshot["state"] == "stopped"
+    assert _states(snapshot) == {"kitchen": "failed", "office": "not_started"}
+    assert snapshot["devices"][0]["error"] == "The device is no longer running"
+
+
+def test_a_finished_rollout_is_dismissed_and_a_running_one_is_not():
+    log = []
+    apps = {"kitchen": _Device(log, "kitchen", _snapshot(firmware=True), FIRMWARE_FAILS)}
+    rollout, _ = _rollout(apps)
+
+    async def run():
+        await rollout.async_start(["kitchen"])
+        running = rollout.dismiss()
+        await rollout._task
+        return running, rollout.snapshot(), rollout.dismiss()
+
+    running, finished, dismissed = asyncio.run(run())
+
+    assert running["state"] == "running"
+    assert finished["state"] == "stopped"
+    assert dismissed == {"id": 1, "state": "idle", "started_at": None, "devices": []}
+
+
+def test_an_install_the_device_already_runs_is_waited_for_not_started_again():
+    log = []
+    running = _Device(
+        log,
+        "kitchen",
+        _snapshot(firmware=True, firmware_installing=True),
+    )
+    running.steps = [
+        _snapshot(firmware=True, firmware_installing=True),
+        _snapshot(firmware=True, firmware_installing=True),
+        _snapshot(connected=False, firmware_installing=True),
+        _snapshot(),
+    ]
+    rollout, _ = _rollout({"kitchen": running})
+
+    snapshot = asyncio.run(_run(rollout, ["kitchen"]))
+
+    assert snapshot["state"] == "done"
+    assert ("kitchen", "firmware") not in log

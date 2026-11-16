@@ -334,20 +334,6 @@ export const formCommonStyles = css`
     display: none;
   }
 
-  /* ── state-keyed preview ──────────── */
-  .haui-state-keyed-preview {
-    margin-top: 4px;
-    font-size: var(--haui-text-caption);
-    padding: 4px 8px;
-    border-left: 3px solid var(--accent-color, #ff9800);
-    background: var(--secondary-background-color, #f5f5f5);
-    border-radius: 0 var(--haui-radius-control) var(--haui-radius-control) 0;
-    word-break: break-word;
-  }
-  .haui-state-keyed-preview[hidden] {
-    display: none;
-  }
-
   /* ── icon preview row ────────────── */
   .haui-icon-preview {
     width: 16px;

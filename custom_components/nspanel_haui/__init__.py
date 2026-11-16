@@ -542,10 +542,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     from .hub.rollout import async_stop_rollout
+    from .web.card import async_end_live_viewers
     from .web.preview.live_panel import async_stop_viewers
     from .web.websocket import async_stop_hosts
 
     await async_stop_viewers(hass, entry.entry_id)
+    await async_end_live_viewers(hass, entry.entry_id)
     await async_stop_hosts(hass, entry.entry_id)
     await async_stop_rollout(hass, entry.entry_id)
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -601,6 +603,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """
     from .api import register_views
     from .services import async_register_services
+    from .web.card import async_register_commands as async_register_card_commands
     from .web.editor import async_register_frontend
     from .web.preview.live_panel import async_register_commands as async_register_live_commands
     from .web.websocket import async_register_websocket_commands
@@ -610,6 +613,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async_register_services(hass)
     async_register_websocket_commands(hass)
     async_register_live_commands(hass)
+    async_register_card_commands(hass)
 
     _LOGGER.info(
         "NSPanel HAUI integration loaded (hubs=%d)",

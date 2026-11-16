@@ -17,8 +17,9 @@ browser:
 ``web/websocket.py``). Every open sandbox preview of the device is a viewer of
 that app, and the editor's panel cards are rendered on it too: each card runs
 its panel's page in isolation (``_PanelRender``), so a card never moves what a
-viewer sees. The live preview, which shows and drives the real panel, is
-``live_panel.py``.
+viewer sees. Dashboard cards in Home panel mode watch the host's home stream
+(``home_stream.py``), which keeps such a render of the home panel running. The
+live preview, which shows and drives the real panel, is ``live_panel.py``.
 """
 
 from __future__ import annotations
@@ -56,6 +57,7 @@ from .button_lights import (
     light_state,
     lights_message,
 )
+from .home_stream import HomeStream
 from .sample_data import PREVIEW_ENTITIES, sample_forecast
 from .sandbox import Sandbox, SimState
 
@@ -735,13 +737,22 @@ class _RecordingESPHome:
 
     def __init__(self) -> None:
         self.commands: list[str] = []
+        # Set by a stream once its page drew: later output goes there instead,
+        # so a page that runs for days keeps no growing list.
+        self.on_commands: Callable[[list[str]], None] | None = None
 
     def send_cmd(self, cmd: str, value: Any = "", force: bool = False) -> None:
         name = cmd if cmd.startswith("esphome.") else f"esphome.{cmd}"
         if name == ESPCommand.SEND_COMMAND:
-            self.commands.append(value)
+            commands = [value]
         elif name == ESPCommand.SEND_COMMANDS:
-            self.commands.extend(value)
+            commands = list(value)
+        else:
+            return
+        if self.on_commands is not None:
+            self.on_commands(commands)
+        else:
+            self.commands.extend(commands)
 
     def reset_prev_cmd(self) -> None:
         pass
@@ -868,6 +879,32 @@ class _RenderApp:
         return self._service_responses.get(service)
 
 
+class _StreamApp(_RenderApp):
+    """The shared virtual app as a dashboard card's home stream sees it.
+
+    Unlike a card render it shows what the device would: Home Assistant's
+    real states, never the editor's simulated ones. Queries that return data
+    (weather forecasts) reach Home Assistant, so a page that runs for days
+    stays current; the pages submit those off the worker. Every other service
+    call is still dropped.
+    """
+
+    def __init__(self, app: VirtualNSPanelHAUI, esphome: _RecordingESPHome) -> None:
+        super().__init__(app, esphome, {}, {})
+        self.sandbox = _RenderSandbox(Sandbox(app._read_real_state), {})
+
+    def call_service(
+        self,
+        service: str,
+        return_response: bool = False,
+        raise_on_error: bool = False,
+        **kwargs: Any,
+    ) -> Any:
+        if not return_response:
+            return super().call_service(service, return_response, raise_on_error, **kwargs)
+        return self._app.call_service(service, return_response, raise_on_error, **kwargs)
+
+
 class _PanelRender:
     """One panel rendered on a page of its own; create, start and stop on the app's worker.
 
@@ -883,6 +920,8 @@ class _PanelRender:
         panel_config: dict[str, Any],
         kwargs: dict[str, Any],
         service_responses: dict[str, Any],
+        *,
+        stream: bool = False,
     ) -> None:
         panel_type = panel_config.get("type", "")
         page_id = get_page_id_for_panel(panel_type)
@@ -891,11 +930,15 @@ class _PanelRender:
             raise ValueError(f"Unknown panel type: {panel_type!r}")
         self.page_id = page_id
         self._esphome = _RecordingESPHome()
-        view = _RenderApp(
-            app,
-            self._esphome,
-            service_responses,
-            PREVIEW_ENTITIES if not panel_config.get("key") else {},
+        view = (
+            _StreamApp(app, self._esphome)
+            if stream
+            else _RenderApp(
+                app,
+                self._esphome,
+                service_responses,
+                PREVIEW_ENTITIES if not panel_config.get("key") else {},
+            )
         )
         kwargs = _navigation_kwargs(view, kwargs)
         self._panel = HAUIPanel(view, panel_config)  # type: ignore[arg-type]
@@ -928,6 +971,10 @@ class _PanelRender:
         self._esphome.commands.clear()
         self._page.start()
         self._page.set_panel(self._panel)
+
+    def stream_to(self, on_commands: Callable[[list[str]], None] | None) -> None:
+        """Hand the page's later output to ``on_commands`` instead of keeping it."""
+        self._esphome.on_commands = on_commands
 
     def stop(self) -> None:
         # set_panel(None) stops the panel: its listeners, timers and debounces.
@@ -981,6 +1028,11 @@ class VirtualPanelHost:
             ha_device_id=ha_device_id,
             sink=self._broadcast,
             device_info=info,
+        )
+        # Dashboard cards in Home panel mode (web/card.py).
+        self.home = HomeStream(
+            self.app,
+            lambda panel_config: _PanelRender(self.app, panel_config, {}, {}, stream=True),
         )
 
     async def async_start(self) -> None:
@@ -1044,6 +1096,7 @@ class VirtualPanelHost:
         self._notification_source = None
 
     async def async_stop(self) -> None:
+        await self.app.async_run_on_worker(self.home.end)
         self._stop_following_notifications()
         await self.app.async_run_on_worker(self.app.stop_relay_state_tracking)
         await self.app.async_run_on_worker(self.app.stop)
@@ -1051,6 +1104,7 @@ class VirtualPanelHost:
     async def async_reload(self, config_args: dict) -> None:
         """Apply a saved config, as a save does on the device's own app."""
         await self.app.async_run_on_worker(self.app.reload_config, config_args)
+        await self.app.async_run_on_worker(self.home.restart)
         # Relay mode and the button entities are device settings.
         if self.viewer_count:
             await self.app.async_run_on_worker(self.app.start_relay_state_tracking)

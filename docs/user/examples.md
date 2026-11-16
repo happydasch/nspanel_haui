@@ -45,7 +45,7 @@ For a room with a TV or speakers.
 | 3 | Media | TV or speaker controls |
 | 4 | Climate | Heating or air conditioning |
 
-**Colors:** for a warm look, set the `header_accent` tweak to `#f69d31` in the **Theme** sidebar.
+**Colors:** for a warm look, set the **Accent** color (`header_accent`) to `#f69d31` in the **Theme** sidebar.
 
 ## Bedroom
 
@@ -59,7 +59,7 @@ A small setup that is easy on the eyes at night.
 
 **Device settings:**
 
-- Dimmed brightness: 10–20 % (the `number.<device>_brightness_dimmed` entity of the ESPHome device)
+- **Brightness dimmed** (`brightness_dim`): 10–20 %
 - Dimming timeout (`timeout_dimming`): 15 seconds
 
 ## Hallway or entrance

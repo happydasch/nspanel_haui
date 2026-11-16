@@ -121,8 +121,14 @@ export class PanelSession {
   _started(message) {
     this.sessionId = message.session_id;
     this.orientation = message.portrait ? 'portrait' : 'landscape';
+    // A start again (a reconnect, a card's home panel after a save) draws on a
+    // fresh display: what follows waits for it instead of drawing on the old one.
+    const start = this._start = {};
+    this.touch?.cancel();
+    this.display?.dispose();
+    this.display = null;
     Promise.all([this._loadLayout(this.orientation), this._loadIconMap()]).then(
-      ([layout, iconChars]) => this._attach(layout, iconChars),
+      ([layout, iconChars]) => { if (this._start === start) this._attach(layout, iconChars); },
       err => this.onError(err.message),
     );
   }

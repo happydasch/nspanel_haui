@@ -32,6 +32,19 @@ test('button primitives expose native disabled and accessible icon-only behavior
   assert.equal(close.disabled, true);
 });
 
+test('a menu trigger says it opens a menu, and names the menu only while it is open', async () => {
+  const { sortHandle } = await import('../../custom_components/nspanel_haui/frontend/ui/sort-handle.js');
+  const closed = byRole(render(iconButton({
+    label: 'Actions', iconName: 'more', hasPopup: 'menu', expanded: false,
+  })), 'button', { name: 'Actions' });
+  assert.equal(closed.getAttribute('aria-haspopup'), 'menu');
+  assert.equal(closed.getAttribute('aria-expanded'), 'false');
+  assert.equal(closed.getAttribute('aria-controls'), null);
+  // A grip only works by dragging, so a screen reader does not announce it.
+  const grip = render(sortHandle({ label: 'Drag to reorder Kitchen' })).querySelector('.haui-sort-handle');
+  assert.equal(grip.getAttribute('aria-hidden'), 'true');
+});
+
 test('a button detail is shown after the label and is part of its name', () => {
   const root = render(button({ label: 'Schedule', iconName: 'clock', detail: '2 entries' }));
   const schedule = byRole(root, 'button', { name: 'Schedule 2 entries' });

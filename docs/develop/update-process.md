@@ -433,15 +433,20 @@ that to one panel at a time:
    reconnect) before it starts it. A device with only a display update gets that.
 3. It waits for each install to finish, bounded by the controller's own install
    timeouts. The first failure, or a device that does not come back, stops the
-   rollout; the devices after it are *not started*.
+   rollout; the devices after it are *not started*. A device whose app stops
+   meanwhile (disabled, removed or reloaded) fails at once, and a firmware install
+   the device already runs is waited for instead of started again.
 
 The rollout skips the waiting period and installs a skipped version (you pressed
 Install). Devices still queued can be cancelled one by one or all at once
 (`DELETE …/rollout/{entry_id}[/{device}]`); the device installing finishes, since
-its transfer cannot be stopped. The rollout lives in memory: a Home Assistant
-restart or an entry reload drops it, and a device already transferring finishes
-on its own. The dashboard's **Update rollout** card shows each device's state and
-the installing device's progress.
+its transfer cannot be stopped. Once the rollout has finished, the same
+`DELETE …/rollout/{entry_id}` dismisses it (**Dismiss** on the card), for every
+editor. The rollout lives in memory: a Home Assistant restart or an entry reload
+drops it, and a device already transferring finishes on its own. The dashboard's
+**Update rollout** card shows each device's state and the installing device's
+progress; the dashboard reads the rollout with every status poll, so one another
+editor starts shows up too.
 
 ### Progress
 
@@ -484,7 +489,17 @@ device is offered, one device at a time, after a confirmation (see
 
 The sidebar leads with one status: **Up to date**, **Update available**, a running
 install, a failed one with the hub's error, or **No update available** with the reason
-the release does not fit the device. Below it are the installed firmware and display
+the release does not fit the device. That reason also says when the hub could not read
+the firmware manifest, or has not checked since it started, so neither reads as
+**Up to date**. A check that could not read the release list shows its error under
+the versions. A failed firmware install stays until the next install starts or the
+panel reconnects with another firmware (flashed by other means); a second install
+while one runs is refused with an error instead of reported as started.
+
+While the panel is offline, or the editor could not refresh its status, the sidebar
+says so and the **Install** buttons are off: the versions are the last ones read.
+**Install updates** on the dashboard is not offered while the status could not be
+refreshed. After an install request the editor reads the status at once. Below it are the installed firmware and display
 versions, each with the latest release or the display version the firmware needs.
 An offered update turns the installed version into one badge with the version it
 updates to (`0.5.2 → 0.5.3`); a narrow card shows only the target (`→ 0.5.3`).

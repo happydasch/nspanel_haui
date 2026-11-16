@@ -7,7 +7,7 @@
  */
 
 import { html, nothing } from './lit-import.js';
-import { t } from './localize.js';
+import { t, stateNames } from './localize.js';
 import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 
 /** Override field names that can be set on any item config.
@@ -37,6 +37,50 @@ function getDomains(entityIds) {
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([d]) => d);
+}
+
+/* ── states of an entity ───────────────────────────────────────────────── */
+
+/** An attribute, or a value inside one by a path (`["forecast", 0, "condition"]`), as the hub reads it. */
+function attributeValue(attributes, attr) {
+  let path = attr;
+  if (typeof attr === 'string' && attr.startsWith('[')) {
+    try { path = JSON.parse(attr); } catch { path = attr; }
+  }
+  if (!Array.isArray(path)) return attributes?.[path];
+  let value = attributes;
+  for (const key of path) {
+    if (value == null) return undefined;
+    value = value[key];
+  }
+  return value;
+}
+
+/**
+ * The states an item can give a value of its own: the entity's current state
+ * first, then the states the display has names for, a select's options and a
+ * climate entity's modes. With a `state` attribute the item's state is that
+ * attribute, of which only the current value is known; the hub matches a
+ * text value only.
+ *
+ * @param {object} hass
+ * @param {string} entityId
+ * @param {unknown} [stateAttr] - the item's `state` field
+ * @returns {{ value: string, label: string }[]}
+ */
+export function entityStateSuggestions(hass, entityId, stateAttr = '') {
+  if (!entityId) return [];
+  const stateObj = hass?.states?.[entityId];
+  if (stateAttr !== '' && stateAttr != null) {
+    const current = attributeValue(stateObj?.attributes, stateAttr);
+    return typeof current === 'string' && current !== '' ? [{ value: current, label: '' }] : [];
+  }
+  const names = stateNames(entityId.split('.')[0], stateObj?.attributes?.device_class);
+  const lists = [stateObj?.attributes?.options, stateObj?.attributes?.hvac_modes]
+    .flatMap((list) => (Array.isArray(list) ? list : []));
+  const values = [stateObj?.state, ...Object.keys(names), ...lists, 'unavailable']
+    .filter((value) => typeof value === 'string' && value !== '');
+  return [...new Set(values)].map((value) => ({ value, label: names[value] || '' }));
 }
 
 /* ── entity picker field ───────────────────────────────────────────────── */

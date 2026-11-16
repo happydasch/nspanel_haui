@@ -54,19 +54,20 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-version dt { display: grid; min-width: 0; flex: 1 1 160px; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 8px; }
   .haui-update-version-icon { display: grid; width: 24px; height: 24px; place-items: center; color: var(--secondary-text-color); --mdc-icon-size: 20px; }
   /* Name and badges wrap as words, so a badge that moves to the next line starts at the name's edge. */
-  .haui-update-version-name { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--haui-text-body); font-weight: 500; overflow-wrap: anywhere; }
+  .haui-update-version-name { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--haui-text-label); font-weight: 500; overflow-wrap: anywhere; }
   .haui-update-version-name .haui-badge { white-space: nowrap; }
   .haui-update-version-name small { flex-basis: 100%; color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 400; line-height: var(--haui-line-height-copy); }
   .haui-update-version dd { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; gap: 8px; margin: 0; }
   .haui-update-version-number { color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: var(--haui-text-caption); white-space: nowrap; }
   .haui-update-version-badge { font-family: var(--haui-mono); white-space: nowrap; }
   .haui-update-version ha-button { flex: 0 0 auto; }
+  .haui-update-stale { margin: 8px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-update-sidebar > .haui-update-error {
     margin: 0;
     padding: 8px 12px;
     border-radius: var(--haui-radius-control);
     background: var(--haui-bad-soft);
-    color: var(--haui-bad);
+    color: var(--haui-bad-text);
     font-size: var(--haui-text-label);
     line-height: var(--haui-line-height-copy);
     overflow-wrap: anywhere;
@@ -77,7 +78,7 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-header { padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
   /* The copy fills the row between the icon and the switch, which keeps the right edge. */
   .haui-update-header .haui-surface-heading-copy { min-width: 0; flex: 1 1 auto; }
-  .haui-update-header h2 { margin: 0; font-size: var(--haui-text-title); font-weight: 500; }
+  .haui-update-header h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }
   .haui-update-header p { margin: 4px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-label); line-height: var(--haui-line-height-copy); }
   .haui-update-header .haui-switch { flex: 0 0 auto; }
   .haui-update-off-note { margin: 0; padding: 12px 16px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
@@ -108,9 +109,9 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-advanced[open] > summary::before { transform: rotate(90deg); }
   .haui-update-advanced-body { display: grid; gap: 12px; padding-top: 12px; }
   .haui-update-retry { margin: 0; padding: 8px 16px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
-  .haui-update-retry.is-stopped { color: var(--error-color, #db4437); }
+  .haui-update-retry.is-stopped { color: var(--haui-bad-text); }
   .haui-update-scheduled { display: grid; gap: 8px; padding: 12px 16px; }
-  .haui-update-scheduled p { margin: 0; font-size: var(--haui-text-body); }
+  .haui-update-scheduled p { margin: 0; font-size: var(--haui-text-label); }
   .haui-update-scheduled-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .haui-update-progress { display: grid; gap: 8px; padding: 12px 16px; }
   .haui-update-steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: var(--haui-text-caption); color: var(--secondary-text-color); }
@@ -118,7 +119,7 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-progress-bar { height: 4px; border-radius: var(--haui-radius-pill); background: var(--divider-color, #e0e0e0); overflow: hidden; }
   .haui-update-progress-bar span { display: block; height: 100%; width: var(--haui-update-progress, 0%); background: var(--primary-color, #03a9f4); }
   .haui-update-progress-time { margin: 0; font-size: var(--haui-text-caption); color: var(--secondary-text-color); }
-  .haui-update-progress.is-failed .haui-update-progress-time { color: var(--error-color, #db4437); }
+  .haui-update-progress.is-failed .haui-update-progress-time { color: var(--haui-bad-text); }
   /* The install picker takes the card look of the sidebar it opens in. */
   .haui-update-sidebar .haui-update-picker { padding: 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--haui-card-background); }
 `;

@@ -235,6 +235,8 @@ class HAUIUpdateController(HAUIBase):
         self._firmware_manifest: FirmwareManifestInfo | None = None
         self._firmware_manifest_url: str | None = None
         self._firmware_manifest_error: str | None = None
+        # whether a check read the manifests since the app started
+        self._manifests_read = False
         self._tft_manifest: FirmwareManifestInfo | None = None
         self._tft_manifest_url: str | None = None
         self._tft_manifest_error: str | None = None
@@ -246,6 +248,9 @@ class HAUIUpdateController(HAUIBase):
         self._firmware_install_version: str | None = None
         self._firmware_install_at: datetime.datetime | None = None
         self._firmware_install_error: str | None = None
+        # the firmware the panel ran when the install failed: a reconnect with
+        # another one (flashed by other means) makes the error moot
+        self._firmware_install_error_firmware: str | None = None
         self._firmware_install_timer: str | None = None
         # the queued "installing" notice, removed when the install ends
         self._firmware_install_notice: Notification | None = None
@@ -542,9 +547,15 @@ class HAUIUpdateController(HAUIBase):
 
         Returns:
             str | None: A user-facing reason, or None when the manifest offers
-            this panel an update (or there is no manifest to judge).
+            this panel an update (or the hub reads no manifest for it).
         """
         if self._firmware_manifest is None:
+            # Without a manifest nothing is offered; say why instead of
+            # letting it read as "up to date".
+            if self._firmware_manifest_error:
+                return self._firmware_manifest_error
+            if not self._manifests_read:
+                return self.translate("The hub has not checked for updates yet")
             return None
         return self._firmware_variant_mismatch_reason() or self._invalid_installed_reason()
 
@@ -625,14 +636,15 @@ class HAUIUpdateController(HAUIBase):
             dict: The update state, see ``get_update_state``
         """
         if not self._updates_enabled():
-            self._firmware_install_error = "Updates are disabled for this device"
+            self._set_firmware_install_error("Updates are disabled for this device")
             self.publish_firmware_update()
             return self.get_update_state()
         if self._update_state == UPDATE_STATE_INSTALLING:
             # A TFT upload can start while the firmware is fetched; the
             # firmware install would reboot the device in the middle of it.
-            self._firmware_install_error = "Cannot install firmware during a TFT upload"
-            self.log(self._firmware_install_error, level="WARNING")
+            self._set_firmware_install_error(
+                "Cannot install firmware during a TFT upload", level="WARNING"
+            )
             self.publish_firmware_update()
             return self.get_update_state()
         self._firmware_install_ok = None
@@ -647,12 +659,12 @@ class HAUIUpdateController(HAUIBase):
         if not published:
             self._firmware_install_ok = False
             self._record_auto_result("firmware", False)
-            self._firmware_install_error = (
+            self._set_firmware_install_error(
                 "Could not send the firmware install command; the panel's firmware needs "
                 "the install_firmware_url action (0.4.3 and later), so flash the latest "
-                "firmware first"
+                "firmware first",
+                level="ERROR",
             )
-            self.log(self._firmware_install_error, level="ERROR")
             return self.get_update_state()
         self._firmware_installing = True
         self._firmware_install_version = label
@@ -766,11 +778,11 @@ class HAUIUpdateController(HAUIBase):
             return
         self._firmware_installing = False
         self._drop_firmware_install_notice()
-        self._firmware_install_error = (
+        self._set_firmware_install_error(
             f"Firmware install of {self._firmware_install_version} did not finish: the panel "
-            "did not reboot. See the device's ESPHome log for the download or flash error."
+            "did not reboot. See the device's ESPHome log for the download or flash error.",
+            level="ERROR",
         )
-        self.log(self._firmware_install_error, level="ERROR")
         self._firmware_install_ok = False
         self._record_auto_result("firmware", False)
         self.publish_firmware_update()
@@ -788,20 +800,20 @@ class HAUIUpdateController(HAUIBase):
         self._drop_firmware_install_notice()
         label = self._firmware_install_version
         if not self._rebooted_since(self._firmware_install_at):
-            self._firmware_install_error = (
+            self._set_firmware_install_error(
                 f"Firmware install of {label} failed: the panel did not reboot. See the "
-                "device's ESPHome log for the download or flash error."
+                "device's ESPHome log for the download or flash error.",
+                level="ERROR",
             )
-            self.log(self._firmware_install_error, level="ERROR")
             self._firmware_install_ok = False
             self._record_auto_result("firmware", False)
             return
         installed = (self.app.device.device_info or {}).get("yaml_version")
         if self._try_parse_version(label) is not None and not self._same_version(label, installed):
-            self._firmware_install_error = (
-                f"Firmware install of {label} failed: the panel still runs {installed}"
+            self._set_firmware_install_error(
+                f"Firmware install of {label} failed: the panel still runs {installed}",
+                level="ERROR",
             )
-            self.log(self._firmware_install_error, level="ERROR")
             self._firmware_install_ok = False
             self._record_auto_result("firmware", False)
             return
@@ -1971,12 +1983,14 @@ class HAUIUpdateController(HAUIBase):
             bool: Whether anything the update entities show changed
         """
         before = (
+            self._manifests_read,
             self._firmware_manifest,
             self._firmware_manifest_error,
             self._firmware_manifest_url,
             self._tft_manifest,
             self._tft_manifest_url,
         )
+        self._manifests_read = True
         self._firmware_manifest_url = inputs["manifest_url"]
         manifest = inputs["manifest"]
         if isinstance(manifest, dict) and self._firmware_manifest_url:
@@ -2001,6 +2015,7 @@ class HAUIUpdateController(HAUIBase):
             self._tft_manifest_url = self._firmware_manifest_url
             self._tft_manifest_error = self._firmware_manifest_error
         return before != (
+            self._manifests_read,
             self._firmware_manifest,
             self._firmware_manifest_error,
             self._firmware_manifest_url,
@@ -2093,7 +2108,14 @@ class HAUIUpdateController(HAUIBase):
             )
             return
         if self._firmware_installing:
-            on_complete(self.get_update_state())
+            # Not a failure of the install that runs, so it is not recorded;
+            # the caller must not report a second install as started.
+            on_complete(
+                {
+                    **self.get_update_state(),
+                    "firmware_install_error": "A firmware install is already running",
+                }
+            )
             return
 
         self._async_install_id += 1
@@ -2120,11 +2142,25 @@ class HAUIUpdateController(HAUIBase):
             ),
         )
 
+    def _set_firmware_install_error(self, message: str, level: str | None = None) -> None:
+        """Record why a firmware install failed, with the firmware the panel runs.
+
+        Args:
+            message: Why the install failed
+            level: The log level to log ``message`` at; None logs nothing
+        """
+        self._firmware_install_error = message
+        self._firmware_install_error_firmware = (self.app.device.device_info or {}).get(
+            "yaml_version"
+        )
+        if level is not None:
+            self.log(message, level=level)
+
     def _report_firmware_install_error(
         self, message: str, on_complete: Callable[[dict[str, Any]], None]
     ) -> None:
         """Record why a firmware install did not start and report the update state."""
-        self._firmware_install_error = message
+        self._set_firmware_install_error(message)
         self.log(f"Firmware install failed: {message}", level="WARNING")
         self.publish_firmware_update()
         on_complete(self.get_update_state())
@@ -2282,6 +2318,11 @@ class HAUIUpdateController(HAUIBase):
                 # when the install failed, yaml_version still matches the
                 # installed TFT and nothing happens.
                 self._finish_firmware_install()
+            installed = (self.app.device.device_info or {}).get("yaml_version")
+            if self._firmware_install_error and installed != self._firmware_install_error_firmware:
+                # The panel runs another firmware than when the install failed,
+                # flashed by other means: the failure no longer describes it.
+                self._firmware_install_error = None
             if self._updates_enabled():
                 self.log(f"Checking the TFT version in {self.get('on_connect_delay')} seconds")
                 self._start_timer_delay()

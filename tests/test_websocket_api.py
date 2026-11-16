@@ -37,17 +37,34 @@ class _Connection:
     def __init__(self):
         self.subscriptions = {}
         self.results = []
+        self.payloads = {}
         self.errors = []
         self.events = []
 
     def send_result(self, msg_id, result=None):
         self.results.append(msg_id)
+        self.payloads[msg_id] = result
 
     def send_error(self, msg_id, code, message):
         self.errors.append((msg_id, code))
 
     def send_message(self, message):
         self.events.append(message["event"])
+
+
+class _FakeHome:
+    def __init__(self):
+        self.viewers = {}
+
+    @property
+    def viewer_count(self):
+        return len(self.viewers)
+
+    def attach(self, viewer_id, sink):
+        self.viewers[viewer_id] = sink
+
+    def detach(self, viewer_id):
+        self.viewers.pop(viewer_id, None)
 
 
 class _FakeHost:
@@ -71,6 +88,7 @@ class _FakeHost:
         self.reset_count = 0
         self.opened = []
         self.followed = None
+        self.home = _FakeHome()
         self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
         _FakeHost.instances.append(self)
 

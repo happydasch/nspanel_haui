@@ -42,7 +42,7 @@ function revealCard(from, index) {
  *   discovered?: any[], scanning?: boolean, scanError?: string, statusError?: string|null, onScan?: () => void,
  *   onAddDevices?: (devices: any[]) => void,
  *   installable?: number, onInstallUpdates?: () => void,
- *   rollout?: any, onCancelRollout?: (device: string|null) => void,
+ *   rollout?: any, onCancelRollout?: (device: string|null) => void, onDismissRollout?: () => void,
  *   onOpenLogs?: () => void }} data
  */
 export function renderFleetView(data) {
@@ -144,10 +144,13 @@ export function renderFleetView(data) {
           })}
         </div>
         ${fleetBar({ devices: data.devices, total: data.devices.length, online })}
-        <div class="haui-device-table" role="table" aria-label=${t('Device inventory')}>
+        <div class="haui-device-table" role="table" aria-labelledby="haui-inventory-heading"
+          aria-describedby=${selectDevice ? 'haui-inventory-select-hint' : nothing}>
+          ${selectDevice ? html`<span class="haui-sr-only" id="haui-inventory-select-hint">${
+            t('Enter or Space on a row selects its device.')}</span>` : nothing}
           <div class="haui-device-row haui-device-row-head" role="row">
             <span role="columnheader">${t('Device')}</span><span role="columnheader">${t('IP address')}</span>
-            <span role="columnheader">${t('YAML')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"></span>
+            <span role="columnheader">${t('YAML')}</span><span role="columnheader">${t('TFT')}</span><span role="columnheader"><span class="haui-sr-only">${t('Actions')}</span></span>
           </div>
           ${data.devices.map((item, index) => deviceRow({
             ...item,
@@ -162,6 +165,7 @@ export function renderFleetView(data) {
       </section>`;
 
   return html`<main class="haui-dashboard-content">
+    <h1 class="haui-sr-only">${t('Dashboard')}</h1>
     <section class="haui-fleet-carousel-region" aria-label=${t('Your devices')}>
       ${cards.length ? html`<div class="haui-fleet-carousel-wrap${atStart ? '' : ' is-clipped-start'}${atEnd ? '' : ' is-clipped-end'}">
         ${cards.length > 1 ? html`
@@ -176,14 +180,14 @@ export function renderFleetView(data) {
             onClick: (event) => scrollCarousel(event, 1),
           })}
         ` : ''}
-        <div class="haui-fleet-carousel" @scroll=${onCarouselScroll}>${cards}</div>
+        <div class="haui-fleet-carousel" role="list" @scroll=${onCarouselScroll}>${cards}</div>
       </div>`
         : emptyState({
           iconName: 'devices', title: t('No devices yet'), message: t('Add a device to get started'),
           action: data.onScan, actionLabel: data.scanning ? t('Scanning...') : t('Scan for devices'),
         })}
       ${data.scanError ? html`<p class="haui-fleet-scan-error" role="alert">${data.scanError}</p>` : nothing}
-      ${data.statusError ? html`<p class="haui-fleet-scan-error" role="alert">${
+      ${data.statusError ? html`<p class="haui-fleet-scan-error" role="status">${
         t('Device status could not be refreshed: {error}').replace('{error}', data.statusError)}</p>` : nothing}
       ${discovered.length ? html`<section class="haui-discovered" aria-labelledby="haui-discovered-heading">
         <header>
@@ -193,14 +197,17 @@ export function renderFleetView(data) {
             label: t('Add All'), iconName: 'plus', onClick: () => data.onAddDevices?.(discovered),
           }) : nothing}
         </header>
-        <ul>${discovered.map((found) => html`<li>
+        <ul role="list">${discovered.map((found) => html`<li>
           <div><strong>${found.friendly_name || found.name}</strong>
             ${found.friendly_name && found.friendly_name !== found.name ? html`<span>${found.name}</span>` : nothing}</div>
           ${button({ label: t('Add'), iconName: 'plus', variant: 'primary', onClick: () => data.onAddDevices?.([found]) })}
         </li>`)}</ul>
       </section>` : nothing}
     </section>
-    ${rolloutCard({ rollout: data.rollout, devices: data.devices, onCancel: data.onCancelRollout })}
+    ${rolloutCard({
+      rollout: data.rollout, devices: data.devices,
+      onCancel: data.onCancelRollout, onDismiss: data.onDismissRollout,
+    })}
     ${data.devices.length ? html`<div class="haui-fleet-grid">
       ${inventory}
       ${eventList({ events: latest, onOpenLogs: data.onOpenLogs })}

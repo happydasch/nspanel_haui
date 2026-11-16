@@ -21,7 +21,8 @@ function fact(label, value) {
  *   action?: unknown, pending?: boolean }} stats
  */
 export function fleetSummary({ total, online, updates, version, heading, action, pending = false }) {
-  const value = (text) => (pending ? html`<span class="haui-stat-placeholder"></span>` : text);
+  const placeholder = html`<span class="haui-stat-placeholder"></span><span class="haui-sr-only">${t('Loading')}</span>`;
+  const value = (text) => (pending ? placeholder : text);
   const tone = pending ? 'neutral' : online === total ? 'success' : online ? 'warning' : 'danger';
   const health = pending ? ''
     : online === total ? t('All devices connected')
@@ -29,13 +30,14 @@ export function fleetSummary({ total, online, updates, version, heading, action,
         : t('No device connected');
   return html`<section class=${`haui-fleet-summary haui-fleet-band-${tone} ${
     pending ? 'haui-fleet-summary-pending' : ''}`}
-    aria-label=${t('Fleet overview')} aria-busy=${pending ? 'true' : 'false'}>
+    aria-busy=${pending ? 'true' : 'false'}>
     <div class="haui-fleet-band-top">
       <span class="haui-fleet-orb">${icon('lan-connect')}</span>
       <div class="haui-fleet-lead">
         <div class="haui-fleet-lead-heading">
           ${heading}
-          <strong>${pending ? html`<span class="haui-stat-placeholder"></span>` : `${online} / ${total}`}</strong>
+          <strong>${pending ? placeholder : html`<span aria-hidden="true">${online} / ${total}</span><span class="haui-sr-only">${
+            t('{online} of {total} devices connected').replace('{online}', String(online)).replace('{total}', String(total))}</span>`}</strong>
         </div>
         <span>${health}</span>
       </div>

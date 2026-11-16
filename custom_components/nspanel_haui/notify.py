@@ -13,6 +13,7 @@ from homeassistant.components.notify import NotifyEntity, NotifyEntityFeature
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from . import DOMAIN
+from .hub.esphome_helpers import lookup_device_registry_name
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -37,8 +38,13 @@ async def async_setup_entry(
             # that linking the ESPHome device adds later, making that link fail.
             # The entry reloads once the device is linked.
             continue
-        entities.append(NSPanelNotifyEntity(app, dev_name, config_entry, persistent=False))
-        entities.append(NSPanelNotifyEntity(app, dev_name, config_entry, persistent=True))
+        device_name = lookup_device_registry_name(hass, dev_name)
+        for persistent in (False, True):
+            entities.append(
+                NSPanelNotifyEntity(
+                    app, dev_name, config_entry, device_name=device_name, persistent=persistent
+                )
+            )
 
     async_add_entities(entities)
 
@@ -58,14 +64,17 @@ class NSPanelNotifyEntity(NotifyEntity):
         app: NSPanelHAUI,
         dev_name: str,
         config_entry: ConfigEntry,
+        *,
+        device_name: str,
         persistent: bool = False,
     ) -> None:
         """Initialize the notify entity.
 
         Args:
             app: The NSPanelHAUI app instance for the target device.
-            dev_name: Display name of the device.
+            dev_name: ESPHome node name of the device.
             config_entry: The HA config entry for this hub.
+            device_name: Name of the panel's ESPHome device, given to our device.
             persistent: When True, notification sound loops until dismissed.
         """
         self._app = app
@@ -79,9 +88,9 @@ class NSPanelNotifyEntity(NotifyEntity):
         else:
             self._attr_name = None  # inherit device name
 
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, dev_name)},
-        )
+        # Home Assistant names a device created without a name after the config
+        # entry, so every panel's device would be called "NSPanel HAUI Hub".
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, dev_name)}, name=device_name)
 
     async def async_send_message(self, message: str, title: str | None = None) -> None:
         """Queue the message on the app's worker without waiting for it.

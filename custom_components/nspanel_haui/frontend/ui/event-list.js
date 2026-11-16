@@ -71,6 +71,20 @@ const LEVEL_ICONS = Object.freeze({
   error: 'alert', warning: 'alert', warn: 'alert', debug: 'bug-outline',
 });
 
+/** The level a screen reader says first; sighted users read it from the icon's colour. */
+function levelLabel(level) {
+  if (level === 'error') return t('Error');
+  if (level === 'warn') return t('Warning');
+  return t('Info');
+}
+
+/** A log timestamp (`2026-11-16 10:00:00,123`) as an ISO date for `<time datetime>`, or null. */
+function isoTime(timestamp) {
+  if (!timestamp) return null;
+  const date = new Date(String(timestamp).replace(' ', 'T').replace(',', '.'));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 /** Render the latest real device log entries as a timeline. */
 /** @param {{ events: Array<{ line: string, deviceName?: string, count?: number }>, deviceName?: string, onOpenLogs?: () => void }} data */
 export function eventList({ events, deviceName, onOpenLogs }) {
@@ -85,7 +99,7 @@ export function eventList({ events, deviceName, onOpenLogs }) {
         label: t('Logs'), variant: 'quiet', className: 'haui-event-logs', onClick: onOpenLogs,
       }) : nothing}
     </header>
-    ${events.length ? html`<ol tabindex="0" aria-label=${t('Latest events')}>
+    ${events.length ? html`<ol role="list" tabindex="0" aria-label=${t('Latest events')}>
       ${events.map((event) => {
         const parsed = parseEvent(event.line);
         const level = parsed.level === 'warning' ? 'warn' : parsed.level;
@@ -94,10 +108,11 @@ export function eventList({ events, deviceName, onOpenLogs }) {
         // An exception's traceback belongs in Logs; the timeline keeps its first line.
         return html`<li class=${`haui-event-${level}`}>
           <span class="haui-event-node">${icon(LEVEL_ICONS[level] || 'info')}</span>
-          <div class="haui-event-copy"><p>${parsed.message.split('\n')[0]}</p>
-            <div class="haui-event-meta">${device ? html`<span class="haui-event-device">${device}</span>` : nothing}<time datetime=${parsed.timestamp || ''}>${
+          <div class="haui-event-copy"><p><span class="haui-sr-only">${levelLabel(level)}: </span>${parsed.message.split('\n')[0]}</p>
+            <div class="haui-event-meta">${device ? html`<span class="haui-event-device">${device}</span>` : nothing}<time datetime=${isoTime(parsed.timestamp) ?? nothing}>${
               parsed.timestamp ? relativeTime(parsed.timestamp) : t('Unknown')}</time>${count > 1
-              ? html`<span class="haui-event-repeat" title=${t('Repeated {count} times').replace('{count}', String(count))}>×${count}</span>`
+              ? html`<span class="haui-event-repeat" title=${t('Repeated {count} times').replace('{count}', String(count))}><span aria-hidden="true">×${count}</span><span class="haui-sr-only">${
+                t('Repeated {count} times').replace('{count}', String(count))}</span></span>`
               : nothing}</div></div>
         </li>`;
       })}

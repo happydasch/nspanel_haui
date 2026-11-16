@@ -17,16 +17,19 @@ Add the entities you want as **items**. For each item you can change the name, i
 
 ### Colors
 
-The tiles use the colors of the device's selected theme. You can set your own colors for:
+The tiles use the colors of the device's selected theme. Each item can set its own tile colors in the **Advanced** section of its editor:
 
-- the tile's text and icon
-- the tile's background
-- the text and background while a tile is pressed
-- the power button
+| Field | Colors |
+|-------|--------|
+| **Text color** | the tile's text and icon |
+| **Background color** | the tile's background |
+| **Pressed text color**, **Pressed background color** | the text and background while the tile is pressed |
+| **Power button color** | the power button while the item is on |
+| **Show power button** | shows a power button that turns the item on or off |
 
-Set only the colors you want to change; the others keep following the selected theme. An item's own **Color** changes the icon of that entity only.
+Set only the colors you want to change; the others keep following the selected theme. Like the item's own **Color**, which changes the icon only, each tile color can be one color or one color per state, see [Values that depend on the state](../configuration/items.md#values-that-depend-on-the-state).
 
-To remove saved colors again, open the **Theme** sidebar and clear the panel and item color overrides.
+To remove a color again, clear its field: the tile follows the theme again.
 
 ## How it behaves
 

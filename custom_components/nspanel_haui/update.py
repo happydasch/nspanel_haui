@@ -39,6 +39,7 @@ from .haui.controller.update import (
     UPDATE_STATE_ERROR,
     UPDATE_STATE_INSTALLING,
 )
+from .hub.esphome_helpers import lookup_device_registry_name
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -63,10 +64,11 @@ async def async_setup_entry(
             # create a bare device holding the identifier that the ESPHome
             # link adds later, making that link fail.
             continue
-        firmware = NSPanelFirmwareUpdate(app, dev_name, config_entry)
+        device_name = lookup_device_registry_name(hass, dev_name)
+        firmware = NSPanelFirmwareUpdate(app, dev_name, config_entry, device_name=device_name)
         _reclaim_firmware_entity_id(hass, firmware._attr_unique_id)
         entities.append(firmware)
-        entities.append(NSPanelDisplayUpdate(app, dev_name, config_entry))
+        entities.append(NSPanelDisplayUpdate(app, dev_name, config_entry, device_name=device_name))
 
     async_add_entities(entities)
 
@@ -109,18 +111,22 @@ class _NSPanelUpdate(UpdateEntity):
         app: NSPanelHAUI,
         dev_name: str,
         config_entry: ConfigEntry,
+        *,
+        device_name: str,
     ) -> None:
         """Initialize the update entity.
 
         Args:
             app: The NSPanelHAUI app instance for the target device.
-            dev_name: Display name of the device.
+            dev_name: ESPHome node name of the device.
             config_entry: The HA config entry for this hub.
+            device_name: Name of the panel's ESPHome device, given to our device;
+                without one Home Assistant names it after the config entry.
         """
         self._app = app
         self._dev_name = dev_name
         self._attr_unique_id = f"{config_entry.entry_id}_{dev_name}_{self._key}"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, dev_name)})
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, dev_name)}, name=device_name)
         self._listeners: list[Any] = []
 
     async def async_added_to_hass(self) -> None:

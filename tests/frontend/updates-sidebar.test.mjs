@@ -13,6 +13,7 @@ function element(props = {}) {
     deviceName: 'kitchen',
     entryId: 'entry1',
     deviceStatus: {
+      connected: true,
       integration_version: '0.5.0',
       device_info: { tft_version: '1.2.3', tft_required_version: '1.2.4' },
       update: { enabled: true, state: 'idle', tft_update_available: true },
@@ -164,6 +165,49 @@ test('the Updates sidebar shows update check errors', async () => {
   });
   await view._checkForUpdates();
     assert.equal(view._checkError, 'offline');
+});
+
+test('a check that could not read the releases says so instead of passing silently', async () => {
+  const events = [];
+  const view = element({
+    api: { updates: { async check() {
+      return { results: { kitchen: { check_error: 'GitHub is not reachable' } } };
+    } } },
+    _emit(name) { events.push(name); },
+  });
+  await view._checkForUpdates();
+  assert.equal(view._checkError, 'GitHub is not reachable');
+  assert.deepEqual(events, ['update-check']);
+});
+
+test('an offline panel or a status that failed to refresh offers no install', () => {
+  const installs = (props) => {
+    const root = render(element(props).render());
+    const buttons = [...root.querySelectorAll('.haui-update-version ha-button')];
+    return {
+      note: root.querySelector('.haui-update-stale[role="status"]')?.textContent.trim() || '',
+      disabled: buttons.map((button) => button.hasAttribute('disabled')),
+    };
+  };
+  const status = element().deviceStatus;
+
+  assert.deepEqual(installs({}), { note: '', disabled: [false, false] });
+  const offline = installs({ deviceStatus: { ...status, connected: false } });
+  assert.match(offline.note, /offline/);
+  assert.deepEqual(offline.disabled, [true, true]);
+  const stale = installs({ statusError: 'Connection lost' });
+  assert.match(stale.note, /could not be refreshed: Connection lost/);
+  assert.deepEqual(stale.disabled, [true, true]);
+});
+
+test('nothing offered reads as the hub\'s reason, not as up to date', () => {
+  assert.deepEqual(
+    updateSummary({ enabled: true, state: 'idle', firmware_update_reason: 'Could not read the firmware manifest' }),
+    {
+      tone: 'neutral', iconName: 'information-outline', title: 'No update available',
+      detail: 'Could not read the firmware manifest',
+    },
+  );
 });
 
 function settingsSidebar(update) {

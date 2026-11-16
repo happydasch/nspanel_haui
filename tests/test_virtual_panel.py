@@ -100,9 +100,9 @@ def env(monkeypatch):
     thread.join(timeout=2)
 
 
-def _config(extra_panels=(), *, idle_panel=None):
+def _config(extra_panels=(), *, idle_panel=None, home_panel="grid_0"):
     grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
-    device_config = {"home_panel": "grid_0"}
+    device_config = {"home_panel": home_panel}
     if idle_panel:
         device_config.update(idle_panel=idle_panel, use_auto_page=True)
     return nspanel_haui._build_config_dict(

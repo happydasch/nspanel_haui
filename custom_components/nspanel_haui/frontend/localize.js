@@ -40,6 +40,38 @@ export async function fetchTranslations(api, lang) {
   return _translations;
 }
 
+/** The state names of each domain, as the display translates them. */
+let _stateNames = {};
+
+/**
+ * Fetch the names of each domain's states for the given language. They are
+ * only suggestions in the item editor, so a failed load leaves them empty.
+ *
+ * @param {import("./api/client.js").ApiClient} api - the editor's API client
+ * @param {string} lang - language code
+ */
+export async function fetchStateNames(api, lang) {
+  try {
+    _stateNames = await api.editor.stateNames(lang);
+  } catch (err) {
+    console.warn('NSPanel HAUI: state names not loaded', err);
+    _stateNames = {};
+  }
+}
+
+/**
+ * The names of a domain's states, `{ state: name }`; a device class with names
+ * of its own (a door's open/closed) uses them.
+ *
+ * @param {string} domain
+ * @param {string} [deviceClass]
+ * @returns {Object<string, string>}
+ */
+export function stateNames(domain, deviceClass) {
+  const states = _stateNames?.[domain]?.state;
+  return (deviceClass && states?.[deviceClass]) || states?._ || {};
+}
+
 /**
  * Translate a key using the cached translation map.
  * Returns the translated string if available, otherwise the key itself.

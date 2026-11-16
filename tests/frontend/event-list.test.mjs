@@ -45,6 +45,20 @@ test('Latest events lists a repeated message once with its count, and no debug l
   assert.doesNotMatch(text, /View logs/);
 });
 
+test('a screen reader hears each event\'s level and a machine-readable time', () => {
+  const root = render(eventList({ events: [
+    { deviceName: 'Kitchen', line: '[2026-01-01 12:00:00,123] ERROR Template failed' },
+    { deviceName: 'Kitchen', line: '[2026-01-01T12:00:02Z] WARNING Entity missing' },
+    { deviceName: 'Kitchen', line: '[2026-01-01T12:00:03Z] INFO Connected' },
+  ] }));
+  const items = [...root.querySelectorAll('ol[role="list"] > li')];
+  assert.deepEqual(items.map((item) => item.querySelector('p').textContent.trim()),
+    ['Error: Template failed', 'Warning: Entity missing', 'Info: Connected']);
+  for (const time of root.querySelectorAll('time')) {
+    assert.ok(!Number.isNaN(Date.parse(time.getAttribute('datetime'))), time.getAttribute('datetime'));
+  }
+});
+
 test('empty Latest events shows a centered all-clear state and keeps Logs available', () => {
   const view = eventList({ events: [], onOpenLogs() {} });
   const text = templateText(view);

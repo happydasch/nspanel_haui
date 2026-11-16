@@ -61,7 +61,9 @@ export function deviceRow({ name, device, status, onOpen, onMenu, onSelect = nul
         className: 'haui-row-action',
         anchorKey: overlayAnchor('device-menu-row', name),
         expanded: menuOpen,
-        controls: `haui-device-menu-${name}`,
+        hasPopup: 'menu',
+        // The menu exists only while it is open.
+        controls: menuOpen ? `haui-device-menu-${name}` : undefined,
         onClick: onMenu,
       }) : ''}
     </div>

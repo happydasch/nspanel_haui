@@ -360,18 +360,44 @@ test('a running rollout lists every device with its step and can be cancelled', 
   assert.deepEqual(cancelled, ['office', null]);
 });
 
-test('a stopped rollout names the failure and offers no cancel', () => {
+test('a stopped rollout names the failure, offers no cancel and is dismissed', () => {
+  let dismissed = 0;
   const root = render(rolloutView({
     id: 1, state: 'stopped', devices: [
       { name: 'kitchen', kind: 'firmware', state: 'failed', error: 'the panel did not reboot' },
       { name: 'office', kind: 'tft', state: 'not_started', error: null },
     ],
-  }));
+  }, { onDismissRollout: () => { dismissed += 1; } }));
   const card = root.querySelector('.haui-rollout');
 
   assert.match(card.textContent, /the panel did not reboot/);
   assert.match(card.textContent, /Not started/);
   assert.equal([...card.querySelectorAll('button')].filter((button) => /Cancel/.test(button.textContent + (button.getAttribute('aria-label') || ''))).length, 0);
+  [...card.querySelectorAll('button')].find((button) => /Dismiss/.test(button.textContent)).click();
+  assert.equal(dismissed, 1);
+});
+
+test('the inventory table is named by its heading and every column has a name', () => {
+  const root = render(rolloutView(null, { onSelectDevice() {} }));
+  // The screen's own heading leads the h2 sections, as the device screen's h1 does there.
+  assert.equal(root.querySelectorAll('h1').length, 1);
+  const table = root.querySelector('[role="table"]');
+  assert.equal(table.getAttribute('aria-labelledby'), 'haui-inventory-heading');
+  assert.match(root.querySelector(`#${table.getAttribute('aria-describedby')}`).textContent, /Enter or Space/);
+  const heads = [...table.querySelectorAll('[role="columnheader"]')].map((head) => head.textContent.trim());
+  assert.ok(heads.every(Boolean), `unnamed column: ${heads}`);
+  assert.equal(root.querySelector('.haui-fleet-carousel').getAttribute('role'), 'list');
+  assert.ok([...root.querySelectorAll('.haui-device-card')].every((card) => card.getAttribute('role') === 'listitem'
+    && card.getAttribute('aria-label')));
+});
+
+test('a failed status refresh and a rollout\'s state are announced politely', () => {
+  const root = render(rolloutView({
+    id: 1, state: 'done', devices: [{ name: 'kitchen', kind: 'firmware', state: 'done', error: null }],
+  }, { statusError: 'Connection lost' }));
+  assert.equal(root.querySelector('.haui-rollout-summary').getAttribute('role'), 'status');
+  const refresh = [...root.querySelectorAll('[role="status"]')].find((node) => /could not be refreshed/.test(node.textContent));
+  assert.ok(refresh, 'the failed refresh is a polite status, not an alert');
 });
 
 test('no rollout card without a rollout', () => {

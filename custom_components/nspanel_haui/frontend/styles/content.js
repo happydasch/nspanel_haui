@@ -145,7 +145,7 @@ export const contentStyles = css`
   }
 
   .haui-update-error {
-    color: var(--error-color, #db4437);
+    color: var(--haui-bad-text);
     font-size: var(--haui-text-caption);
     margin: 4px 0 0;
   }
@@ -178,7 +178,7 @@ export const contentStyles = css`
   .haui-dialog-header-title {
     flex: 1;
     min-width: 0;
-    font-size: var(--haui-text-display);
+    font-size: var(--haui-text-headline);
     font-weight: 400;
     color: var(--primary-text-color, #212121);
     overflow: hidden;

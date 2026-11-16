@@ -159,7 +159,7 @@ class HAUIESPHomeController(HAUIBase):
         return list(self._page_commands.values())
 
     def _record_page_command(self, command: str) -> None:
-        target = _command_target(command)
+        target = command_target(command)
         self._page_commands.pop(target, None)
         self._page_commands[target] = command
 
@@ -197,7 +197,7 @@ class HAUIESPHomeController(HAUIBase):
         self._event_callback(event)
 
 
-def _command_target(command: str) -> str:
+def command_target(command: str) -> str:
     """What a display command sets: a later command with the same target replaces it."""
     eq = command.find("=")
     if eq > 0:

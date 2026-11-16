@@ -3,7 +3,7 @@ import { css } from '../lit-import.js';
 export const deviceLayoutStyles = css`
   .haui-device-screen { display: flex; flex-direction: column; gap: 16px; }
   .haui-device-head { display: flex; align-items: center; gap: 12px 12px; min-width: 0; }
-  .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-display); font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-headline); font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
   .haui-back-button { flex: 0 0 auto; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--secondary-text-color); transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
   /* Outranks the generic grey icon-button hover, which clashed with the blue border and arrow. */
   .haui-back-button:hover:not(:disabled) { border-color: var(--primary-color); color: var(--primary-color); background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color, #fff)); }
@@ -23,7 +23,7 @@ export const deviceLayoutStyles = css`
   .haui-device-rail-item.active { border-color: var(--primary-color); background: var(--primary-color); color: var(--text-primary-color, #fff); }
   .haui-device-rail-item.active .haui-status-dot { background: currentColor; }
   .haui-device-rail-item > span:nth-of-type(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-device-rail-update { color: var(--warning-color); }
+  .haui-device-rail-update { color: var(--haui-warn-text); }
   /* Both columns stick to the viewport; the taller one sets the scrolling range for the shorter one.
      In one column, the lead sits above the workspace and the side stack below. */
   .haui-device-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr); grid-template-areas: "workspace side"; align-items: start; gap: 16px 20px; }

@@ -122,6 +122,49 @@ test('a rejected save leaves the state unchanged and reports the server message'
   assert.deepEqual(store.getState().devices.byName.kitchen.config, {});
 });
 
+test('moving a panel commits both devices from the hub and names a changed key', async () => {
+  const moves = [];
+  const toasts = [];
+  const store = seededStore({
+    onToast: (message, kind) => toasts.push([kind, message]),
+    client: {
+      panels: {
+        load: async () => ({ devices: {} }),
+        move: async (entryId, name, key, to) => {
+          moves.push({ entryId, name, key, to });
+          return { key: 'clock_0', panels: { kitchen: [], office: [{ key: 'clock_0', type: 'clock' }] } };
+        },
+      },
+    },
+  });
+
+  const key = await store.actions.movePanel({ key: 'a', to: 'office' });
+
+  assert.equal(key, 'clock_0');
+  assert.deepEqual(moves, [{ entryId: 'entry1', name: 'kitchen', key: 'a', to: 'office' }]);
+  assert.deepEqual(store.getState().devices.byName.kitchen.panels, []);
+  assert.deepEqual(store.getState().devices.byName.office.panels, [{ key: 'clock_0', type: 'clock' }]);
+  assert.equal(store.getState().hub.saving, false);
+  assert.deepEqual(toasts, [['success', 'Panel moved to Office as clock_0']]);
+});
+
+test('a refused move keeps both devices as they were', async () => {
+  const store = seededStore({
+    client: {
+      panels: {
+        load: async () => ({ devices: {} }),
+        move: async () => { throw new Error('Panel "a" not found on "kitchen"'); },
+      },
+    },
+  });
+
+  assert.equal(await store.actions.movePanel({ key: 'a', to: 'office' }), null);
+  assert.equal(await store.actions.movePanel({ key: 'a', to: 'garage' }), null);
+  assert.deepEqual(store.getState().devices.byName.kitchen.panels, [{ key: 'a', type: 'clock' }]);
+  assert.deepEqual(store.getState().devices.byName.office.panels, []);
+  assert.equal(store.getState().hub.error, 'Panel "a" not found on "kitchen"');
+});
+
 test('device settings save only the config and commit the server response', async () => {
   const requests = [];
   const store = seededStore({
@@ -402,6 +445,27 @@ test('the Fleet poll reads the rollout', async () => {
   });
 
   store.actions.startAllStatusPolling();
+  await settle();
+  store.actions.stopAllStatusPolling();
+
+  assert.equal(store.getState().hub.rollout.state, 'running');
+});
+
+test('the Fleet poll notices a rollout another tab started after an idle one', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let rollout = { id: 0, state: 'idle', devices: [] };
+  const store = seededStore({
+    client: {
+      panels: { load: async () => ({ devices: {} }) },
+      updates: { rollout: async () => rollout },
+    },
+  });
+
+  store.actions.startAllStatusPolling();
+  await settle();
+  assert.equal(store.getState().hub.rollout.state, 'idle');
+  rollout = { id: 1, state: 'running', devices: [] };
+  t.mock.timers.tick(5000);
   await settle();
   store.actions.stopAllStatusPolling();
 

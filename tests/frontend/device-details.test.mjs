@@ -187,6 +187,18 @@ test('Device details mark reported values as stale while the device is offline',
   assert.match(text, /Disconnected/);
 });
 
+test('Device details say a failed status refresh and mark the facts as the last ones read', () => {
+  const root = render(deviceDetails({
+    name: 'kitchen', device: { friendlyName: 'Kitchen' },
+    status: { connected: true, device_info: { ip: '192.0.2.11' } },
+    statusError: 'Connection lost',
+    onSettings() {}, onUpdates() {}, onLogs() {},
+  }));
+  assert.match(root.querySelector('.haui-device-details [role="status"]').textContent,
+    /could not be refreshed: Connection lost/);
+  assert.equal(root.querySelector('.haui-diag-tiles').dataset.stale, 'true');
+});
+
 test('An offline device says when it was last seen, never the raw connection state', () => {
   const since = new Date(Date.now() - 5 * 60_000).toISOString();
   const offline = templateText(deviceDetails({

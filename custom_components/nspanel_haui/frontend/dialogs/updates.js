@@ -187,6 +187,7 @@ class UpdatesSidebar extends HauiDialog {
   static get properties() {
     return {
       deviceStatus: { type: Object },
+      statusError: { type: String },
       deviceName: { type: String },
       entryId: { type: String },
       api: { type: Object },
@@ -201,6 +202,8 @@ class UpdatesSidebar extends HauiDialog {
   constructor() {
     super();
     this.deviceStatus = null;
+    /** Why the last status poll failed; the status shown is then the last one read. */
+    this.statusError = null;
     this.deviceName = null;
     this.entryId = null;
     this.config = null;
@@ -268,7 +271,11 @@ class UpdatesSidebar extends HauiDialog {
     this._actionBusy = true;
     this._checkError = null;
     try {
-      await this.api.updates.check(this.entryId, this.deviceName);
+      const result = await this.api.updates.check(this.entryId, this.deviceName);
+      // The hub answers a check that could not read the releases with an error of
+      // its own; a newer check that replaced this one is not a failure.
+      const checkError = result?.results?.[this.deviceName]?.check_error;
+      if (checkError && checkError !== 'check superseded') this._checkError = checkError;
       this._emit('update-check');
     } catch (error) {
       this._checkError = error.message || t('Failed to check for updates');
@@ -698,12 +705,18 @@ class UpdatesSidebar extends HauiDialog {
     const requiredTft = info.tft_required_version;
     const updatesEnabled = update.enabled !== false;
     const installing = update.firmware_installing || update.state === 'checking' || update.state === 'installing';
+    // The hub installs only on a connected panel, and a status that failed to
+    // refresh may describe one that went offline.
+    const stale = status.connected !== true || Boolean(this.statusError);
     return html`<div class="haui-update-sidebar">
       <section class="haui-surface haui-update-overview">
         ${this._renderStatus(updateSummary(update))}
+        ${stale ? html`<p class="haui-update-stale" role="status">${this.statusError
+          ? t('Device status could not be refreshed: {error}').replace('{error}', this.statusError)
+          : t('The panel is offline. These are the last versions it reported; install once it is back.')}</p>` : nothing}
         ${this._renderVersions({
           info, update, requiredTft, updatesEnabled,
-          installDisabled: installing || this._actionBusy,
+          installDisabled: installing || this._actionBusy || stale,
         })}
         ${this._renderCheckAction(updatesEnabled, status.integration_version)}
       </section>

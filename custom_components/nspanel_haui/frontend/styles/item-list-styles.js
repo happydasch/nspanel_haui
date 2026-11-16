@@ -84,7 +84,7 @@ export const itemListStyles = css`
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: var(--haui-text-body);
+    font-size: var(--haui-text-label);
     font-weight: 500;
   }
   .haui-item-row-name {
@@ -128,7 +128,7 @@ export const itemListStyles = css`
     --mdc-icon-size: 18px;
     color: var(--secondary-text-color, #666);
   }
-  .haui-item-row-remove:hover { color: var(--error-color, #db4437); }
+  .haui-item-row-remove:hover { color: var(--haui-bad-text); }
 
   /* ── advanced fold (details/summary) ── */
   .haui-collapsible-title {
@@ -184,6 +184,45 @@ export const itemListStyles = css`
     padding-top: 12px;
     border-top: 1px solid var(--divider-color, #e0e0e0);
   }
+
+  /* ── one value or a value per state ── */
+  /* The label keeps its row; the switch between one value and a value per
+     state sits at its right edge, compact like a label. */
+  .haui-field-label-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 8px;
+    margin-bottom: 4px;
+  }
+  .haui-item-edit-inline .haui-field-label-row > label { margin-bottom: 0; }
+  .haui-state-mode { margin-left: auto; }
+  .haui-state-mode .haui-segmented { padding: 0; gap: 0; }
+  .haui-state-mode .haui-segmented-option {
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: var(--haui-text-caption);
+  }
+  .haui-state-value-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  /* State, its value and the remove button on one line; the value's template
+     result, presets and the row's warning go under the state and the value. */
+  .haui-state-value {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+    align-items: start;
+    gap: 4px 8px;
+  }
+  .haui-state-value > .haui-icon-button { width: 32px; height: 32px; --mdc-icon-size: 18px; }
+  .haui-state-value-control { min-width: 0; }
+  .haui-state-value-warning { grid-column: 1 / -1; margin-top: 0; }
 
   /* ── list items editor ───────────── */
   .haui-item-list-items {

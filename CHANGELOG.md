@@ -17,13 +17,18 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Added
 
+- Dashboard card (`custom:nspanel-haui-card`): a device's home panel or its live screen on any dashboard, view-only, for every signed-in user ([Dashboard Card](docs/user/dashboard-card.md)).
 - Editor: a dashboard device can be selected from its **Device inventory** row or the name strip under its card, which highlights both (a row also scrolls the cards to it); selecting it again clears it.
 - Editor: the **Schedule** sidebar shows the settings that apply outside its entries (brightness, dimming, display off, notification sound) read-only, with a link to the device settings.
+- Editor: **Move to** *device* in a panel's menu moves the panel to another device in one save; it keeps its key unless that device uses it.
+- Editor: an item's name, icon, color and value, and a grid tile's colors, switch between **One value** and **Per state**: a row per entity state, which the state field suggests, instead of typed JSON.
 
 ### Changed
 
 - Editor: entities go by their Home Assistant name without the device name in front (entity picker, item lists, **Diagnostics**, the preview's entity tooltip); the picker still finds them by the full name.
 - Editor: every switch sits at the right end of its row, after its label.
+- Editor: titles are smaller and the type has clear levels: the title bar and page titles 20px (as in Home Assistant), sidebar titles 18px, card and section titles 16px, names and values in them 14px.
+- Editor: the panel list says "1 panel" instead of "1 panels".
 - Editor: the **Update settings** card picks the channel from a list and turns updates and automatic firmware installs on with switches, like the other forms.
 - Editor: the device settings show one field per row, with the **Home panel** and **Idle panels** pickers at the right edge like the switches.
 - Updates: an offered update shows as one badge from the installed to the new version, the integration's version moved to the end of the **Check for updates** row, and a narrow sidebar shortens the labels.
@@ -44,6 +49,12 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Editor: with **Show entities in the preview** on, the Live preview names the entity under the mouse too; it raised an error on every mouse move.
 - Editor: with **Show entities in the preview** on, a widget whose entity Home Assistant does not have is named too, and the tooltip says when an entity is not found or unavailable.
 - Updates: the reasons a firmware update is withheld or refused (build variant mismatch, missing or invalid firmware version) and the panel's "firmware is installing" notice are translated.
+- Integration: the device that holds a panel's notify and update entities is named after the panel instead of "NSPanel HAUI Hub".
+- Updates: a firmware manifest the hub could not read, or no check since Home Assistant started, reads as the reason nothing is offered instead of **Up to date**, and **Check for updates** shows an error from the release list.
+- Updates: an offline panel, or a status the editor could not refresh, offers no **Install**; the device screen and the Updates sidebar say the values are the last ones read.
+- Updates: a failed firmware install clears once the panel reconnects with another firmware, and a second install while one runs is refused instead of reported as started.
+- Updates: the dashboard notices a rollout another editor started, a finished rollout can be dismissed, and a rollout no longer waits on a device that was disabled or reloaded meanwhile.
+- Editor: the dashboard meets WCAG AA contrast for status text, badges, icons and the primary button in light and dark themes, and a screen reader hears event levels, the page heading, named device cards and table columns, and rollout changes.
 
 ## [0.5.1] — 2026-11-14
 

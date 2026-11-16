@@ -19,7 +19,7 @@ export function deviceCard({ name, device, status, preview, updates = false, dis
       <span class="haui-device-card-name">${displayName}</span>
       ${disabled ? badge(t('Disabled'), 'neutral') : ''}`;
   return html`<article class=${`haui-device-card ${portrait ? 'is-portrait' : ''} ${selected ? 'is-selected' : ''} ${dragging ? 'is-dragging' : ''} ${dropTarget ? 'is-drop-target' : ''}`}
-    aria-current=${selected ? 'true' : nothing}
+    role="listitem" aria-label=${displayName} aria-current=${selected ? 'true' : nothing}
     @dragover=${onDragOver ?? nothing} @dragleave=${onDragLeave ?? nothing} @drop=${onDrop ?? nothing}>
     <div class="haui-device-card-cover">
       <button type="button" class="haui-device-card-select" aria-label=${t('Open device {name}').replace('{name}', displayName)} @click=${onOpen}>

@@ -142,6 +142,22 @@ class UpdateRollout:
             self._cancelled = True
         return self.snapshot()
 
+    def dismiss(self) -> dict[str, Any]:
+        """Forget a finished rollout, so the editor stops showing it.
+
+        A running rollout stays: its devices are still held.
+        """
+        if self._state != "running" and not self._starting:
+            self._state = "idle"
+            self._started_at = None
+            self._devices = []
+        return self.snapshot()
+
+    @property
+    def running(self) -> bool:
+        """Whether the rollout is starting or installing."""
+        return self._state == "running" or self._starting
+
     async def async_stop(self) -> None:
         """Stop the rollout (entry unload) and release every device it holds."""
         if self._task is not None and not self._task.done():
@@ -192,10 +208,12 @@ class UpdateRollout:
         if app is None:
             raise _InstallFailed("The device is no longer running")
         snapshot = await app.async_update_snapshot()
-        if snapshot["firmware"]["available"]:
-            result = await app.async_install_firmware(None, None)
-            if result.get("firmware_install_error"):
-                raise _InstallFailed(result["firmware_install_error"])
+        if snapshot["firmware"]["available"] or snapshot["firmware"]["installing"]:
+            # An install the device started before its hold is waited for.
+            if not snapshot["firmware"]["installing"]:
+                result = await app.async_install_firmware(None, None)
+                if result.get("firmware_install_error"):
+                    raise _InstallFailed(result["firmware_install_error"])
             snapshot = await self._wait(
                 app,
                 lambda s: s["connected"] and not s["firmware"]["installing"],
@@ -220,6 +238,7 @@ class UpdateRollout:
         # here instead of holding it forever.
         give_up = deadline + INSTALL_TIMEOUT_SECONDS + _TIMEOUT_SLACK_SECONDS
         while True:
+            self._ensure_running(app)
             snapshot = await app.async_update_snapshot()
             display = snapshot["display"]
             if display["state"] in _BUSY_DISPLAY_STATES:
@@ -263,6 +282,7 @@ class UpdateRollout:
         deadline = self._clock() + timeout
         while True:
             await self._sleep(self._poll)
+            self._ensure_running(app)
             snapshot = await app.async_update_snapshot()
             if finished(snapshot):
                 return snapshot
@@ -270,6 +290,11 @@ class UpdateRollout:
                 raise _InstallFailed(f"{what} timed out: the device did not report back")
 
     # helpers
+
+    def _ensure_running(self, app: Any) -> None:
+        """Fail the device whose app stopped: it was disabled, removed or reloaded."""
+        if not any(running is app for running in self._apps().values()):
+            raise _InstallFailed("The device is no longer running")
 
     def _apps(self) -> dict[str, Any]:
         apps = self._hass.data.get(DOMAIN, {}).get(self._entry_id)

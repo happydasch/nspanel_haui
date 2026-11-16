@@ -20,6 +20,8 @@ class TranslationsView(HomeAssistantView):
         Query param ``flat`` (optional, defaults to ``1``) controls whether the
         response is a flat ``{text_key: translation}`` mapping.  When ``0`` the
         full JSON structure (including ``component`` section) is returned.
+        ``section=component`` returns only the ``component`` section: the
+        state names per domain, which the editor offers as an item's states.
 
         Falls back to English when the requested language is not available.
         """
@@ -32,6 +34,8 @@ class TranslationsView(HomeAssistantView):
         except ValueError as exc:
             return error(self, str(exc), 400)
 
+        if request.query.get("section") == "component":
+            return self.json(translations.get("component", {}))
         if flat == "1" or flat is True:
             return self.json(translations.get("text", {}))
         return self.json(translations)

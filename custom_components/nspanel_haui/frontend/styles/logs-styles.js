@@ -50,9 +50,9 @@ export const logsStyles = css`
   }
   .haui-log-device { margin-inline-end: 4px; color: var(--secondary-text-color); font-weight: 500; }
   .haui-log-warning { border-inline-start-color: var(--haui-warn); background: color-mix(in srgb, var(--haui-warn) 7%, transparent); }
-  .haui-log-warning .haui-log-tag { background: var(--haui-warn-soft); color: var(--haui-warn); }
+  .haui-log-warning .haui-log-tag { background: var(--haui-warn-soft); color: var(--haui-warn-text); }
   .haui-log-error { border-inline-start-color: var(--haui-bad); background: color-mix(in srgb, var(--haui-bad) 8%, transparent); }
-  .haui-log-error .haui-log-tag { background: var(--haui-bad-soft); color: var(--haui-bad); }
+  .haui-log-error .haui-log-tag { background: var(--haui-bad-soft); color: var(--haui-bad-text); }
   .haui-log-debug .haui-log-text { color: var(--secondary-text-color); }
   .haui-log-debug .haui-log-tag { background: var(--haui-surface-soft); color: var(--secondary-text-color); }
 `;

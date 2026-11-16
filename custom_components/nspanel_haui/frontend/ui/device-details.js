@@ -25,20 +25,21 @@ import { deviceConnectionState } from '../device-status.js';
  *   onYamlImport?: () => void, onYamlExport?: () => void,
  *   showEntities?: boolean, onShowEntities?: (show: boolean) => void,
  *   previewTools?: import('./device-diagnostics.js').PreviewTools|null,
- *   onOpenPage?: (() => void)|null }} data
+ *   onOpenPage?: (() => void)|null, statusError?: string|null }} data
  *   `onOpenPage` shows the device's current page in the simulated preview; the
- *   Current page tile runs it on a click.
+ *   Current page tile runs it on a click. `statusError` says why the last
+ *   status poll failed: the facts shown are then the last ones read.
  */
 export function deviceDetails({
   name, status, hass, onLogs, onUpdates,
   onCopyReport,
   detailsExpanded = true, onToggleDetails, diagnosticsExpanded = false, onToggleDiagnostics,
   yamlExpanded = false, onToggleYaml, onYamlImport, onYamlExport,
-  showEntities = false, onShowEntities, previewTools = null, onOpenPage = null,
+  showEntities = false, onShowEntities, previewTools = null, onOpenPage = null, statusError = null,
 }) {
   const info = status?.device_info || {};
   const { connected, tone, label: stateLabel } = deviceConnectionState(status);
-  const stale = Boolean(status) && !connected;
+  const stale = Boolean(status) && (!connected || Boolean(statusError));
   const unknown = t('Unknown');
   const recency = connected && Number.isFinite(info.connection_uptime)
     ? t('Online for {uptime}').replace('{uptime}', uptimeLabel(info.connection_uptime))
@@ -70,6 +71,8 @@ export function deviceDetails({
     actions: expandToggle(detailsExpanded, onToggleDetails),
     onToggle: onToggleDetails,
     body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' is-stale' : ''}`} data-stale=${stale ? 'true' : 'false'}>${tiles}</div>${
+      statusError ? html`<p class="haui-details-stale" role="status">${
+        t('Device status could not be refreshed: {error}').replace('{error}', statusError)}</p>` : nothing}${
       button({ label: t('Updates'), iconName: 'update', onClick: onUpdates, className: 'haui-details-updates' })}` : undefined,
   })}${model ? surface({
     title: t('Diagnostics'),

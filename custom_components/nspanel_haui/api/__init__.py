@@ -12,6 +12,7 @@ from typing import Any
 from .config import (
     DeviceConfigView,
     DeviceOrderView,
+    DevicePanelMoveView,
     DevicePanelsView,
     DeviceSettingsView,
     DeviceYamlView,
@@ -54,6 +55,7 @@ VIEWS = (
     DeviceConfigView,
     DeviceSettingsView,
     DevicePanelsView,
+    DevicePanelMoveView,
     DeviceStatusView,
     NotificationsView,
     DeviceRefreshDisplayView,

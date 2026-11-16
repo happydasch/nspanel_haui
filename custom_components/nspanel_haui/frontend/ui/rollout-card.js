@@ -36,13 +36,13 @@ function rolloutSummary(state) {
 /**
  * Fleet's update rollout: each device with its state, the one installing with
  * its progress, and cancel controls for the devices still queued (the one
- * installing cannot be stopped).
+ * installing cannot be stopped). A finished rollout stays until it is dismissed.
  *
  * @param {{ rollout: Rollout|null|undefined,
  *   devices: Array<{ name: string, device?: { friendlyName?: string }, status?: any }>,
- *   onCancel?: (device: string|null) => void }} options
+ *   onCancel?: (device: string|null) => void, onDismiss?: () => void }} options
  */
-export function rolloutCard({ rollout, devices, onCancel }) {
+export function rolloutCard({ rollout, devices, onCancel, onDismiss }) {
   if (!rollout || rollout.state === 'idle' || !rollout.devices.length) return nothing;
   const running = rollout.state === 'running';
   /** @param {string} name */
@@ -50,8 +50,8 @@ export function rolloutCard({ rollout, devices, onCancel }) {
   /** @param {string} name */
   const nameOf = (name) => deviceOf(name)?.device?.friendlyName || name;
   const queued = rollout.devices.some((entry) => entry.state === 'queued');
-  const body = html`<p class="haui-rollout-summary">${rolloutSummary(rollout.state)}</p>
-    <ol class="haui-rollout-list">${rollout.devices.map((entry) => {
+  const body = html`<p class="haui-rollout-summary" role="status">${rolloutSummary(rollout.state)}</p>
+    <ol class="haui-rollout-list" role="list">${rollout.devices.map((entry) => {
       const [label, tone] = deviceState(entry.state);
       const update = deviceOf(entry.name)?.status?.update || {};
       const name = nameOf(entry.name);
@@ -76,6 +76,9 @@ export function rolloutCard({ rollout, devices, onCancel }) {
     })}</ol>
     ${running && queued && onCancel ? html`<div class="haui-rollout-actions">${button({
       label: t('Cancel remaining'), iconName: 'close', onClick: () => onCancel(null),
+    })}</div>` : nothing}
+    ${!running && onDismiss ? html`<div class="haui-rollout-actions">${button({
+      label: t('Dismiss'), iconName: 'check', onClick: onDismiss,
     })}</div>` : nothing}`;
   return surface({ title: t('Update rollout'), body, className: 'haui-rollout' });
 }

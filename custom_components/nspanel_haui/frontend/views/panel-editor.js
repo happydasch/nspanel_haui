@@ -240,8 +240,6 @@ class PanelEditor extends HauiDialog {
             <summary>${t('Advanced')}</summary>
             <div class="haui-config-section-body">
 
-              ${panelThemeField}
-
               ${sysPanel?.hub_driven ? nothing : html`
               ${sysPanel ? nothing : renderField({
                 id: 'fld-key',
@@ -298,6 +296,8 @@ class PanelEditor extends HauiDialog {
                 hint: t('Close the panel and go back after this many seconds. 0 = stay open.'),
               })}
               `}
+
+              ${panelThemeField}
             </div>
           </details>
 

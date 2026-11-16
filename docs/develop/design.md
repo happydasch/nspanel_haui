@@ -25,7 +25,7 @@ flowchart TD
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.
 
-The display has eight fonts; the font ID (as used by `.font=` commands and the alarm keypad font option) grows with the size.
+The display has eight fonts; the font ID (as used by `.font=` commands and the alarm keypad font option) grows with the size. These are the display's fonts only: the editor's own text sizes are in [Frontend → Text sizes](frontend.md#text-sizes).
 
 Fonts for text (Roboto Regular)
 

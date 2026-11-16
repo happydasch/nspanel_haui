@@ -9,7 +9,7 @@ import '../iconset.js';
 
 import { LitElement, html, nothing } from '../lit-import.js';
 import { clone, isPortraitModel } from '../constants.js';
-import { fetchTranslations, t, getLanguage } from '../localize.js';
+import { fetchTranslations, fetchStateNames, t, getLanguage } from '../localize.js';
 import { haStyle, haStyleDialog, editorContainerStyles, editorStyles } from '../styles.js';
 import { createApiClient } from '../api/client.js';
 import { createStore } from '../store/store.js';
@@ -1021,6 +1021,8 @@ class NSPanelEditor extends LitElement {
   /** Connected devices with an offered update the hub may install. */
   _updatableDevices() {
     const state = this._store.getState();
+    // A status that failed to refresh may describe a device that went offline.
+    if (state.hub.statusError) return [];
     return state.devices.order.filter((name) => {
       const status = state.devices.byName[name].status;
       const update = status?.update;
@@ -1084,7 +1086,7 @@ class NSPanelEditor extends LitElement {
     // Translations first: panel types carry translated labels, and a failed
     // load is reported through t(), which is only translated once this resolves.
     await fetchTranslations(this.api, lang);
-    await this._loadPanelTypes();
+    await Promise.all([this._loadPanelTypes(), fetchStateNames(this.api, lang)]);
     // t() reads a module-level map, so Lit does not know the text changed.
     this.requestUpdate();
   }
@@ -1148,6 +1150,7 @@ class NSPanelEditor extends LitElement {
         onOpenLogs: () => this._openLogs(null),
         rollout: state.hub.rollout,
         onCancelRollout: (device) => this._store.actions.cancelRollout(device),
+        onDismissRollout: () => this._store.actions.dismissRollout(),
       })}
       ${this._renderNotificationsView()}
       <nspanel-dialog-confirm
@@ -1321,6 +1324,7 @@ class NSPanelEditor extends LitElement {
       : deviceDetails({
             name,
             status,
+            statusError: this._deviceStatusError,
             hass: this.hass,
             onLogs: () => this._openLogs(name),
             onUpdates: () => this._openUpdates(name),
@@ -1612,6 +1616,17 @@ class NSPanelEditor extends LitElement {
     const renderKey = previewRenderKey(context);
     const descriptorFor = (panel) => this._panelTypes.find((type) => type.type_key === panel.type);
     const nameOf = (panel) => panel.title || descriptorFor(panel)?.label || panel.key || t('Unnamed panel');
+    // A panel moves to any other device of the hub, enabled or not.
+    const otherDevices = state.devices.order
+      .filter((name) => name !== context.device && state.devices.byName[name])
+      .map((name) => ({ name, label: state.devices.byName[name].friendlyName || name }));
+    const moveItems = (panel) => (otherDevices.length
+      ? ['divider', ...otherDevices.map((target) => ({
+        label: t('Move to {device}').replace('{device}', target.label),
+        iconName: 'folder-move-outline',
+        onSelect: () => Crud.movePanelToDevice(this, panel.key, target.name),
+      }))]
+      : []);
 
     /**
      * @param {Array} list
@@ -1634,6 +1649,7 @@ class NSPanelEditor extends LitElement {
         menu: [
           { label: t('Edit'), iconName: 'edit', onSelect: () => this._openEdit(index) },
           { label: t('Duplicate'), iconName: 'content-copy', onSelect: () => Crud.duplicatePanel(this, panel.key) },
+          ...moveItems(panel),
           'divider',
           {
             label: isNavigation ? t('Hide from navigation') : t('Show in navigation'),
@@ -1683,7 +1699,9 @@ class NSPanelEditor extends LitElement {
       groups: narrowed([
         {
           id: 'navigation',
-          title: t('Navigation ({count} panels)').replace('{count}', count(grouped.navigation)),
+          title: grouped.navigation.length === 1
+            ? t('Navigation (1 panel)')
+            : t('Navigation ({count} panels)').replace('{count}', count(grouped.navigation)),
           hint: t('Drag to reorder or move between groups'),
           emptyMessage: t('Drop a panel here to show it in navigation.'),
           dropEnabled: true,
@@ -1691,7 +1709,9 @@ class NSPanelEditor extends LitElement {
         },
         {
           id: 'hidden',
-          title: t('Hidden ({count} panels)').replace('{count}', count(grouped.hidden)),
+          title: grouped.hidden.length === 1
+            ? t('Hidden (1 panel)')
+            : t('Hidden ({count} panels)').replace('{count}', count(grouped.hidden)),
           hint: t('Reached from other panels, not the header'),
           emptyMessage: t('Drop a panel here to hide it from navigation.'),
           dropEnabled: true,
@@ -1699,7 +1719,9 @@ class NSPanelEditor extends LitElement {
         },
         {
           id: 'popups',
-          title: t('Popups ({count} panels)').replace('{count}', count(grouped.popups)),
+          title: grouped.popups.length === 1
+            ? t('Popups (1 panel)')
+            : t('Popups ({count} panels)').replace('{count}', count(grouped.popups)),
           hint: t('Popups this device extends'),
           emptyMessage: t('Every popup is the built-in one. Extend one from Add panel.'),
           dropEnabled: false,
@@ -1969,15 +1991,26 @@ class NSPanelEditor extends LitElement {
     const device = state.devices.byName[name];
     return html`<nspanel-updates-sidebar
       .hass=${this.hass} .api=${this.api} .open=${true}
-      .deviceStatus=${device.status} .deviceName=${name} .entryId=${this.entryId}
+      .deviceStatus=${device.status} .statusError=${this._store.getState().hub.statusError}
+      .deviceName=${name} .entryId=${this.entryId}
       .config=${device.config}
       @dialog-closed=${() => this._closeUpdates()}
       @update-check=${() => this._store.actions.pollSelectedStatus()}
       @save-update-settings=${(event) => this._saveUpdateSettings(event)}
-      @update-tft=${(event) => DeviceEvents.installTft(this, event)}
-      @update-firmware=${(event) => DeviceEvents.installFirmware(this, event)}
+      @update-tft=${(event) => this._installThenRefresh(DeviceEvents.installTft(this, event))}
+      @update-firmware=${(event) => this._installThenRefresh(DeviceEvents.installFirmware(this, event))}
       @update-control=${(event) => this._controlUpdate(name, event.detail)}
     ></nspanel-updates-sidebar>`;
+  }
+
+  /**
+   * Read the status as soon as an install request is answered, so the sidebar
+   * shows the install running (and stops offering it) without waiting for the
+   * next poll. @param {Promise<unknown>} request
+   */
+  async _installThenRefresh(request) {
+    await request;
+    await this._store.actions.pollSelectedStatus();
   }
 
   /** Open the Updates sidebar on the device's screen. @param {string} deviceName */

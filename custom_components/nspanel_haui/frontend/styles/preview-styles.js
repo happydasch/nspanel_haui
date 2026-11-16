@@ -44,7 +44,7 @@ export const previewStyles = css`
     padding: 12px;
     border-radius: var(--haui-radius-control);
     background: color-mix(in srgb, var(--error-color, #db4437) 14%, var(--card-background-color, #fff));
-    color: var(--error-color, #db4437);
+    color: var(--haui-bad-text);
     font-size: var(--haui-text-label);
   }
   .haui-preview-stage .haui-empty-state { color: var(--secondary-text-color); }

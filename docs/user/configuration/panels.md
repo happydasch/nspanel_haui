@@ -17,12 +17,12 @@ Every panel has the standard fields below. Each panel type adds its own options,
 |-------|-----|-------------|
 | **Type** | `type` | The panel type, for example `clock`, `grid` or `light`. You choose it when you add the panel. It cannot be changed later: delete the panel and add a new one instead. |
 | **Title** | `title` | The name in the panel's header. A title that is too long for the header is cut and ends in `..`. |
-| **Color theme** | `theme_id` | Colours for this panel only; the default follows the device theme. |
 | **Key** | `key` | A unique name for the panel on this device. You use it to open the panel from items, gestures and automations. |
 | **Show in navigation** | `show_in_navigation` | On (default): you reach the panel by swiping and with the header buttons. Off: the panel is hidden and only opens when something opens it, see [Stacked Panels and Popups](#stacked-panels-and-popups). |
 | **Panel pin** | `unlock_code` | A numeric PIN. When set, the panel asks for it before it opens. |
 | **Close automatically after (seconds)** | `close_timeout` | Closes the panel after this many seconds and goes back. `0` (default) keeps it open. |
 | **Long press to go back** | `long_press_back` | Only for Clock, ClockTwo and Weather, which have no header buttons. When on, holding a finger anywhere for about a second goes back to the previous panel, or to the home panel. Default: off. |
+| **Color theme** | `theme_id` | Colours for this panel only; the default follows the device theme. |
 
 **Which title is shown?** A panel that controls a single entity, such as a light or cover panel, shows the entity's name. Other panels show the title. When the title is empty, the name of the panel type is shown, for example *Grid*.
 

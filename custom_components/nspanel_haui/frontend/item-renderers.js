@@ -8,7 +8,9 @@
  */
 import { html, nothing } from './lit-import.js';
 import { t } from './localize.js';
-import { ENTITY_OVERRIDE_FIELDS, entityDisplayName, renderEntityPicker } from './haui-entity.js';
+import {
+  ENTITY_OVERRIDE_FIELDS, entityDisplayName, entityStateSuggestions, renderEntityPicker,
+} from './haui-entity.js';
 import {
   detectItemType,
   parseItemValue,
@@ -39,6 +41,144 @@ import { dropsAfter } from './ui/panel-row.js';
 import { badge } from './ui/badge.js';
 import { addButton } from './ui/button.js';
 import { emptyState } from './ui/empty-state.js';
+import { segmented } from './ui/segmented.js';
+import { stateRowsToMap, stateValues } from './ui/state-values.js';
+
+/* ── values per state ───────────────────────────────────────────────── */
+
+/** A field given one value per state is a plain object of state → value. */
+function isStateMap(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * The icon a row shows for its item: its own icon, the icon of the entity's
+ * current state for icons per state; none for a template.
+ */
+function rowIcon(hass, item) {
+  let value = item?.icon;
+  if (isStateMap(value)) {
+    const state = hass?.states?.[item.item]?.state;
+    value = value[state] ?? Object.values(value)[0];
+  }
+  return typeof value === 'string' && value.includes(':') && !value.includes('{{') ? value : '';
+}
+
+/** The rows of an item field given per state, or null while it has one value. */
+function stateRowsOf(ee, key) {
+  if (ee.stateRows?.[key]) return ee.stateRows[key];
+  const value = ee.config?.[key];
+  return isStateMap(value) ? Object.entries(value).map(([state, v]) => ({ state, value: v })) : null;
+}
+
+/**
+ * Store an item field's rows per state. The draft keeps the rows as typed, a
+ * row without a state included; the item gets the map the hub reads.
+ */
+function setStateRows(host, key, rows) {
+  const ee = host._editingItem;
+  host._editingItem = {
+    ...ee,
+    stateRows: { ...ee.stateRows, [key]: rows },
+    config: { ...ee.config, [key]: stateRowsToMap(rows) },
+  };
+  host.requestUpdate();
+}
+
+/** Give an item field one value again, for every state. */
+function setSingleValue(host, key, value) {
+  const { [key]: _rows, ...stateRows } = host._editingItem.stateRows ?? {};
+  host._editingItem = {
+    ...host._editingItem,
+    stateRows,
+    config: { ...host._editingItem.config, [key]: value },
+  };
+  host.requestUpdate();
+}
+
+/** A stored value: not empty, and not a value per state without any state. */
+function hasValue(value) {
+  if (value === null || value === undefined || value === '') return false;
+  return !(isStateMap(value) && Object.keys(value).length === 0);
+}
+
+/**
+ * An item field that takes one value or a value per state. `single` is its
+ * control while it has one value; `rowValue` renders the value of one state.
+ * Entity items offer the switch; another item keeps values it already has
+ * per state editable, as it has no state to match them against.
+ */
+function renderPerStateField(host, ee, { key, label, hint, entityId, offered, single, rowValue }) {
+  const id = `item-${key}`;
+  const labelId = `${id}-label`;
+  const rows = stateRowsOf(ee, key);
+  const perState = rows !== null;
+  const states = entityStateSuggestions(host.hass, entityId, ee.config?.state);
+  const toRows = () => {
+    const value = ee.config?.[key];
+    // The value given so far becomes the current state's, the first state offered.
+    setStateRows(host, key, [{ state: states[0]?.value ?? '', value: hasValue(value) ? value : '' }]);
+  };
+  const toSingle = () => {
+    const filled = rows.filter((row) => hasValue(row.value));
+    const kept = filled.find((row) => row.state === states[0]?.value) ?? filled[0];
+    setSingleValue(host, key, kept?.value);
+  };
+  const mode = offered || perState
+    ? html`<span class="haui-state-mode">${segmented({
+        label: t('Values of {field}').replace('{field}', label),
+        options: [{ value: 'one', label: t('One value') }, { value: 'state', label: t('Per state') }],
+        value: perState ? 'state' : 'one',
+        onSelect: (value) => {
+          if (value === 'state' && !perState) toRows();
+          if (value === 'one' && perState) toSingle();
+        },
+      })}</span>`
+    : nothing;
+  return html`
+    <div class="haui-field">
+      <div class="haui-field-label-row">
+        <label id=${labelId} for=${perState ? nothing : id}>${label}</label>
+        ${mode}
+      </div>
+      ${perState
+        ? stateValues({
+          id,
+          label,
+          labelledBy: labelId,
+          rows,
+          states,
+          renderValue: rowValue,
+          onChange: (next) => setStateRows(host, key, next),
+        })
+        : single}
+      ${perState
+        ? html`<div class="haui-field-hint is-persistent">${t('A state without a row uses the default.')}</div>`
+        : nothing}
+      ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
+    </div>
+  `;
+}
+
+/** A text field that takes a template, with the template's result below it. */
+function itemTextControl(host, { id, value, label, onInput }) {
+  const text = formatFieldValue(value);
+  const hasTpl = text.includes("{{");
+  return html`
+    <input id=${id} class="haui-input" aria-label=${label ?? nothing} .value=${text}
+      @input=${(e) => {
+        if (host.api) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target);
+        onInput(e.target.value);
+      }}
+      @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
+    />
+    ${host.hass
+      ? html`<div class="haui-template-preview" ?hidden=${!hasTpl}>
+          <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
+        </div>`
+      : ""}
+  `;
+}
 
 /* ── item list row (shared by all item list UIs) ─────────────────────── */
 
@@ -57,7 +197,7 @@ let draggedItem = null;
  */
 export function renderItemListRow(host, item, actions, drag = null) {
   const type = detectItemType(item?.item);
-  const icon = (item && item.icon) || ITEM_TYPE_ICONS[type] || 'mdi:circle-outline';
+  const icon = rowIcon(host?.hass, item) || ITEM_TYPE_ICONS[type] || 'mdi:circle-outline';
   const typeLabel = itemTypeShort()[type] || t('Item');
   const secondary = itemSecondaryText(item);
   // An entity without a name of its own goes by its Home Assistant name, as on the panel.
@@ -354,28 +494,39 @@ export function renderItemListField(host, opt, currentValue, feedback = {}) {
   `;
 }
 
-function renderItemColorEditor(host, { id, label, hint, value, setValue }) {
+/** An item's colour field; its presets stay open while the item does. */
+function itemColorControl(host, { id, value, label, setValue }) {
   // Kept on the item draft, so the next item opens with its presets closed.
   const openPresets = host._editingItem.openPresets ?? [];
   const presetsOpen = openPresets.includes(id);
-  return renderField({
+  return renderColorField({
     id,
+    value,
+    label,
+    api: host.api,
+    onChange: setValue,
+    presetsOpen,
+    onTogglePresets: () => {
+      host._editingItem = {
+        ...host._editingItem,
+        openPresets: presetsOpen ? openPresets.filter((key) => key !== id) : [...openPresets, id],
+      };
+      host.requestUpdate();
+    },
+  });
+}
+
+/** A colour that may be given per state: the item's own colour and its colour options. */
+function renderItemColorField(host, ee, { key, label, hint, entityId, offered, setValue }) {
+  return renderPerStateField(host, ee, {
+    key,
     label,
     hint,
-    control: renderColorField({
-      id,
-      value,
-      api: host.api,
-      onChange: setValue,
-      presetsOpen,
-      onTogglePresets: () => {
-        host._editingItem = {
-          ...host._editingItem,
-          openPresets: presetsOpen ? openPresets.filter((key) => key !== id) : [...openPresets, id],
-        };
-        host.requestUpdate();
-      },
-    }),
+    entityId,
+    offered,
+    single: itemColorControl(host, { id: `item-${key}`, value: ee.config?.[key], setValue }),
+    rowValue: (row, valueId, valueLabel, setRowValue) =>
+      itemColorControl(host, { id: valueId, value: row.value, label: valueLabel, setValue: setRowValue }),
   });
 }
 
@@ -385,7 +536,7 @@ function renderItemColorEditor(host, { id, label, hint, value, setValue }) {
  * Render a single per-item override field, mirroring renderOptionField but
  * writing to host._editingItem.config instead of host._editingPanel.data.
  */
-function renderItemOptionField(host, opt, currentValue) {
+function renderItemOptionField(host, opt, currentValue, perState = {}) {
   const id = `item-${opt.key}`;
   const val =
     currentValue !== undefined && currentValue !== null
@@ -423,11 +574,11 @@ function renderItemOptionField(host, opt, currentValue) {
       `;
 
     case "color":
-      return renderItemColorEditor(host, {
-        id,
+      return renderItemColorField(host, host._editingItem, {
+        key: opt.key,
         label: opt.label,
         hint: opt.description,
-        value: val,
+        ...perState,
         setValue: setVal,
       });
 
@@ -468,70 +619,41 @@ function renderItemOptionField(host, opt, currentValue) {
   }
 }
 
-/* ── promoted field helper (name, icon, color) ──────────────────── */
+/* ── fields that take a value per state (name, icon, color, value) ──── */
 
 /**
- * Render a single promoted field (name, icon, or color) for the inline
- * item editor. These sit above the Advanced fold so users see them immediately.
+ * One of the item fields that take one value or a value per state. Name, icon
+ * and colour sit above the Advanced fold, so users see them immediately.
+ * `perState` says which entity the states belong to and whether to offer them.
  */
-function renderPromotedField(host, ee, f, label, hint) {
-  if (f === 'color') {
-    return renderItemColorEditor(host, {
-      id: `item-${f}`,
-      label,
-      hint,
-      value: ee.config?.[f],
-      setValue: (value) => {
-        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: value } };
-        setTimeout(() => host.requestUpdate(), 0);
-      },
-    });
-  }
+function renderStateField(host, ee, f, label, hint, perState) {
+  // One value is stored typed, so a number stays a number.
+  const setValue = (value) => {
+    host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: value } };
+    setTimeout(() => host.requestUpdate(), 0);
+  };
+  if (f === 'color') return renderItemColorField(host, ee, { key: f, label, hint, ...perState, setValue });
+  const id = `item-${f}`;
   if (f === 'icon') {
-    const rawIcon = ee.config?.[f];
-    const displayStr = formatFieldValue(rawIcon) || "";
-    const showDictPreview = rawIcon != null && typeof rawIcon === "object" && !Array.isArray(rawIcon);
-    const dictPreviewText = showDictPreview
-      ? t("State-keyed: {value}").replace("{value}", Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", "))
-      : "";
-    return renderField({
-      id: `item-${f}`,
+    return renderPerStateField(host, ee, {
+      key: f,
       label,
       hint,
-      control: renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
-        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
-        setTimeout(() => host.requestUpdate(), 0);
-      }),
-      extra: html`<div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+      ...perState,
+      single: renderIconPicker(id, formatFieldValue(ee.config?.[f]), host.api,
+        (raw) => setValue(parseFieldValue(raw))),
+      rowValue: (row, valueId, valueLabel, setRowValue) =>
+        renderIconPicker(valueId, formatFieldValue(row.value), host.api, setRowValue, { label: valueLabel }),
     });
   }
-  const rawVal = ee.config?.[f];
-  const displayStr = formatFieldValue(rawVal);
-  const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
-  const dictPreviewText = showDictPreview
-    ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
-    : "";
-  const hasTpl = displayStr.includes("{{");
-  return renderField({
-    id: `item-${f}`,
+  return renderPerStateField(host, ee, {
+    key: f,
     label,
     hint,
-    control: html`<input id="item-${f}" .value=${displayStr} class="haui-input"
-      @input=${(e) => {
-        const raw = e.target.value;
-        if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
-        host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
-        setTimeout(() => host.requestUpdate(), 0);
-      }}
-      @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-    />`,
-    extra: html`
-      ${host.hass
-        ? html`<div class="haui-template-preview" ?hidden=${!hasTpl}>
-            <span id="tp-item-${f}">${hasTpl ? "..." : ""}</span>
-          </div>`
-        : ""}
-      <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
+    ...perState,
+    single: itemTextControl(host, { id, value: ee.config?.[f], onInput: (raw) => setValue(parseFieldValue(raw)) }),
+    rowValue: (row, valueId, valueLabel, setRowValue) =>
+      itemTextControl(host, { id: valueId, value: row.value, label: valueLabel, onInput: setRowValue }),
   });
 }
 
@@ -555,6 +677,11 @@ export function renderItemEditFields(host, descriptor) {
     : detectItemType(raw);
   let itemValue = parseItemValue(raw, itemType);
   const uid = `item-edit-${ee.optKey}-${ee.index}`;
+  // Only an entity has states; the per-state fields suggest the chosen entity's.
+  const perState = {
+    offered: itemType === ITEM_TYPE.ENTITY_ID,
+    entityId: itemType === ITEM_TYPE.ENTITY_ID ? itemValue || '' : '',
+  };
 
   return html`
     <div class="haui-item-edit-inline" id="${uid}">
@@ -589,6 +716,8 @@ export function renderItemEditFields(host, descriptor) {
                 if (!host._editingItem) return;
                 host._editingItem.config = host._editingItem.config || {};
                 host._editingItem.config.item = eid;
+                // The per-state fields suggest the states of the chosen entity.
+                host.requestUpdate();
               },
             });
           }
@@ -639,62 +768,36 @@ export function renderItemEditFields(host, descriptor) {
         { f: 'name', label: t("Name"), hint: t("Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.") },
         { f: 'icon', label: t("Icon"), hint: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.") },
         { f: 'color', label: t("Color"), hint: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.") },
-      ].map(fd => renderPromotedField(host, ee, fd.f, fd.label, fd.hint))}
+      ].map(fd => renderStateField(host, ee, fd.f, fd.label, fd.hint, perState))}
       <details class="haui-item-advanced">
         <summary class="haui-collapsible-title">
           <ha-icon icon="mdi:chevron-right" class="haui-collapsible-icon"></ha-icon>
           <span>${t("Advanced")}</span>
         </summary>
         <div class="haui-item-advanced-section">
-          ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
-            (f) => {
-              const fieldLabels = {
-                value: t("Value"),
-                state: t("State"),
-                popup_key: t("Popup key"),
-              };
-              const hints = {
-                value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
-                state: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic."),
-                popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
-              };
-              const typedFields = new Set(["value"]);
-              const isTyped = typedFields.has(f);
-              const rawVal = ee.config?.[f];
-              const displayStr = formatFieldValue(rawVal);
-              const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
-              const dictPreviewText = showDictPreview
-                ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
-                : "";
-              return renderField({
-                id: `item-${f}`,
-                label: fieldLabels[f],
-                hint: hints[f],
-                control: html`<input
-                  id="item-${f}"
-                  class="haui-input"
-                  .value=${displayStr}
-                  @input=${(e) => {
-                    const raw = e.target.value;
-                    if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
-                    host._editingItem = {
-                      ...host._editingItem,
-                      config: { ...host._editingItem.config, [f]: isTyped ? parseFieldValue(raw) : raw },
-                    };
-                    setTimeout(() => host.requestUpdate(), 0);
-                  }}
-                  @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
-                />`,
-                extra: html`
-                  ${host.hass
-                    ? html`<div class="haui-template-preview" ?hidden=${!displayStr.includes("{{")}>
-                        <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
-                      </div>`
-                    : ""}
-                  <div class="haui-state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>`,
-              });
-            }
-          )}
+          ${renderStateField(host, ee, 'value', t("Value"),
+            t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
+            perState)}
+          ${[
+            { f: 'state', label: t("State"), hint: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic.") },
+            { f: 'popup_key', label: t("Popup key"), hint: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior.") },
+          ].map(({ f, label, hint }) => renderField({
+            id: `item-${f}`,
+            label,
+            hint,
+            control: html`<input
+              id="item-${f}"
+              class="haui-input"
+              .value=${formatFieldValue(ee.config?.[f])}
+              @input=${(e) => {
+                host._editingItem = {
+                  ...host._editingItem,
+                  config: { ...host._editingItem.config, [f]: e.target.value },
+                };
+                setTimeout(() => host.requestUpdate(), 0);
+              }}
+            />`,
+          }))}
           ${host._editingItemType === ITEM_TYPE.ACTION
             ? html`
               <div class="haui-field">
@@ -724,7 +827,7 @@ export function renderItemEditFields(host, descriptor) {
           ${(() => {
             if (!descriptor?.item_options?.length) return "";
             return descriptor.item_options.map((opt) =>
-              renderItemOptionField(host, opt, ee.config?.[opt.key])
+              renderItemOptionField(host, opt, ee.config?.[opt.key], perState)
             );
           })()}
         </div>
@@ -745,7 +848,7 @@ export function renderItemEditFields(host, descriptor) {
           const config = { item: encodeItemValue(inputVal, typeVal) };
           for (const f of ENTITY_OVERRIDE_FIELDS) {
             const fv = host._editingItem.config?.[f];
-            if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
+            if (hasValue(fv)) config[f] = fv;
           }
           const savePt = host._editingPanelType || host._editingPanel?.data?.type;
           const panelTypes = host._panelTypes || host.panelTypes;
@@ -755,7 +858,7 @@ export function renderItemEditFields(host, descriptor) {
           if (desc?.item_options) {
             for (const { key: f } of desc.item_options) {
               const fv = host._editingItem.config?.[f];
-              if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
+              if (hasValue(fv)) config[f] = fv;
             }
           }
           if (!host._itemListData) host._itemListData = {};

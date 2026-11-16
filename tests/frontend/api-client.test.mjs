@@ -160,12 +160,31 @@ test('rollout and update control use their routes', async () => {
   assert.deepEqual(await api.updates.startRollout('entry1'), { state: 'running' });
   await api.updates.cancelRollout('entry1');
   await api.updates.cancelRollout('entry1', 'office');
+  await api.updates.dismissRollout('entry1');
   await api.updates.control('entry1', 'kitchen', 'defer', 3600);
   assert.deepEqual(calls, [
     ['GET', '/api/nspanel_haui/rollout/entry1', null],
     ['POST', '/api/nspanel_haui/rollout/entry1', JSON.stringify({})],
     ['DELETE', '/api/nspanel_haui/rollout/entry1', null],
     ['DELETE', '/api/nspanel_haui/rollout/entry1/office', null],
+    ['DELETE', '/api/nspanel_haui/rollout/entry1', null],
     ['POST', '/api/nspanel_haui/update_control/entry1', JSON.stringify({ device: 'kitchen', action: 'defer', seconds: 3600 })],
+  ]);
+});
+
+test('a panel moves and the state names load through their routes', async () => {
+  const calls = [];
+  const api = createApiClient(() => makeHass({
+    fetchWithAuth: async (url, options = {}) => {
+      calls.push([options.method || 'GET', url, options.body || null]);
+      return jsonResponse({ key: 'clock_0', panels: {} });
+    },
+  }));
+
+  await api.panels.move('entry1', 'living room', 'clock_0', 'office');
+  await api.editor.stateNames('de');
+  assert.deepEqual(calls, [
+    ['POST', '/api/nspanel_haui/panels/entry1/living%20room/move', JSON.stringify({ key: 'clock_0', to: 'office' })],
+    ['GET', '/api/nspanel_haui/translations/de?section=component', null],
   ]);
 });

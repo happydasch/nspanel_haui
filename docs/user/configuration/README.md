@@ -27,7 +27,7 @@ Beside the preview, the Device screen has two cards about the panel's state.
 
 ### Connection & device
 
-Four tiles: how long the panel has been online (or that it is offline), the Wi-Fi signal, the current page and the IP address. Hover over a tile or tap it for more, such as the Wi-Fi network, the last disconnect or the last panel update. Below the tiles, **Updates** opens the updates; the firmware and display versions are in **Diagnostics** and in the **Updates** sidebar.
+Four tiles: how long the panel has been online (or that it is offline), the Wi-Fi signal, the current page and the IP address. When the editor could not refresh the status, the card says so: the tiles show the last values it read. Hover over a tile or tap it for more, such as the Wi-Fi network, the last disconnect or the last panel update. Below the tiles, **Updates** opens the updates; the firmware and display versions are in **Diagnostics** and in the **Updates** sidebar.
 
 ### Diagnostics
 
@@ -73,6 +73,7 @@ In this list you can:
 - **Edit** — select a panel's name or the pencil.
 - **Preview** — hover over the picture or tap it to enlarge it.
 - **Duplicate** — in the row's **More** menu.
+- **Move to another device** — **Move to** *device* in the row's **More** menu moves the panel to that device of the hub, at the end of its panels. It keeps its key unless that device already has a panel with it; then it gets a free key, which the confirmation names. Settings of the old device that name the panel (home and idle panels, gestures, items that open it) keep the key, as after **Delete**. Popups a device extends stay with that device.
 - **Reorder** — drag a row by its grip, also between Navigation and Hidden.
 - **Delete** — remove a panel.
 
@@ -107,7 +108,8 @@ How the editor helps:
 Every item of a panel has its own editor:
 
 - **Entity picker** — search and select a Home Assistant entity.
-- **Advanced** — change the name, value, icon, color, state and popup of the item.
+- **Name**, **Icon**, **Color** — change how the item looks, with one value or one value per state.
+- **Advanced** — the value (also per state), the state, the popup of the item and the item options of the panel type, such as the grid's tile colors.
 
 See [Item Configuration](items.md) for all options.
 

@@ -247,6 +247,14 @@
  */
 
 /**
+ * A device a dashboard card can show (`nspanel_haui/card/devices`).
+ * @typedef {Object} CardDevice
+ * @property {string} entry_id
+ * @property {string} name
+ * @property {boolean} portrait
+ */
+
+/**
  * @typedef {Object} UpdateResult
  * @property {string} status
  * @property {string[]} [devices_updated]

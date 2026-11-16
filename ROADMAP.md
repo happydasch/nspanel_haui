@@ -18,10 +18,10 @@ retried and one-at-a-time installs, and Slovak, contributed in
 [#94](https://github.com/happydasch/nspanel_haui/pull/94). The
 [CHANGELOG](CHANGELOG.md) lists every change and the
 [release notes](.github/release-notes/v0.5.0.md) the upgrade steps; only the
-release gates below remain. **v0.5.x** follows with high-speed TFTs and the
-remaining device and editor polish. **v0.6** adds Display Repair Mode, an
-inspection and cleanup of the Nextion scripts and Home Assistant hub settings;
-multi-hub support remains subject to a needs decision.
+release gates below remain. **v0.5.x** follows with high-speed TFTs, predefined
+palettes in the TFT and the removal of the vendored Nextion patch. **v0.6** adds
+Display Repair Mode, an inspection and cleanup of the Nextion scripts and Home
+Assistant hub settings; multi-hub support remains subject to a needs decision.
 
 ---
 
@@ -81,17 +81,6 @@ Predefine the theme palettes in the TFT so the first render needs fewer color
 commands, without flashing the default palette or showing a partially themed
 page; editor cards must continue to match the device render. It needs a new TFT,
 so it can ship with the high-speed variants.
-
-### Device operations
-
-- Move (not just copy) panels across devices.
-- Keep each device's version and action state correct across stale or failed
-  updates.
-
-### Accessibility
-
-The rest of the editor's accessibility pass: contrast, a screen-reader review of
-the dashboard, and a keyboard way to reorder devices, which only drag today.
 
 ### Remove the vendored Nextion patch
 

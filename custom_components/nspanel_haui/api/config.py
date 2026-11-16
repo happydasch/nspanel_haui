@@ -443,6 +443,106 @@ class DevicePanelsView(HomeAssistantView):
         )
 
 
+def _free_panel_key(panels: list, key: str, panel_type: str) -> str:
+    """Return ``key`` when no panel in ``panels`` uses it, else ``{type}_{n}`` that is free.
+
+    Keys are compared without case, as the editor does.
+    """
+    used = {str(panel.get("key", "")).lower() for panel in panels if isinstance(panel, dict)}
+    if key.lower() not in used:
+        return key
+    index = 0
+    while f"{panel_type}_{index}".lower() in used:
+        index += 1
+    return f"{panel_type}_{index}"
+
+
+class DevicePanelMoveView(HomeAssistantView):
+    """Move one of a device's panels to another device of the same hub."""
+
+    url = "/api/nspanel_haui/panels/{entry_id}/{device}/move"
+    name = "api:nspanel_haui:device_panel_move"
+    requires_auth = True
+
+    @require_admin
+    @api_errors
+    async def post(self, request, entry_id: str, device: str):
+        """Move the panel ``key`` to the device ``to``, in one save of both devices.
+
+        The panel keeps its key unless the target device already uses it; then
+        it gets a free ``{type}_{n}`` key, which the response names. It joins
+        the end of the target's panels. A popup a device extends stays with
+        that device. Settings that name the panel on the source device (home,
+        idle, gestures) are left as they are, as a delete leaves them.
+        """
+        from ..haui.mapping.panel import POPUP_PANEL_MAPPING
+
+        hass = request.app["hass"]
+        body = await json_object(request)
+        key = body.get("key")
+        target = body.get("to")
+        if not isinstance(key, str) or not key or not isinstance(target, str) or not target:
+            raise ApiError("Body must be {'key': str, 'to': str}", 400)
+        if target == device:
+            raise ApiError("The panel is already on this device", 400)
+
+        store = panel_store(hass, entry_id)
+        data = await store.async_load() or empty_store()
+        source_dev = _store_device(data, device)
+        target_dev = _store_device(data, target)
+        source_panels = list(source_dev.get("panels") or [])
+        panel = next(
+            (
+                entry
+                for entry in source_panels
+                if isinstance(entry, dict) and entry.get("key") == key
+            ),
+            None,
+        )
+        if panel is None:
+            raise ApiError(f'Panel "{key}" not found on "{device}"', 404)
+        if key in POPUP_PANEL_MAPPING:
+            raise ApiError("A popup a device extends cannot be moved", 400)
+
+        target_panels = list(target_dev.get("panels") or [])
+        new_key = _free_panel_key(target_panels, key, str(panel.get("type") or "panel"))
+        source_panels.remove(panel)
+        target_panels.append({**panel, "key": new_key})
+
+        await _validate_panels(
+            hass,
+            {"devices": {device: {"panels": source_panels}, target: {"panels": target_panels}}},
+            f"Moving {key} from {device} to {target}",
+            previous=data,
+        )
+        candidate = {
+            **data,
+            "devices": {
+                **data.get("devices", {}),
+                device: {**source_dev, "panels": source_panels},
+                target: {**target_dev, "panels": target_panels},
+            },
+        }
+        ensure_known_theme_ids(candidate, data.get("themes", {}))
+        updated = now_iso()
+        source_dev["panels"] = source_panels
+        source_dev["last_panel_update"] = updated
+        target_dev["panels"] = target_panels
+        target_dev["last_panel_update"] = updated
+        await store.async_save(data)
+        pushed = await push_panels(hass, entry_id, data, device_name=device)
+        if not pushed.get("reloaded"):
+            pushed = await push_panels(hass, entry_id, data, device_name=target)
+        return self.json(
+            {
+                **pushed,
+                "status": "ok",
+                "key": new_key,
+                "panels": {device: source_panels, target: target_panels},
+            }
+        )
+
+
 class DeviceOrderView(HomeAssistantView):
     """Store editor device order; runtime device ordering comes from the config entry."""
 

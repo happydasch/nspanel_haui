@@ -145,6 +145,7 @@ test('each firmware version row opens its matching install picker', async () => 
     deviceName: 'haui',
     entryId: 'entry1',
     deviceStatus: {
+      connected: true,
       integration_version: '0.4.2',
       device_info: { tft_version: '1.2.3', tft_required_version: '1.2.4' },
       update: { enabled: true, firmware_update_available: true, tft_update_available: true },

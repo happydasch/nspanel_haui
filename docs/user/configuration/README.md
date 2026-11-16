@@ -73,7 +73,7 @@ In this list you can:
 - **Edit** — select a panel's name or the pencil.
 - **Preview** — hover over the picture or tap it to enlarge it.
 - **Duplicate** — in the row's **More** menu.
-- **Move to another device** — **Move to** *device* in the row's **More** menu moves the panel to that device of the hub, at the end of its panels. It keeps its key unless that device already has a panel with it; then it gets a free key, which the confirmation names. Settings of the old device that name the panel (home and idle panels, gestures, items that open it) keep the key, as after **Delete**. Popups a device extends stay with that device.
+- **Move to another device** — **Move to…** in the row's **More** menu opens a submenu of the hub's other devices; selecting one moves the panel to that device, at the end of its panels. It keeps its key unless that device already has a panel with it; then it gets a free key, which the confirmation names. Settings of the old device that name the panel (home and idle panels, gestures, items that open it) keep the key, as after **Delete**. Popups a device extends stay with that device.
 - **Reorder** — drag a row by its grip, also between Navigation and Hidden.
 - **Delete** — remove a panel.
 

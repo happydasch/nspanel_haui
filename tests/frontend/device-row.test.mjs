@@ -34,7 +34,10 @@ test('a device row shows the connection icon of the device card in front of the 
   assert.match(online, /Connected · -50 dBm/);
   assert.match(online, /mdi:wifi-strength-4/);
   assert.ok(online.indexOf('mdi:wifi-strength-4') < online.indexOf('Kitchen'));
-  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /mdi:wifi-off/);
+  // A panel the hub is not connected to still reports its Wi-Fi reading.
+  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /Disconnected · -50 dBm/);
+  assert.match(row({ connected: false, device_info: { rssi: -50 } }), /mdi:wifi-strength-4/);
+  assert.match(row({ connected: false, device_info: {} }), /mdi:wifi-off/);
   assert.match(row(null), /mdi:wifi-strength-off-outline/);
   assert.doesNotMatch(online, /haui-status-dot/);
   assert.match(online, /Actions for Kitchen/);
@@ -49,7 +52,8 @@ test('the connection icon of a device row is coloured by the Wi-Fi strength', as
   assert.match(row({ connected: true, device_info: { rssi: -50 } }), /haui-wifi-excellent/);
   assert.match(row({ connected: true, device_info: { rssi: -65 } }), /haui-wifi-fair/);
   assert.match(row({ connected: true, device_info: { rssi: -80 } }), /haui-wifi-weak/);
-  assert.doesNotMatch(row({ connected: false, device_info: { rssi: -80 } }), /haui-wifi-weak/);
+  assert.match(row({ connected: false, device_info: { rssi: -80 } }), /haui-wifi-weak/);
+  assert.doesNotMatch(row({ connected: false, device_info: {} }), /haui-wifi-weak/);
 });
 
 test('the inventory marks a YAML and HAUI version mismatch', async () => {

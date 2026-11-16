@@ -124,12 +124,12 @@ export const fleetStyles = css`
     flex: 0 0 auto;
     place-items: center;
     border-radius: var(--haui-radius-round);
-    color: var(--haui-good-text);
+    color: var(--haui-good);
     background: color-mix(in srgb, currentcolor 15%, transparent);
     --mdc-icon-size: 18px;
   }
-  .haui-fleet-band-warning .haui-fleet-orb { color: var(--haui-warn-text); }
-  .haui-fleet-band-danger .haui-fleet-orb { color: var(--haui-bad-text); }
+  .haui-fleet-band-warning .haui-fleet-orb { color: var(--haui-warn); }
+  .haui-fleet-band-danger .haui-fleet-orb { color: var(--haui-bad); }
   .haui-fleet-band-neutral .haui-fleet-orb { color: var(--secondary-text-color); }
   .haui-fleet-lead { display: grid; min-width: 0; gap: 4px; }
   .haui-fleet-lead-heading { display: flex; align-items: center; gap: 16px; }

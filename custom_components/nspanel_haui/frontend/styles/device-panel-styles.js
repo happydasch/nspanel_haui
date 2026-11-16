@@ -154,6 +154,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-yaml-card .haui-surface-heading-copy { flex: 1 1 auto; }
   .haui-expand-toggle { flex: 0 0 auto; }
   .haui-device-diagnostics .is-warning, .haui-device-details .haui-diag-tiles .is-warning { color: var(--haui-warn-text); }
+  .haui-device-details .haui-diag-tiles .is-good { color: var(--haui-good-text); }
   .haui-device-diagnostics .is-danger { color: var(--haui-bad-text); }
   .haui-diag-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
   .haui-diag-tile { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 8px 12px; border: 0; border-radius: var(--haui-radius-control); color: var(--primary-text-color); background: var(--haui-surface-soft); font: inherit; text-align: start; }
@@ -208,10 +209,10 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-conn-status-icon { position: relative; display: grid; box-sizing: border-box; width: 30px; height: 30px; place-items: center; border: 1px solid color-mix(in srgb, var(--conn-ring) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--conn-ring); background: color-mix(in srgb, var(--conn-ring) 12%, var(--card-background-color)); --mdc-icon-size: 17px; }
   .haui-conn-status-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: var(--haui-radius-round); background: var(--conn-tone); }
   /* The circle and its glyph show the Wi-Fi strength in the colours of the RSSI bars; the dot keeps the connection tone. */
-  .haui-conn-status:has(ha-icon.haui-wifi-excellent) { --conn-ring: var(--haui-good-text); }
-  .haui-conn-status:has(ha-icon.haui-wifi-good) { --conn-ring: var(--haui-wifi-good-text); }
-  .haui-conn-status:has(ha-icon.haui-wifi-fair) { --conn-ring: var(--haui-warn-text); }
-  .haui-conn-status:has(ha-icon.haui-wifi-weak) { --conn-ring: var(--haui-bad-text); }
+  .haui-conn-status:has(ha-icon.haui-wifi-excellent) { --conn-ring: var(--haui-good); }
+  .haui-conn-status:has(ha-icon.haui-wifi-good) { --conn-ring: var(--haui-wifi-good); }
+  .haui-conn-status:has(ha-icon.haui-wifi-fair) { --conn-ring: var(--haui-warn); }
+  .haui-conn-status:has(ha-icon.haui-wifi-weak) { --conn-ring: var(--haui-bad); }
   .haui-conn-status-button > .haui-conn-status-dot, .haui-conn-status-icon > .haui-conn-status-dot { position: absolute; top: 1px; right: 1px; box-shadow: 0 0 0 2px var(--card-background-color); }
   .haui-conn-status.online .haui-conn-status-button > .haui-conn-status-dot { animation: haui-conn-pulse 2.4s ease-out infinite; }
   @keyframes haui-conn-pulse {
@@ -223,6 +224,8 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-conn-status-button:focus-visible + .haui-conn-card, .haui-conn-status-button[aria-expanded="true"] + .haui-conn-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
   .haui-conn-card-head { justify-content: flex-start; gap: 8px; padding: 0; border: 0; }
   .haui-conn-card-head .haui-surface-heading-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+  .haui-conn-status.online .haui-conn-card-head h2 { color: var(--haui-good-text); }
+  .haui-conn-status.offline .haui-conn-card-head h2 { color: var(--haui-bad-text); }
   .haui-conn-card-head h2 { margin: 0; font-size: var(--haui-text-label); font-weight: 500; }
   .haui-conn-card-head p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-device-details .haui-conn-card dl > div { padding: 4px 0; }

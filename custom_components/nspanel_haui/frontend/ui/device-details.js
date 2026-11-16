@@ -101,26 +101,29 @@ export function deviceDetails({
 }
 
 /**
- * The MDI icon of the connection state: the Wi-Fi strength while connected,
- * crossed out while not. Shared by the card heading and the Fleet device table.
+ * The MDI icon of the connection state: the Wi-Fi strength the panel reports,
+ * crossed out when there is no reading. A status without a hub connection
+ * still shows its reading; the dot beside it keeps the connection tone.
+ * Shared by the card heading and the Fleet device table.
  *
  * @param {any} status - the device status payload, or null while unavailable
  */
 function connectionIconName(status) {
   const bars = rssiBarCount(status?.device_info?.rssi);
-  return !status ? 'wifi-strength-off-outline'
-    : status.connected !== true ? 'wifi-off'
-      : bars ? `wifi-strength-${bars}` : 'wifi-strength-outline';
+  if (!status) return 'wifi-strength-off-outline';
+  if (bars) return `wifi-strength-${bars}`;
+  return status.connected === true ? 'wifi-strength-outline' : 'wifi-off';
 }
 
 /**
- * The connection icon, coloured by the Wi-Fi strength while connected; the
+ * The connection icon, coloured by the Wi-Fi strength the panel reports; the
  * status dot beside it keeps the connection tone.
  *
  * @param {any} status - the device status payload, or null while unavailable
  */
 export function connectionIcon(status) {
-  const strength = status?.connected === true ? rssiStrengthClass(status.device_info?.rssi) : '';
+  const bars = rssiBarCount(status?.device_info?.rssi);
+  const strength = bars ? rssiStrengthClass(status.device_info.rssi) : '';
   return icon(connectionIconName(status), strength);
 }
 

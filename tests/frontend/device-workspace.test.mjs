@@ -234,7 +234,8 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
   for (const label of ['Disconnected', 'Wi-Fi signal', 'SSID', 'Last connected']) assert.match(card, new RegExp(label));
   assert.match(card, /-61 dBm/);
   assert.match(card, /haui-details-stale/);
-  assert.match(card, /mdi:wifi-off/);
+  // The panel still reports its Wi-Fi reading while the hub is not connected.
+  assert.match(card, /mdi:wifi-strength-2/);
 });
 
 test('the connection icon shows the Wi-Fi strength while connected', () => {

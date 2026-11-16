@@ -155,7 +155,7 @@ export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} 
       key: 'uptime',
       label: model.connected ? t('Online for') : t('Status'),
       value: model.connected ? (model.uptime != null ? uptimeLabel(model.uptime) : t('Online')) : t('Offline'),
-      tone: !model.connected ? 'is-danger' : model.unstable ? 'is-warning' : '',
+      tone: !model.connected ? 'is-danger' : model.unstable ? 'is-warning' : 'is-good',
       facts: uptimeFacts,
     }),
     infoTile({

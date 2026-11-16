@@ -24,7 +24,7 @@ export function deviceRow({ name, device, status, onOpen, onMenu, onSelect = nul
   const updates = hasUpdateAvailable(status?.update);
   const versionMismatch = status?.integration_version_mismatch === true;
   const displayName = device.friendlyName || name;
-  const connLabel = connected ? `${stateLabel} · ${fmtRssi(info.rssi)}` : stateLabel;
+  const connLabel = info.rssi != null ? `${stateLabel} · ${fmtRssi(info.rssi)}` : stateLabel;
   const selectOnClick = onSelect ? (event) => {
     if (event.target.closest?.(OWN_CLICK)) return;
     onSelect(event);

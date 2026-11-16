@@ -34,12 +34,14 @@ export const dashboardTokens = css`
     --haui-good-soft: color-mix(in srgb, var(--haui-good) 16%, var(--card-background-color, #fff));
     --haui-warn-soft: color-mix(in srgb, var(--haui-warn) 16%, var(--card-background-color, #fff));
     --haui-bad-soft: color-mix(in srgb, var(--haui-bad) 16%, var(--card-background-color, #fff));
-    /* Text and icons in a tone. Mixed with the theme's text colour, they keep
-       4.5:1 on the card and on the tone's soft tint in light and dark themes;
-       the plain tones above stay for fills, bars and dots. */
-    --haui-good-text: color-mix(in srgb, var(--haui-good) 55%, var(--primary-text-color, #212121));
-    --haui-warn-text: color-mix(in srgb, var(--haui-warn) 55%, var(--primary-text-color, #212121));
-    --haui-bad-text: color-mix(in srgb, var(--haui-bad) 55%, var(--primary-text-color, #212121));
+    /* Text and icons in a tone, mixed with the theme's text colour as close to
+       the tone as 4.5:1 on the card, the soft surface and the tone's soft tint
+       allows in light and dark themes. Each tone carries its own share because
+       warning orange loses contrast fastest; the plain tones above stay for
+       fills, bars and dots. */
+    --haui-good-text: color-mix(in srgb, var(--haui-good) 65%, var(--primary-text-color, #212121));
+    --haui-warn-text: color-mix(in srgb, var(--haui-warn) 50%, var(--primary-text-color, #212121));
+    --haui-bad-text: color-mix(in srgb, var(--haui-bad) 70%, var(--primary-text-color, #212121));
     --haui-accent-text: color-mix(in srgb, var(--primary-color, #03a9f4) 55%, var(--primary-text-color, #212121));
     /* A primary fill dark enough for white text (4.5:1), and its hover. */
     --haui-primary-fill: color-mix(in srgb, var(--primary-color, #03a9f4) 78%, #000);

@@ -15,7 +15,7 @@ The dashboard is the editor's start screen. It shows every device as a card and 
 
 **Adding a device.** When the editor opens, it looks for panels in Home Assistant's ESPHome integration and lists new ones under **Discovered Devices**. Select **Add**, or **Add All**. Reloading the editor searches again; while you have no device yet, the dashboard also offers **Scan for devices**. The search only looks at Home Assistant's ESPHome devices. It does not scan your network.
 
-**What a row shows.** The firmware version, the display (TFT) version and the IP address, and an **Update** badge when an update is available. A display that needs a newer TFT is marked **update pending**. A value the panel has not reported yet is shown as **Unknown**; an unknown Wi-Fi signal does not mean the panel is offline.
+**What a row shows.** The firmware version, the display (TFT) version and the IP address, and an **Update** badge when an update is available. The icon in front of the name shows the Wi-Fi signal the panel reports, coloured like the signal bars; its dot shows whether the hub is connected. A display that needs a newer TFT is marked **update pending**. A value the panel has not reported yet is shown as **Unknown**; an unknown Wi-Fi signal does not mean the panel is offline.
 
 **What you can do.**
 

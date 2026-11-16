@@ -270,9 +270,8 @@ export const contentStyles = css`
     background: var(--warning-color, #ffa600);
     color: var(--primary-text-color, #212121);
     font-size: var(--haui-text-caption);
-    font-weight: 600;
-    letter-spacing: .05em;
-    text-transform: uppercase;
+    font-weight: 500;
+    text-transform: lowercase;
   }
   .footer-link {
     display: inline-flex;

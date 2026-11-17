@@ -47,30 +47,17 @@ export function isAnchoredOverlayKind(kind) {
 /**
  * Overlay kinds shown in the Device screen's modal sidebar (Logs also on
  * Fleet: its subject is a device, or null for every device). The topmost one is
- * shown; one opened from another covers it as a layer.
+ * shown; one opened from another covers it as a layer. The device settings'
+ * groups are not overlays of their own: the settings element renders the group
+ * they are on.
  */
 export const SIDEBAR_OVERLAY_KINDS = Object.freeze([
-  'device-settings', 'device-schedule', 'device-gestures',
-  'panel-catalog', 'panel-editor', 'updates', 'theme', 'logs',
+  'device-settings', 'panel-catalog', 'panel-editor', 'updates', 'theme', 'logs',
 ]);
 
 /** @param {string|null|undefined} kind */
 export function isSidebarOverlayKind(kind) {
   return typeof kind === 'string' && SIDEBAR_OVERLAY_KINDS.includes(kind);
-}
-
-/**
- * The Preview view's device option sidebars — one editor each for the device's
- * schedule and gestures, opened from the Manage this device card. The theme has
- * no sidebar of its own: its button opens the shared theme editor.
- */
-const DEVICE_OPTION_OVERLAY_KINDS = Object.freeze([
-  'device-schedule', 'device-gestures',
-]);
-
-/** @param {string|null|undefined} kind */
-export function isDeviceOptionOverlayKind(kind) {
-  return typeof kind === 'string' && DEVICE_OPTION_OVERLAY_KINDS.includes(kind);
 }
 
 /**

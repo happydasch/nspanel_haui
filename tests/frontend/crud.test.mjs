@@ -22,7 +22,7 @@ function rejectingHost() {
 test('a rejected colour save shows only the error and keeps the old colours', async () => {
   const host = rejectingHost();
 
-  await saveTheme(host, { themeId: 'dark', themeVariant: 'dark' });
+  await saveTheme(host, { themeId: 'dark' });
 
   assert.deepEqual(host.toasts.map(([kind]) => kind), ['error']);
   assert.equal(host._deviceConfig.enabled, true);

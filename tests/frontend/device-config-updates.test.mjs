@@ -276,6 +276,7 @@ test('automatic update settings saves serialize and keep the latest change', asy
 
 test('an emptied brightness is saved as unset', () => {
   const dlg = dialog({ brightness: 80, schedule: [] });
+  dlg.section = 'screen';
 
   field(dlg, 'dc-brightness').onInput({ target: { value: '' } });
 

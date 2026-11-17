@@ -3,16 +3,11 @@ import './support/browser.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from './support/render.mjs';
-import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
-import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
-import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
 import {
-  panelActions, panelManager, deviceOptionPanel, deviceOptionSummaries,
+  updatesSummary,
 } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { gestureSection } from '../../custom_components/nspanel_haui/frontend/ui/gesture-section.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
-import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
-import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
-import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
 import { DEVICE_CONFIG_DEFAULTS } from '../../custom_components/nspanel_haui/frontend/constants.js';
 
 function templateText(template) {
@@ -32,22 +27,6 @@ function templatesMatching(template, marker, found = []) {
   return found;
 }
 
-/** The `placeholder=` value bound to the input with `id`. */
-function placeholderFor(template, id) {
-  if (!template?.strings) return undefined;
-  const idBound = template.values.includes(id) || template.strings.some((part) => part.includes(`id="${id}"`));
-  const index = template.strings.findIndex((part) => part.includes('placeholder='));
-  if (idBound && index >= 0) return template.values[index];
-  for (const value of template.values) {
-    const entries = Array.isArray(value) ? value : [value];
-    for (const entry of entries) {
-      const found = placeholderFor(entry, id);
-      if (found !== undefined) return found;
-    }
-  }
-  return undefined;
-}
-
 function eventBinding(template, id, eventName) {  if (!template?.strings) return undefined;
   const idBound = template.values.includes(id) || template.strings.some((part) => part.includes(`id="${id}"`));
   const eventIndex = template.strings.findIndex((part) => part.trimEnd().endsWith(`${eventName}=`));
@@ -62,46 +41,16 @@ function eventBinding(template, id, eventName) {  if (!template?.strings) return
   return undefined;
 }
 
-test('the device options manager does not render Home or Idle page assignment controls', () => {
-  const view = panelManager({ panels: [], config: { theme_id: 'dark', schedule: [], gestures: [] } });
-  const text = templateText(view);
-  assert.match(text, /haui-device-option-controls/);
-  assert.doesNotMatch(text, /Home & idle panels|Home panel|Idle panels/);
-});
-
-test('the Theme button names the selected theme and leaves the editing to the theme sidebar', () => {
-  const view = panelManager({
-    panels: [],
-    config: { theme_id: 'evening' },
-    builtinThemes: { dark: {}, light: {} },
-    customThemes: { evening: { name: 'Evening', colors: {} } },
-  });
-  const themeButton = templatesMatching(view, 'class=')
-    .find((entry) => entry.values.includes('haui-button haui-button-outline haui-device-option')
-      && templateText(entry).includes('Theme'));
-  // The summary is the tooltip: the button itself stays a plain button.
-  assert.equal(themeButton.values.includes('Evening'), true);
-  assert.doesNotMatch(templateText(view), /haui-device-theme|Edit theme/);
-});
-
-test('the option summaries name the theme, count the entries and sum up the update settings', () => {
+test("the update summary carries what the Updates row of Connection & device shows", () => {
   const config = {
     ...DEVICE_CONFIG_DEFAULTS,
-    theme_id: 'evening',
-    schedule: [{ start: '22:00', end: 'sunrise', sound: false }],
-    gestures: [
-      { swipes: ['swipe_left'], action: 'next_panel', timeframe: 3 },
-      { swipes: ['swipe_up'], action: 'sys_about', timeframe: 3 },
-    ],
     update: { ...DEVICE_CONFIG_DEFAULTS.update, firmware_update_channel: 'stable', firmware_auto_update: false },
   };
-  assert.deepEqual(deviceOptionSummaries({ config, customThemes: { evening: { name: 'Evening' } } }), {
-    theme: 'Evening', schedule: '1 entry', gestures: '2 entries', updates: 'Stable · Manual',
-  });
+  assert.equal(updatesSummary(config), 'Stable · Manual');
   const automatic = { ...config, update: { ...config.update, firmware_update_channel: 'dev', firmware_auto_update: true } };
-  assert.equal(deviceOptionSummaries({ config: automatic }).updates, 'Development · Auto');
+  assert.equal(updatesSummary(automatic), 'Development · Auto');
   const off = { ...config, update: { ...config.update, enabled: false } };
-  assert.equal(deviceOptionSummaries({ config: off }).updates, 'Off');
+  assert.equal(updatesSummary(off), 'Off');
 });
 
 const GESTURE_PANELS = [{ key: 'lights', title: 'Lights' }];
@@ -112,26 +61,10 @@ const GESTURE_SYSTEM_PANELS = [
 ];
 const SEQUENCE = { swipes: ['swipe_left', 'swipe_right'], action: 'lights', timeframe: 3 };
 
-test('the Gestures button sums up what each gesture does, like the schedule', () => {
-  const view = panelManager({
+test('the Gestures group lists every gesture as a folded entry below the add button', () => {
+  const view = gestureSection({
     panels: GESTURE_PANELS, systemPanels: GESTURE_SYSTEM_PANELS,
-    config: { ...DEVICE_CONFIG_DEFAULTS, gestures: [...DEVICE_CONFIG_DEFAULTS.gestures, SEQUENCE] },
-  });
-  const text = templateText(view);
-  assert.match(text, /5 entries/);
-  assert.doesNotMatch(text, /panel-gesture_add/);
-
-  const empty = templateText(panelManager({
-    panels: [], config: { ...DEVICE_CONFIG_DEFAULTS, gestures: [] },
-  }));
-  assert.match(empty, /No gestures: swipes do nothing\./);
-  assert.doesNotMatch(empty, /0 entries/);
-});
-
-test('the Gestures sidebar lists every gesture as a folded entry below the add button', () => {
-  const view = deviceOptionPanel('gestures', {
-    panels: GESTURE_PANELS, systemPanels: GESTURE_SYSTEM_PANELS,
-    config: { ...DEVICE_CONFIG_DEFAULTS, gestures: [...DEVICE_CONFIG_DEFAULTS.gestures, SEQUENCE] },
+    gestures: [...DEVICE_CONFIG_DEFAULTS.gestures, SEQUENCE],
   });
   const text = templateText(view);
   assert.match(text, /Define swipe gestures to move between panels or open a specific panel/);
@@ -161,41 +94,46 @@ test('the Gestures sidebar lists every gesture as a folded entry below the add b
   assert.equal(foldedEntries.length, 5);
   assert.ok([...foldedEntries].every((entry) => !entry.open));
   assert.ok([...foldedEntries].every((entry) => entry.querySelector('button')));
-  assert.ok([...root.querySelectorAll('button')].some((button) => button.textContent.includes('Save')));
+  // The sidebar's one footer saves; the group has no Save of its own.
+  assert.doesNotMatch(text, /Save/);
 });
 
-test('gesture edits go to a draft that keeps every other gesture', () => {
+test('gesture edits go to the settings draft and keep every other gesture', () => {
   const drafts = [];
-  const view = deviceOptionPanel('gestures', {
+  const view = gestureSection({
     panels: GESTURE_PANELS, systemPanels: GESTURE_SYSTEM_PANELS,
-    config: { ...DEVICE_CONFIG_DEFAULTS, locale: 'de_DE', gestures: [...DEVICE_CONFIG_DEFAULTS.gestures, SEQUENCE] }, onGestureChange: (draft) => drafts.push(draft),
+    gestures: [...DEVICE_CONFIG_DEFAULTS.gestures, SEQUENCE],
+    onChange: (gestures) => drafts.push(gestures),
   });
 
   eventBinding(view, 'panel-gesture_2_action', '@change')({ target: { value: 'lights' } });
-  assert.deepEqual(drafts.at(-1).gestures, [
+  assert.deepEqual(drafts.at(-1), [
     ...DEVICE_CONFIG_DEFAULTS.gestures.slice(0, 2),
     { swipes: ['swipe_up'], action: 'lights', timeframe: 3 },
     DEVICE_CONFIG_DEFAULTS.gestures[3],
     SEQUENCE,
   ]);
-  assert.equal('locale' in drafts.at(-1), false);
 
   eventBinding(view, 'panel-gesture_4_timeframe', '@input')({ target: { value: '90' } });
-  assert.equal(drafts.at(-1).gestures[4].timeframe, 60);
+  assert.equal(drafts.at(-1)[4].timeframe, 60);
   const before = drafts.length;
   eventBinding(view, 'panel-gesture_4_timeframe', '@input')({ target: { value: '' } });
   assert.equal(drafts.length, before, 'an emptied box is unfinished typing, not a time limit');
 
-  eventBinding(view, 'panel-gesture_add', '@click')();
-  assert.deepEqual(drafts.at(-1).gestures.at(-1), { swipes: [], action: '', timeframe: 3 });
-  assert.equal(drafts.at(-1).gestures.length, 6);
-  assert.equal(drafts.at(-1).expandedEntryIndex, 5);
+  const added = [];
+  eventBinding(gestureSection({
+    panels: GESTURE_PANELS, systemPanels: GESTURE_SYSTEM_PANELS,
+    gestures: [...DEVICE_CONFIG_DEFAULTS.gestures, SEQUENCE],
+    onAdd: (gestures) => added.push(gestures),
+  }), 'panel-gesture_add', '@click')();
+  assert.deepEqual(added.at(-1).at(-1), { swipes: [], action: '', timeframe: 3 });
+  assert.equal(added.at(-1).length, 6);
 });
 
 test('a gesture\'s swipes can be added, dragged into order, and removed', () => {
   const drafts = [];
-  const makeView = (gestures) => deviceOptionPanel('gestures', {
-    panels: [], systemPanels: [], config: { ...DEVICE_CONFIG_DEFAULTS, gestures }, onGestureChange: (draft) => drafts.push(draft),
+  const makeView = (gestures) => gestureSection({
+    panels: [], systemPanels: [], gestures, onChange: (next) => drafts.push(next),
   });
   let view = makeView([{ swipes: ['swipe_left', 'swipe_right'], action: '', timeframe: 3 }]);
   let pills = templatesMatching(view, 'class="haui-pill"');
@@ -218,26 +156,24 @@ test('a gesture\'s swipes can be added, dragged into order, and removed', () => 
     },
     clientX: 80, clientY: 13, preventDefault() {},
   });
-  assert.deepEqual(drafts.at(-1).gestures[0].swipes, ['swipe_right', 'swipe_left']);
+  assert.deepEqual(drafts.at(-1)[0].swipes, ['swipe_right', 'swipe_left']);
 
-  view = makeView(drafts.at(-1).gestures);
+  view = makeView(drafts.at(-1));
   const select = { value: 'swipe_up' };
   eventBinding(view, 'panel-gesture_0_add_swipe', '@change')({ currentTarget: select });
   assert.equal(select.value, '');
-  assert.deepEqual(drafts.at(-1).gestures[0].swipes, ['swipe_right', 'swipe_left', 'swipe_up']);
+  assert.deepEqual(drafts.at(-1)[0].swipes, ['swipe_right', 'swipe_left', 'swipe_up']);
 
-  view = makeView(drafts.at(-1).gestures);
+  view = makeView(drafts.at(-1));
   pills = templatesMatching(view, 'class="haui-pill"');
   const removeIndex = pills[0].strings.findIndex((part) => part.trimEnd().endsWith('@click='));
   pills[0].values[removeIndex]();
-  assert.deepEqual(drafts.at(-1).gestures[0].swipes, ['swipe_left', 'swipe_up']);
+  assert.deepEqual(drafts.at(-1)[0].swipes, ['swipe_left', 'swipe_up']);
 
   // One swipe left: no order to drag and no time limit.
   view = makeView([{ swipes: ['swipe_up'], action: 'lights', timeframe: 3 }]);
   assert.doesNotMatch(templateText(view), /Drag swipes into order|panel-gesture_0_timeframe/);
 });
-
-
 
 test('the unified idle list composes and splits the existing string settings in order', () => {
   assert.deepEqual(idlePanelKeys('clock', 'weather, gone, clock'), ['clock', 'weather', 'gone']);

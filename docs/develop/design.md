@@ -51,7 +51,7 @@ The icons available can be viewed here:
 
 ## Themes and colors
 
-The display uses semantic colors from a selected predefined or custom theme. The theme library is shared by all devices in one config entry. Each device selects a theme with `theme_id`; `theme_variant` independently chooses the default dark- or light-background icon palette. Theme colors are edited on the shared theme, not overridden per device. Panel and item colors remain explicit overrides; applying a theme leaves them untouched. Panels can select a library theme of their own; panels without an override follow the device theme.
+The display uses semantic colors from a selected predefined or custom theme. The theme library is shared by all devices in one config entry. Each device selects a theme with `theme_id`, and the theme's own page background selects the icon palette it draws (a dark page the dark-background colors, a light one the light-background colors). Theme colors are edited on the shared theme, not overridden per device. Panel and item colors remain explicit overrides; applying a theme leaves them untouched. Panels can select a library theme of their own; panels without an override follow the device theme.
 
 **Predefined themes.** `BUILTIN_THEMES` in `haui/mapping/color.py` holds the
 neutral Dark, Light, White and Black plus the colorful Midnight, Ocean, Forest,

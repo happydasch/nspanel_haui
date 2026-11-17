@@ -17,7 +17,7 @@ NSPanel HAUI is configured in an editor inside Home Assistant. You do not edit Y
 2. The dashboard lists your devices. Select a device to open it. The round back button returns to the dashboard.
 3. A device opens on its **Preview**. Switch to **Panels** to see and edit its panels.
 
-Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view lists the panels and describes the selected one in the side column; configure the home and idle pages in **Device Settings → Home & idle**.
+Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**, which holds the theme choice under **General**, and the **Connection & device** card's **Edit theme** row opens the theme editor. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view lists the panels and describes the selected one in the side column; configure the home and idle pages in **Device Settings → Home & idle**.
 
 If the editor does not get past its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 
@@ -27,7 +27,7 @@ Beside the preview, the Device screen has two cards about the panel's state.
 
 ### Connection & device
 
-Four tiles: how long the panel has been online (or that it is offline), the Wi-Fi signal, the current page and the IP address. When the editor could not refresh the status, the card says so: the tiles show the last values it read. Hover over a tile or tap it for more, such as the Wi-Fi network, the last disconnect or the last panel update. Below the tiles, **Updates** opens the updates; the firmware and display versions are in **Diagnostics** and in the **Updates** sidebar.
+Four tiles: how long the panel has been online (or that it is offline), the Wi-Fi signal, the current page and the IP address. When the editor could not refresh the status, the card says so: the tiles show the last values it read. Hover over a tile or tap it for more, such as the Wi-Fi network, the last disconnect or the last panel update. Below the tiles, the **Updates** row opens the Updates sidebar, with what the update settings hold beside its name (for example **Development · Auto**, or **Off**); the firmware and display versions are in **Diagnostics** and in the **Updates** sidebar.
 
 ### Diagnostics
 
@@ -115,23 +115,24 @@ See [Item Configuration](items.md) for all options.
 
 ## The Device Settings Dialog
 
-**Settings** opens the device settings in a sidebar. You find it as the cog in the action card of the **Preview** and of **Panels** and in the device's row on the dashboard. The settings are grouped into sections:
+**Settings** opens the device settings in a sidebar. You find it as the cog in the action card of the **Preview** and of **Panels** and in the device's row on the dashboard. The settings open on a list of tiles, one per group; a tile opens that group's page and the strip's back arrow returns to the list:
 
-| Section | Settings |
+| Group | Settings |
 |---------|----------|
-| **General** | Display model, display language, time and date formats; opens the **Theme** |
-| **Screen** | Brightness, dimming and display off with their timeouts; opens the **Schedule** |
+| **General** | Display model, display language, time and date formats, and the device's theme |
+| **Screen** | Brightness, dimming and display off with their timeouts, and the schedule that sets them by time of day |
 | **Sounds** | Startup and notification sounds |
 | **Home & idle** | Home panel, automatic page switching, idle panels and what the panel shows after waking up |
-| **Screen buttons & gestures** | Home, idle and notifications buttons in the header; opens the **Gestures** |
+| **Gestures** | The swipes and the panel each one opens |
+| **Screen buttons** | Home, idle and notifications buttons in the header |
 | **Hardware buttons** | Relays or entities for the two buttons |
-| **Advanced** | Logging, stale data marking and page settle delay; opens the **Updates** |
+| **Advanced** | Logging, stale data marking and page settle delay |
 
-See [Device Configuration](device.md) for every setting. The **Schedule**, **Gestures**, and **Theme** buttons are in **Manage this device** in the device's **Preview** view; the rows in the settings open the same sidebars. Set the home and idle panel assignments in **Device Settings → Home & idle**.
+See [Device Configuration](device.md) for every setting. Everything in the settings — schedule entries, gestures and the theme choice included — is one draft: **Save** applies it, **Cancel** discards it. Set the home and idle panel assignments in **Device Settings → Home & idle**.
 
 ## The Theme Sidebar
 
-In **Preview**, open **Manage this device** and choose **Theme** to open the Theme sidebar, where you select the device's theme and edit shared colors or icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. See [Themes](themes.md).
+In **Device Settings → General**, the **Theme** field selects the device's theme; **Edit theme** beside **Updates** in the **Connection & device** card, which names the selected theme, opens the Theme sidebar, where you edit the colors of the selected theme and of the shared library, or its icon palettes. The theme choice saves with the rest of the settings; press **Apply** to save the sidebar's color changes or **Cancel** to discard them. See [Themes](themes.md).
 
 ## The Live Preview
 

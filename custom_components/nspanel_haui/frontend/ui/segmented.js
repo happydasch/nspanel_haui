@@ -6,8 +6,8 @@ import { icon } from './icon.js';
  * A labelled group of choices; an option's `count` is a badge in its `tone`
  * (a `countBadge` tone, neutral by default).
  */
-export function segmented({ label, options, value, onSelect, disabled = false }) {
-  return html`<div class="haui-segmented" role="group" aria-label=${label}>
+export function segmented({ label, options, value, onSelect, disabled = false, id = null }) {
+  return html`<div class="haui-segmented" id=${id ?? nothing} role="group" aria-label=${label}>
     ${options.map((option) => html`<button type="button"
       class=${`haui-segmented-option ${option.value === value ? 'active' : ''}`}
       aria-pressed=${option.value === value ? 'true' : 'false'}

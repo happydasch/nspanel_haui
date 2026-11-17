@@ -18,7 +18,7 @@ import { renderDeviceView } from './views/device.js';
 import { panelCatalog } from './views/panel-catalog.js';
 import { renderPanelList } from './views/panel-list.js';
 import { renderTitleHeader, renderFooter } from './toolbar.js';
-import { panelActions, panelManager, deviceOptionPanel, deviceOptionSummaries } from './ui/panel-manager.js';
+import { panelActions, themeLabel, updatesSummary } from './ui/panel-manager.js';
 import { panelSideCard } from './ui/panel-info.js';
 import { deviceActions } from './ui/device-actions.js';
 import { deviceDetails } from './ui/device-details.js';
@@ -30,7 +30,8 @@ import * as Crud from './crud.js';
 import * as Toast from './toast.js';
 import { copyText } from './dom-helpers.js';
 import { writeSideCards } from './editor-preferences.js';
-import { isDeviceOptionOverlayKind, isSidebarOverlayKind } from './store/store.js';
+import { isSidebarOverlayKind } from './store/store.js';
+import { settingsSection } from './device-settings-sections.js';
 
 /* ── sidebar titles ───────────────────────────────────────────────────────── */
 
@@ -43,16 +44,17 @@ export function panelEditorLabel(host) {
 }
 
 /**
- * The modal sidebar's title for a sidebar overlay kind.
+ * The modal sidebar's title for a sidebar overlay kind. The device settings
+ * name the group they show, or "Device settings" on their tile grid.
  * @param {any} host
  * @param {string|undefined} kind
  */
 export function sidebarLabel(host, kind) {
   /** @type {Record<string, () => string>} */
   const labels = {
-    'device-settings': () => t('Device settings'),
-    'device-schedule': () => t('Schedule'),
-    'device-gestures': () => t('Gestures'),
+    'device-settings': () => (host._deviceSettingsSection
+      ? settingsSection(host._deviceSettingsSection).label()
+      : t('Device settings')),
     'panel-editor': () => host._panelEditorLabel(),
     'panel-catalog': () => t('Add panel'),
     updates: () => t('Updates'),
@@ -201,7 +203,6 @@ export function renderDeviceScreen(host) {
   const interactiveSession = html`<nspanel-preview-workspace class="haui-inline-live-preview"
     .hass=${host.hass} .active=${true} .entryId=${host.entryId} .device=${name}
     .mode=${preview.mode} .showEntities=${preview.showEntities}
-    .optionSelection=${isDeviceOptionOverlayKind(sidebarKind) ? sidebarKind : ''}
     @preview-state=${(event) => host._onPreviewState(event)}
     @preview-notice=${(event) => host._showToast(event.detail.message, event.detail.type)}
   ></nspanel-preview-workspace>`;
@@ -228,21 +229,21 @@ export function renderDeviceScreen(host) {
     }} @dialog-save=${(event) => host._save(event)}
   ></nspanel-panel-editor>` : null;
   // The settings follow the stored config, so a save in a sidebar opened from
-  // them (theme, schedule, gestures, updates) reaches their form.
+  // them (theme) reaches their form.
   const deviceSettings = html`<nspanel-device-settings
     .hass=${host.hass} .open=${true}
     .config=${device.config}
-    .summaries=${deviceOptionSummaries({
-      config: device.config, builtinThemes: host._builtinThemes, customThemes: host._customThemes,
-    })}
     .panels=${device.panels}
+    .systemPanels=${state.hub.systemPanels || []}
+    .builtinThemes=${host._builtinThemes}
+    .customThemes=${host._customThemes}
     .deviceBrightness=${deviceBrightness(status, host.hass)}
-    .openSections=${host._deviceSettingsSections}
+    .section=${host._deviceSettingsSection}
     .saving=${host._saving}
     .api=${host.api} .entryId=${host.entryId}
     @dialog-closed=${() => host._closeDeviceConfig()}
     @dialog-save=${(event) => host._onDeviceConfigSave(event)}
-    @open-option=${(event) => host._openSettingsOption(name, event.detail.option)}
+    @section-change=${(event) => host._openDeviceSettingsSection(event.detail.section)}
   ></nspanel-device-settings>`;
   const catalog = () => panelCatalog({
     panelTypes: host._panelTypes,
@@ -268,36 +269,14 @@ export function renderDeviceScreen(host) {
     .hass=${host.hass} .api=${host.api} .open=${true}
     .entryId=${host.entryId}
     .themeId=${host._themeId || 'dark'}
-    .themeVariant=${host._themeVariant}
     @dialog-closed=${() => host._closeThemeSidebar()} @dialog-save=${(event) => host._onThemeSave(event)}
   ></nspanel-theme-sidebar>`;
   /** @param {string} kind @param {() => unknown} content */
   const layer = (kind, content) => (sidebarKinds.includes(kind)
     ? html`<div class="haui-sidebar-layer" ?hidden=${kind !== sidebarKind}>${content()}</div>`
     : nothing);
-  // What the device's settings and its option sidebars edit.
-  const managerOptions = {
-    panels: device.panels,
-    systemPanels: state.hub.systemPanels || [],
-    config: device.config,
-    saving: state.hub.saving,
-    scheduleDraft: host._scheduleDraft?.device === name ? host._scheduleDraft : null,
-    deviceBrightness: deviceBrightness(status, host.hass),
-    builtinThemes: host._builtinThemes,
-    customThemes: host._customThemes,
-    onScheduleChange: (draft) => host._changeSchedule(draft),
-    onScheduleEntryToggle: (index, isOpen) => host._onScheduleEntryToggle(index, isOpen),
-    onScheduleSave: () => host._saveSchedule(),
-    onOpenDeviceSettings: () => host._openSettings(['screen', 'sounds']),
-    gestureDraft: host._gestureDraft?.device === name ? host._gestureDraft : null,
-    onGestureChange: (draft) => host._changeGestures(draft),
-    onGestureEntryToggle: (index, isOpen) => host._onGestureEntryToggle(index, isOpen),
-    onGestureSave: () => host._saveGestures(),
-  };
   // The modal sidebar opens over the page; the side stack below it stays as it is.
   const sidebarContent = sidebarKind ? html`${layer('device-settings', () => deviceSettings)}${
-    layer('device-schedule', () => deviceOptionPanel('schedule', managerOptions))}${
-    layer('device-gestures', () => deviceOptionPanel('gestures', managerOptions))}${
     layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
     layer('updates', () => host._renderUpdates(name))}${layer('theme', theme)}${
     layer('logs', () => host._renderLogs())}` : null;
@@ -312,13 +291,6 @@ export function renderDeviceScreen(host) {
         onSettings: () => host._openSettings(),
         onUpdates: () => host._openUpdates(name),
         onAdd: () => host._openCatalog(),
-        management: panelManager({
-          ...managerOptions,
-          // The theme has its own shared editor; the other two open theirs.
-          onOpen: (option) => (option === 'theme'
-            ? host._openTheme()
-            : host._openDeviceOption(option)),
-        }),
       });
   const sideContent = route.panelView === 'panels'
     ? panelSideCard(host._panelSideModel(device, status))
@@ -329,6 +301,9 @@ export function renderDeviceScreen(host) {
           hass: host.hass,
           onLogs: () => host._openLogs(name),
           onUpdates: () => host._openUpdates(name),
+          updatesDetail: updatesSummary(device.config),
+          themeDetail: themeLabel(device.config.theme_id, host._builtinThemes, host._customThemes),
+          onEditTheme: () => host._openTheme(device.config.theme_id),
           onCopyReport: () => host._copyDiagnostics(name, status),
           detailsExpanded: host._detailsExpanded,
           onToggleDetails: () => host._toggleDetails(),
@@ -379,6 +354,13 @@ export function renderDeviceScreen(host) {
       },
       sidebarOpen: Boolean(sidebarContent),
       sidebarLabel: sidebarKind ? host._sidebarLabel(sidebarKind) : undefined,
+      // A settings group is one level below the tile grid: back returns to it.
+      sidebarBack: sidebarKind === 'device-settings' && host._deviceSettingsSection
+        ? {
+          label: t('Back to device settings'),
+          onBack: () => host._openDeviceSettingsSection(null),
+        }
+        : null,
       onCloseSide: () => host._closeSidebar(),
       onSelectDevice: (deviceName) => host._navigateToDevice(deviceName),
       onSwitchView: (panelView) => host._router?.navigate(

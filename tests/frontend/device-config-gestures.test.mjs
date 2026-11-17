@@ -7,7 +7,7 @@ import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import {
   gestureActionLabel, gestureEditor, gestureSwipesLabel,
 } from '../../custom_components/nspanel_haui/frontend/ui/gesture-editor.js';
-import { deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { SETTINGS_SECTIONS } from '../../custom_components/nspanel_haui/frontend/device-settings-sections.js';
 import { DEVICE_CONFIG_DEFAULTS, GESTURE_NAMES } from '../../custom_components/nspanel_haui/frontend/constants.js';
 import { render } from './support/render.mjs';
 import { byRole } from './support/queries.mjs';
@@ -34,30 +34,36 @@ function templates(value) {
   return [];
 }
 
-test('device settings include the home and idle panels and save their assignments', () => {
+test('every device config key is edited by one of the settings groups', () => {
+  // The entity pickers only show while their relay is off.
   const config = { ...DEVICE_CONFIG_DEFAULTS, use_relay_left: false, use_relay_right: false };
-  const panels = [
-    { key: 'kitchen', title: 'Kitchen' },
-    { key: 'clock', title: 'Clock' },
-    { key: 'weather', title: 'Weather' },
-  ];
-  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels });
-  const output = flat(dlg.render());
-  const separatelyManagedDefaults = new Set([
-    'theme_variant', 'theme_id', 'home_panel', 'idle_panel', 'idle_panel_extra', 'schedule', 'gestures',
-  ]);
+  // Edited through the panel pills, which name neither key.
+  const separatelyManagedDefaults = new Set(['home_panel', 'idle_panel', 'idle_panel_extra']);
+  const output = SETTINGS_SECTIONS
+    .map((section) => flat(dialog({ config, _deviceConfigForm: config, section: section.key }).dlg.render()))
+    .join('\n');
 
-  assert.match(output, /haui-device-settings-sidebar/);
   assert.doesNotMatch(output, /Configure colors|Appearance/);
   assert.doesNotMatch(output, /<ha-dialog[ >]/);
   for (const key of Object.keys(DEVICE_CONFIG_DEFAULTS).filter((name) => !separatelyManagedDefaults.has(name))) {
     const renderedKey = key === 'snapshot_max_age_seconds' ? 'snapshot_max_age_mode' : key;
     assert.ok(output.includes(renderedKey), `settings form exposes ${key}`);
   }
+});
+
+test('the home and idle panels keep their assignments and save them', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS };
+  const panels = [
+    { key: 'kitchen', title: 'Kitchen' },
+    { key: 'clock', title: 'Clock' },
+    { key: 'weather', title: 'Weather' },
+  ];
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels, section: 'home' });
+  const output = flat(dlg.render());
+  assert.match(output, /haui-device-settings-sidebar/);
   assert.match(output, /Home panel/);
   assert.match(output, /Idle panels/);
-  assert.doesNotMatch(output, /Panel Assignments|<summary>Schedule|<summary>Gestures/);
-  assert.doesNotMatch(output, /dc-schedule|dc-gesture/);
+  assert.doesNotMatch(output, /Panel Assignments/);
 
   const selectFor = (id) => {
     const select = templates(dlg.render()).find((template) =>
@@ -75,29 +81,30 @@ test('device settings include the home and idle panels and save their assignment
   });
 });
 
-test('the settings rows open the theme, schedule, gestures and updates sidebars', () => {
+test('the General group carries the theme choice instead of a theme sidebar row', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS };
-  const summaries = { theme: 'Evening', schedule: '1 entry', gestures: '4 entries', updates: 'Stable · Manual' };
-  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels: [], summaries });
+  const { dlg, events } = dialog({
+    config, _deviceConfigForm: config, panels: [], section: 'general',
+    builtinThemes: { dark: {}, light: {} },
+    customThemes: { evening: { name: 'Evening' } },
+  });
   const root = render(dlg.render());
-  for (const [label, option] of [['Theme', 'theme'], ['Schedule', 'schedule'], ['Gestures', 'gestures'], ['Updates', 'updates']]) {
-    const row = byRole(root, 'button', { name: `${label} ${summaries[option]}` });
-    assert.ok(row, `${label} row shows its summary`);
-    row.dispatchEvent(new Event('click', { bubbles: true }));
-    assert.equal(events.at(-1).type, 'open-option');
-    assert.deepEqual(events.at(-1).detail, { option });
-  }
+
+  assert.ok(root.querySelector('#dc-theme_id'));
+  // The theme choice is a field of the form now, not a row that opens an editor.
+  assert.equal(byRole(root, 'button', { name: 'Theme' }), null);
+  assert.deepEqual(events, []);
 });
 
 test('a save in a sidebar opened from the settings survives saving the settings', () => {
   const before = { ...DEVICE_CONFIG_DEFAULTS, schedule: [] };
-  const { dlg, events } = dialog({ config: before, panels: [] });
+  const { dlg, events } = dialog({ config: before, panels: [], section: 'advanced' });
   dlg.willUpdate(new Map([['config', undefined]]));
   const level = render(dlg.render()).querySelector('#dc-log_level');
   level.value = 'DEBUG';
   level.dispatchEvent(new Event('change', { bubbles: true }));
 
-  // The schedule sidebar saved over the settings: the store hands them its new config.
+  // A sidebar opened from the settings (theme, updates) saved: the store hands them its new config.
   const after = { ...before, schedule: [{ start: '22:00', end: 'sunrise', sound: false }], brightness: 40 };
   dlg.config = after;
   dlg.willUpdate(new Map([['config', before]]));
@@ -119,7 +126,7 @@ test('the idle panels keep their order and can be reordered by dragging', () => 
     { key: 'clock', title: 'Clock' }, { key: 'weather', title: 'Weather' },
     { key: 'photo', title: 'Photo' }, { key: 'light', title: 'Light' },
   ];
-  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels });
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels, section: 'home' });
   const view = dlg.render();
   const idleRows = templates(view).filter((template) => template.strings[0].includes('<li class="haui-pill"'));
   const row = (name) => idleRows.find((template) => flat(template).includes(name));
@@ -178,49 +185,29 @@ test('an unfinished gesture says what it still lacks', () => {
   assert.equal(gestureActionLabel('gone'), 'gone');
 });
 
-test('gestures are edited in a draft: only a new one opens, and Save writes them', async () => {
-  const { NSPanelEditor } = await import('../../custom_components/nspanel_haui/frontend/app/shell.js');
-  const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
-    _selectedDevice: 'kitchen', _deviceConfig: { ...DEVICE_CONFIG_DEFAULTS, locale: 'de_DE' }, _saving: false,
-    _store: { actions: { closeOverlay() {} } },
-    _restoreSidebarFocus() {},
-  });
-  const render = () => deviceOptionPanel('gestures', {
-    panels: [], config: editor._deviceConfig, gestureDraft: editor._gestureDraft,
-    onGestureChange: (draft) => editor._changeGestures(draft),
-    onGestureEntryToggle: (index, isOpen) => editor._onGestureEntryToggle(index, isOpen),
-    onGestureSave: () => editor._saveGestures(),
-  });
+test('a new gesture opens, folding it again keeps it, and the settings save it', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS, locale: 'de_DE' };
+  const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels: [], section: 'gestures' });
   const entries = (view) => templates(view).filter((template) =>
     template.strings[0].includes('<details class="haui-entry"'));
   const openStates = (view) => entries(view).map((entry) => entry.values[0]);
-  const saveButton = (view) => templates(view).find((template) =>
-    template.strings.join('').includes('class=') && template.values.includes('Save'));
 
-  assert.deepEqual(openStates(render()), [false, false, false, false]);
-  const add = templates(render()).find((template) => template.values.includes('panel-gesture_add'));
+  assert.deepEqual(openStates(dlg.render()), [false, false, false, false]);
+  const add = templates(dlg.render()).find((template) => template.values.includes('panel-gesture_add'));
   add.values.find((value) => typeof value === 'function')();
-  assert.deepEqual(openStates(render()), [false, false, false, false, true]);
-  assert.ok(saveButton(render()));
+  assert.deepEqual(openStates(dlg.render()), [false, false, false, false, true]);
 
-  const added = entries(render())[4];
+  const added = entries(dlg.render())[4];
   added.values.find((value) => typeof value === 'function')({ target: { open: false } });
-  assert.deepEqual(openStates(render()), [false, false, false, false, false]);
+  assert.deepEqual(openStates(dlg.render()), [false, false, false, false, false]);
 
-  const saved = [];
-  editor._devicePanels = () => [];
-  editor._saveDeviceConfig = async (config) => {
-    saved.push(config);
-    editor._deviceConfig = config;
-    return true;
-  };
-  editor.requestUpdate = () => {};
-  await editor._saveGestures();
-  assert.equal(saved.length, 1);
-  assert.equal(saved[0].locale, 'de_DE');
-  assert.deepEqual(saved[0].gestures, [
+  // The one footer saves the entries with the rest of the settings.
+  dlg._dispatchSave();
+  const saved = events.at(-1).detail.config;
+  assert.equal(saved.locale, 'de_DE');
+  assert.deepEqual(saved.gestures, [
     ...DEVICE_CONFIG_DEFAULTS.gestures, { swipes: [], action: '', timeframe: 3 },
   ]);
-  assert.equal('expandedEntryIndex' in saved[0], false);
-  assert.equal(editor._gestureDraft, null);
+  // Which entry is unfolded is view state, never config.
+  assert.equal('expandedEntryIndex' in saved, false);
 });

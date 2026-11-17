@@ -16,6 +16,7 @@ import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/p
 import { sidebarFrame } from '../../custom_components/nspanel_haui/frontend/ui/sidebar.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
 import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
+import { settingsTile } from '../../custom_components/nspanel_haui/frontend/ui/settings-tile.js';
 import { updateProgress } from '../../custom_components/nspanel_haui/frontend/ui/update-progress.js';
 import { rolloutCard } from '../../custom_components/nspanel_haui/frontend/ui/rollout-card.js';
 
@@ -62,7 +63,8 @@ const DIAGNOSTICS_DEMO = {
     },
     formatEntityState: (stateObj) => (stateObj.state === 'sunny' ? 'Sunny' : 'Unavailable'),
   },
-  onSettings: noop, onUpdates: noop, onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
+  onSettings: noop, onUpdates: noop, updatesDetail: 'Stable · Manual', themeDetail: 'Dark', onEditTheme: noop,
+  onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
 };
 
 /** The editor's text levels, largest first (docs/develop/frontend.md → Text sizes). */
@@ -166,6 +168,14 @@ class UiPrimitivesPreview extends LitElement {
             ${valueTile({ label: 'Brightness', iconName: 'brightness', value: '80%', detail: 'Dimmed: 15%' })}
             ${valueTile({ label: 'Auto dimming', iconName: 'dimming', value: 'Off', muted: true })}
           </dl>
+        </section>
+        <section class="gallery-card"><h2>Settings tiles: a group, its name and one value line</h2>
+          <div class="haui-settings-grid">
+            ${settingsTile({ key: 'general', iconName: 'settings', label: 'General', summary: 'EU (landscape) · English · Dark', onClick() {} })}
+            ${settingsTile({ key: 'screen', iconName: 'dimming', label: 'Screen', summary: 'Full 100% · dimmed 15% · off after 120 s', onClick() {} })}
+            ${settingsTile({ key: 'sounds', iconName: 'sound', label: 'Sounds', summary: 'Startup on · notifications off', onClick() {} })}
+            ${settingsTile({ key: 'advanced', iconName: 'tuneVariant', label: 'Advanced', summary: 'Log level: INFO · page settle 0.3 s', onClick() {} })}
+          </div>
         </section>
         <section class="gallery-card"><h2>Update progress: transferring, past its estimate, failed</h2>
           ${updateProgress({ label: 'Display update', progress: {

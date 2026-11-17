@@ -32,6 +32,10 @@ DEVICE_CONFIG_KEY_RENAMES: dict[str, str] = {
     "timeout_sleep": "timeout_display_off",
 }
 
+# Settings that no longer exist: the theme variant went away with the themes'
+# own icon palettes, which the theme's page background selects.
+REMOVED_DEVICE_CONFIG_KEYS = ("theme_variant",)
+
 
 def migrate_device_config_keys(device_config: dict) -> bool:
     """Rename legacy device-config keys in place and convert the old gesture settings."""
@@ -43,6 +47,10 @@ def migrate_device_config_keys(device_config: dict) -> bool:
         if new_key not in device_config:
             device_config[new_key] = old_value
         modified = True
+    for removed_key in REMOVED_DEVICE_CONFIG_KEYS:
+        if removed_key in device_config:
+            del device_config[removed_key]
+            modified = True
     return migrate_gesture_settings(device_config) or modified
 
 

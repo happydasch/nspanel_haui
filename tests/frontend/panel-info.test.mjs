@@ -76,8 +76,6 @@ test('the overview counts each group, names the home and idle panels, and says h
     kind: 'overview', navigationCount: 3, hiddenCount: 1, popupCount: 2,
     homePanel: 'Lights', idlePanels: 'Clock and 1 more',
   }));
-  assert.match(text, /About panels/);
-  assert.match(text, /Select a panel in the list to see its details\./);
   assert.match(text, /haui-panels-overview-groups/);
   assert.match(text, /data-group=navigation/);
   assert.match(text, /data-group=hidden/);
@@ -97,6 +95,8 @@ test('the overview counts each group, names the home and idle panels, and says h
   assert.match(text, /Drag a panel to reorder it, or drop it in the other group\./);
   assert.match(text, /The row menu duplicates, hides and deletes a panel\./);
   assert.doesNotMatch(text, /haui-panel-info-preview|haui-panel-info-key|haui-button/);
+  // The overview is plain content in the side stack, not a card of its own.
+  assert.doesNotMatch(text, /haui-surface/);
 });
 
 test('the home and idle tiles select their panel rows', () => {

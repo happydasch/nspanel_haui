@@ -233,24 +233,6 @@ def test_store_device_name_matches_case_insensitively():
     assert cfg["panels"] == [clock]
 
 
-def test_explicit_theme_variant_survives_config_build():
-    cfg = nspanel_haui._build_config_dict(
-        {"name": "Hub", "devices": [{"name": "kitchen"}]},
-        {
-            "devices": {
-                "kitchen": {
-                    "config": {"theme_variant": "dark"},
-                    "panels": [],
-                }
-            }
-        },
-        device_name="kitchen",
-    )
-
-    assert cfg["devices"][0]["theme_variant"] == "dark"
-    assert cfg["devices"][0]["theme_id"] == "dark"
-
-
 def test_build_config_passes_theme_library_and_normalizes_unknown_panel_theme():
     cfg = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]},
@@ -398,11 +380,10 @@ def _reload(saved_config: dict, running_config: dict | None = None):
     return app
 
 
-def test_reload_config_applies_icon_theme_variant():
-    app = _reload({"theme_variant": "light"})
+def test_reload_config_applies_the_themes_icon_palette():
+    app = _reload({"theme_id": "light"})
 
     assert app.theme.variant == "light"
-    assert app.device.config["theme_variant"] == "light"
 
 
 def test_reload_config_applies_the_selected_theme_before_navigation_reloads():

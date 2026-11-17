@@ -47,7 +47,9 @@ export const deviceLayoutStyles = css`
     padding: 12px 16px;
     border-bottom: 1px solid var(--divider-color);
   }
-  .haui-sidebar-title { overflow: hidden; font-size: var(--haui-text-title); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-sidebar-title { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: var(--haui-text-title); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  /* The back control starts the strip, before the group's name. */
+  .haui-sidebar-back { margin-left: -8px; }
   .haui-sidebar-body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
   .haui-sidebar-body > *, .haui-sidebar-layer > * { flex: 1 1 auto; min-height: 0; }
   /* A sidebar opened from another (Colors from Device settings) covers it; the one below stays rendered, so its draft survives. */

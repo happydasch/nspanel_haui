@@ -2,33 +2,14 @@ import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
-import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
-import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
-import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
-import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
-import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
-import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
+import { scheduleSection } from '../../custom_components/nspanel_haui/frontend/ui/schedule-section.js';
 import { DEVICE_CONFIG_DEFAULTS } from '../../custom_components/nspanel_haui/frontend/constants.js';
-import { render } from './support/render.mjs';
-import { byRole } from './support/queries.mjs';
 
 function templateText(template) {
   return `${template?.strings?.join(' ') || ''} ${template?.values?.map((value) => {
     if (Array.isArray(value)) return value.map((entry) => entry?.strings ? templateText(entry) : String(entry ?? '')).join(' ');
     return value?.strings ? templateText(value) : String(value ?? '');
   }).join(' ') || ''}`;
-}
-
-function templatesMatching(template, marker, found = []) {
-  if (!template?.strings) return found;
-  if (template.strings.join('').includes(marker)) found.push(template);
-  for (const value of template.values) {
-    if (Array.isArray(value)) value.forEach((entry) => templatesMatching(entry, marker, found));
-    else templatesMatching(value, marker, found);
-  }
-  return found;
 }
 
 /** The `placeholder=` value bound to the input with `id`. */
@@ -61,209 +42,118 @@ function eventBinding(template, id, eventName) {  if (!template?.strings) return
   return undefined;
 }
 
-function previewModel(extra = {}) {
-  return {
-    mode: 'simulated', idle: false, showEntities: false,
-    ready: true, canInteract: true, ...extra,
-  };
-}
-
-function deviceView(preview, callbacks = {}) {
-  return renderDeviceView({
-    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen' }, status: { connected: true } }],
-    selectedName: 'kitchen', panelCount: 2, panelView: 'preview',
-    workspace: html`<p>Stage</p>`, sideContent: html`<p>Details</p>`,
-    preview,
-    onSelectDevice() {}, onSwitchView() {},
-    ...callbacks,
+/**
+ * The schedule of the settings' Screen group, with everything it edits
+ * collected: each change is the entries plus the fields it merges into the draft.
+ */
+function scheduleGroup(config, extra = {}) {
+  const changes = [];
+  const view = scheduleSection({
+    config,
+    schedule: config.schedule || [],
+    onChange: (schedule, fields = {}) => changes.push({ schedule, ...fields }),
+    onAdd: (schedule, fields = {}) => changes.push({ schedule, ...fields }),
+    ...extra,
   });
+  return { view, changes };
 }
 
-/** First template that renders a control carrying `marker` and `label`. */
-/** First template that renders a control carrying `marker` and `label`. */
-function controlWith(view, marker, label) {
-  return templatesMatching(view, marker).find((entry) => templateText(entry).includes(label));
-}
-
-const click = (control) => control.values.find((value) => typeof value === 'function')();
-
-function controls(preview, callbacks = {}) {
-  return previewControls({
-    preview,
-    onMode: () => {},
-    onIdle: () => {},
-    ...callbacks,
-  });
-}
-
-test('the Schedule button shows its entry count without opening the editor', () => {
-  const folded = templateText(panelManager({
-    panels: [], config: {
-      brightness: 80,
-      schedule: [
-        { start: 'sunset', start_offset: -30, end: '22:00', sound: true, brightness: 40, display_off: false },
-        { start: '22:00', end: 'sunrise', sound: false, brightness: 5, display_off: true, timeout_display_off: 30 },
-      ],
-    },
-  }));
-  assert.match(folded, /2 entries/);
-  assert.doesNotMatch(folded, /panel-schedule_0_start_time/, 'the entries stay folded');
-
-  const empty = templateText(panelManager({
-    panels: [], config: { brightness: null, schedule: [] },
-  }));
-  assert.match(empty, /Nothing scheduled: the device settings apply all day\./);
-  assert.doesNotMatch(empty, /entries</);
-});
-
-test('the Schedule sidebar edits a draft of its entries and saves it explicitly', () => {
-  const edits = [];
-  const saves = [];
+test('the schedule of the Screen group edits the settings draft and has no Save of its own', () => {
   const config = {
+    ...DEVICE_CONFIG_DEFAULTS,
     brightness: 80,
     schedule: [{
       start: '22:00', end: '07:00', sound: true, brightness: 20,
       display_off: true, timeout_display_off: 30,
     }],
   };
-  const view = deviceOptionPanel('schedule', {
-    panels: [], config, scheduleDraft: { schedule: config.schedule, device: 'kitchen' },
-    onScheduleChange: (draft) => edits.push(draft),
-    onScheduleSave: () => saves.push(true),
-  });
+  const { view, changes } = scheduleGroup(config);
   const text = templateText(view);
-  assert.match(text, /Set display behavior by time of day/);
+  assert.match(text, /Set the display by time of day/);
   assert.doesNotMatch(text, /YAML configuration/);
-  // The values outside the entries are the device settings' own fields.
+  // The values the entries inherit are the Screen group's own fields, not a copy.
   assert.doesNotMatch(text, /panel-schedule-base-/);
+  assert.doesNotMatch(text, /Outside the entries/);
   assert.match(text, /panel-schedule_0_start_time/);
+  // The sidebar's one footer saves, not a button of this group.
+  assert.doesNotMatch(text, /Save/);
 
   const onInput = eventBinding(view, 'panel-schedule_0_start_time', '@input');
   onInput({ target: { value: '21:30' } });
-  assert.equal(edits.at(-1).schedule[0].start, '21:30');
-
-  const save = controlWith(view, '<button', 'Save');
-  click(save);
-  assert.deepEqual(saves, [true]);
-});
-
-test('the Schedule sidebar shows the settings outside its entries read-only and opens the device settings', () => {
-  const opened = [];
-  const panel = (config, extra = {}) => render(deviceOptionPanel('schedule', {
-    panels: [], config: { ...DEVICE_CONFIG_DEFAULTS, schedule: [], ...config },
-    onOpenDeviceSettings: () => opened.push(true), ...extra,
-  }));
-  /** Each tile's label and what describes it: its value, then its detail line. */
-  const tiles = (root) => {
-    const defaults = byRole(root, 'heading', { name: 'Outside the entries' }).closest('section');
-    assert.equal(defaults.querySelector('input, select, textarea'), null);
-    return Object.fromEntries([...defaults.querySelectorAll('dt')].map((term) => [
-      term.textContent.trim(),
-      [...term.parentElement.querySelectorAll('dd')].map((value) => value.textContent.trim()),
-    ]));
-  };
-
-  const root = panel(
-    { brightness: 80, brightness_dim: null, use_auto_dimming: false, timeout_display_off: 90, sound_on_notification: true },
-    { deviceBrightness: { dimmed: 15 } },
-  );
-  const shown = tiles(root);
-  assert.match(shown.Brightness[0], /80/);
-  // Without a hub value the panel's own reading applies, as in the entries' hints.
-  assert.match(shown.Brightness[1], /15/);
-  assert.deepEqual(shown['Auto dimming'], ['Off']);
-  assert.match(shown['Auto display off'][0], /90/);
-  assert.deepEqual(shown['Notification sound'], ['On']);
-
-  // A timeout of 0 turns the switch off as well.
-  const off = tiles(panel({ use_auto_dimming: true, timeout_dimming: 0, sound_on_notification: false }));
-  assert.deepEqual(off['Auto dimming'], ['Off']);
-  assert.deepEqual(off['Notification sound'], ['Off']);
-
-  byRole(root, 'button', { name: 'Edit in device settings' }).click();
-  assert.deepEqual(opened, [true]);
+  assert.equal(changes.at(-1).schedule[0].start, '21:30');
 });
 
 test('the first entry brings the panel brightness along when the hub sets none', () => {
-  const edits = [];
-  const view = deviceOptionPanel('schedule', {
-    panels: [],
-    config: { brightness: null, brightness_dim: null, schedule: [] },
-    deviceBrightness: { full: 62, dimmed: 15 },
-    onScheduleChange: (draft) => edits.push(draft),
-  });
+  const { view, changes } = scheduleGroup(
+    { brightness: null, brightness_dim: null, schedule: [] },
+    { deviceBrightness: { full: 62, dimmed: 15 } },
+  );
 
   // A new entry takes the panel's full brightness, not an invented 100.
   eventBinding(view, 'panel-schedule_add', '@click')();
-  assert.equal(edits[0].brightness, 62);
+  assert.equal(changes[0].brightness, 62);
 
-  // The sidebar says that saving sets it.
-  const added = templateText(deviceOptionPanel('schedule', {
-    panels: [], config: { brightness: null, schedule: [] }, scheduleDraft: edits[0],
+  // The group says that saving sets it.
+  const added = templateText(scheduleSection({
+    config: { brightness: 62, schedule: changes[0].schedule },
+    schedule: changes[0].schedule,
+    addedBrightness: 62,
   }));
   assert.match(added, /full brightness to 62%/);
 
   // A hub setting stays: the entry brings none of its own.
-  eventBinding(deviceOptionPanel('schedule', {
-    panels: [], config: { brightness: 40, schedule: [] }, deviceBrightness: { full: 62 }, onScheduleChange: (draft) => edits.push(draft),
-  }), 'panel-schedule_add', '@click')();
-  assert.equal(edits.at(-1).brightness, undefined);
+  eventBinding(scheduleGroup(
+    { brightness: 40, schedule: [] },
+    { deviceBrightness: { full: 62 } },
+  ).view, 'panel-schedule_add', '@click')();
 });
 
 test('an entry that dims brings the panel dimmed brightness along when the hub sets none', () => {
-  const edits = [];
   const entry = { start: '22:00', end: '07:00', sound: true, brightness: 20, display_off: true };
-  const view = deviceOptionPanel('schedule', {
-    panels: [],
-    config: { brightness: 80, brightness_dim: null, schedule: [entry] },
-    scheduleDraft: { schedule: [entry] },
-    deviceBrightness: { full: 80, dimmed: 15 },
-    onScheduleChange: (draft) => edits.push(draft),
-  });
+  const { view, changes } = scheduleGroup(
+    { brightness: 80, brightness_dim: null, schedule: [entry] },
+    { deviceBrightness: { full: 80, dimmed: 15 } },
+  );
 
   // The entry's dimmed brightness needs one to return to when it ends.
   eventBinding(view, 'panel-schedule_0_brightness_dim', '@input')({ target: { value: '2' } });
-  assert.equal(edits.at(-1).brightness_dim, 15);
+  assert.equal(changes.at(-1).brightness_dim, 15);
 
-  const added = templateText(deviceOptionPanel('schedule', {
-    panels: [], config: { brightness: 80, brightness_dim: null, schedule: [entry] }, scheduleDraft: edits.at(-1),
+  const added = templateText(scheduleSection({
+    config: { brightness: 80, brightness_dim: 15, schedule: [entry] },
+    schedule: [entry],
+    addedBrightnessDim: 15,
   }));
   assert.match(added, /dimmed brightness to 15%/);
 
   // A hub setting stays, and an entry that leaves it empty needs none.
-  eventBinding(deviceOptionPanel('schedule', {
-    panels: [], config: { brightness: 80, brightness_dim: 30, schedule: [entry] },
-    deviceBrightness: { dimmed: 15 }, onScheduleChange: (draft) => edits.push(draft),
-  }), 'panel-schedule_0_brightness_dim', '@input')({ target: { value: '2' } });
-  assert.equal(edits.at(-1).brightness_dim, undefined);
+  const kept = scheduleGroup(
+    { brightness: 80, brightness_dim: 30, schedule: [entry] },
+    { deviceBrightness: { dimmed: 15 } },
+  );
+  eventBinding(kept.view, 'panel-schedule_0_brightness_dim', '@input')({ target: { value: '2' } });
+  assert.equal(kept.changes.at(-1).brightness_dim, undefined);
   eventBinding(view, 'panel-schedule_0_start_time', '@input')({ target: { value: '21:30' } });
-  assert.equal(edits.at(-1).brightness_dim, undefined);
+  assert.equal(changes.at(-1).brightness_dim, undefined);
 });
 
 test('an entry inherit hint names the panel brightness when the hub sets none', () => {
-  const view = deviceOptionPanel('schedule', {
-    panels: [],
-    config: {
-      brightness: null,
-      brightness_dim: null,
-      timeout_dimming: 10,
-      schedule: [{ start: '22:00', end: '07:00', sound: true, display_off: true, timeout_display_off: 30 }],
-    },
-    deviceBrightness: { full: 62, dimmed: 15 },
-  });
+  const { view } = scheduleGroup({
+    brightness: null,
+    brightness_dim: null,
+    timeout_dimming: 10,
+    schedule: [{ start: '22:00', end: '07:00', sound: true, display_off: true, timeout_display_off: 30 }],
+  }, { deviceBrightness: { full: 62, dimmed: 15 } });
 
   assert.equal(placeholderFor(view, 'panel-schedule_0_brightness'), 'Inherit (62)');
   assert.equal(placeholderFor(view, 'panel-schedule_0_brightness_dim'), 'Inherit (15)');
 });
 
 test('adding the first inline Schedule entry sets the required outside brightness', () => {
-  const edits = [];
-  const view = deviceOptionPanel('schedule', {
-    panels: [], config: { brightness: null, schedule: [] },
-    onScheduleChange: (draft) => edits.push(draft),
-  });
+  const { view, changes } = scheduleGroup({ brightness: null, schedule: [] });
   eventBinding(view, 'panel-schedule_add', '@click')();
-  assert.equal(edits[0].brightness, 100);  assert.deepEqual(edits[0].schedule, [{
+  assert.equal(changes[0].brightness, 100);
+  assert.deepEqual(changes[0].schedule, [{
     start: '22:00', start_offset: 0, end: '07:00', end_offset: 0,
     sound: true, brightness: 20, brightness_dim: null, display_off: true,
     timeout_dimming: null, timeout_display_off: 30, duration_dimming: null,

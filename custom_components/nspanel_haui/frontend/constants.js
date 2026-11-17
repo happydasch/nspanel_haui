@@ -57,7 +57,6 @@ export const DEVICE_CONFIG_DEFAULTS = {
   time_format: "",
   date_format: "",
   date_format_locale: "",
-  theme_variant: "dark",
   theme_id: "dark",
   gestures: [
     { swipes: ["swipe_left"], action: "next_panel", timeframe: 3 },

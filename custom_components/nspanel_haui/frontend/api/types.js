@@ -89,7 +89,6 @@
  * @typedef {Object} DeviceConfig
  * @property {boolean} [enabled]
  * @property {string} [display_model]
- * @property {string} [theme_variant]
  * @property {string} [theme_id]
  * @property {string} [home_panel]
  * @property {string} [idle_panel]

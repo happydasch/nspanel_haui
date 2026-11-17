@@ -83,16 +83,6 @@ test('the reported state follows the session idle flag', async () => {
   dlg._stopSession();
 });
 
-test('changing the open device option clears the preview entity selection', () => {
-  const { dlg } = makeWorkspace({ optionSelection: 'theme' });
-  dlg._hover = { entityId: 'light.lamp', x: 20, y: 20, width: 100, height: 100 };
-
-  dlg.optionSelection = 'schedule';
-  dlg.updated(new Map([['optionSelection', 'theme']]));
-
-  assert.equal(dlg._hover, null);
-});
-
 function tooltipStyle(dlg) {
   return dlg._renderTooltip().values.slice(0, 2);
 }

@@ -51,13 +51,14 @@ export function previewControls({ preview, onMode, onIdle }) {
  *   workspace: unknown, leadContent?: unknown, sideContent?: unknown, sidebarContent?: unknown, preview?: any,
  *   sideLabel?: string,
  *   panelSearch?: { query: string, onQuery: (query: string) => void }|null, railCollapsed?: boolean,
- *   sidebarOpen?: boolean, sidebarLabel?: string, onCloseSide?: () => void, onSelectDevice: (name: string) => void,
+ *   sidebarOpen?: boolean, sidebarLabel?: string, sidebarBack?: { label: string, onBack: () => void }|null,
+ *   onCloseSide?: () => void, onSelectDevice: (name: string) => void,
  *   onSwitchView: (view: string) => void, onMode?: (mode: string) => void, onIdle?: () => void }} model
  */
 export function renderDeviceView({
   devices, selectedName, title = selectedName, onBack, panelCount, panelView, workspace, leadContent = nothing, sideContent = nothing, sidebarContent = nothing, preview, panelSearch = null, railCollapsed = false,
   sideLabel = t('Device details'),
-  sidebarOpen = false, sidebarLabel = t('Editor sidebar'), onCloseSide, onSelectDevice, onSwitchView,
+  sidebarOpen = false, sidebarLabel = t('Editor sidebar'), sidebarBack = null, onCloseSide, onSelectDevice, onSwitchView,
   onMode = () => {}, onIdle = () => {},
 }) {
   const isPreview = panelView !== 'panels';
@@ -100,6 +101,7 @@ export function renderDeviceView({
       </section>
       ${sidebarOpen ? modalSidebar({
         label: sidebarLabel, ariaLabel: t('Editor sidebar'), body: sidebarContent, onClose: () => onCloseSide?.(),
+        backLabel: sidebarBack?.label, onBack: sidebarBack?.onBack ?? null,
       }) : nothing}
     </div>
   </main>`;

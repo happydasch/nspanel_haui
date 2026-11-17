@@ -79,6 +79,12 @@ The hub checks that the file is valid before it installs it. The panel downloads
 
 Some releases change behaviour or need extra steps. All breaking changes, the migration from 0.3.x and the steps for old firmware are listed in [Update Process → Upgrading](../develop/update-process.md#upgrading). The most recent ones:
 
+### The theme picks its own icon colors
+
+The **Theme variant** switch in the device settings is gone, and the Theme sidebar no longer asks which palette to edit. A theme decides which icon palette the display draws: a dark theme uses the colors for a dark background, a light theme such as **Light**, **White** or **Sky** the ones for a light background. There is nothing to set, and a theme can no longer pair its page with the other contrast.
+
+When the integration loads the panel store, it drops the `theme_variant` key from every device's settings. A device that ran a light theme with the dark-background icon colors switches to the light-background ones on its own; remove `theme_variant` from hand-written YAML and select the theme that has the page colors you want.
+
 ### A schedule entry that dims needs a dimmed brightness
 
 A schedule entry with its own **Brightness dimmed** kept that brightness after the entry ended when the device settings left **Brightness dimmed** empty. The device setting is now required for such an entry: it is the dimmed brightness outside the entry.
@@ -96,7 +102,7 @@ Two things behave differently:
 
 The **Device Colors** sidebar is now the **Theme** editor, opened with the **Theme** button of **Manage this device** on the device's **Preview**. Choose the device's theme there; the Appearance section has been removed from device settings. Home and idle page assignments are in **Device Settings → Home & idle**.
 
-When the integration loads the panel store, it does not migrate color schemes or per-device theme settings. Configure the device with `theme_id` and `theme_variant`, and add custom palettes to the shared theme library. Panel and item color settings are separate and unchanged. Use `theme_definition` for an included custom theme.
+When the integration loads the panel store, it does not migrate color schemes or per-device theme settings. Configure the device with `theme_id`, and add custom palettes to the shared theme library. Panel and item color settings are separate and unchanged. Use `theme_definition` for an included custom theme.
 
 ### Schedule replaces Day/Night profiles and quiet hours
 

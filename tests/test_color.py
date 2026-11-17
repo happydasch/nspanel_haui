@@ -8,9 +8,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
 
-from custom_components.nspanel_haui.haui.config_models import validate_device_config
 from custom_components.nspanel_haui.haui.mapping.background import (
     BACKGROUND_VARIANTS,
     BACKGROUNDS,
@@ -138,16 +136,39 @@ class TestTheme:
         theme = Theme("dark", {"colors": {"background": 0}})
         assert theme.get("text") == COLORS["text"]
 
-    def test_fixed_icon_colors_follow_theme_variant(self) -> None:
+    def test_fixed_icon_colors_follow_the_theme_background(self) -> None:
+        """The icon palette is the one the theme's own page background needs."""
         dark = Theme()
         light = Theme("light")
 
+        assert dark.variant == "dark"
+        assert light.variant == "light"
         assert dark.get_icon_color("weather", "sunny") == WEATHER_COLORS["sunny"]
         assert light.get_icon_color("weather", "sunny") == WEATHER_COLORS_LIGHT["sunny"]
         assert light.get_icon_color("alarm", "armed") == ALARM_COLORS_LIGHT["armed"]
         assert light.get_icon_color("climate", "heat") == CLIMATE_COLORS_LIGHT["heat"]
         assert light.get_icon_color("climate", "unknown") is None
         assert light.get_icon_color("climate", "heat", "dark") == CLIMATE_COLORS["heat"]
+
+    def test_light_builtin_themes_use_the_light_icon_palette(self) -> None:
+        for theme_id in ("light", "white", "sky"):
+            theme = Theme(theme_id)
+            assert theme.variant == "light", theme_id
+            assert theme.get_icon_color("weather", "sunny") == WEATHER_COLORS_LIGHT["sunny"]
+        for theme_id in ("dark", "black", "midnight", "ocean", "forest", "sunset", "violet"):
+            assert Theme(theme_id).variant == "dark", theme_id
+
+    def test_a_custom_light_background_palette_selects_the_light_icons(self) -> None:
+        palette = {
+            "name": "Custom Light",
+            "colors": {**COLORS, "background": 65535},
+            "icons": BUILTIN_THEMES["dark"]["icons"],
+        }
+
+        theme = Theme("custom-light", palette)
+
+        assert theme.variant == "light"
+        assert theme.get_icon_color("weather", "sunny") == WEATHER_COLORS_LIGHT["sunny"]
 
     def test_selected_palette_controls_global_and_domain_colors(self) -> None:
         from custom_components.nspanel_haui.haui.mapping.color import BUILTIN_THEMES
@@ -167,7 +188,7 @@ class TestTheme:
                 "light": BUILTIN_THEMES["dark"]["icons"]["light"],
             },
         }
-        theme = Theme("dark", custom, theme_id="custom")
+        theme = Theme("custom", custom)
         assert theme.get("background") == 1234
         assert theme.get_icon_color("weather", "sunny", "light") == 39840
 
@@ -225,13 +246,12 @@ class TestTheme:
         dark = Theme("dark")
         light = Theme("light")
         custom_light = Theme(
-            "dark",
+            "custom-light",
             {
                 "name": "Custom Light",
                 "colors": {**COLORS, "background": 65535},
                 "icons": BUILTIN_THEMES["dark"]["icons"],
             },
-            theme_id="custom-light",
         )
 
         assert dark.background_picture_id() == BACKGROUNDS["dark"]
@@ -305,21 +325,6 @@ def test_hex_roundtrip() -> None:
 
 
 # ============================================================================
-# config_models theme_variant validation
-# ============================================================================
-
-
-def test_theme_variant_defaults_to_dark_and_accepts_light() -> None:
-    assert validate_device_config({}).theme_variant == "dark"
-    assert validate_device_config({"theme_variant": "light"}).theme_variant == "light"
-
-
-def test_invalid_theme_variant_is_rejected() -> None:
-    with pytest.raises(ValidationError):
-        validate_device_config({"theme_variant": "sepia"})
-
-
-# ============================================================================
 # generated palettes
 # ============================================================================
 
@@ -384,7 +389,7 @@ def test_domain_icon_colors_follow_light_variant(domain: str, state: str, light_
     assert get_item_color(item, default_color=123) == light_color
 
 
-def test_panel_background_hint_does_not_override_selected_theme_variant() -> None:
+def test_a_page_background_selects_its_icon_palette_over_the_themes_own() -> None:
     item = _Item("weather", "sunny", "light")
 
     assert get_item_color(item, default_color=123, icon_variant="dark") == 65504

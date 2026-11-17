@@ -48,7 +48,9 @@ All device settings and panels are kept in Home Assistant's storage.
 
 ## Device Settings
 
-Open them with **Settings** in the device's **Connection & device** card, in the action card of its **Preview**, or in its row on the dashboard. The settings are grouped into sections. Four of them end with a row that opens a sidebar of its own and shows what it holds: **Theme** in **General**, **Schedule** in **Screen**, **Gestures** in **Screen buttons & gestures** and **Updates** in **Advanced**. Closing that sidebar returns to the settings with your unsaved changes; a save there is kept when you then save the settings.
+Open them with **Settings** in the device's **Connection & device** card, in the action card of its **Preview**, or in its row on the dashboard. The settings open on a list of tiles, one per group: **General**, **Screen**, **Sounds**, **Home & idle**, **Gestures**, **Screen buttons**, **Hardware buttons** and **Advanced**. Each tile names the group and says what it holds — the display model, language and theme; your brightness, display-off timeout and how many schedule entries there are; the sound switches; the home panel and idle pages; how many gestures there are; the header buttons you show; what each hardware button does; and the log level. A group with nothing set says so (**No home panel**, **No entries**, **No gestures**).
+
+Selecting a tile replaces the grid with that group: the strip's back arrow and the group's name lead back to the grid. Schedule entries, gestures and the theme choice included, every setting is part of the one draft, so **Cancel** discards it and **Save** applies all of it. The **Updates** sidebar is not one of these groups: the **Updates** row of the **Connection & device** card opens it. The schedule lives in **Screen**, below the brightness, dimming and display-off fields its entries inherit.
 
 ### General
 
@@ -87,7 +89,9 @@ Good to know:
 
 ### Schedule
 
-The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. In the device's **Preview** view, open **Manage this device** and choose **Schedule**, or select **Schedule** in the **Screen** section of the device settings: its sidebar holds the entries. Outside every entry the device settings in [Screen](#screen) and [Sounds](#sounds) apply, and they are the fallback for entry fields left empty. The sidebar shows those settings read-only under **Outside the entries**: brightness (full and dimmed), auto dimming, auto display off and the notification sound. **Edit in device settings** opens the device settings with their **Screen** and **Sounds** sections unfolded; closing them returns to the schedule with your unsaved entries. The Schedule button's tooltip says how many entries there are, and each entry folds to its own summary row.
+The schedule changes sound, brightness, dimming and display-off at set times, for example a dark and silent panel at night. It is a list of entries; you can add as many as you like. Open **Settings** on the device and select the **Screen** tile: the entries close that group, below the fields they inherit. Outside every entry the device settings in [Screen](#screen) and [Sounds](#sounds) apply, and they are the fallback for entry fields left empty, so the schedule shows no copy of them: the brightness fields (full and dimmed), auto dimming and auto display off just above the entries are the values they fall back to. The **Screen** tile's value line says how many entries there are, and each entry folds to its own summary row.
+
+The entries are part of the settings draft: change them and press the settings' **Save**, or **Cancel** to discard them with the rest.
 
 Each entry has a time window and these settings:
 
@@ -128,8 +132,8 @@ schedule:
 Good to know:
 
 - Outside every entry, **Sound on notification** in [Sounds](#sounds) controls whether notification sounds play, and the brightness, dimming and display-off settings in [Screen](#screen) apply.
-- A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry while `brightness` is empty, the Schedule sidebar takes the panel's **Brightness Full** reading (100 when the panel reports none), says so, and saves it as `brightness` together with the schedule.
-- For the same reason, an entry that sets `brightness_dim` needs a `brightness_dim` device setting. When you give an entry a dimmed brightness while `brightness_dim` is empty, the Schedule sidebar takes the panel's **Brightness Dimmed** reading (20 when the panel reports none), says so, and saves it with the schedule.
+- A schedule needs a full-brightness value, because the integration must know what to restore when an entry ends. When you add the first entry while `brightness` is empty, the **Schedule** group fills in the panel's **Brightness Full** reading (100 when the panel reports none), says so, and saves it as `brightness` with the rest of the settings.
+- For the same reason, an entry that sets `brightness_dim` needs a `brightness_dim` device setting. When you give an entry a dimmed brightness while `brightness_dim` is empty, the **Schedule** group fills in the panel's **Brightness Dimmed** reading (20 when the panel reports none), says so, and saves it with the rest of the settings.
 - When entries overlap, the first one in the list wins.
 - Automatic page switching is not part of an entry. It always follows the normal settings.
 - `sunrise` and `sunset` are the times at Home Assistant's location. Where the sun does not rise or set on a day (polar day or night), an entry that uses it is not active that day and the log has a warning.
@@ -141,7 +145,7 @@ Good to know:
 | Key | Default | Description |
 |-----|---------|-------------|
 | `sound_on_startup` | off | Play a short tone when the panel connects to Home Assistant after it started. A Wi-Fi reconnect stays silent. |
-| `sound_on_notification` | off | Play the sound of each notification. Also used for the Timer panel's alert; set the default in **Sounds** or in **Manage this device → Schedule**. |
+| `sound_on_notification` | off | Play the sound of each notification. Also used for the Timer panel's alert; set the default in **Sounds** or in the **Schedule** group for the time of day. |
 | `persistent_sound_interval` | `5` | Seconds between repeats of the sound while a persistent notification waits. The popup itself opens again about every 60 seconds. |
 
 To silence the panel at certain times, add a [schedule](#schedule) entry with sound off.
@@ -162,7 +166,7 @@ The home panel, the idle panels that open after a while without interaction, and
 
 The panel's firmware no longer has the **Use Auto-Page** switch and the **Timeout Page** number.
 
-### Screen buttons & gestures
+### Screen buttons
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -174,7 +178,7 @@ On a panel without a free place on the right of the header, the notifications bu
 
 ### Gestures
 
-`gestures` sets what swipes from a screen edge do. It is a list: each gesture is one or more swipes in order and the action they run. In the device's **Preview** view, open **Manage this device** and choose **Gestures**, or select **Gestures** in the **Screen buttons & gestures** section of the device settings. The editor works like the [Schedule](#schedule) editor: **Add gesture** adds an entry, each gesture folds to one row (its swipes and its action), and **Save** writes your changes to the device.
+`gestures` sets what swipes from a screen edge do. It is a list: each gesture is one or more swipes in order and the action they run. Open the device settings and select the **Gestures** tile. The editor works like the [Schedule](#schedule) editor: **Add gesture** adds an entry and each gesture folds to one row (its swipes and its action). Like the schedule entries, gestures are part of the settings draft: press **Save** in the settings' footer to apply them, or **Cancel** to discard them.
 
 | Field | Description |
 |-------|-------------|
@@ -228,9 +232,9 @@ logger:
 
 ## Themes
 
-In the device's **Preview** view, open **Manage this device** and choose **Theme**, or select **Theme** in the **General** section of the device settings: its sidebar selects the device's theme and edits semantic page colors and weather, alarm and climate state-icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
+In **Device Settings → General**, the **Theme** field selects the device's theme; **Edit theme** beside **Updates** in the **Connection & device** card, which names the selected theme, opens the sidebar that edits semantic page colors and weather, alarm and climate state-icon palettes. The selection saves with the rest of the settings; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
 
-See [Themes](themes.md) for predefined and custom themes, the icon variant, shared color editing and import/export.
+See [Themes](themes.md) for predefined and custom themes, the icon colors, shared color editing and import/export.
 
 ### Background pages
 
@@ -259,7 +263,7 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. **Updates** in the **Advanced** section of the device settings opens that sidebar too. Changes save automatically; text fields save after you pause typing. Its title carries the **Enable updates** switch; below, it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and **Install firmware updates automatically**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. The **Updates** row of the device's **Connection & device** card opens that sidebar too, with what the update settings hold beside its name. Changes save automatically; text fields save after you pause typing. Its title carries the **Enable updates** switch; below, it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and **Install firmware updates automatically**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|

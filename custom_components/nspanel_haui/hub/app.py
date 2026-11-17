@@ -71,7 +71,7 @@ class NSPanelHAUI(HAAdapter):
     def _apply_themes(self, device_cfg: dict, themes: dict[str, dict] | None = None) -> None:
         """Build the theme library and select the device's default theme."""
         palettes = themes if themes is not None else self.device_config.get("themes")
-        self.theme_library = ThemeLibrary(palettes, device_cfg["theme_variant"])
+        self.theme_library = ThemeLibrary(palettes)
         self.theme = self.theme_library.theme(device_cfg["theme_id"])
 
     def initialize(self) -> None:

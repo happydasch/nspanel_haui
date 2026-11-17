@@ -364,20 +364,18 @@ THEME_GLOBALS = {
 
 
 class Theme:
-    """Selected semantic palette and icon-variant resolver."""
+    """Selected semantic palette and icon-variant resolver.
 
-    __slots__ = ("variant", "theme_id", "palette")
+    The icon variant follows the palette's own page background: a dark theme
+    draws the bright icon colors, a light theme the dark ones. Nothing else
+    selects it, so a theme can never pair its colors with the other contrast.
+    """
 
-    def __init__(
-        self,
-        variant: str = "dark",
-        palette: dict | None = None,
-        *,
-        theme_id: str | None = None,
-    ) -> None:
-        self.variant = variant if variant in ("dark", "light") else "dark"
-        self.theme_id = theme_id or variant
-        self.palette = palette or BUILTIN_THEMES.get(self.theme_id, BUILTIN_THEMES["dark"])
+    __slots__ = ("variant", "palette")
+
+    def __init__(self, theme_id: str = "dark", palette: dict | None = None) -> None:
+        self.palette = palette or BUILTIN_THEMES.get(theme_id, BUILTIN_THEMES["dark"])
+        self.variant = self.background_variant()
 
     def get(self, key: str) -> int:
         """Return a semantic color from the selected theme."""
@@ -402,11 +400,12 @@ class Theme:
         return theme["colors"].get(key, COLORS[key])
 
     def get_icon_color(self, domain: str, key: str, variant: str | None = None) -> int | None:
-        """Return the selected theme's domain/state color for a dark or light background."""
-        selected_variant = variant or self.variant
-        if selected_variant not in ("dark", "light"):
-            selected_variant = self.variant
-        return self.palette["icons"].get(selected_variant, {}).get(domain, {}).get(key)
+        """Return the theme's domain/state color for a dark or light background.
+
+        ``variant`` lets a page with a fixed picture background ask for the
+        palette that matches that background instead of the theme's own.
+        """
+        return self.palette["icons"].get(variant or self.variant, {}).get(domain, {}).get(key)
 
     def display_commands(self) -> list[str]:
         """Nextion commands that set the display's theme globals (``THEME_GLOBALS``)."""
@@ -416,19 +415,12 @@ class Theme:
 class ThemeLibrary:
     """Resolved Theme objects over one library of built-in and saved themes."""
 
-    def __init__(self, palettes: dict[str, dict], variant: str = "dark") -> None:
+    def __init__(self, palettes: dict[str, dict]) -> None:
         self.palettes = palettes
-        self.variant = variant if variant in ("dark", "light") else "dark"
-        self._themes: dict[tuple[str, str], Theme] = {}
+        self._themes: dict[str, Theme] = {}
 
-    def theme(self, theme_id: str, variant: str | None = None) -> Theme:
+    def theme(self, theme_id: str) -> Theme:
         """Return the cached theme; unknown ids are a config-building error."""
-        selected_variant = self.variant if variant is None else variant
-        key = (theme_id, selected_variant)
-        if key not in self._themes:
-            self._themes[key] = Theme(
-                selected_variant,
-                self.palettes[theme_id],
-                theme_id=theme_id,
-            )
-        return self._themes[key]
+        if theme_id not in self._themes:
+            self._themes[theme_id] = Theme(theme_id, self.palettes[theme_id])
+        return self._themes[theme_id]

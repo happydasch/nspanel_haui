@@ -1,12 +1,12 @@
 import { css } from '../lit-import.js';
 
-export const devicePanelStyles = css`  /* The Panels view's card in the side stack: the selected panel, or the list's
-     overview. A plain surface like the device cards, with the panel's render. */
-  /* The panel's card is its own container: the facts fit two per row while it is
+export const devicePanelStyles = css`  /* The Panels view's side stack: the selected panel as a card, or the list's overview as
+     plain content. A plain surface like the device cards, with the panel's render. */
+  /* The selected panel's card is its own container: the facts fit two per row while it is
      wide enough and one per row on a narrow screen (below the card's rules). */
   .haui-panel-info { container: haui-panel-info / inline-size; }
-  .haui-panel-info .haui-surface-heading-copy, .haui-schedule-defaults .haui-surface-heading-copy { min-width: 0; flex: 1 1 auto; }
-  /* The selected panel's subtitle and the overview's hint wrap: they carry text, not a status. */
+  .haui-panel-info .haui-surface-heading-copy { min-width: 0; flex: 1 1 auto; }
+  /* The selected panel's subtitle wraps: it carries text, not a status. */
   .haui-panel-info .haui-surface-heading-copy p { overflow: visible; white-space: normal; }
   .haui-panel-info-icon { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--primary-color) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 12%, var(--card-background-color)); --mdc-icon-size: 20px; }
   /* The render and its description: open, the render takes the card's width with the
@@ -36,11 +36,10 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-info-facts dt { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-panel-info-facts dd { margin: 0; overflow-wrap: anywhere; color: var(--primary-text-color); font-size: var(--haui-text-label); font-weight: 500; }
   .haui-panel-info-key { font-family: var(--haui-mono); font-size: var(--haui-text-caption); font-weight: 400; }
-  /* A narrow card holds one fact per row, and the two role tiles stack so their value keeps its room. */
+  /* A narrow card holds one fact per row. */
   @container haui-panel-info (max-width: 360px) {
     .haui-panel-info-facts { grid-template-columns: max-content minmax(0, 1fr); }
     .haui-panel-info-facts > div:nth-child(2n) > dt { padding-inline-start: 0; }
-    .haui-panels-overview-roles { grid-template-columns: minmax(0, 1fr); }
   }
   /* The actions mirror the row's menu; Delete reads as the destructive one. */
   .haui-panel-info .haui-card-actions .haui-button { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
@@ -50,6 +49,9 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
     border-color: var(--error-color, #db4437);
     background: var(--haui-bad-soft);
   }
+  /* The overview is plain content in the side stack, not a card: no frame, no heading,
+     only the list's own facts. It is its own container for the role tiles' width. */
+  .haui-panels-overview { container: haui-panels-overview / inline-size; display: grid; gap: 12px; }
   /* The overview: one row per group with its count, then the list's tips on a soft block. */
   .haui-panels-overview-groups { display: grid; margin: 0; padding: 0; list-style: none; }
   .haui-panels-overview-groups > li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; border-bottom: 1px solid var(--divider-color); }
@@ -68,6 +70,10 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panels-overview-role-icon { width: 22px; height: 22px; box-shadow: none; }
   .haui-panels-overview-role-label { overflow: hidden; color: var(--secondary-text-color); font-size: var(--haui-text-caption); text-overflow: ellipsis; white-space: nowrap; }
   .haui-panels-overview-role-value { color: var(--primary-text-color); font-size: var(--haui-text-label); font-weight: 500; line-height: var(--haui-line-height-tight); overflow-wrap: anywhere; }
+  /* A narrow side stack stacks the two role tiles so their value keeps its room. */
+  @container haui-panels-overview (max-width: 360px) {
+    .haui-panels-overview-roles { grid-template-columns: minmax(0, 1fr); }
+  }
   .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
   .haui-preview-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
   /* The panel list's search (.haui-search-field) shares the row with the view toggle at every width: it takes what the toggle leaves, up to its full size. */
@@ -149,7 +155,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-diag-status { --diag-tone: var(--haui-good); position: relative; display: grid; box-sizing: border-box; width: 36px; height: 36px; place-items: center; padding: 0; border: 1px solid color-mix(in srgb, var(--diag-tone) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--diag-tone); background: color-mix(in srgb, var(--diag-tone) 12%, var(--card-background-color)); font: inherit; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; --mdc-icon-size: 20px; }
   .haui-diag-status.is-warning { --diag-tone: var(--haui-warn); }
   .haui-diag-status:hover, .haui-diag-status[aria-expanded="true"] { border-color: color-mix(in srgb, var(--diag-tone) 55%, transparent); background: color-mix(in srgb, var(--diag-tone) 20%, var(--card-background-color)); }
-  .haui-backup-status, .haui-schedule-defaults-icon { display: grid; box-sizing: border-box; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--secondary-text-color) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--secondary-text-color); background: color-mix(in srgb, var(--secondary-text-color) 12%, var(--card-background-color)); --mdc-icon-size: 20px; }
+  .haui-backup-status { display: grid; box-sizing: border-box; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--secondary-text-color) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--secondary-text-color); background: color-mix(in srgb, var(--secondary-text-color) 12%, var(--card-background-color)); --mdc-icon-size: 20px; }
   .haui-diag-status-count { position: absolute; top: -4px; right: -4px; display: grid; box-sizing: border-box; min-width: 16px; height: 16px; place-items: center; padding: 0 4px; border-radius: var(--haui-radius-control); background: var(--diag-tone); box-shadow: 0 0 0 2px var(--card-background-color); color: var(--text-primary-color, #fff); font-size: var(--haui-text-eyebrow); font-weight: 600; line-height: 1; }
   /* The status icon leads the heading; the title takes the free room, so the chevron sits at the end. */
   .haui-device-details .haui-surface-heading-copy, .haui-diagnostics-card .haui-surface-heading-copy,
@@ -197,8 +203,9 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-diag-entity-id { grid-column: 1 / -1; color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: var(--haui-text-caption); }
   .haui-diag-internals-note { margin: 12px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-diag-internals > .haui-button { min-height: 34px; margin-top: 12px; padding: 0 12px; font-size: var(--haui-text-label); }
-  /* The connection state sits in the card heading; its details open over the body. */
-  .haui-surface.haui-device-details { overflow: visible; }
+  /* The connection state sits in the card heading; its details open over the body. The card is its own
+     container: how its two rows sit follows its own width, not the editor's. */
+  .haui-surface.haui-device-details { overflow: visible; container: haui-device-details / inline-size; }
   /* A tile's card opens past the bottom of the Diagnostics card too. */
   .haui-surface.haui-diagnostics-card { overflow: visible; }
   .haui-device-details .haui-surface-heading { position: relative; }
@@ -254,6 +261,19 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-device-details .haui-diag-tiles.is-stale .haui-diag-tile-value { color: var(--secondary-text-color); }
   /* Offline is the current state, not a stale reading. */
   .haui-device-details .haui-diag-tiles .haui-diag-tile-value.is-danger { color: var(--haui-bad-text); }
+  /* The row under the tiles keeps the two actions that open a sidebar of their own, as pills like the
+     settings' option rows: both name their sidebar on the inline start edge, so the two line up in one row.
+     Updates takes the room with what the update settings hold on its trailing edge; Edit theme stands beside
+     it, the selected theme's name after its own. */
+  .haui-details-actions { flex-wrap: nowrap; }
+  .haui-details-actions .haui-button { justify-content: flex-start; }
+  .haui-details-updates { flex: 1 1 auto; min-width: 0; }
+  .haui-details-updates .haui-button-detail { margin-left: auto; }
+  .haui-details-edit-theme { flex: 0 0 auto; }
+  /* A card too narrow for the details beside the names keeps the row and drops what the two hold. */
+  @container haui-device-details (max-width: 520px) {
+    .haui-details-actions .haui-button-detail { display: none; }
+  }
   /* A tile shows its label and value; hover, focus or a tap opens its facts below it (ui/info-tile.js), a right-hand tile's aligned to its right edge. */
   .haui-tile-info { position: relative; min-width: 0; }
   .haui-tile-info > .haui-diag-tile { width: 100%; height: 100%; }
@@ -288,10 +308,9 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-yaml-actions, .haui-action-card-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   /* The lead card (ui/action-card.js): tinted and never collapsed, so the view's next actions stand apart from the side-stack cards. */
   .haui-action-card { container: haui-action-card / inline-size; border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--divider-color)); border-radius: var(--haui-card-radius); background: color-mix(in srgb, var(--primary-color) 9%, var(--card-background-color)); box-shadow: var(--haui-shadow-card); }
-  .haui-action-card-inner { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "icon copy tool" "actions actions actions" "note note note" "management management management"; align-items: center; gap: 12px; padding: 16px 16px; }
-  .haui-action-card-inner:not(.is-with-note):not(.is-with-management) { grid-template-areas: "icon copy tool" "actions actions actions"; }
-  .haui-action-card-inner.is-with-note:not(.is-with-management) { grid-template-areas: "icon copy tool" "actions actions actions" "note note note"; }
-  .haui-action-card-inner.is-with-management:not(.is-with-note) { grid-template-areas: "icon copy tool" "actions actions actions" "management management management"; }
+  .haui-action-card-inner { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "icon copy tool" "actions actions actions" "note note note"; align-items: center; gap: 12px; padding: 16px 16px; }
+  .haui-action-card-inner:not(.is-with-note) { grid-template-areas: "icon copy tool" "actions actions actions"; }
+  .haui-action-card-inner.is-with-note { grid-template-areas: "icon copy tool" "actions actions actions" "note note note"; }
   .haui-action-card-icon { display: grid; width: 40px; height: 40px; grid-area: icon; place-items: center; border-radius: var(--haui-radius-round); background: var(--primary-color); color: var(--text-primary-color, #fff); --mdc-icon-size: 22px; }
   .haui-action-card-copy { min-width: 0; grid-area: copy; }
   .haui-action-card-copy h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }
@@ -299,41 +318,20 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   /* The settings cog at the end of the heading; pulled into the card's padding so its glyph lines up with the edge. */
   .haui-action-card-tool { grid-area: tool; align-self: start; margin: -4px -8px 0 0; }
   .haui-action-card-actions { display: grid; min-width: 0; grid-area: actions; gap: 8px; }
-  .haui-action-card-secondary .haui-button, .haui-details-updates, .haui-schedule-defaults-edit { min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
+  .haui-action-card-secondary .haui-button { min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
   .haui-action-card-secondary > :only-child { grid-column: 1 / -1; }
   .haui-action-card-note { grid-area: note; margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
-  .haui-action-card-management { grid-area: management; min-width: 0; }
-  .haui-device-option-controls { display: grid; gap: 12px; min-width: 0; }
-  /* Three options, always one row: plain buttons, tinted with the lead card's own
-     accent so they belong to it rather than reading as cards inside a card. */
-  .haui-device-option-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .haui-device-option-buttons .haui-device-option { min-width: 0; min-height: 40px; padding: 0 12px; border-color: color-mix(in srgb, var(--primary-color) 26%, transparent); background: color-mix(in srgb, var(--primary-color) 10%, transparent); font-size: var(--haui-text-label); }
-  .haui-device-option-buttons .haui-device-option > ha-icon { flex: 0 0 auto; color: var(--primary-color); --mdc-icon-size: 18px; }
-  .haui-device-option-buttons .haui-device-option > span { overflow: hidden; text-overflow: ellipsis; }
-  /* Only a real pointer hovers, and the tint stays translucent on the tinted card. */
-  @media (hover: hover) {
-    .haui-device-option-buttons .haui-device-option:hover:not(:disabled) { border-color: color-mix(in srgb, var(--primary-color) 45%, transparent); background: color-mix(in srgb, var(--primary-color) 16%, transparent); }
-  }
-  /* A tight row drops the icons before it truncates the labels. */
-  @container haui-action-card (max-width: 320px) {
-    .haui-device-option-buttons .haui-device-option > ha-icon { display: none; }
-  }
   /* One option's editor in the modal sidebar: the form scrolls, its action stays. */
   .haui-device-option-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
   /* The form scrolls, so its rows keep their content's height: an auto row would shrink a card that clips (a surface) when the sidebar is short. */
   .haui-device-option-panel-body { display: grid; flex: 1 1 auto; align-content: start; grid-auto-rows: max-content; gap: 12px; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 16px; overscroll-behavior: contain; }
   .haui-device-option-panel-actions { display: flex; flex: 0 0 auto; gap: 8px; box-sizing: border-box; padding: 12px 16px; border-top: 1px solid var(--divider-color); background: var(--card-background-color); }
   .haui-device-option-panel-actions .haui-button { flex: 1 1 auto; min-width: 0; }
-  /* The schedule's defaults: the settings outside its entries as value tiles, above the button that edits them. */
-  .haui-schedule-defaults .haui-surface-body { display: grid; gap: 12px; }
-  /* Keep the management controls on a full-width row below the primary action. */
   @container haui-action-card (min-width: 560px) {
-    .haui-action-card-inner { grid-template-columns: 40px minmax(0, 1fr) auto auto; grid-template-areas: "icon copy actions tool" ". note actions tool" "management management management management"; row-gap: 4px; }
-    .haui-action-card-inner:not(.is-with-note):not(.is-with-management) { grid-template-areas: "icon copy actions tool"; }
-    .haui-action-card-inner.is-with-note:not(.is-with-management) { grid-template-areas: "icon copy actions tool" ". note note note"; }
-    .haui-action-card-inner.is-with-management:not(.is-with-note) { grid-template-areas: "icon copy actions tool" "management management management management"; }
+    .haui-action-card-inner { grid-template-columns: 40px minmax(0, 1fr) auto auto; grid-template-areas: "icon copy actions tool" ". note actions tool"; row-gap: 4px; }
+    .haui-action-card-inner:not(.is-with-note) { grid-template-areas: "icon copy actions tool"; }
+    .haui-action-card-inner.is-with-note { grid-template-areas: "icon copy actions tool" ". note note note"; }
     .haui-action-card-tool { align-self: center; margin: 0 -8px 0 0; }
-    .haui-action-card-management { margin-top: 8px; }
     .haui-action-card-actions.is-stacked { display: grid; align-items: stretch; }
     .haui-action-card-actions.is-stacked .haui-action-card-secondary { display: grid; width: 100%; }
     .haui-action-card-actions, .haui-action-card-secondary { display: flex; align-items: center; }

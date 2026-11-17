@@ -18,7 +18,7 @@ OVERRIDE = 1234
 def _theme(background: int = OVERRIDE) -> Theme:
     palette = BUILTIN_THEMES["dark"]
     return Theme(
-        "dark",
+        "custom",
         {
             **palette,
             "colors": {
@@ -27,7 +27,6 @@ def _theme(background: int = OVERRIDE) -> Theme:
                 "header_text": OVERRIDE,
             },
         },
-        theme_id="custom",
     )
 
 

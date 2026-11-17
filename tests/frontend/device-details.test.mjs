@@ -6,7 +6,7 @@ import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.j
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { render } from './support/render.mjs';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
@@ -189,18 +189,28 @@ test('A collapsed Connection & device card shows only its heading', () => {
   assert.doesNotMatch(text, /More details/);
 });
 
-test('The expanded Connection & device card opens the updates', () => {
+test('The Connection & device card keeps its two sidebar rows in one row', () => {
   const opened = [];
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: true, integration_version: '0.5.0', device_info: { tft_version: '0.4.5' } },
-    onLogs() {}, onUpdates: () => opened.push(true),
+    onLogs() {},
+    onUpdates: () => opened.push('updates'), updatesDetail: 'Stable · Manual',
+    onEditTheme: () => opened.push('theme'), themeDetail: 'Dark',
   });
   const root = render(view);
-  const updates = [...root.querySelectorAll('button')].find((button) => button.textContent.includes('Updates'));
-  assert.ok(updates);
+  const [updates, edit] = [...root.querySelectorAll('.haui-details-actions button')];
+
+  // Each row says what the sidebar it opens holds: the update settings beside Updates, the selected theme
+  // beside Edit theme.
+  assert.match(updates.textContent, /Updates/);
+  assert.match(updates.textContent, /Stable · Manual/);
+  assert.match(edit.textContent, /Edit theme/);
+  assert.match(edit.textContent, /Dark/);
+
   updates.click();
-  assert.deepEqual(opened, [true]);
+  edit.click();
+  assert.deepEqual(opened, ['updates', 'theme']);
 });
 
 test('Device details mark reported values as stale while the device is offline', () => {

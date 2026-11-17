@@ -114,9 +114,8 @@ DEVICE_CONFIG: dict[str, Any] = {
     # start_offset / end_offset (minutes, -720..720) shift a sunrise/sunset boundary.
     "schedule": [],
     "sound_on_startup": False,
-    # Fixed weather/alarm/climate icon colors are paired for light and dark backgrounds.
-    "theme_variant": "dark",
     # Active semantic color definitions, selected from built-ins or saved themes.
+    # A theme carries both icon palettes; its page background picks the one used.
     "theme_id": "dark",
     "sound_on_notification": False,
     "persistent_sound_interval": 5,  # seconds between repeats for persistent notifications

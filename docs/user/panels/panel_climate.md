@@ -34,7 +34,7 @@ The climate panel controls one thermostat, heating or air conditioner: the targe
 - **Title:** the entity's name.
 - **One or two target temperatures:** the panel shows what the current mode uses and switches when the mode changes, like Home Assistant's own thermostat card.
 - **Limits:** the target temperature stays within the entity's minimum and maximum, and the low value never goes above the high value.
-- **Colors:** the mode icons use fixed colors for a dark or a light background, chosen by the device's **Default icon color variant** in the Theme sidebar. They cannot be changed one by one.
+- **Colors:** the mode icons use fixed colors for a dark or a light background, chosen by the theme's own page background. They cannot be changed one by one.
 
 ## Popup
 

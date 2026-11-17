@@ -16,6 +16,7 @@ import { formCommonStyles } from './styles/form-common-styles.js';
 import { itemListStyles } from './styles/item-list-styles.js';
 import { panelListStyles } from './styles/panel-list-styles.js';
 import { panelPillStyles } from './styles/panel-pill-styles.js';
+import { settingsTileStyles } from './styles/settings-tile-styles.js';
 
 export const haStyle = css`
   :host { display: block; }
@@ -56,7 +57,7 @@ export const haStyleDialog = css`
 
 export const sharedStyles = css`
   ${dashboardTokens}${dashboardComponentStyles}${panelPillStyles}${entryStyles}
-  ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${contentStyles}
+  ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${settingsTileStyles}${contentStyles}
 `;
 
 export const dialogStyles = css`${sharedStyles}${updatesStyles}`;

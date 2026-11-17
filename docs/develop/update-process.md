@@ -1070,14 +1070,13 @@ normal settings apply. See
 #### 22. A shared theme library replaces per-device colours
 
 NSPanel HAUI 0.5.0 keeps custom themes in one library shared by every device of
-the hub. A device selects its theme with `theme_id` and its icon palette with
-`theme_variant`; panels can select a library theme of their own. See
-[Themes](../user/configuration/themes.md).
+the hub. A device selects its theme with `theme_id`; panels can select a library
+theme of their own. See [Themes](../user/configuration/themes.md).
 
 - **Nothing is converted.** Per-device `color_overrides` and `theme_overrides`
   are no longer read: add the custom palette to the theme library and select it.
-  Hand-written config must use `theme_id` and `theme_variant`; a YAML export
-  carries the selected custom theme as `theme_definition`.
+  Hand-written config must use `theme_id`; a YAML export carries the selected
+  custom theme as `theme_definition`.
 - The **Device Colors** sidebar is now the **Theme** sidebar (the **Theme**
   button of **Manage this device** on the device's Preview), and the Appearance
   section is gone from device settings.
@@ -1096,9 +1095,28 @@ entry ended and the panel kept the entry's dimmed brightness.
   `brightness`.
 - `PanelStorage.load` migrates such a device once: it sets `brightness_dim` to
   20, the firmware's initial **Brightness Dimmed**, and logs a warning.
-- The Schedule sidebar saves the panel's **Brightness Dimmed** reading (20 when
-  there is none) with the schedule when an entry sets a dimmed brightness and
-  the device has none.
+- The **Schedule** group of the device settings saves the panel's **Brightness
+  Dimmed** reading (20 when there is none) with the schedule when an entry sets a
+  dimmed brightness and the device has none.
+
+#### 24. A theme selects its own icon colors
+
+0.5.0 kept the default icon palette in a device setting (`theme_variant`, the
+**Theme variant** switch of the device settings) and let the Theme sidebar pick
+which palette to edit, independent of the selected theme.
+
+- `Theme.variant` now follows the theme's own page background
+  (`background_variant()` in `haui/mapping/color.py`): the light-background icon
+  colors for **Light**, **White**, **Sky** and any custom theme with a light
+  page, the dark-background ones for the rest. `ThemeLibrary` takes no variant,
+  and a page with a fixed picture background still passes its own variant.
+- `theme_variant` is gone from `DEVICE_CONFIG`, the device-config model and the
+  editor's defaults. `PanelStorage.load` drops the stored key once; the editor
+  and the Theme sidebar send `theme_id` only.
+- The Theme sidebar's **Icon colors** section edits the palette the theme draws
+  (`themeIconVariant()` in `frontend/theme-library.js`, mirroring the hub's
+  rule); there is no palette picker anymore. A custom theme still stores both
+  palettes, because a page with a fixed picture background uses the other one.
 
 ### Older firmware
 

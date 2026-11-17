@@ -6,7 +6,7 @@ import { render } from './support/render.mjs';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';

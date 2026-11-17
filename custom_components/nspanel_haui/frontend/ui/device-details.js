@@ -19,7 +19,9 @@ import { deviceConnectionState } from '../device-status.js';
  * "Unknown", and while it is offline they are marked stale.
  *
  * @param {{ name: string, status: any, hass?: any,
- *   onLogs: () => void, onUpdates: () => void, onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
+ *   onLogs: () => void, onUpdates: () => void, onEditTheme?: () => void,
+ *   onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
+ *   updatesDetail?: string, themeDetail?: string,
  *   diagnosticsExpanded?: boolean, onToggleDiagnostics?: () => void,
  *   yamlExpanded?: boolean, onToggleYaml?: () => void,
  *   onYamlImport?: () => void, onYamlExport?: () => void,
@@ -31,7 +33,8 @@ import { deviceConnectionState } from '../device-status.js';
  *   status poll failed: the facts shown are then the last ones read.
  */
 export function deviceDetails({
-  name, status, hass, onLogs, onUpdates,
+  name, status, hass, onLogs, onUpdates, onEditTheme,
+  updatesDetail = '', themeDetail = '',
   onCopyReport,
   detailsExpanded = true, onToggleDetails, diagnosticsExpanded = false, onToggleDiagnostics,
   yamlExpanded = false, onToggleYaml, onYamlImport, onYamlExport,
@@ -47,8 +50,9 @@ export function deviceDetails({
       ? t('Last seen {time}').replace('{time}', relativeTime(info.disconnected_since))
       : '';
   // Expanded, tiles like the Diagnostics card: the connection readings (once there is a status), then
-  // the device facts and, below them, the Updates action. The versions stay in Diagnostics and the
-  // Updates sidebar.
+  // the device facts and, below them, one row of the two actions that open a sidebar of their own: Updates,
+  // the update settings it holds beside its name, and Edit theme, the selected theme's name beside it.
+  // The versions stay in Diagnostics and the Updates sidebar.
   const model = status ? diagnosticsModel(status) : null;
   const tiles = [
     ...(model ? connectionTiles(model) : []),
@@ -72,8 +76,14 @@ export function deviceDetails({
     onToggle: onToggleDetails,
     body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' is-stale' : ''}`} data-stale=${stale ? 'true' : 'false'}>${tiles}</div>${
       statusError ? html`<p class="haui-details-stale" role="status">${
-        t('Device status could not be refreshed: {error}').replace('{error}', statusError)}</p>` : nothing}${
-      button({ label: t('Updates'), iconName: 'update', onClick: onUpdates, className: 'haui-details-updates' })}` : undefined,
+        t('Device status could not be refreshed: {error}').replace('{error}', statusError)}</p>` : nothing}
+      <div class="haui-card-actions haui-details-actions">${button({
+        label: t('Updates'), iconName: 'update', detail: updatesDetail,
+        onClick: onUpdates, className: 'haui-details-updates',
+      })}${onEditTheme ? button({
+        label: t('Edit theme'), iconName: 'color', detail: themeDetail,
+        onClick: onEditTheme, className: 'haui-details-edit-theme',
+      }) : nothing}</div>` : undefined,
   })}${model ? surface({
     title: t('Diagnostics'),
     subtitle: diagnosticsSubtitle(model),

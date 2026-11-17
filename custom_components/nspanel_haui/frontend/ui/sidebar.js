@@ -1,5 +1,5 @@
 // @ts-check
-import { html } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { readStorage, writeStorage } from '../dom-helpers.js';
 import { iconButton } from './button.js';
@@ -74,14 +74,19 @@ function resizeHandle() {
 
 /**
  * The Device side stack's modal frame: a labelled strip with the close control
- * above a body that fills the panel. The body is the migrated form element,
- * which owns its own scrolling content and sticky footer.
+ * above a body that fills the panel. With `onBack` the strip starts with a back
+ * control, which returns to the level the sidebar opened from. The body is the
+ * migrated form element, which owns its own scrolling content and sticky footer.
  *
- * @param {{ label: string, body: unknown, onClose: () => void, closeLabel?: string }} options
+ * @param {{ label: string, body: unknown, onClose: () => void, closeLabel?: string,
+ *   backLabel?: string, onBack?: (() => void)|null }} options
  */
-export function sidebarFrame({ label, body, onClose, closeLabel = t('Close sidebar') }) {
+export function sidebarFrame({
+  label, body, onClose, closeLabel = t('Close sidebar'), backLabel = t('Back'), onBack = null,
+}) {
   return html`<div class="haui-sidebar" role="group" aria-label=${label}>
     <header class="haui-sidebar-strip">
+      ${onBack ? iconButton({ label: backLabel, iconName: 'back', onClick: onBack, className: 'haui-sidebar-back' }) : nothing}
       <span class="haui-sidebar-title">${label}</span>
       ${iconButton({ label: closeLabel, iconName: 'close', onClick: onClose, className: 'haui-sidebar-close' })}
     </header>
@@ -110,9 +115,10 @@ export function keepWheelInside(event) {
  * The modal sidebar over a screen: a scrim that closes it and the framed panel,
  * which keeps Tab and the wheel inside. The Device screen and Fleet (Logs) share it.
  *
- * @param {{ label: string, body: unknown, onClose: () => void, ariaLabel?: string }} options
+ * @param {{ label: string, body: unknown, onClose: () => void, ariaLabel?: string,
+ *   backLabel?: string, onBack?: (() => void)|null }} options
  */
-export function modalSidebar({ label, body, onClose, ariaLabel = label }) {
+export function modalSidebar({ label, body, onClose, ariaLabel = label, backLabel, onBack = null }) {
   return html`<div class="haui-sidebar-scrim" @click=${onClose}
       @wheel=${(event) => event.preventDefault()}></div>
     <aside class="haui-modal-sidebar" aria-label=${ariaLabel}
@@ -121,6 +127,6 @@ export function modalSidebar({ label, body, onClose, ariaLabel = label }) {
       @wheel=${keepWheelInside}
       @keydown=${(event) => trapTab(event, event.currentTarget)}>
       ${resizeHandle()}
-      ${sidebarFrame({ label, body, onClose })}
+      ${sidebarFrame({ label, body, onClose, backLabel, onBack })}
     </aside>`;
 }

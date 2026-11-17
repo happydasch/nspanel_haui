@@ -16,6 +16,8 @@ const ICONS = Object.freeze({
   duplicate: 'content-duplicate', delete: 'delete-outline',
   brightness: 'white-balance-sunny', dimming: 'brightness-6', displayOff: 'monitor-off',
   sound: 'volume-high', mute: 'volume-off',
+  homeOutline: 'home-outline', gesture: 'gesture', toggleSwitch: 'toggle-switch-outline',
+  dialpad: 'dialpad', tuneVariant: 'tune-variant',
 });
 
 /** Render a Home Assistant icon; icon-only controls own their accessible name. */

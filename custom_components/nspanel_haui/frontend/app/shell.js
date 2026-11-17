@@ -12,7 +12,6 @@
 import '../iconset.js';
 
 import { LitElement, html } from '../lit-import.js';
-import { clone } from '../constants.js';
 import { t, getLanguage } from '../localize.js';
 import { haStyle, haStyleDialog, editorContainerStyles, editorStyles } from '../styles.js';
 import { createApiClient } from '../api/client.js';
@@ -86,9 +85,7 @@ class NSPanelEditor extends LitElement {
       _deviceConfig: { type: Object, state: true },
       _editingDeviceConfig: { type: Boolean, state: true },
       _deviceConfigForm: { type: Object, state: true },
-      _deviceSettingsSections: { type: Array, state: true },
-      _scheduleDraft: { type: Object, state: true },
-      _gestureDraft: { type: Object, state: true },
+      _deviceSettingsSection: { type: String, state: true },
       _deviceStatus: { type: Object, state: true },
       _deviceStatuses: { type: Object, state: true },
       _deviceStatusError: { type: String, state: true },
@@ -109,7 +106,6 @@ class NSPanelEditor extends LitElement {
       _detailsExpanded: { type: Boolean, state: true },
       _diagnosticsExpanded: { type: Boolean, state: true },
       _panelCardsExpanded: { type: Array, state: true },
-      _themeVariant: { type: String, state: true },
       _builtinThemes: { type: Object, state: true },
       _customThemes: { type: Object, state: true },
       _themesLoading: { type: Boolean, state: true },
@@ -158,10 +154,8 @@ class NSPanelEditor extends LitElement {
     this._deviceConfig = null;
     this._editingDeviceConfig = false;
     this._deviceConfigForm = null;
-    /** The device settings sections to open, e.g. Screen and Sounds from the schedule. */
-    this._deviceSettingsSections = [];
-    this._scheduleDraft = null;
-    this._gestureDraft = null;
+    /** The open device settings group, or null for the tile grid. */
+    this._deviceSettingsSection = null;
     this._itemListData = {};
     this._dialogVersion = 0;
 
@@ -199,7 +193,6 @@ class NSPanelEditor extends LitElement {
       this._diagnosticsExpanded = false;
       this._panelCardsExpanded = [];
     }
-    this._themeVariant = "dark";
     this._builtinThemes = {};
     this._customThemes = {};
     this._themesLoading = false;
@@ -256,8 +249,6 @@ class NSPanelEditor extends LitElement {
       };
     }
     this._selectedDevice = state.devices.selected;
-    if (this._scheduleDraft?.device !== state.devices.selected) this._scheduleDraft = null;
-    if (this._gestureDraft?.device !== state.devices.selected) this._gestureDraft = null;
     // The selected panel row belongs to the list of the device it came from,
     // and to the list only while its panel is still there.
     if (this.__selectedPanelFor !== state.devices.selected) {
@@ -637,8 +628,6 @@ class NSPanelEditor extends LitElement {
     } else if (kind === 'panel-catalog') this._closeCatalog();
     else if (kind === 'updates') this._closeUpdates();
     else if (kind === 'theme') this._closeThemeSidebar();
-    else if (kind === 'device-schedule') this._closeDeviceOption('schedule');
-    else if (kind === 'device-gestures') this._closeDeviceOption('gestures');
     else if (kind === 'logs') this._closeLogs();
   }
 
@@ -760,94 +749,6 @@ class NSPanelEditor extends LitElement {
     }
   }
 
-  /**
-   * Open one device option's editor in the modal sidebar.
-   * @param {'schedule'|'gestures'} option
-   */
-  _openDeviceOption(option) {
-    const name = this._selectedDevice;
-    if (!name) return;
-    this._ensureDeviceRoute(name);
-    const kind = `device-${option}`;
-    this._store.actions.pushOverlay({ kind, anchorKey: kind, subject: name, draft: null });
-  }
-
-  /**
-   * Open a device option's sidebar from the device settings, over them: closing
-   * it returns to the settings with their unsaved edits.
-   * @param {string} name
-   * @param {'theme'|'schedule'|'gestures'|'updates'} option
-   */
-  _openSettingsOption(name, option) {
-    if (option === 'theme') this._openTheme();
-    else if (option === 'updates') this._openUpdates(name);
-    else {
-      this._captureSidebarFocus();
-      this._openDeviceOption(option);
-    }
-  }
-
-  /** Close a device option's sidebar; an unsaved draft goes with it. @param {string} option */
-  _closeDeviceOption(option) {
-    if (option === 'schedule') this._scheduleDraft = null;
-    if (option === 'gestures') this._gestureDraft = null;
-    this._store.actions.closeOverlay(`device-${option}`, `device-${option}`);
-    this._restoreSidebarFocus();
-  }
-  _changeGestures(draft) {
-    if (!this._selectedDevice || !this._deviceConfig || this._saving) return;
-    this._gestureDraft = {
-      device: this._selectedDevice,
-      gestures: clone(draft.gestures),
-      expandedEntryIndex: draft.expandedEntryIndex,
-    };
-  }
-  _onGestureEntryToggle(index, isOpen) {
-    if (isOpen || this._gestureDraft?.expandedEntryIndex !== index) return;
-    this._gestureDraft = { ...this._gestureDraft, expandedEntryIndex: null };
-  }
-  async _saveGestures() {
-    const draft = this._gestureDraft;
-    if (!draft || draft.device !== this._selectedDevice || this._saving) return;
-    const config = { ...this._deviceConfig, gestures: clone(draft.gestures) };
-    if (await this._saveDeviceConfig(config, t('Device configuration saved'))) {
-      this._gestureDraft = null;
-      this._closeDeviceOption('gestures');
-    }
-    this.requestUpdate();
-  }
-  _changeSchedule(draft) {
-    if (!this._selectedDevice || !this._deviceConfig || this._saving) return;
-    this._scheduleDraft = {
-      device: this._selectedDevice,
-      schedule: clone(draft.schedule),
-      brightness: draft.brightness,
-      brightness_dim: draft.brightness_dim,
-      expandedEntryIndex: draft.expandedEntryIndex,
-    };
-  }
-
-  _onScheduleEntryToggle(index, isOpen) {
-    if (isOpen || this._scheduleDraft?.expandedEntryIndex !== index) return;
-    this._scheduleDraft = { ...this._scheduleDraft, expandedEntryIndex: null };
-  }
-  async _saveSchedule() {
-    const draft = this._scheduleDraft;
-    if (!draft || draft.device !== this._selectedDevice || this._saving) return;
-    // The other display values live in the device settings; the draft carries a
-    // full brightness only when its first entry needed one, and a dimmed one only
-    // while an entry dims (see scheduleOption).
-    const config = { ...this._deviceConfig, schedule: clone(draft.schedule) };
-    if (draft.brightness != null && draft.schedule.length) config.brightness = draft.brightness;
-    if (draft.brightness_dim != null && draft.schedule.some((entry) => entry.brightness_dim != null)) {
-      config.brightness_dim = draft.brightness_dim;
-    }
-    if (await this._saveDeviceConfig(config, t('Device configuration saved'))) {
-      this._scheduleDraft = null;
-      this._closeDeviceOption('schedule');
-    }
-    this.requestUpdate();
-  }
   _confirmDelete(i)        { Crud.confirmDelete(this, i); }
   _cancelDelete()          { Crud.cancelDelete(this); }
   async _doDelete()        { return Crud.doDelete(this); }
@@ -897,11 +798,13 @@ class NSPanelEditor extends LitElement {
 
   _openDeviceConfig() {
     this._captureSidebarFocus();
+    // The General group's theme choice lists the hub's themes.
+    this._loadThemeLibrary();
     return DeviceConfig.openDeviceConfig(this);
   }
   _closeDeviceConfig() {
     DeviceConfig.closeDeviceConfig(this);
-    this._deviceSettingsSections = [];
+    this._deviceSettingsSection = null;
     this.requestUpdate();
     this._restoreSidebarFocus();
   }
@@ -910,18 +813,39 @@ class NSPanelEditor extends LitElement {
 
   /**
    * Open the selected device's settings in the sidebar, on its Device screen.
-   * Opened from another sidebar (the schedule's defaults), they go on top of it
-   * with `sections` open; closing them returns there.
-   * @param {string[]} [sections] - the settings sections to open, e.g. ['screen', 'sounds']
+   * Opened from another sidebar (the Panels view's Schedule and Gestures
+   * buttons), they go on top of it on that group; closing them returns there.
+   * @param {string[]} [sections] - the group to open, e.g. ['screen']
    */
   _openSettings(sections = []) {
     const name = this._selectedDevice;
     if (!name) return;
     this._ensureDeviceRoute(name);
-    this._deviceSettingsSections = sections;
+    this._deviceSettingsSection = sections[0] ?? null;
     this._loadDeviceConfig(name);
     this._openDeviceConfig();
     this.requestUpdate();
+  }
+
+  /**
+   * Show one group of the open device settings, or their tile grid for null.
+   * @param {string|null} section
+   */
+  _openDeviceSettingsSection(section) {
+    const previous = this._deviceSettingsSection;
+    if (previous === section) return;
+    this._deviceSettingsSection = section;
+    this.requestUpdate();
+    // The strip's back control leads a group; the tile that opened it leads the grid.
+    const focus = () => {
+      const settings = this.renderRoot?.querySelector('nspanel-device-settings');
+      const target = section
+        ? this.renderRoot?.querySelector('.haui-sidebar-back')
+        : settings?.renderRoot?.querySelector(`[data-settings-tile="${previous}"]`);
+      target?.focus?.();
+    };
+    if (typeof globalThis.requestAnimationFrame === 'function') globalThis.requestAnimationFrame(focus);
+    else focus();
   }
 
   _importYaml() { importDeviceYaml(this); }
@@ -1252,11 +1176,11 @@ class NSPanelEditor extends LitElement {
     }
   }
 
-  _openTheme() {
+  _openTheme(themeId = null) {
     const name = this._selectedDevice;
     if (!name) return;
     this._ensureDeviceRoute(name);
-    return ThemeEditor.openThemeSidebar(this);
+    return ThemeEditor.openThemeSidebar(this, themeId);
   }
   _closeThemeSidebar()                   { return ThemeEditor.closeThemeSidebar(this); }
   async _onThemeSave(e) {

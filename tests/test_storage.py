@@ -240,6 +240,23 @@ def test_load_gives_a_schedule_dimmed_brightness_the_panel_default_to_restore() 
     assert result["devices"]["Hall"]["config"]["brightness_dim"] == 30
 
 
+def test_load_drops_a_setting_the_device_config_no_longer_has() -> None:
+    """A stored key the current version dropped is cleaned out once, so it does
+    not ride along in every save or in an exported YAML."""
+    payload = {
+        "version": 1,
+        "devices": {
+            "Salon": {"config": {"theme_id": "light", "theme_variant": "light"}, "panels": []},
+        },
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    assert result["devices"]["Salon"]["config"] == {"theme_id": "light"}
+    assert store.saved[-1]["devices"]["Salon"]["config"] == {"theme_id": "light"}
+
+
 def test_load_does_not_save_when_nothing_to_migrate() -> None:
     payload = {
         "version": 1,

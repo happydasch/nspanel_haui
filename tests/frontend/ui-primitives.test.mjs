@@ -9,9 +9,10 @@ import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segm
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { popover, menuItem } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
 import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
+import { settingsTile } from '../../custom_components/nspanel_haui/frontend/ui/settings-tile.js';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { render } from './support/render.mjs';
-import { byRole, byText } from './support/queries.mjs';
+import { accessibleName, byRole, byText } from './support/queries.mjs';
 import { assertAccessibleName, assertRole } from './support/a11y.mjs';
 
 test('button primitives expose native disabled and accessible icon-only behavior', () => {
@@ -124,4 +125,28 @@ test('a value tile pairs its label with its value and detail, and offers no cont
     ['80%', 'Dimmed: 15%']);
   assert.equal(terms[0].querySelector('ha-icon').getAttribute('aria-hidden'), 'true');
   assert.equal(root.querySelector('button'), null);
+});
+
+test('a settings tile is one button naming its group and what the group holds', () => {
+  const opened = [];
+  const root = render([
+    settingsTile({
+      key: 'schedule', iconName: 'clock', label: 'Schedule', summary: '3 entries',
+      onClick: () => opened.push('schedule'),
+    }),
+    settingsTile({ key: 'advanced', iconName: 'tuneVariant', label: 'Advanced',
+      onClick: () => opened.push('advanced') }),
+  ]);
+  const tiles = [...root.querySelectorAll('[data-settings-tile]')];
+  assert.deepEqual(tiles.map((tile) => tile.dataset.settingsTile), ['schedule', 'advanced']);
+
+  // The accessible name is the group plus its value line, on the button itself.
+  const schedule = byRole(root, 'button', { name: 'Schedule', exact: false });
+  assert.ok(schedule);
+  assert.equal(accessibleName(schedule).replace(/\s+/g, ' ').trim(), 'Schedule 3 entries');
+  schedule.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(opened, ['schedule']);
+
+  // No nested control: the whole tile is the button.
+  assert.equal(root.querySelector('button button, button a, button [role="button"]'), null);
 });

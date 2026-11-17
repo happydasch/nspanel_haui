@@ -135,7 +135,6 @@ DEVICES: dict[str, dict[str, Any]] = {
             "home_panel": "row_0",
             "display_model": "eu",
             "theme_id": "light",
-            "theme_variant": "light",
         },
         "panels": [
             {

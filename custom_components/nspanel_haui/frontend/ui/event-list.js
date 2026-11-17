@@ -44,10 +44,11 @@ export function eventsInLast24Hours(events, now = Date.now()) {
 }
 
 /**
- * What Latest events lists: newest first, without debug lines, and a message
- * a device repeats once, with its count and its newest time. The hub writes some
- * warnings on every render (an entity that does not exist), which would
- * otherwise fill the list with one line.
+ * What Latest events lists: the problems of the last day — warnings and errors
+ * only, newest first — and a message a device repeats once, with its count and
+ * its newest time. Everything the hub writes, info included, is the Logs
+ * sidebar's; the hub also writes some warnings on every render (an entity that
+ * does not exist), which would otherwise fill the list with one line.
  * @template {{ line: string, deviceName?: string }} T
  * @param {T[]} events - in any order
  * @param {number} [limit] - how many different events to keep
@@ -58,7 +59,8 @@ export function latestEvents(events, limit = Infinity) {
   const latest = new Map();
   for (const event of eventsByTime(events).reverse()) {
     const { level, message } = parseEvent(event.line);
-    if (level === 'debug') continue;
+    // The hub writes WARNING, which parseEvent also reports as WARN.
+    if (level !== 'warning' && level !== 'warn' && level !== 'error') continue;
     const key = `${event.deviceName || ''}\n${level}\n${message}`;
     const seen = latest.get(key);
     if (seen) seen.count += 1;

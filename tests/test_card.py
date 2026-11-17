@@ -8,13 +8,18 @@ import types
 
 import pytest
 from test_live_panel import _FakeLive
-from test_websocket_api import _Connection, _FakeHost, _run
-from test_websocket_api import ws  # noqa: F401
+from test_websocket_api import (
+    _Connection,
+    _FakeHost,
+    _run,
+    ws,  # noqa: F401
+)
 
 
 @pytest.fixture
-def card(ws, monkeypatch):
+def card(request, monkeypatch):
     """The card module, with ``require_admin`` marking the commands it guards."""
+    ws_module = request.getfixturevalue("ws")
     stub = sys.modules["homeassistant.components.websocket_api"]
 
     def require_admin(fn):
@@ -22,7 +27,7 @@ def card(ws, monkeypatch):
         return fn
 
     stub.require_admin = require_admin
-    importlib.reload(ws)
+    importlib.reload(ws_module)
     import custom_components.nspanel_haui.web.card as module
     import custom_components.nspanel_haui.web.preview.live_panel as live_panel
 
@@ -31,7 +36,7 @@ def card(ws, monkeypatch):
     monkeypatch.setattr(module, "LivePanel", _FakeLive)
     _FakeLive.instances = []
     module.live_panel = live_panel
-    module.ws = ws
+    module.ws = ws_module
     return module
 
 

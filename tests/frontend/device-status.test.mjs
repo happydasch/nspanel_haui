@@ -216,8 +216,10 @@ test('diagnostics count offline, mismatch, display, signal and log problems as i
   assert.equal(model.logProblems, 2);
   const badge = markup(diagnosticsIcon(model));
   assert.ok(badge.includes('4 issues'));
-  // Read out, not only a tooltip.
-  assert.ok(badge.includes('role="img"'));
+  // The native button exposes current findings to assistive technology and opens their popover.
+  assert.match(badge, /<button/);
+  assert.match(badge, /aria-expanded="false"/);
+  assert.ok(badge.includes('Firmware version does not match the integration'));
 
   const simple = markup(deviceDiagnostics({ status }));
   assert.equal(simple, '');

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import { updateStateLabel, updateSummary } from'../../custom_components/nspanel_haui/frontend/dialogs/updates.js';
 import { render } from './support/render.mjs';
+import { updatesStyles } from '../../custom_components/nspanel_haui/frontend/styles/updates-styles.js';
 
 function element(props = {}) {
   const UpdatesSidebar = customElements.get('nspanel-updates-sidebar');
@@ -23,6 +24,16 @@ function element(props = {}) {
     ...props,
   });
 }
+
+test('compact labels override their defaults inside a narrow overview, and offline copy is inset', () => {
+  const css = updatesStyles.cssText;
+  const compactDefaults = css.indexOf('.haui-update-label-narrow, .haui-update-version-label-narrow { display: none; }');
+  const compactRules = css.indexOf('@container haui-update-overview (max-width: 440px)');
+  const compactOverrides = css.indexOf('.haui-update-label-narrow, .haui-update-version-label-narrow { display: inline; }');
+  assert.ok(compactDefaults >= 0 && compactDefaults < compactRules);
+  assert.ok(compactOverrides > compactRules);
+  assert.match(css, /\.haui-update-stale \{[^}]*padding: 0 12px 8px;/);
+});
 
 function flatten(value) {
   if (Array.isArray(value)) return value.map(flatten).join('');
@@ -96,11 +107,18 @@ test('an offered update shows as the version, with the version it updates to', (
   assert.match(current.text, /Latest release: 0\.5\.1[\s\S]*0\.5\.0/);
 });
 
-test('the actions keep their full names where a narrow card shortens their labels', () => {
+test('version labels keep full accessible names and provide compact phone labels', () => {
   const overview = render(element().render()).querySelector('.haui-update-overview');
   const checkRow = overview.querySelector('.haui-update-check-action');
   assert.equal(checkRow.querySelector('ha-button').getAttribute('aria-label'), 'Check for updates');
   assert.equal(checkRow.querySelector('.haui-update-integration').getAttribute('title'), 'Integration');
+  assert.deepEqual(
+    [...overview.querySelectorAll('.haui-update-version')].map((row) => [
+      row.querySelector('.haui-update-version-label-wide').textContent,
+      row.querySelector('.haui-update-version-label-narrow').textContent,
+    ]),
+    [['Firmware (YAML)', 'YAML'], ['Display (TFT)', 'TFT']],
+  );
   assert.deepEqual(
     [...overview.querySelectorAll('.haui-update-versions ha-button')].map((b) => b.getAttribute('aria-label')),
     ['Install Firmware (YAML)', 'Install Display (TFT)'],

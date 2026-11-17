@@ -51,7 +51,7 @@ Expand the card for more:
 
 The **Logs** sidebar shows the 50 most recent messages of the integration for a device, newest first and grouped by day. Open it with the **Integration log** tile of the Diagnostics card or with **Logs** in the device's **More** menu. Filter them with **All**, **Warnings** and **Errors** or with the search box. The copy button copies the lines shown, for a bug report.
 
-On the dashboard, **Logs** beside **Latest events** shows the messages of all devices.
+On the dashboard, **Latest events** lists the warnings and errors of the last 24 hours (info and debug lines are only in **Logs**), and **Logs** beside it shows the full log. Both cover every device, or only the device selected in the device inventory or under a device card; without a selection they show the messages of all devices.
 
 The logs only contain messages of NSPanel HAUI. They are not a full Home Assistant or ESPHome log, and they are not saved to disk.
 

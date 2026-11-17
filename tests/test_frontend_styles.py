@@ -4,11 +4,34 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.check_frontend_styles import _duplicate_style_adoptions, check, check_css_sources
+from scripts.check_frontend_styles import (
+    _duplicate_style_adoptions,
+    _unused_color_tokens,
+    check,
+    check_css_sources,
+)
 
 
 def test_frontend_styles_follow_shared_rules() -> None:
     assert check() == []
+
+
+def test_guard_reports_unused_color_aliases(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    tokens = frontend / "styles" / "tokens.js"
+    consumer = frontend / "consumer.js"
+    tokens.parent.mkdir(parents=True)
+    tokens.write_text(
+        "export const tokens = css`:host { --haui-unused-color: #123456; "
+        "--haui-used-color: #abcdef; }`;",
+        encoding="utf-8",
+    )
+    consumer.write_text(".consumer { color: var(--haui-used-color); }", encoding="utf-8")
+
+    assert _unused_color_tokens(frontend, root) == [
+        "frontend/styles/tokens.js: unused color token --haui-unused-color"
+    ]
 
 
 def test_guard_reports_off_scale_values_and_raw_colors(tmp_path: Path) -> None:
@@ -120,7 +143,10 @@ def test_guard_allows_motion_with_reduced_motion_override(tmp_path: Path) -> Non
     root = tmp_path
     frontend = root / "frontend"
     style = frontend / "styles" / "motion.js"
-    css = ".animated { transition: opacity 150ms; } @media (prefers-reduced-motion: reduce) { .animated { transition: none; } }"
+    css = (
+        ".animated { transition: opacity 150ms; }"
+        " @media (prefers-reduced-motion: reduce) { .animated { transition: none; } }"
+    )
 
     assert check_css_sources([(style, css)], frontend, root) == []
 

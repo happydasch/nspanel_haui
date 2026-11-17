@@ -10,7 +10,7 @@ function templateText(template) {
 
 import { eventList, eventsInLast24Hours, latestEvents, parseEvent } from '../../custom_components/nspanel_haui/frontend/ui/event-list.js';
 
-test('Latest events lists a repeated message once with its count, and no debug lines', () => {
+test('Latest events keeps warnings and errors only, lists a repeated message once with its count', () => {
   const missing = "Entity 'cover.hall' not available for state";
   const events = [
     { deviceName: 'Kitchen', line: `[2026-01-01T12:00:00Z] WARNING ${missing}` },
@@ -18,16 +18,20 @@ test('Latest events lists a repeated message once with its count, and no debug l
     { deviceName: 'Kitchen', line: `[2026-01-01T12:00:02Z] WARNING ${missing}` },
     { deviceName: 'Office', line: `[2026-01-01T12:00:03Z] WARNING ${missing}` },
     { deviceName: 'Kitchen', line: '[2026-01-01T12:00:04Z] ERROR Template failed\nTraceback (most recent call last)' },
+    // Everything else is the Logs sidebar's: a Fleet timeline of problems only.
+    { deviceName: 'Kitchen', line: '[2026-01-01T12:00:05Z] INFO Device is starting' },
+    { deviceName: 'Kitchen', line: '[2026-01-01T12:00:06Z] WARN Short form of warning' },
   ];
   const latest = latestEvents(events);
   assert.deepEqual(latest.map((event) => [event.deviceName, parseEvent(event.line).level, event.count]), [
+    ['Kitchen', 'warn', 1],
     ['Kitchen', 'error', 1],
     // The same message from another device is another event.
     ['Office', 'warning', 1],
     ['Kitchen', 'warning', 2],
   ]);
   // The newest of the repeats stands for them, so its time is the latest one.
-  assert.match(latest[2].line, /12:00:02/);
+  assert.match(latest[3].line, /12:00:02/);
   // The limit counts different events; later repeats of a listed one still count.
   assert.deepEqual(latestEvents(events, 1).map((event) => event.count), [1]);
 
@@ -36,7 +40,7 @@ test('Latest events lists a repeated message once with its count, and no debug l
   const header = root.querySelector('.haui-event-list > header');
   assert.equal(header?.querySelector('h2')?.textContent, 'Latest events');
   assert.equal(header?.querySelector('p')?.textContent, 'Last 24 hours');
-  assert.equal(header?.querySelector('.haui-badge-count')?.textContent, '3');
+  assert.equal(header?.querySelector('.haui-badge-count')?.textContent, '4');
   assert.ok(header?.querySelector('button')?.textContent.includes('Logs'));
   assert.match(text, /Repeated 2 times/);
   assert.match(text, /haui-event-repeat/);

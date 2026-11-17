@@ -60,6 +60,33 @@ def css_sources(frontend: Path = FRONTEND) -> list[tuple[Path, str]]:
     return sources
 
 
+def _unused_color_tokens(frontend: Path = FRONTEND, root: Path = ROOT) -> list[str]:
+    """Find color-valued HAUI aliases with no consumer outside their definition."""
+    token_file = frontend / "styles" / "tokens.js"
+    if not token_file.exists():
+        return []
+
+    token_css = next(
+        (css for path, css in css_sources(frontend) if path == token_file),
+        "",
+    )
+    other_sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in frontend.rglob("*.js")
+        if path != token_file and "vendor" not in path.parts
+    )
+    errors = []
+    for match in DECLARATION.finditer(token_css):
+        name, value = match.groups()
+        if not name.startswith("--haui-") or not (
+            HEX_COLOR.search(value) or COLOR_FUNCTION.search(value)
+        ):
+            continue
+        if not re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", other_sources):
+            errors.append(f"{token_file.relative_to(root)}: unused color token {name}")
+    return errors
+
+
 def _inside_var_fallback(value: str, position: int) -> bool:
     """Whether a character is in the fallback argument of a CSS var()."""
     cursor = 0
@@ -300,6 +327,7 @@ def check_css_sources(
 
 def check(frontend: Path = FRONTEND, root: Path = ROOT) -> list[str]:
     errors = check_css_sources(css_sources(frontend), frontend, root)
+    errors.extend(_unused_color_tokens(frontend, root))
     for path in frontend.rglob("*.js"):
         if "vendor" in path.parts:
             continue

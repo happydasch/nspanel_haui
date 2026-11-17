@@ -69,8 +69,6 @@ export const dashboardTokens = css`
     --haui-hardware-button-border: #34383f;
     --haui-hardware-led-well: #20242a;
     --haui-shadow-device-preview: 0 2px 8px rgb(0 0 0 / 40%);
-    --haui-wifi-good: #7cb342;
-    --haui-wifi-good-text: color-mix(in srgb, var(--haui-wifi-good) 55%, var(--primary-text-color, #212121));
     --haui-mono: var(--ha-font-family-code, ui-monospace, "SFMono-Regular", Menlo, monospace);
     --haui-shadow-card: 0 1px 3px rgb(0 0 0 / 12%);
     --haui-shadow-overlay: 0 12px 32px rgb(0 0 0 / 24%);

@@ -132,7 +132,12 @@ export function renderFleetView(data) {
         }))),
     })
     : nothing;
-  const latest = latestEvents(eventsInLast24Hours(data.events));
+  // A selected device scopes Fleet's log surfaces to itself: its events here, and its
+  // lines in the Logs sidebar, which the shell opens on the same device.
+  const events = data.selectedDevice
+    ? data.events.filter((event) => event.device === data.selectedDevice)
+    : data.events;
+  const latest = latestEvents(eventsInLast24Hours(events));
   const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
         <div class="haui-inventory-overview">
           ${fleetSummary({

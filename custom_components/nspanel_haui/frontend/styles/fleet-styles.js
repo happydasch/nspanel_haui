@@ -186,9 +186,12 @@ export const fleetStyles = css`
   .haui-event-list li::before { content: ''; position: absolute; top: 0; bottom: 0; left: 9px; width: 1px; background: color-mix(in srgb, var(--primary-text-color) 12%, transparent); }
   .haui-event-list li:first-child::before { top: 18px; }
   .haui-event-list li:last-child::before { bottom: calc(100% - 22px); }
-  .haui-event-node { position: relative; z-index: 1; display: grid; width: 19px; height: 19px; margin-top: 4px; place-items: center; border-radius: var(--haui-radius-round); color: var(--state-icon-color, var(--secondary-text-color)); background: color-mix(in srgb, currentcolor 14%, var(--card-background-color)); --mdc-icon-size: 12px; }
-  .haui-event-warn .haui-event-node { color: var(--haui-warn-text); }
-  .haui-event-error .haui-event-node { color: var(--haui-bad-text); }
+  /* A level dot is a signal indicator, like the connection icon's circle: it carries the tone
+     itself, mixed toward the theme's text colour only as far as a legible glyph on its own tint
+     allows (3:1, the floor for a graphic). The 4.5:1 text tones read almost black at 12px. */
+  .haui-event-node { position: relative; z-index: 1; display: grid; width: 19px; height: 19px; margin-top: 4px; place-items: center; border-radius: var(--haui-radius-round); color: color-mix(in srgb, var(--state-icon-color, #44739e) 55%, var(--primary-color, #03a9f4)); background: color-mix(in srgb, currentcolor 14%, var(--card-background-color)); --mdc-icon-size: 12px; }
+  .haui-event-warn .haui-event-node { color: color-mix(in srgb, var(--haui-warn) 68%, var(--primary-text-color, #212121)); }
+  .haui-event-error .haui-event-node { color: color-mix(in srgb, var(--haui-bad) 86%, var(--primary-text-color, #212121)); }
   .haui-event-debug .haui-event-node { color: var(--secondary-text-color); }
   .haui-event-copy { display: grid; gap: 4px; min-width: 0; }
   .haui-event-copy p { display: -webkit-box; overflow: hidden; margin: 0; font-size: var(--haui-text-label); line-height: var(--haui-line-height-copy); overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }

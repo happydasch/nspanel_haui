@@ -19,6 +19,12 @@ export function builtinThemeLabel(id) {
     light: t("Light Color"),
     white: t("White"),
     black: t("Black"),
+    midnight: t("Midnight"),
+    ocean: t("Ocean"),
+    forest: t("Forest"),
+    sunset: t("Sunset"),
+    violet: t("Violet"),
+    sky: t("Sky"),
   }[id];
 }
 

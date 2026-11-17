@@ -25,7 +25,7 @@ export const dashboardComponentStyles = css`
   .haui-button-primary { border-color: var(--haui-primary-fill); background: var(--haui-primary-fill); color: var(--text-primary-color, #fff); }
   .haui-button-primary:hover:not(:disabled) { background: var(--haui-primary-fill-hover); border-color: var(--haui-primary-fill-hover); }
   .haui-button-quiet { border-color: transparent; background: transparent; }
-  .haui-button-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--secondary-text-color, #727272); }
+  .haui-button-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--secondary-text-color, #666); }
   /* A plain surface tint is invisible on a white card, so the hover also tints the border. */
   .haui-button-outline:hover:not(:disabled), .haui-button-quiet:hover:not(:disabled) {
     background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color, #fff));
@@ -56,6 +56,7 @@ export const dashboardComponentStyles = css`
   button.haui-diag-tile:focus-visible,
   button.haui-diag-entity:focus-visible,
   .haui-conn-status-button:focus-visible,
+  .haui-diag-status:focus-visible,
   .haui-switch:focus-visible {
     outline: var(--haui-focus-ring);
     outline-offset: var(--haui-focus-offset);

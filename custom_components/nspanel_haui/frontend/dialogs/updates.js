@@ -119,11 +119,15 @@ function versionValue(version, offered, target) {
 }
 
 /** One row of the version list: what is installed, and what the release has for it. */
-function versionRow({ iconName, label, version, target, note, offered, skipped = false, disabled, onInstall }) {
+function versionRow({
+  iconName, label, compactLabel, version, target, note, offered, skipped = false, disabled, onInstall,
+}) {
   return html`<div class="haui-update-version">
     <dt>
       <span class="haui-update-version-icon">${icon(iconName)}</span>
-      <span class="haui-update-version-name">${label}${skipped
+      <span class="haui-update-version-name"><span class="haui-update-version-label-wide">${label}</span><span
+        class="haui-update-version-label-narrow"
+      >${compactLabel}</span>${skipped
         ? html`<span title=${t('Skipped: it installs only by hand.')}>${badge(t('Skipped'), 'neutral')}</span>`
         : nothing}${note ? html`<small>${note}</small>` : nothing}</span>
     </dt>
@@ -484,7 +488,7 @@ class UpdatesSidebar extends HauiDialog {
   _renderVersions({ info, update, requiredTft, updatesEnabled, installDisabled }) {
     return html`<dl class="haui-update-versions">
       ${versionRow({
-        iconName: 'chip', label: t('Firmware (YAML)'), version: info.yaml_version,
+        iconName: 'chip', label: t('Firmware (YAML)'), compactLabel: t('YAML'), version: info.yaml_version,
         target: update.firmware_update_version,
         // An offered release is in the version badge already.
         note: update.firmware_update_version && !update.firmware_update_available
@@ -498,7 +502,7 @@ class UpdatesSidebar extends HauiDialog {
           : null,
       })}
       ${versionRow({
-        iconName: 'monitor', label: t('Display (TFT)'), version: info.tft_version,
+        iconName: 'monitor', label: t('Display (TFT)'), compactLabel: t('TFT'), version: info.tft_version,
         target: requiredTft,
         note: requiredTft ? t('The firmware needs {version}').replace('{version}', requiredTft) : '',
         offered: update.tft_update_available,

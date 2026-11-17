@@ -229,10 +229,10 @@ export const contentStyles = css`
   .haui-rssi-bar:nth-child(2) { height: 50%; }
   .haui-rssi-bar:nth-child(3) { height: 72%; }
   .haui-rssi-bar:nth-child(4) { height: 100%; }
-  .haui-rssi-bar.haui-wifi-excellent { background: var(--success-color, #43a047); }
-  .haui-rssi-bar.haui-wifi-good      { background: var(--haui-wifi-good); }
-  .haui-rssi-bar.haui-wifi-fair      { background: var(--warning-color, #ffa600); }
-  .haui-rssi-bar.haui-wifi-weak      { background: var(--error-color, #db4437); }
+  .haui-rssi-bar.haui-wifi-excellent { background: var(--haui-good); }
+  .haui-rssi-bar.haui-wifi-good      { background: var(--haui-good); }
+  .haui-rssi-bar.haui-wifi-fair      { background: var(--haui-warn); }
+  .haui-rssi-bar.haui-wifi-weak      { background: var(--haui-bad); }
 
   /* ── responsive: tablet (container) ─── */
   @container haui-editor (max-width: 870px) {

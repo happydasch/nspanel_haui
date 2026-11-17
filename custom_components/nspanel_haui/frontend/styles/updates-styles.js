@@ -22,14 +22,14 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   /* One surface for the status, check action and installed versions; it sizes
      its own labels, as the sidebar is resizable and full-screen on a phone. */
   .haui-update-overview { overflow: hidden; container: haui-update-overview / inline-size; }
-  .haui-update-label-narrow { display: none; }
+  .haui-update-label-narrow, .haui-update-version-label-narrow { display: none; }
   @container haui-update-overview (max-width: 440px) {
-    .haui-update-label-wide { display: none; }
-    .haui-update-label-narrow { display: inline; }
+    .haui-update-label-wide, .haui-update-version-label-wide { display: none; }
+    .haui-update-label-narrow, .haui-update-version-label-narrow { display: inline; }
     /* The version alone; the label stays for screen readers and in the tooltip. */
     .haui-update-integration-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   }
-    .haui-update-summary { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+  .haui-update-summary { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
   .haui-update-summary-status { --update-tone: var(--secondary-text-color, #666); display: flex; min-width: 0; flex: 1 1 auto; align-items: center; gap: 8px; }
   .haui-update-status-success { --update-tone: var(--haui-good); }
   .haui-update-status-warning { --update-tone: var(--haui-warn); }
@@ -61,7 +61,7 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-version-number { color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: var(--haui-text-caption); white-space: nowrap; }
   .haui-update-version-badge { font-family: var(--haui-mono); white-space: nowrap; }
   .haui-update-version ha-button { flex: 0 0 auto; }
-  .haui-update-stale { margin: 8px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
+  .haui-update-stale { margin: 8px 0 0; padding: 0 12px 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-update-sidebar > .haui-update-error {
     margin: 0;
     padding: 8px 12px;

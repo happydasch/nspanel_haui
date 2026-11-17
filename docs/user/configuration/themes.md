@@ -5,7 +5,7 @@ description: Choose and customize display colors and state-icon palettes for NSP
 
 # Themes
 
-A theme defines the display's semantic page colors and the weather, alarm and climate icon palettes. The four predefined themes are **Dark**, **Light**, **White** and **Black**. Custom themes are shared by all devices under the same hub entry.
+A theme defines the display's semantic page colors and the weather, alarm and climate icon palettes. The predefined themes are the neutral **Dark**, **Light**, **White** and **Black** plus the colorful **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and **Sky**. All of them but **Sky** are dark-background themes; **Sky** is the light one, with a light blue page and a sky blue header. Custom themes are shared by all devices under the same hub entry.
 
 In the device's **Preview** view, the **Manage this device** card has three buttons in one row: **Theme**, **Schedule** and **Gestures**. Each opens its editor in a sidebar: **Theme** the Theme sidebar, **Schedule** and **Gestures** their own, which keep their explicit **Save** action. In the Theme sidebar the **Color theme** picker selects the device's theme (saved immediately); the preview at the top shows the current draft as you edit and stays in view while you scroll through the colors, and **Apply** saves the sidebar changes while **Cancel** discards them.
 

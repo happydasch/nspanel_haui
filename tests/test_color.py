@@ -40,6 +40,22 @@ def test_backgrounds_have_an_explicit_contrast_variant() -> None:
     assert all(value in {"dark", "light"} for value in BACKGROUND_VARIANTS.values())
 
 
+def _contrast_ratio(foreground: int, background: int) -> float:
+    """WCAG contrast of two RGB565 colours, measured on the display's real values."""
+
+    def relative_luminance(color: int) -> float:
+        red, green, blue = rgb565_to_rgb(color)
+
+        def linear(value: int) -> float:
+            channel = value / 255
+            return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
+
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+
+    low, high = sorted((relative_luminance(foreground), relative_luminance(background)))
+    return (high + 0.05) / (low + 0.05)
+
+
 # ============================================================================
 # COLORS dict integrity
 # ============================================================================
@@ -161,6 +177,29 @@ class TestTheme:
         assert theme["background"] == 65535
         assert theme["header_background"] == 65535
         assert theme["header_text"] == 4226
+
+    @pytest.mark.parametrize("theme_id", ["midnight", "ocean", "forest", "sunset", "violet", "sky"])
+    def test_colorful_builtin_themes_keep_their_text_readable(self, theme_id: str) -> None:
+        """Each colourful palette's foregrounds reach WCAG AA on their own background."""
+        colors = BUILTIN_THEMES[theme_id]["colors"]
+
+        for foreground, background in (
+            ("text", "background"),
+            # header_text is also the default colour of body widgets, so it has
+            # to stay readable on the page as well as on the header.
+            ("header_text", "background"),
+            ("header_text", "component_background"),
+            ("text_inactive", "background"),
+            ("header_text", "header_background"),
+            ("header_accent", "header_background"),
+            ("component_text", "component_background"),
+            ("component_accent", "component_background"),
+            ("component_active", "component_background"),
+            ("entity_unavailable", "component_background"),
+        ):
+            assert _contrast_ratio(colors[foreground], colors[background]) >= 4.5, (
+                f"{theme_id}: {foreground} on {background}"
+            )
 
     def test_custom_themes_are_validated_as_complete_rgb565_palettes(self) -> None:
         from copy import deepcopy

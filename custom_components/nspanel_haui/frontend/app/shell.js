@@ -1123,6 +1123,7 @@ class NSPanelEditor extends LitElement {
       };
     });
     const events = devices.flatMap(({ name, status }) => (status?.logs || []).map((line) => ({
+      device: name,
       deviceName: state.devices.byName[name].friendlyName,
       line,
     })));
@@ -1154,7 +1155,8 @@ class NSPanelEditor extends LitElement {
         onInstallUpdates: () => { this._confirmBulkUpdate = true; },
         onScan: () => this._scanDevices(),
         onAddDevices: (found) => this._addDevices(found),
-        onOpenLogs: () => this._openLogs(null),
+        // Logs follows Fleet's selection; no selection lists every device's lines.
+        onOpenLogs: () => this._openLogs(this._fleetSelection),
         rollout: state.hub.rollout,
         onCancelRollout: (device) => this._store.actions.cancelRollout(device),
         onDismissRollout: () => this._store.actions.dismissRollout(),

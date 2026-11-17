@@ -141,6 +141,121 @@ _BLACK_COLOR_OVERRIDES = {
     "component_pressed": 8452,
 }
 
+# The colorful themes tint page, header and cards with one hue. The dark family
+# keeps page < header/cards < pressed brightening upwards like the dark theme;
+# the sky theme follows the light theme's light page, so its header stays light
+# too: ``header_text`` is also the default text colour of body widgets
+# (``FunctionButtonMixin``), and a light page needs a dark body text.
+# Foregrounds stay readable on their own background (``tests/test_color.py``).
+_MIDNIGHT_COLOR_OVERRIDES = {
+    "header_background": 4425,  # #152a4e
+    "header_text": 61343,  # #eaf1ff
+    "header_accent": 65067,  # #ffc65c
+    "background": 2180,  # #0b1224
+    "text": 57151,  # #dce6f8
+    "text_inactive": 34007,  # #8798b8
+    "text_disabled": 10699,  # #2c3a58
+    "component_text": 63423,  # #f2f6ff
+    "component_pressed": 8717,  # #26406b
+    "component_background": 6472,  # #1b2a45
+    "component_active": 19743,  # #4da3ff
+    "component_active_dark": 11193,  # #2e75c8
+    "component_accent": 65067,  # #ffc65c
+    "entity_on": 65164,  # #ffd166
+    "entity_off": 27999,  # #6fa8ff
+    "entity_unavailable": 34007,  # #8798b8
+}
+_OCEAN_COLOR_OVERRIDES = {
+    "header_background": 2535,  # #0b3d3a
+    "header_text": 59358,  # #e4fbf7
+    "header_accent": 24410,  # #5eead4
+    "background": 259,  # #05201f
+    "text": 55197,  # #d5f2ed
+    "text_inactive": 32117,  # #7fafa8
+    "text_disabled": 8711,  # #22423f
+    "component_text": 61439,  # #eefffc
+    "component_pressed": 4745,  # #14524c
+    "component_background": 2437,  # #0c332f
+    "component_active": 11959,  # #2dd4bf
+    "component_active_dark": 5394,  # #16a394
+    "component_accent": 24410,  # #5eead4
+    "entity_on": 28470,  # #6ee7b7
+    "entity_off": 15871,  # #38bdf8
+    "entity_unavailable": 32117,  # #7fafa8
+}
+_FOREST_COLOR_OVERRIDES = {
+    "header_background": 4515,  # #16351f
+    "header_text": 61405,  # #e8f8ea
+    "header_accent": 42790,  # #a3e635
+    "background": 2242,  # #0a1a10
+    "text": 57243,  # #def0df
+    "text_inactive": 34129,  # #86a98b
+    "text_disabled": 8709,  # #26402c
+    "component_text": 63454,  # #f1fbf2
+    "component_pressed": 8838,  # #215234
+    "component_background": 4483,  # #14301c
+    "component_active": 20208,  # #4ade80
+    "component_active_dark": 11498,  # #2e9e56
+    "component_accent": 42790,  # #a3e635
+    "entity_on": 49036,  # #bef264
+    "entity_off": 28211,  # #6bc79a
+    "entity_unavailable": 34129,  # #86a98b
+}
+_SUNSET_COLOR_OVERRIDES = {
+    "header_background": 14500,  # #3b1524
+    "header_text": 65374,  # #ffe9f0
+    "header_accent": 64904,  # #ffb347
+    "background": 6242,  # #1a0d12
+    "text": 65309,  # #fbe2ea
+    "text_inactive": 46163,  # #b48898
+    "text_disabled": 16645,  # #46222f
+    "component_text": 65438,  # #fff1f5
+    "component_pressed": 20743,  # #57213a
+    "component_background": 10404,  # #2e1420
+    "component_active": 64588,  # #ff8a65
+    "component_active_dark": 53927,  # #d1553a
+    "component_accent": 64904,  # #ffb347
+    "entity_on": 65164,  # #ffd166
+    "entity_off": 64757,  # #ff9eaa
+    "entity_unavailable": 46163,  # #b48898
+}
+_VIOLET_COLOR_OVERRIDES = {
+    "header_background": 10378,  # #2c1250
+    "header_text": 63327,  # #f2e9ff
+    "header_accent": 62815,  # #f0abfc
+    "background": 4164,  # #140a22
+    "text": 59103,  # #e6dbfa
+    "text_inactive": 42072,  # #a38bc4
+    "text_disabled": 12553,  # #35214e
+    "component_text": 63391,  # #f7f1ff
+    "component_pressed": 16653,  # #42206b
+    "component_background": 8327,  # #23123a
+    "component_active": 42079,  # #a78bfa
+    "component_active_dark": 31482,  # #7c5cd6
+    "component_accent": 62815,  # #f0abfc
+    "entity_on": 62815,  # #f0abfc
+    "entity_off": 42431,  # #a5b4fc
+    "entity_unavailable": 42072,  # #a38bc4
+}
+_SKY_COLOR_OVERRIDES = {
+    "header_background": 32350,  # #7ec8f0
+    "header_text": 2376,  # #082b42
+    "header_accent": 35168,  # #8c2d00
+    "background": 61375,  # #eaf4ff
+    "text": 4391,  # #10243a
+    "text_inactive": 21393,  # #54708a
+    "text_disabled": 48763,  # #b9ccdc
+    "component_text": 4391,  # #10243a
+    "component_pressed": 48894,  # #bbdcf7
+    "component_background": 57183,  # #d8eafb
+    "component_active": 4920,  # #1565c0
+    "component_active_dark": 2612,  # #0d47a1
+    "component_accent": 47521,  # #bf360c
+    "entity_on": 45697,  # #b45309
+    "entity_off": 4920,  # #1565c0
+    "entity_unavailable": 17233,  # #416a8a
+}
+
 
 def _builtin_theme(name: str, overrides: dict[str, int]) -> dict[str, Any]:
     return {
@@ -155,6 +270,12 @@ BUILTIN_THEMES: dict[str, dict] = {
     "light": _builtin_theme("Light", _LIGHT_COLOR_OVERRIDES),
     "white": _builtin_theme("White", _WHITE_COLOR_OVERRIDES),
     "black": _builtin_theme("Black", _BLACK_COLOR_OVERRIDES),
+    "midnight": _builtin_theme("Midnight", _MIDNIGHT_COLOR_OVERRIDES),
+    "ocean": _builtin_theme("Ocean", _OCEAN_COLOR_OVERRIDES),
+    "forest": _builtin_theme("Forest", _FOREST_COLOR_OVERRIDES),
+    "sunset": _builtin_theme("Sunset", _SUNSET_COLOR_OVERRIDES),
+    "violet": _builtin_theme("Violet", _VIOLET_COLOR_OVERRIDES),
+    "sky": _builtin_theme("Sky", _SKY_COLOR_OVERRIDES),
 }
 
 THEME_VERSION = 1

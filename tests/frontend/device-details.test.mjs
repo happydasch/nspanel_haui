@@ -14,6 +14,33 @@ import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/p
 import { DEVICE_CONFIG_DEFAULTS } from '../../custom_components/nspanel_haui/frontend/constants.js';
 import '../../custom_components/nspanel_haui/frontend/app/shell.js';
 
+test('the Diagnostics status opens a popover with the current findings', () => {
+  const root = render(deviceDetails({
+    name: 'kitchen',
+    status: {
+      connected: true,
+      integration_version: '0.5.0',
+      integration_version_mismatch: true,
+      device_info: { rssi: -85 },
+    },
+    onLogs() {},
+    onUpdates() {},
+  }));
+  const trigger = root.querySelector('.haui-diagnostics-card .haui-diag-status');
+  const popover = root.querySelector('#haui-diag-status-card');
+  assert.ok(trigger);
+  assert.ok(popover);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+  assert.match(trigger.getAttribute('aria-label'), /Diagnostics: 2 issues/);
+  assert.match(popover.textContent, /Firmware version does not match the integration/);
+  assert.match(popover.textContent, /Weak Wi-Fi signal/);
+
+  trigger.click();
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+  trigger.dispatchEvent(new Event('blur'));
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+});
+
 test('device side areas close other expanded cards when opened', () => {
   const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
     _detailsExpanded: true,

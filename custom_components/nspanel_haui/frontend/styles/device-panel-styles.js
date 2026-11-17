@@ -144,9 +144,10 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-panel-catalog-content .haui-panel-catalog-hint { margin: 0; }
   /* Diagnostics: the collapsed heading carries the connection status; expanded shows tiles and hub details. */
   .haui-device-diagnostics { display: grid; gap: 12px; }
-  /* The heading icon, drawn like the connection icon of the card above; its corner bubble counts the issues. */
-  .haui-diag-status { --diag-tone: var(--haui-good); position: relative; display: grid; box-sizing: border-box; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--diag-tone) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--diag-tone); background: color-mix(in srgb, var(--diag-tone) 12%, var(--card-background-color)); --mdc-icon-size: 20px; }
+  .haui-diag-status-wrap { position: relative; display: block; flex: 0 0 auto; }
+  .haui-diag-status { --diag-tone: var(--haui-good); position: relative; display: grid; box-sizing: border-box; width: 36px; height: 36px; place-items: center; padding: 0; border: 1px solid color-mix(in srgb, var(--diag-tone) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--diag-tone); background: color-mix(in srgb, var(--diag-tone) 12%, var(--card-background-color)); font: inherit; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; --mdc-icon-size: 20px; }
   .haui-diag-status.is-warning { --diag-tone: var(--haui-warn); }
+  .haui-diag-status:hover, .haui-diag-status[aria-expanded="true"] { border-color: color-mix(in srgb, var(--diag-tone) 55%, transparent); background: color-mix(in srgb, var(--diag-tone) 20%, var(--card-background-color)); }
   .haui-backup-status, .haui-schedule-defaults-icon { display: grid; box-sizing: border-box; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--secondary-text-color) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--secondary-text-color); background: color-mix(in srgb, var(--secondary-text-color) 12%, var(--card-background-color)); --mdc-icon-size: 20px; }
   .haui-diag-status-count { position: absolute; top: -4px; right: -4px; display: grid; box-sizing: border-box; min-width: 16px; height: 16px; place-items: center; padding: 0 4px; border-radius: var(--haui-radius-control); background: var(--diag-tone); box-shadow: 0 0 0 2px var(--card-background-color); color: var(--text-primary-color, #fff); font-size: var(--haui-text-eyebrow); font-weight: 600; line-height: 1; }
   /* The status icon leads the heading; the title takes the free room, so the chevron sits at the end. */
@@ -210,7 +211,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   .haui-conn-status-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: var(--haui-radius-round); background: var(--conn-tone); }
   /* The circle and its glyph show the Wi-Fi strength in the colours of the RSSI bars; the dot keeps the connection tone. */
   .haui-conn-status:has(ha-icon.haui-wifi-excellent) { --conn-ring: var(--haui-good); }
-  .haui-conn-status:has(ha-icon.haui-wifi-good) { --conn-ring: var(--haui-wifi-good); }
+  .haui-conn-status:has(ha-icon.haui-wifi-good) { --conn-ring: var(--haui-good); }
   .haui-conn-status:has(ha-icon.haui-wifi-fair) { --conn-ring: var(--haui-warn); }
   .haui-conn-status:has(ha-icon.haui-wifi-weak) { --conn-ring: var(--haui-bad); }
   .haui-conn-status-button > .haui-conn-status-dot, .haui-conn-status-icon > .haui-conn-status-dot { position: absolute; top: 1px; right: 1px; box-shadow: 0 0 0 2px var(--card-background-color); }
@@ -220,8 +221,17 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
     70%, 100% { box-shadow: 0 0 0 2px var(--card-background-color), 0 0 0 7px transparent; }
   }
   @media (prefers-reduced-motion: reduce) { .haui-conn-status.online .haui-conn-status-button > .haui-conn-status-dot { animation: none; } }
-  .haui-conn-card { position: absolute; z-index: 5; top: calc(100% - 6px); left: 12px; display: grid; width: min(280px, calc(100% - 24px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
+  .haui-conn-card { position: absolute; z-index: 5; top: calc(100% - 6px); left: 12px; display: grid; grid-template-columns: minmax(0, 1fr); width: min(280px, calc(100% - 24px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
   .haui-conn-status-button:focus-visible + .haui-conn-card, .haui-conn-status-button[aria-expanded="true"] + .haui-conn-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
+  .haui-diag-popover { width: min(280px, calc(100vw - 24px)); max-height: min(60vh, 320px); overflow: auto; }
+  .haui-diag-status:focus-visible + .haui-diag-popover,
+  .haui-diag-status[aria-expanded="true"] + .haui-diag-popover { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
+  .haui-diag-popover > strong { font-size: var(--haui-text-label); font-weight: 500; }
+  .haui-diag-popover > p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-diag-popover > ul { display: grid; gap: 4px; margin: 0; padding-inline-start: 20px; font-size: var(--haui-text-caption); }
+  @media (prefers-reduced-motion: reduce) {
+    .haui-diag-status, .haui-diag-popover { transition: none; }
+  }
   .haui-conn-card-head { justify-content: flex-start; gap: 8px; padding: 0; border: 0; }
   .haui-conn-card-head .haui-surface-heading-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
   .haui-conn-status.online .haui-conn-card-head h2 { color: var(--haui-good-text); }
@@ -232,7 +242,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   /* The facts below are the last ones read: the poll failed or the panel is offline. */
   .haui-device-details .haui-details-stale { margin: 8px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-conn-card .haui-details-stale { margin: 0; color: var(--haui-warn-text); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
-  .haui-device-details dl { display: grid; gap: 0; margin: 0; }
+  .haui-device-details dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; }
   .haui-device-details dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-device-details dl > div:last-child { border-bottom: 0; }
   .haui-device-details dt { color: var(--secondary-text-color); }
@@ -246,21 +256,26 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   /* A tile shows its label and value; hover, focus or a tap opens its facts below it (ui/info-tile.js), a right-hand tile's aligned to its right edge. */
   .haui-tile-info { position: relative; min-width: 0; }
   .haui-tile-info > .haui-diag-tile { width: 100%; height: 100%; }
-  .haui-tile-card { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; box-sizing: border-box; width: max-content; min-width: 100%; max-width: min(280px, calc(200% + 8px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
+  /* The card is capped at twice a tile, so its tracks are capped too: with only the width limited, a long
+     localized label or reading would spill over its edge instead of wrapping inside it. */
+  .haui-tile-card { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; grid-template-columns: minmax(0, 1fr); box-sizing: border-box; width: max-content; min-width: 100%; max-width: min(280px, calc(200% + 8px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
   .haui-tile-info:nth-child(even) > .haui-tile-card { right: 0; left: auto; }
   .haui-tile-card > strong { font-size: var(--haui-text-label); font-weight: 500; overflow-wrap: anywhere; }
-  .haui-tile-card dl { display: grid; margin: 0; }
-  .haui-tile-card dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
+  .haui-tile-card dl { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
+  /* A fact keeps its label and value on one line while both fit; a long label wraps, and a value that still
+     does not fit moves to its own line, flush right, before it is cut off. */
+  .haui-tile-card dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-tile-card dl > div:last-child { border-bottom: 0; }
-  .haui-tile-card dt { color: var(--secondary-text-color); white-space: nowrap; }
-  .haui-tile-card dd { overflow: hidden; margin: 0; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-tile-card dt { min-width: 0; color: var(--secondary-text-color); }
+  .haui-tile-card dd { overflow: hidden; min-width: 0; margin: 0; margin-inline-start: auto; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
   .haui-tile-card > p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-tile-info > .haui-diag-tile:focus-visible + .haui-tile-card, .haui-tile-info > .haui-diag-tile[aria-expanded="true"] + .haui-tile-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
   /* Only a real pointer hovers: a tap's sticky hover would keep a card open after a second tap. */
   @media (hover: hover) {
     .haui-tile-info > .haui-diag-tile:hover { background: var(--haui-surface-strong); }
     .haui-tile-info:hover > .haui-tile-card,
-    .haui-conn-status:hover > .haui-conn-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
+    .haui-conn-status:hover > .haui-conn-card,
+    .haui-diag-status-wrap:hover > .haui-diag-popover { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
   }
   .haui-details-more > summary { display: flex; align-items: center; gap: 4px; padding: 4px 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); list-style: none; cursor: pointer; user-select: none; }
   .haui-details-more > summary::-webkit-details-marker { display: none; }

@@ -17,6 +17,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Added
 
+- Themes: six colorful predefined themes — **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and the light **Sky** — beside Dark, Light, White and Black ([Themes](docs/user/configuration/themes.md)).
 - Dashboard card (`custom:nspanel-haui-card`): a device's home panel or its live screen on any dashboard, view-only, for every signed-in user ([Dashboard Card](docs/user/dashboard-card.md)).
 - Editor: a dashboard device can be selected from its **Device inventory** row or the name strip under its card, which highlights both (a row also scrolls the cards to it, and the device stays centered when you return from it); selecting it again clears it.
 - Editor: the **Schedule** sidebar shows the settings that apply outside its entries (brightness, dimming, display off, notification sound) read-only, with a link to the device settings.
@@ -27,6 +28,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Editor: entities go by their Home Assistant name without the device name in front (entity picker, item lists, **Diagnostics**, the preview's entity tooltip); the picker still finds them by the full name.
 - Editor: every switch sits at the right end of its row, after its label.
+- Editor: a device selected on the dashboard scopes **Latest events** and **Logs** to it; without a selection both list every device.
+- Fleet: **Latest events** lists only the last 24 hours' warnings and errors; the full log, info and debug included, is the **Logs** sidebar.
 - Editor: one type scale at Home Assistant's sizes: title bar and page titles 20px, sidebar titles 18px, card and section titles 16px, names, values and labels 14px in one weight, hints and meta 13px; every size follows the Home Assistant font size setting.
 - Editor: the panel list says "1 panel" instead of "1 panels".
 - Editor: the **Update settings** card picks the channel from a list and turns updates and automatic firmware installs on with switches, like the other forms.
@@ -55,6 +58,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Updates: a failed firmware install clears once the panel reconnects with another firmware, and a second install while one runs is refused instead of reported as started.
 - Updates: the dashboard notices a rollout another editor started, a finished rollout can be dismissed, and a rollout no longer waits on a device that was disabled or reloaded meanwhile.
 - Editor: the dashboard meets WCAG AA contrast for status text, badges, icons and the primary button in light and dark themes, and a screen reader hears event levels, the page heading, named device cards and table columns, and rollout changes.
+- Fleet: the **Latest events** level dots carry their tone itself — a lighter blue, amber and red — instead of the dark text tone, which read almost black at 12px; each keeps 3:1 on its own tint in both themes.
+- Editor: a tile's fact card keeps a long label or reading inside its border instead of letting it spill over the edge — the label wraps and the value moves to its own line, ellipsized only when it alone is too wide (the connection and integration-details fact rows too).
 
 ## [0.5.1] — 2026-11-14
 

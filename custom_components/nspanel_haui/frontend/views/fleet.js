@@ -263,7 +263,7 @@ export function renderFleetView(data) {
             onClick: (event) => scrollCarousel(event, 1),
           })}
         ` : ''}
-        <div class="haui-fleet-carousel${atStart ? '' : ' is-clipped-start'} has-right-fade" role="list" @scroll=${onCarouselScroll}>${cards}</div>
+        <div class="haui-fleet-carousel${atStart ? '' : ' is-clipped-start'}${atEnd ? '' : ' has-right-fade'}" role="list" @scroll=${onCarouselScroll}>${cards}</div>
         ${hasGhostCards ? html`<div class="haui-device-slots has-right-fade" aria-hidden="true" style=${slotStyle}>${slots}</div>` : nothing}
       </div>`
         : emptyState({

@@ -194,18 +194,22 @@ test('the carousel arrows follow the scroll extents and the summary waits for st
   assert.match(atEnd, /aria-label="Scroll devices right"/);
 });
 
-test('the right carousel edge always fades while the left follows scroll position', () => {
+test('each carousel edge fades only while real cards are beyond it', () => {
   const deviceFor = (name) => ({ name, device: { friendlyName: name, config: {}, panels: [] }, status: null, updates: false });
   const carousel = (edges) => render(renderFleetView({
     devices: [deviceFor('kitchen'), deviceFor('office')], events: [], version: '0.5.0',
     onOpenDevice() {}, onReorderDevices() {}, carousel: edges,
   })).querySelector('.haui-fleet-carousel').classList;
+  // Stopped on the last card: neither edge fades, so that card is shown whole.
   const atBothEnds = carousel({ atStart: true, atEnd: true });
-  assert.ok(atBothEnds.contains('has-right-fade'));
+  assert.ok(!atBothEnds.contains('has-right-fade'));
   assert.ok(!atBothEnds.contains('is-clipped-start'));
   const atStart = carousel({ atStart: true, atEnd: false });
   assert.ok(atStart.contains('has-right-fade'));
   assert.ok(!atStart.contains('is-clipped-start'));
+  const atEnd = carousel({ atStart: false, atEnd: true });
+  assert.ok(!atEnd.contains('has-right-fade'));
+  assert.ok(atEnd.contains('is-clipped-start'));
   const middle = carousel({ atStart: false, atEnd: false });
   assert.ok(middle.contains('is-clipped-start') && middle.contains('has-right-fade'));
 });
@@ -237,7 +241,9 @@ test('empty ghost cards fill the row outside the real carousel and stay inert', 
   assert.equal(slots[1].style.getPropertyValue('--haui-device-slot-left'), '656px');
   assert.equal(slots[2].style.getPropertyValue('--haui-device-slot-left'), '972px');
   assert.equal(overlay.style.getPropertyValue('--haui-device-slots-top'), '4px');
-  assert.ok(carousel.classList.contains('has-right-fade'));
+  // A row that fits has nothing to scroll to, so the real cards keep both edges clear and only
+  // the ghost outlines run behind the right fade.
+  assert.ok(!carousel.classList.contains('has-right-fade'));
   assert.ok(!carousel.classList.contains('is-clipped-start'));
   assert.ok(overlay.classList.contains('has-right-fade'));
 });

@@ -11,6 +11,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.3] — unreleased
 
+### Fixed
+
+- Editor: the device carousel fades an edge only while real cards sit beyond it, so the last device's card is never dimmed under the fade; only the ghost-card outlines at the end of a row that fits run behind it.
+
 ## [0.5.2] — 2026-11-17
 
 ### Breaking changes

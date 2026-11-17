@@ -63,9 +63,10 @@ export const fleetStyles = css`
     scroll-snap-type: x mandatory; scrollbar-width: thin;
   }
   .haui-fleet-carousel-wrap { position: relative; }
-  /* The right edge always fades to signal more content; the left fades after scrolling. The mask
-     leaves whatever theme surface is behind the row visible, and its second layer keeps the bottom
-     padding, where the scrollbar runs, opaque. */
+  /* An edge fades while the row has more real cards beyond it, so the card it stops on at either
+     end is never faded; a row that fits keeps no fade and leaves its ghost outlines to their own
+     mask. The mask leaves whatever theme surface is behind the row visible, and its second layer
+     keeps the bottom padding, where the scrollbar runs, opaque. */
   .haui-fleet-carousel.is-clipped-start { --carousel-fade-start: transparent; }
   .haui-fleet-carousel.has-right-fade { --carousel-fade-end: transparent; }
   .haui-fleet-carousel.is-clipped-start,

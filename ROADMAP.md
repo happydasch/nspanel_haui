@@ -2,25 +2,20 @@
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
 shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
-2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, v0.4.7 on 2026-11-11, and v0.5.0
-and v0.5.1 on 2026-11-14**, each tagged from a green `master` commit and
-published by the release workflow.
+2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, v0.4.7 on 2026-11-11, v0.5.0 and
+v0.5.1 on 2026-11-14, and v0.5.2 on 2026-11-17**, each tagged from a green
+`master` commit and published by the release workflow.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
 its known risks live in [docs/develop/release.md](docs/develop/release.md); day-to-day tasks
 belong in the issue tracker.
 
-**v0.5.2 is next.** It is in development on `dev` (`0.5.2.dev*`): the schedule
-fixes (an entry's dimmed brightness no longer outlives the entry, auto display
-off belongs to the schedule, and daylight-saving and polar-night boundaries),
-entity hover in every preview, the dashboard card, and the editor, Fleet and
-Updates sidebar tidy-ups. The [CHANGELOG](CHANGELOG.md) lists every change and
-the [release notes](.github/release-notes/v0.5.2.md) the upgrade steps.
-**v0.5.x** continues afterwards with high-speed TFTs, predefined palettes in the
-TFT and the removal of the vendored Nextion patch. **v0.6** adds Display Repair
-Mode, an inspection and cleanup of the Nextion scripts and Home Assistant hub
-settings; multi-hub support remains subject to a needs decision.
+**No version is in development on `dev` right now.** The v0.5.x work below is
+next in line: high-speed TFTs beside the normal-speed ones, predefined palettes
+in the TFT, and the removal of the vendored Nextion patch. **v0.6** adds Display
+Repair Mode, an inspection and cleanup of the Nextion scripts and Home Assistant
+hub settings; multi-hub support remains subject to a needs decision.
 
 ---
 
@@ -234,6 +229,11 @@ behaving unchanged on hardware after the cleanup.
   and Slovak.
 - **0.5.1** — Clock panel item-button routing and matching component IDs in
   Clock, Weather and Clock Two; a 24-hour filter for **Latest events** on Fleet.
+- **0.5.2** — six colorful predefined themes and the theme-owned icon palette
+  that replaces **Theme variant**, the dashboard card, the device settings tile
+  grid with the schedule and gestures inside it, separate **Backups**,
+  **Updates** and **Themes** sidebars, per-state item values, and four schedule
+  fixes.
 
 ---
 

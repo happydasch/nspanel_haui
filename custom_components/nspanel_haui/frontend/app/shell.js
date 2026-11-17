@@ -18,7 +18,7 @@ import { createApiClient } from '../api/client.js';
 import { createStore } from '../store/store.js';
 import { StoreController } from '../store/controller.js';
 import { createRouter } from './router.js';
-import { carouselEdgesFrom, centerCard } from '../views/fleet.js';
+import { carouselEdgesFrom, carouselSlots, centerCard } from '../views/fleet.js';
 import { railOverflows } from '../ui/device-rail.js';
 import * as Crud from '../crud.js';
 import * as DeviceConfig from '../device-config.js';
@@ -33,6 +33,7 @@ import * as PanelModels from '../panel-models.js';
 import '../views/panel-editor.js';
 import '../dialogs/confirm.js';
 import '../views/device-settings.js';
+import '../dialogs/backup.js';
 import '../dialogs/updates.js';
 import '../dialogs/logs.js';
 import '../dialogs/theme.js';
@@ -105,7 +106,6 @@ class NSPanelEditor extends LitElement {
       _railCollapsed: { type: Boolean, state: true },
       _detailsExpanded: { type: Boolean, state: true },
       _diagnosticsExpanded: { type: Boolean, state: true },
-      _panelCardsExpanded: { type: Array, state: true },
       _builtinThemes: { type: Object, state: true },
       _customThemes: { type: Object, state: true },
       _themesLoading: { type: Boolean, state: true },
@@ -179,19 +179,10 @@ class NSPanelEditor extends LitElement {
     this._railCollapsed = false;
     this._detailsExpanded = preferences.detailsExpanded;
     this._diagnosticsExpanded = preferences.diagnosticsExpanded;
-    this._panelCardsExpanded = preferences.panelCardsExpanded;
-    // Earlier versions allowed multiple side cards to stay expanded. Prefer Diagnostics, then
-    // Backup, then Connection & device when normalizing those saved browser preferences.
+    // Earlier versions let several side cards stay expanded; only one is now open at a time, so a
+    // saved Diagnostics choice wins over Connection.
     if (this._diagnosticsExpanded) {
       this._detailsExpanded = false;
-      this._panelCardsExpanded = [];
-    } else if (this._panelCardsExpanded.includes('yaml')) {
-      this._detailsExpanded = false;
-      this._diagnosticsExpanded = false;
-      this._panelCardsExpanded = ['yaml'];
-    } else if (this._detailsExpanded) {
-      this._diagnosticsExpanded = false;
-      this._panelCardsExpanded = [];
     }
     this._builtinThemes = {};
     this._customThemes = {};
@@ -492,7 +483,7 @@ class NSPanelEditor extends LitElement {
       this.__carouselObserver = null;
       this.__carouselElement = carousel || null;
       if (carousel && typeof ResizeObserver === 'function') {
-        this.__carouselObserver = new ResizeObserver(() => this._setCarouselEdges(carouselEdgesFrom(carousel)));
+        this.__carouselObserver = new ResizeObserver(() => this._watchCarousel());
         this.__carouselObserver.observe(carousel);
       }
       // Fleet keeps its selection across a visit to the selected device's screen, and a
@@ -500,13 +491,25 @@ class NSPanelEditor extends LitElement {
       const index = this._store.getState().devices.order.indexOf(this._fleetSelection);
       if (carousel && index >= 0) centerCard(carousel, index, 'auto');
     }
-    if (carousel) this._setCarouselEdges(carouselEdgesFrom(carousel));
+    if (!carousel) return;
+    this._setCarouselEdges(carouselEdgesFrom(carousel));
+    this._setCarouselSlots(carouselSlots(carousel));
   }
 
   _setCarouselEdges(edges) {
     const previous = this.__carousel;
     if (previous && previous.atStart === edges.atStart && previous.atEnd === edges.atEnd) return;
     this.__carousel = edges;
+    this.requestUpdate();
+  }
+
+  /** The room after the last card and the placeholders that fill it. */
+  _setCarouselSlots(slots) {
+    const previous = this.__carouselSlots;
+    if (previous && previous.room === slots.room && previous.count === slots.count
+      && previous.width === slots.width && previous.height === slots.height
+      && previous.left === slots.left && previous.top === slots.top) return;
+    this.__carouselSlots = slots;
     this.requestUpdate();
   }
 
@@ -626,6 +629,7 @@ class NSPanelEditor extends LitElement {
         if (route.panel) this._router?.navigate({ view: 'device', device: route.device, panelView: 'panels' }, { replace: true });
       }
     } else if (kind === 'panel-catalog') this._closeCatalog();
+    else if (kind === 'backups') this._closeBackups();
     else if (kind === 'updates') this._closeUpdates();
     else if (kind === 'theme') this._closeThemeSidebar();
     else if (kind === 'logs') this._closeLogs();
@@ -945,11 +949,6 @@ class NSPanelEditor extends LitElement {
     return DeviceScreen.toggleDiagnostics(this);
   }
 
-  /** @param {string} card */
-  _togglePanelCard(card) {
-    return DeviceScreen.togglePanelCard(this, card);
-  }
-
   /** @param {string} name @param {any} status */
   async _copyDiagnostics(name, status) {
     return DeviceScreen.copyDiagnostics(this, name, status);
@@ -1089,6 +1088,21 @@ class NSPanelEditor extends LitElement {
   /** @param {any} event */
   async _onDeviceConfigSave(event) {
     return DeviceConfig.onDeviceConfigSave(this, event);
+  }
+
+  /* ── backups sidebar ──────────────────────────────────────────────── */
+
+  _renderBackups() {
+    return DeviceSidebars.renderBackups(this);
+  }
+
+  /** @param {string} deviceName */
+  _openBackups(deviceName) {
+    return DeviceSidebars.openBackups(this, deviceName);
+  }
+
+  _closeBackups() {
+    return DeviceSidebars.closeBackups(this);
   }
 
   /* ── updates sidebar ──────────────────────────────────────────────── */

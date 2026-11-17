@@ -203,7 +203,7 @@ go into **Copy report**.
 
 ### Status fields
 
-The fields of the status response that the editor's **Connection & device** and
+The fields of the status response that the editor's **Connection** and
 **Diagnostics** cards show:
 
 | Field | Meaning |
@@ -400,7 +400,7 @@ The editor's [live preview](../user/configuration/README.md#the-live-preview) in
 
 The browser end lives in `frontend/virtual/`: `nextion-script.js` runs the HMI's event code and the hub's display commands, `nextion-display.js` holds the display state, `nextion-view.js` renders it, `touch-input.js` turns pointer input into the firmware's `esphome.component`, `touch_start`/`touch_end` and `gesture` events, `qr-encode.js` draws QR widgets, `assets.js` loads the layouts, icon map and pictures, and `panel-session.js` connects it all to the WebSocket; `virtual-panel-session.js` (Simulated) and `live-panel-session.js` (Live) add their mode's commands and messages. Slider values come back the way the firmware returns them: the hub's `req_val`/`req_txt` go to the browser, which answers with `esphome.read_response`.
 
-The **Current page** tile of the Connection & device card sends `/open` with the device status's `current_panel` (`VirtualPanelHost.async_show_panel`): the virtual app opens that panel by key, a popup with the sample context of its card, or as its idle page (`open_idle_panel(key=…)`) while the device's `idle_page` state is `active`. Live mode already shows the device's page, so the tile acts in Simulated mode only.
+The **Current page** tile of the Connection card sends `/open` with the device status's `current_panel` (`VirtualPanelHost.async_show_panel`): the virtual app opens that panel by key, a popup with the sample context of its card, or as its idle page (`open_idle_panel(key=…)`) while the device's `idle_page` state is `active`. Live mode already shows the device's page, so the tile acts in Simulated mode only.
 
 Once a Simulated preview has opened, the virtual app mirrors the device's notification queue: the device's app reports every change of its queue (`publish_preview_state`), and `VirtualPanelHost` copies it into the virtual queue, read-only.
 

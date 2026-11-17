@@ -36,8 +36,8 @@ export function themeLabel(themeId, builtinThemes, customThemes) {
 }
 
 /**
- * What a device's update settings hold, in a few words: the Updates row of the
- * Connection & device card shows it beside its name.
+ * What a device's update settings hold, in a few words: the Updates button below
+ * the side stack shows it on its trailing edge.
  *
  * @param {any} config - the device's config
  */

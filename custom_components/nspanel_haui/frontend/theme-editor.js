@@ -9,7 +9,7 @@ import { t } from './localize.js';
 
 /**
  * The theme editor of the device's selected theme. `themeId` is the choice the
- * Connection & device card's Edit theme row names; without it the stored choice
+ * Themes button below the side stack names; without it the stored choice
  * is used.
  */
 export function openThemeSidebar(host, themeId = null) {

@@ -26,24 +26,23 @@ export const fleetStyles = css`
     padding: 12px 12px;
     border-bottom: 1px solid var(--divider-color);
   }
-  /* Long log lists shrink into their scroll area, never into the heading. The heading keeps a line
-     of its own; the device the timeline is scoped to opens the next line and the quiet actions close
-     it, right-aligned: three of them never squeeze the title into a column a few characters wide. */
+  /* Long log lists shrink into their scroll area, never into the heading. The title and the quiet
+     actions share the heading's first line — three of them never squeeze the title into a column a
+     few characters wide — and the line under it opens with the device the timeline is scoped to and
+     closes with the window it covers, right-aligned where the actions used to sit. */
   .haui-event-list > header { flex-wrap: wrap; flex-shrink: 0; row-gap: var(--haui-space-1); }
-  .haui-event-list > header > .haui-surface-heading { min-width: 0; flex: 1 1 100%; }
-  /* The title and the line under it share one row: the window the list covers takes the space that
-     is left and truncates, so a long window label never pushes either line onto another. */
-  .haui-event-list > header .haui-surface-heading-copy { display: flex; align-items: baseline; gap: var(--haui-space-2); }
-  .haui-event-list > header .haui-surface-heading-copy > h2 { flex: 0 0 auto; }
-  .haui-event-list > header .haui-surface-heading-copy > p { min-width: 0; flex: 0 1 auto; margin: 0; }
-  /* Neither line wraps: the subtitle ellipsizes, the title keeps its few characters. */
+  .haui-event-list > header > .haui-surface-heading { min-width: 0; flex: 1 1 100%; align-items: center; }
+  /* Neither line wraps: the title gives way to the actions and the scope to the window, each
+     ellipsizing instead of pushing the other out of the card. */
   .haui-event-list > header h2,
-  .haui-event-list > header p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* The scope line: its name gives way to the actions, which stay whole. The whole fleet reads
-     quieter than a device name, since it is the list's scope and not one of its devices. */
-  .haui-event-list > header .haui-event-bar { display: flex; min-width: 0; flex: 1 1 100%; align-items: center; gap: var(--haui-space-2); }
-  .haui-event-list > header .haui-event-scope { min-width: 0; overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-event-list > header .haui-event-window { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The scope line: the name gives way to the window, which ellipsizes only once the name is gone.
+     The whole fleet reads quieter than a device name, since it is the list's scope and not one of
+     its devices. */
+  .haui-event-list > header .haui-event-bar { display: flex; min-width: 0; flex: 1 1 100%; align-items: baseline; gap: var(--haui-space-2); line-height: var(--haui-line-height-tight); }
+  .haui-event-list > header .haui-event-scope { min-width: 0; flex: 1 1 0; overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
   .haui-event-list > header .haui-event-scope.is-all { color: var(--secondary-text-color); font-weight: 400; }
+  .haui-event-list > header .haui-event-window { flex: 0 1 auto; min-width: 0; margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-device-inventory h2,
   .haui-event-list h2 {
     margin: 0;
@@ -64,13 +63,13 @@ export const fleetStyles = css`
     scroll-snap-type: x mandatory; scrollbar-width: thin;
   }
   .haui-fleet-carousel-wrap { position: relative; }
-  /* An edge with more cards beyond it fades out. A mask, not an overlay, so it fades into whatever
-     the theme puts behind the row; its second layer keeps the bottom padding, where the scrollbar
-     runs, opaque. */
-  .haui-fleet-carousel-wrap.is-clipped-start { --carousel-fade-start: transparent; }
-  .haui-fleet-carousel-wrap.is-clipped-end { --carousel-fade-end: transparent; }
-  .haui-fleet-carousel-wrap.is-clipped-start .haui-fleet-carousel,
-  .haui-fleet-carousel-wrap.is-clipped-end .haui-fleet-carousel {
+  /* The right edge always fades to signal more content; the left fades after scrolling. The mask
+     leaves whatever theme surface is behind the row visible, and its second layer keeps the bottom
+     padding, where the scrollbar runs, opaque. */
+  .haui-fleet-carousel.is-clipped-start { --carousel-fade-start: transparent; }
+  .haui-fleet-carousel.has-right-fade { --carousel-fade-end: transparent; }
+  .haui-fleet-carousel.is-clipped-start,
+  .haui-fleet-carousel.has-right-fade {
     mask:
       linear-gradient(to right, var(--carousel-fade-start, #000), #000 40px, #000 calc(100% - 40px), var(--carousel-fade-end, #000)) top / 100% calc(100% - 16px) no-repeat,
       linear-gradient(#000, #000) bottom / 100% 16px no-repeat;
@@ -103,6 +102,29 @@ export const fleetStyles = css`
   .haui-device-card-info { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 12px 12px 12px; }
   button.haui-device-card-info { width: 100%; border: 0; color: inherit; background: transparent; font: inherit; text-align: start; cursor: pointer; }
   .haui-device-card-name { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
+  /* Decorative outlines are a clipped overlay, never carousel children: they cannot change real
+     card sizing, scroll extents, snapping or the edge fades. */
+  .haui-device-slots {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .haui-device-slots.has-right-fade {
+    mask: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+  .haui-device-slot-card {
+    position: absolute;
+    top: var(--haui-device-slots-top);
+    left: var(--haui-device-slot-left);
+    width: var(--haui-device-slot-width);
+    height: var(--haui-device-slot-height);
+    box-sizing: border-box;
+    border: 2px dashed var(--divider-color);
+    border-radius: var(--haui-card-radius);
+    background: transparent;
+    box-shadow: none;
+  }
   .haui-device-menu { min-width: 220px; }
   .haui-fleet-scan-error { margin: 8px 0 0; color: var(--haui-bad-text); font-size: var(--haui-text-label); }
   .haui-discovered { margin-top: 8px; overflow: hidden; }
@@ -127,13 +149,14 @@ export const fleetStyles = css`
   }
   .haui-fleet-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr); gap: 16px; margin-top: 8px; }
   /* The summary strip is the inventory's header, and it is as tall as the Latest events header
-     beside it — that one carries a title line, the quiet actions under it and its padding — so
-     the first row under either card starts level. */
+     beside it — that one carries the title with the quiet actions on it, the scope line under it and
+     its padding, plus the hairline over the timeline — so the first row under either card starts
+     level. */
   .haui-inventory-overview {
     display: grid;
     align-content: center;
     box-sizing: border-box;
-    min-height: calc(var(--haui-text-body) * var(--haui-line-height-tight) + 30px + var(--haui-space-1) + var(--haui-space-3) * 2);
+    min-height: calc(30px + var(--haui-space-1) + var(--haui-text-caption) * var(--haui-line-height-tight) + var(--haui-space-3) * 2 + 1px);
     padding: 20px 28px 16px;
   }
   .haui-fleet-inventory-heading { flex: 0 0 auto; }
@@ -204,14 +227,14 @@ export const fleetStyles = css`
   /* The event list follows the inventory: it has no height of its own (size containment), so it
      stretches to the row the inventory sets and scrolls inside it. */
   .haui-event-list { display: flex; min-height: 320px; flex-direction: column; contain: size; }
-  /* A quiet text action beside the event-list heading. */
+  /* A quiet text action on the event list's title line. */
   .haui-event-list > header .haui-event-actions { display: flex; flex: 0 0 auto; align-items: center; gap: var(--haui-space-1); margin-inline-start: auto; }
   .haui-event-list > header .haui-event-logs,
-  .haui-event-list > header .haui-event-window,
+  .haui-event-list > header .haui-event-restore,
   .haui-event-list > header .haui-event-reset { min-height: 30px; padding: 0 8px; border: 0; border-radius: var(--haui-radius-pill); color: var(--primary-color); background: transparent; font-size: var(--haui-text-caption); font-weight: 500; }
   .haui-event-list > header .haui-event-logs { margin-inline-end: -8px; }
   .haui-event-list > header .haui-event-logs:hover:not(:disabled),
-  .haui-event-list > header .haui-event-window:hover:not(:disabled),
+  .haui-event-list > header .haui-event-restore:hover:not(:disabled),
   .haui-event-list > header .haui-event-reset:hover:not(:disabled) { background: color-mix(in srgb, var(--primary-color) 8%, transparent); }
   /* The events as a timeline: a rail through the level dots, so the eye follows time down. */
   .haui-event-list ol { display: grid; min-height: 0; flex: 1 1 auto; align-content: start; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px 12px 8px; list-style: none; scrollbar-width: thin; }

@@ -190,6 +190,7 @@ export function renderFleetScreen(host) {
       version: hubVersion,
       statusPending: devices.some(({ status }) => !status),
       carousel: host.__carousel || { atStart: true, atEnd: false },
+      slots: host.__carouselSlots,
       onCarouselScroll: (edges) => host._setCarouselEdges(edges),
       menu: host._deviceMenuModel(),
       onMenu: (name, anchorKey) => host._toggleDeviceMenu(name, anchorKey),

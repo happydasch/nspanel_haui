@@ -41,12 +41,10 @@ test('the Diagnostics status opens a popover with the current findings', () => {
   assert.equal(trigger.getAttribute('aria-expanded'), 'false');
 });
 
-test('device side areas close other expanded cards when opened', () => {
+test('the device side areas close the other card when one opens', () => {
   const editor = Object.assign(document.createElement('nspanel-haui-editor'), {
     _detailsExpanded: true,
     _diagnosticsExpanded: false,
-    _panelCardsExpanded: [],
-    _themesError: '',
   });
   const root = document.createElement('div');
   const renderSideAreas = () => render(deviceDetails({
@@ -58,28 +56,20 @@ test('device side areas close other expanded cards when opened', () => {
     onToggleDetails: () => editor._toggleDetails(),
     diagnosticsExpanded: editor._diagnosticsExpanded,
     onToggleDiagnostics: () => editor._toggleDiagnostics(),
-    yamlExpanded: editor._panelCardsExpanded.includes('yaml'),
-    onToggleYaml: () => editor._togglePanelCard('yaml'),
-    onYamlImport() {},
-    onYamlExport() {},
   }), root);
   const expandedAreas = () => [...root.querySelectorAll('section.haui-surface')]
     .map((section) => section.querySelector('.haui-expand-toggle')?.getAttribute('aria-expanded') === 'true');
 
   renderSideAreas();
-  assert.deepEqual(expandedAreas(), [true, false, false]);
+  assert.deepEqual(expandedAreas(), [true, false]);
 
   root.querySelector('.haui-diagnostics-card .haui-expand-toggle').click();
   renderSideAreas();
-  assert.deepEqual(expandedAreas(), [false, true, false]);
-
-  root.querySelector('.haui-yaml-card .haui-expand-toggle').click();
-  renderSideAreas();
-  assert.deepEqual(expandedAreas(), [false, false, true]);
+  assert.deepEqual(expandedAreas(), [false, true]);
 
   root.querySelector('.haui-device-details .haui-expand-toggle').click();
   renderSideAreas();
-  assert.deepEqual(expandedAreas(), [true, false, false]);
+  assert.deepEqual(expandedAreas(), [true, false]);
 });
 
 function templateText(template) {
@@ -139,9 +129,10 @@ test('Device details only show facts reported by the device status', () => {
     onSettings() {}, onUpdates() {}, onLogs() {},
   });
   const text = templateText(view);
-  // Only Connection & device has collapsed content; Diagnostics keeps its status in the heading.
+  // Only the Connection card has collapsed content; Diagnostics keeps its status in the heading.
   assert.equal(templatesMatching(view, 'haui-surface-body').length, 1);
-  assert.match(text, /Connection & device/);
+  assert.match(text, /Connection/);
+  assert.doesNotMatch(text, /Connection & device/);
   assert.match(text, /Diagnostics/);
   assert.match(text, /Online/);
   assert.doesNotMatch(text, /YAML configuration/);
@@ -174,43 +165,61 @@ test('The Current page tile opens the page in the simulated preview when it can'
   assert.doesNotMatch(templateText(plain), /Click to show this page/);
 });
 
-test('A collapsed Connection & device card shows only its heading', () => {
+test('A collapsed Connection card shows only its heading', () => {
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: true, integration_version: '0.5.0', device_info: { ip: '192.0.2.11', yaml_version: '0.5.0' } },
     onLogs() {},
+    onUpdates() {}, updatesDetail: 'Stable · Manual',
+    onEditTheme() {}, themeDetail: 'Dark',
     detailsExpanded: false,
   });
+  const root = render(view);
   const text = templateText(view);
-  // Updates sits below the versions, so it folds away with them.
-  assert.doesNotMatch(text, /haui-button-/);
   assert.match(text, /Show more/);
   assert.doesNotMatch(text, /Current page/);
   assert.doesNotMatch(text, /More details/);
+  // Folding the card is about its facts: the two actions keep their own buttons below it.
+  assert.equal(root.querySelector('.haui-device-details').contains(root.querySelector('.haui-details-actions')), false);
+  assert.match(root.querySelector('.haui-details-actions button').textContent, /Updates/);
 });
 
-test('The Connection & device card keeps its two sidebar rows in one row', () => {
+test('The side stack opens Updates, Themes and Backups below its cards', () => {
   const opened = [];
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: true, integration_version: '0.5.0', device_info: { tft_version: '0.4.5' } },
     onLogs() {},
+    onBackups: () => opened.push('backups'),
     onUpdates: () => opened.push('updates'), updatesDetail: 'Stable · Manual',
     onEditTheme: () => opened.push('theme'), themeDetail: 'Dark',
   });
   const root = render(view);
-  const [updates, edit] = [...root.querySelectorAll('.haui-details-actions button')];
+  const actions = root.querySelector('.haui-details-actions');
+  const [updates, themes, backups] = [...actions.querySelectorAll('button')];
 
-  // Each row says what the sidebar it opens holds: the update settings beside Updates, the selected theme
-  // beside Edit theme.
+  // Plain content at the end of the stack: no card or heading of its own, after the Connection and
+  // Diagnostics cards.
+  const sideStack = [...root.children];
+  assert.equal(sideStack.at(-1), actions);
+  assert.equal(sideStack[0].classList.contains('haui-device-details'), true);
+  assert.equal(sideStack[1].classList.contains('haui-diagnostics-card'), true);
+  assert.equal(sideStack.length, 3);
+
+  // Updates and Themes lead, each naming what its sidebar holds on its trailing edge; Backups closes the
+  // column, as the device's own export and import.
   assert.match(updates.textContent, /Updates/);
   assert.match(updates.textContent, /Stable · Manual/);
-  assert.match(edit.textContent, /Edit theme/);
-  assert.match(edit.textContent, /Dark/);
+  assert.match(themes.textContent, /Themes/);
+  assert.match(themes.textContent, /Dark/);
+  assert.match(backups.textContent, /Backups/);
+  // The YAML buttons are not in the side stack any more: the Backups sidebar carries them.
+  assert.equal(actions.querySelector('.haui-yaml-actions'), null);
 
   updates.click();
-  edit.click();
-  assert.deepEqual(opened, ['updates', 'theme']);
+  themes.click();
+  backups.click();
+  assert.deepEqual(opened, ['updates', 'theme', 'backups']);
 });
 
 test('Device details mark reported values as stale while the device is offline', () => {

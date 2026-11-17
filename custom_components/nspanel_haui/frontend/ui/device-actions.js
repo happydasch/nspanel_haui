@@ -9,7 +9,7 @@ import { hasUpdateAvailable } from '../device-status.js';
  * The lead card of the Preview view: the device's next actions, with the
  * settings as a cog beside the title. An offered update leads while there is
  * one; otherwise adding a panel does. Checking for updates belongs to the
- * Connection & device card.
+ * Updates button below the side stack's cards.
  *
  * @param {{ status: any, onSettings: () => void, onUpdates: () => void, onAdd: () => void }} data
  */

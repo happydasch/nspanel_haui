@@ -10,7 +10,7 @@ The hub updates each panel's **ESPHome firmware** (**HAUI Firmware**,
 `update.<device>_haui_display`). The integration itself comes from the
 Marketplace, see [Updating](../user/update.md). The settings live in the
 device's **Updates** sidebar in the editor: on the Device screen, the **Updates**
-action of the Connection & device card, or **Install update** in the lead card
+button below the side stack, or **Install update** in the lead card
 while an update is offered.
 
 ## Where updates come from
@@ -344,15 +344,16 @@ actions:
 - **Install update** answers with a toast: *Firmware update started for "…"* or
   *TFT update started for "…"*, or the reason the install could not start.
 - The dashboard marks a device with an offered update (**Update available** on its
-  card, **Update** in its inventory row). On the Device screen the **Connection &
-  device** card opens **Updates**, and the **Diagnostics** card counts a firmware
-  and HAUI version mismatch and a pending or failed display update as issues;
+  card, **Update** in its inventory row). On the Device screen the **Updates**
+  button below the side stack's cards opens the sidebar, and the **Diagnostics**
+  card counts a firmware and HAUI version mismatch and a pending or failed display
+  update as issues;
   expanded, its **Versions** tile shows the HAUI version, the device `yaml_version`
   and the display version with **update pending**, **installing** or **update
   failed**. A version mismatch is only a diagnostic; it never triggers an install.
 - Versions are also shown in the **Updates** sidebar and in the firmware and TFT
-  columns of the Fleet inventory. The **Connection & device** card keeps to the
-  connection facts and the Updates action.
+  columns of the Fleet inventory. The **Connection** card keeps to the
+  connection facts; the Updates button sits below the side stack.
 
 ## Settings
 
@@ -499,17 +500,18 @@ while one runs is refused with an error instead of reported as started.
 While the panel is offline, or the editor could not refresh its status, the sidebar
 says so and the **Install** buttons are off: the versions are the last ones read.
 **Install updates** on the dashboard is not offered while the status could not be
-refreshed. After an install request the editor reads the status at once. Below it are the installed firmware and display
-versions, each with the latest release or the display version the firmware needs.
+refreshed. After an install request the editor reads the status at once. Below it
+are the installed firmware and display versions, each with the latest release or
+the display version the firmware needs.
 An offered update turns the installed version into one badge with the version it
 updates to (`0.5.2 → 0.5.3`); a narrow card shows only the target (`→ 0.5.3`).
 
-For one device, open the Device screen and press **Updates** in the **Connection & device**
-card, or **Install update** in the lead card while an update is offered. Whenever updates are
-enabled for the device, each version row has its own **Install** button, even if
-no automatic compatible update is offered. Press **Install** on **Firmware** or
-**Display**, then choose an offered update, another release, **From URL**, or
-**From local file**.
+For one device, open the Device screen and press **Updates** below the side stack's
+cards, or **Install update** in the lead card while an update is offered. Whenever
+updates are enabled for the device, each version row has its own **Install**
+button, even if no automatic compatible update is offered. Press **Install** on
+**Firmware** or **Display**, then choose an offered update, another release,
+**From URL**, or **From local file**.
 
 Under the status, a scheduled automatic firmware install shows when it starts,
 with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**

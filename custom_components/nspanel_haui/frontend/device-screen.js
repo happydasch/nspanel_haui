@@ -57,6 +57,7 @@ export function sidebarLabel(host, kind) {
       : t('Device settings')),
     'panel-editor': () => host._panelEditorLabel(),
     'panel-catalog': () => t('Add panel'),
+    backups: () => t('Backups'),
     updates: () => t('Updates'),
     theme: () => t('Theme'),
     logs: () => t('Logs'),
@@ -100,45 +101,25 @@ function persistSideCards(host) {
   writeSideCards({
     detailsExpanded: host._detailsExpanded,
     diagnosticsExpanded: host._diagnosticsExpanded,
-    panelCardsExpanded: host._panelCardsExpanded,
   });
 }
 
-/** Toggle the Connection & device card, closing the other side areas when it opens. @param {any} host */
+/** Toggle the Connection card, closing Diagnostics when it opens. @param {any} host */
 export function toggleDetails(host) {
   host._detailsExpanded = !host._detailsExpanded;
   if (host._detailsExpanded) {
     host._diagnosticsExpanded = false;
-    host._panelCardsExpanded = [];
   }
   persistSideCards(host);
 }
 
-/** Toggle Diagnostics, closing the other side areas when it opens. @param {any} host */
+/** Toggle Diagnostics, closing the Connection card when it opens. @param {any} host */
 export function toggleDiagnostics(host) {
   host._diagnosticsExpanded = !host._diagnosticsExpanded;
   if (host._diagnosticsExpanded) {
     host._detailsExpanded = false;
-    host._panelCardsExpanded = [];
   }
   persistSideCards(host);
-}
-
-/** Toggle a device side-stack card, closing other side areas when it opens.
- * @param {any} host @param {string} card */
-export function togglePanelCard(host, card) {
-  const expanded = host._panelCardsExpanded.includes(card);
-  host._panelCardsExpanded = expanded
-    ? host._panelCardsExpanded.filter((entry) => entry !== card)
-    : [card];
-  if (!expanded) {
-    host._detailsExpanded = false;
-    host._diagnosticsExpanded = false;
-  }
-  persistSideCards(host);
-  if (card === 'theme' && !expanded && host._themesError) {
-    host._loadThemeLibrary(host.entryId, true);
-  }
 }
 
 /** Copy a plain-text diagnostics report for a bug report.
@@ -278,8 +259,8 @@ export function renderDeviceScreen(host) {
   // The modal sidebar opens over the page; the side stack below it stays as it is.
   const sidebarContent = sidebarKind ? html`${layer('device-settings', () => deviceSettings)}${
     layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
-    layer('updates', () => host._renderUpdates(name))}${layer('theme', theme)}${
-    layer('logs', () => host._renderLogs())}` : null;
+    layer('backups', () => host._renderBackups())}${layer('updates', () => host._renderUpdates(name))}${
+    layer('theme', theme)}${layer('logs', () => host._renderLogs())}` : null;
   const leadContent = route.panelView === 'panels'
     ? panelActions({
         panels: device.panels,
@@ -300,6 +281,7 @@ export function renderDeviceScreen(host) {
           statusError: host._deviceStatusError,
           hass: host.hass,
           onLogs: () => host._openLogs(name),
+          onBackups: () => host._openBackups(name),
           onUpdates: () => host._openUpdates(name),
           updatesDetail: updatesSummary(device.config),
           themeDetail: themeLabel(device.config.theme_id, host._builtinThemes, host._customThemes),
@@ -309,10 +291,6 @@ export function renderDeviceScreen(host) {
           onToggleDetails: () => host._toggleDetails(),
           diagnosticsExpanded: host._diagnosticsExpanded,
           onToggleDiagnostics: () => host._toggleDiagnostics(),
-          yamlExpanded: host._panelCardsExpanded.includes('yaml'),
-          onToggleYaml: () => host._togglePanelCard('yaml'),
-          onYamlImport: () => host._importYaml(),
-          onYamlExport: () => host._exportYaml(),
           showEntities: preview.showEntities,
           onShowEntities: (show) => host._store.actions.setPreviewEntities(show),
           // Live already shows the device's page; only the simulated preview follows a click.

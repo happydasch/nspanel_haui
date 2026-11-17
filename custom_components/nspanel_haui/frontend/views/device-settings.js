@@ -306,7 +306,7 @@ class DeviceSettings extends HauiDialog {
 
   /**
    * The General group's theme choice: the hub's themes, and the stored one while they load.
-   * The theme's colors are edited in the Theme sidebar, from the Connection & device card.
+   * The theme's colors are edited in the Theme sidebar, from the Themes button below the side stack.
    */
   _themeField(cfg) {
     const themes = { ...(this.builtinThemes || {}), ...(this.customThemes || {}) };
@@ -323,7 +323,7 @@ class DeviceSettings extends HauiDialog {
         this._deviceConfigForm = { ...this._deviceConfigForm, theme_id: value };
         this.requestUpdate();
       }),
-      hint: t('The colors this panel draws with. Edit theme on the Connection & device card edits the colors of the selected theme.'),
+      hint: t('The colors this panel draws with. Themes beside Updates edits the colors of the selected theme.'),
     });
   }
 

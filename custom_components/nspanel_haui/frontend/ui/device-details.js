@@ -13,18 +13,17 @@ import { rssiBarCount, rssiStrengthClass, fmtRssi } from '../device-info.js';
 import { deviceConnectionState } from '../device-status.js';
 
 /**
- * The Device side stack of the Preview view: connection and device facts with
- * the Updates action, Diagnostics, and YAML backup. Device facts and diagnostics
- * come from the real status payload: facts the device did not report stay
- * "Unknown", and while it is offline they are marked stale.
+ * The Device side stack of the Preview view: the connection and device facts,
+ * Diagnostics, and below them the buttons that open a sidebar of their own
+ * (Backups, Updates and Themes). Device facts and diagnostics come from the
+ * real status payload: facts the device did not report stay "Unknown", and
+ * while it is offline they are marked stale.
  *
  * @param {{ name: string, status: any, hass?: any,
- *   onLogs: () => void, onUpdates: () => void, onEditTheme?: () => void,
+ *   onLogs: () => void, onBackups?: () => void, onUpdates: () => void, onEditTheme?: () => void,
  *   onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
  *   updatesDetail?: string, themeDetail?: string,
  *   diagnosticsExpanded?: boolean, onToggleDiagnostics?: () => void,
- *   yamlExpanded?: boolean, onToggleYaml?: () => void,
- *   onYamlImport?: () => void, onYamlExport?: () => void,
  *   showEntities?: boolean, onShowEntities?: (show: boolean) => void,
  *   previewTools?: import('./device-diagnostics.js').PreviewTools|null,
  *   onOpenPage?: (() => void)|null, statusError?: string|null }} data
@@ -33,11 +32,10 @@ import { deviceConnectionState } from '../device-status.js';
  *   status poll failed: the facts shown are then the last ones read.
  */
 export function deviceDetails({
-  name, status, hass, onLogs, onUpdates, onEditTheme,
+  name, status, hass, onLogs, onBackups, onUpdates, onEditTheme,
   updatesDetail = '', themeDetail = '',
   onCopyReport,
   detailsExpanded = true, onToggleDetails, diagnosticsExpanded = false, onToggleDiagnostics,
-  yamlExpanded = false, onToggleYaml, onYamlImport, onYamlExport,
   showEntities = false, onShowEntities, previewTools = null, onOpenPage = null, statusError = null,
 }) {
   const info = status?.device_info || {};
@@ -50,8 +48,7 @@ export function deviceDetails({
       ? t('Last seen {time}').replace('{time}', relativeTime(info.disconnected_since))
       : '';
   // Expanded, tiles like the Diagnostics card: the connection readings (once there is a status), then
-  // the device facts and, below them, one row of the two actions that open a sidebar of their own: Updates,
-  // the update settings it holds beside its name, and Edit theme, the selected theme's name beside it.
+  // the device facts. The card carries no actions: Updates and Themes sit in the buttons below it.
   // The versions stay in Diagnostics and the Updates sidebar.
   const model = status ? diagnosticsModel(status) : null;
   const tiles = [
@@ -68,7 +65,7 @@ export function deviceDetails({
     }),
   ];
   return html`${surface({
-    title: t('Connection & device'),
+    title: t('Connection'),
     subtitle: name,
     className: 'haui-device-details',
     leading: connectionStatus({ info, status, tone, stateLabel, recency, stale }),
@@ -76,14 +73,7 @@ export function deviceDetails({
     onToggle: onToggleDetails,
     body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' is-stale' : ''}`} data-stale=${stale ? 'true' : 'false'}>${tiles}</div>${
       statusError ? html`<p class="haui-details-stale" role="status">${
-        t('Device status could not be refreshed: {error}').replace('{error}', statusError)}</p>` : nothing}
-      <div class="haui-card-actions haui-details-actions">${button({
-        label: t('Updates'), iconName: 'update', detail: updatesDetail,
-        onClick: onUpdates, className: 'haui-details-updates',
-      })}${onEditTheme ? button({
-        label: t('Edit theme'), iconName: 'color', detail: themeDetail,
-        onClick: onEditTheme, className: 'haui-details-edit-theme',
-      }) : nothing}</div>` : undefined,
+        t('Device status could not be refreshed: {error}').replace('{error}', statusError)}</p>` : nothing}` : undefined,
   })}${model ? surface({
     title: t('Diagnostics'),
     subtitle: diagnosticsSubtitle(model),
@@ -96,18 +86,35 @@ export function deviceDetails({
         status, hass, expanded: true, onLogs, onCopyReport, showEntities, onShowEntities, previewTools,
       })
       : undefined,
-  }) : nothing}${onYamlImport || onYamlExport ? surface({
-    title: t('Backup'),
-    subtitle: t('Back up this device or restore it on another hub.'),
-    className: 'haui-yaml-card',
-    leading: html`<span class="haui-backup-status" aria-hidden="true">${icon('backup-restore')}</span>`,
-    actions: expandToggle(yamlExpanded, onToggleYaml),
-    onToggle: onToggleYaml,
-    body: yamlExpanded ? html`<div class="haui-card-actions haui-yaml-actions">
-      ${onYamlImport ? button({ label: t('Import'), iconName: 'upload', onClick: onYamlImport }) : nothing}
-      ${onYamlExport ? button({ label: t('Export'), iconName: 'file', onClick: onYamlExport }) : nothing}
-    </div>` : undefined,
-  }) : nothing}`;
+  }) : nothing}${sideActions({
+    onBackups, onUpdates, onEditTheme, updatesDetail, themeDetail,
+  })}`;
+}
+
+/**
+ * The buttons below the side stack's cards, as content without a card of their
+ * own: each spans the whole width on a line of its own. **Updates** and
+ * **Themes** also name what they open on their trailing edge — what the update
+ * settings hold, the selected theme's name; **Backups** opens the device's YAML
+ * export and import, **Themes** the theme library with the device's theme
+ * selected.
+ *
+ * @param {{ onBackups?: () => void, onUpdates: () => void, updatesDetail?: string,
+ *   onEditTheme?: (() => void)|null, themeDetail?: string }} data
+ */
+function sideActions({
+  onBackups, onUpdates, onEditTheme, updatesDetail = '', themeDetail = '',
+}) {
+  return html`<div class="haui-details-actions">${button({
+    label: t('Updates'), iconName: 'update', detail: updatesDetail,
+    onClick: onUpdates,
+  })}${onEditTheme ? button({
+    label: t('Themes'), iconName: 'color', detail: themeDetail,
+    onClick: onEditTheme,
+  }) : nothing}${onBackups ? button({
+    label: t('Backups'), iconName: 'backup-restore',
+    onClick: onBackups,
+  }) : nothing}</div>`;
 }
 
 /**

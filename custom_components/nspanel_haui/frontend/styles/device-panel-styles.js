@@ -155,11 +155,9 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-diag-status { --diag-tone: var(--haui-good); position: relative; display: grid; box-sizing: border-box; width: 36px; height: 36px; place-items: center; padding: 0; border: 1px solid color-mix(in srgb, var(--diag-tone) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--diag-tone); background: color-mix(in srgb, var(--diag-tone) 12%, var(--card-background-color)); font: inherit; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; --mdc-icon-size: 20px; }
   .haui-diag-status.is-warning { --diag-tone: var(--haui-warn); }
   .haui-diag-status:hover, .haui-diag-status[aria-expanded="true"] { border-color: color-mix(in srgb, var(--diag-tone) 55%, transparent); background: color-mix(in srgb, var(--diag-tone) 20%, var(--card-background-color)); }
-  .haui-backup-status { display: grid; box-sizing: border-box; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--secondary-text-color) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--secondary-text-color); background: color-mix(in srgb, var(--secondary-text-color) 12%, var(--card-background-color)); --mdc-icon-size: 20px; }
   .haui-diag-status-count { position: absolute; top: -4px; right: -4px; display: grid; box-sizing: border-box; min-width: 16px; height: 16px; place-items: center; padding: 0 4px; border-radius: var(--haui-radius-control); background: var(--diag-tone); box-shadow: 0 0 0 2px var(--card-background-color); color: var(--text-primary-color, #fff); font-size: var(--haui-text-eyebrow); font-weight: 600; line-height: 1; }
   /* The status icon leads the heading; the title takes the free room, so the chevron sits at the end. */
-  .haui-device-details .haui-surface-heading-copy, .haui-diagnostics-card .haui-surface-heading-copy,
-  .haui-yaml-card .haui-surface-heading-copy { flex: 1 1 auto; }
+  .haui-device-details .haui-surface-heading-copy, .haui-diagnostics-card .haui-surface-heading-copy { flex: 1 1 auto; }
   .haui-expand-toggle { flex: 0 0 auto; }
   .haui-device-diagnostics .is-warning, .haui-device-details .haui-diag-tiles .is-warning { color: var(--haui-warn-text); }
   .haui-device-details .haui-diag-tiles .is-good { color: var(--haui-good-text); }
@@ -261,19 +259,12 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-device-details .haui-diag-tiles.is-stale .haui-diag-tile-value { color: var(--secondary-text-color); }
   /* Offline is the current state, not a stale reading. */
   .haui-device-details .haui-diag-tiles .haui-diag-tile-value.is-danger { color: var(--haui-bad-text); }
-  /* The row under the tiles keeps the two actions that open a sidebar of their own, as pills like the
-     settings' option rows: both name their sidebar on the inline start edge, so the two line up in one row.
-     Updates takes the room with what the update settings hold on its trailing edge; Edit theme stands beside
-     it, the selected theme's name after its own. */
-  .haui-details-actions { flex-wrap: nowrap; }
+  /* The buttons below the Device stack's cards, as content without a card of their own: each one
+     across the whole width on a line of its own, naming its sidebar on the inline start edge and what
+     it opens on its trailing edge - what the update settings hold, the selected theme's name. */
+  .haui-details-actions { display: grid; gap: 8px; }
   .haui-details-actions .haui-button { justify-content: flex-start; }
-  .haui-details-updates { flex: 1 1 auto; min-width: 0; }
-  .haui-details-updates .haui-button-detail { margin-left: auto; }
-  .haui-details-edit-theme { flex: 0 0 auto; }
-  /* A card too narrow for the details beside the names keeps the row and drops what the two hold. */
-  @container haui-device-details (max-width: 520px) {
-    .haui-details-actions .haui-button-detail { display: none; }
-  }
+  .haui-details-actions .haui-button-detail { margin-left: auto; }
   /* A tile shows its label and value; hover, focus or a tap opens its facts below it (ui/info-tile.js), a right-hand tile's aligned to its right edge. */
   .haui-tile-info { position: relative; min-width: 0; }
   .haui-tile-info > .haui-diag-tile { width: 100%; height: 100%; }
@@ -304,8 +295,8 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-details-more[open] > summary::after { transform: rotate(45deg); }
   .haui-details-more > summary:hover { color: var(--primary-text-color); }
   .haui-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  /* Two equal columns, so a pair of actions (YAML Import and Export) never wraps unevenly; a lead card's lone secondary action spans it. */
-  .haui-yaml-actions, .haui-action-card-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  /* Two equal columns, so a lead card's pair of actions never wraps unevenly. */
+  .haui-action-card-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   /* The lead card (ui/action-card.js): tinted and never collapsed, so the view's next actions stand apart from the side-stack cards. */
   .haui-action-card { container: haui-action-card / inline-size; border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--divider-color)); border-radius: var(--haui-card-radius); background: color-mix(in srgb, var(--primary-color) 9%, var(--card-background-color)); box-shadow: var(--haui-shadow-card); }
   .haui-action-card-inner { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "icon copy tool" "actions actions actions" "note note note"; align-items: center; gap: 12px; padding: 16px 16px; }

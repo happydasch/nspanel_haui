@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { flush, render } from './support/render.mjs';
 
-import { renderFleetView, carouselEdgesFrom } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
+import { renderFleetView, carouselEdgesFrom, carouselSlots, deviceSlotCount } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 import { makeHost } from './fake-host.mjs';
 
@@ -194,23 +194,107 @@ test('the carousel arrows follow the scroll extents and the summary waits for st
   assert.match(atEnd, /aria-label="Scroll devices right"/);
 });
 
-test('the carousel fades only the edges with cards beyond them', () => {
+test('the right carousel edge always fades while the left follows scroll position', () => {
   const deviceFor = (name) => ({ name, device: { friendlyName: name, config: {}, panels: [] }, status: null, updates: false });
-  const wrap = (carousel) => render(renderFleetView({
+  const carousel = (edges) => render(renderFleetView({
     devices: [deviceFor('kitchen'), deviceFor('office')], events: [], version: '0.5.0',
-    onOpenDevice() {}, onReorderDevices() {}, carousel,
-  })).querySelector('.haui-fleet-carousel-wrap').classList;
-  assert.deepEqual([...wrap({ atStart: true, atEnd: true })], ['haui-fleet-carousel-wrap']);
-  assert.ok(wrap({ atStart: true, atEnd: false }).contains('is-clipped-end'));
-  assert.ok(!wrap({ atStart: true, atEnd: false }).contains('is-clipped-start'));
-  const middle = wrap({ atStart: false, atEnd: false });
-  assert.ok(middle.contains('is-clipped-start') && middle.contains('is-clipped-end'));
+    onOpenDevice() {}, onReorderDevices() {}, carousel: edges,
+  })).querySelector('.haui-fleet-carousel').classList;
+  const atBothEnds = carousel({ atStart: true, atEnd: true });
+  assert.ok(atBothEnds.contains('has-right-fade'));
+  assert.ok(!atBothEnds.contains('is-clipped-start'));
+  const atStart = carousel({ atStart: true, atEnd: false });
+  assert.ok(atStart.contains('has-right-fade'));
+  assert.ok(!atStart.contains('is-clipped-start'));
+  const middle = carousel({ atStart: false, atEnd: false });
+  assert.ok(middle.contains('is-clipped-start') && middle.contains('has-right-fade'));
 });
 
 test('the carousel edges follow scroll position', () => {
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 1000, clientWidth: 400, scrollLeft: 0 }), { atStart: true, atEnd: false });
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 1000, clientWidth: 400, scrollLeft: 600 }), { atStart: false, atEnd: true });
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 300, clientWidth: 400, scrollLeft: 0 }), { atStart: true, atEnd: true });
+});
+
+test('empty ghost cards fill the row outside the real carousel and stay inert', () => {
+  const deviceFor = (name) => ({ name, device: { friendlyName: name, config: {}, panels: [] }, status: null, updates: false });
+  const root = render(renderFleetView({
+    devices: [deviceFor('kitchen')], events: [], version: '0.5.0',
+    onOpenDevice() {}, onReorderDevices() {},
+    slots: { room: 640, count: 3, width: 300, height: 280, left: 340, top: 4 },
+  }));
+  const carousel = root.querySelector('.haui-fleet-carousel');
+  const overlay = root.querySelector('.haui-device-slots');
+  const slots = [...root.querySelectorAll('.haui-device-slot-card')];
+  assert.equal(slots.length, 3);
+  assert.equal(overlay.parentElement, root.querySelector('.haui-fleet-carousel-wrap'));
+  assert.notEqual(overlay.parentElement, carousel);
+  assert.ok(slots.every((slot) => slot.getAttribute('aria-hidden') === 'true'));
+  assert.ok(slots.every((slot) => slot.textContent === '' && !slot.querySelector('button, ha-icon')));
+  assert.equal(overlay.style.getPropertyValue('--haui-device-slot-width'), '300px');
+  assert.equal(overlay.style.getPropertyValue('--haui-device-slot-height'), '280px');
+  assert.equal(slots[0].style.getPropertyValue('--haui-device-slot-left'), '340px');
+  assert.equal(slots[1].style.getPropertyValue('--haui-device-slot-left'), '656px');
+  assert.equal(slots[2].style.getPropertyValue('--haui-device-slot-left'), '972px');
+  assert.equal(overlay.style.getPropertyValue('--haui-device-slots-top'), '4px');
+  assert.ok(carousel.classList.contains('has-right-fade'));
+  assert.ok(!carousel.classList.contains('is-clipped-start'));
+  assert.ok(overlay.classList.contains('has-right-fade'));
+});
+
+test('ghosts are only rendered for a measured row with available space', () => {
+  const fleet = (extra) => render(renderFleetView({
+    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: null, updates: false }],
+    events: [], version: '0.5.0', onOpenDevice() {}, onReorderDevices() {}, ...extra,
+  }));
+  const slots = { room: 640, count: 2, width: 300, height: 280, top: 4 };
+  assert.equal(fleet({}).querySelector('.haui-device-slot-card'), null);
+  assert.equal(fleet({ slots: { ...slots, count: 0 } }).querySelector('.haui-device-slot-card'), null);
+});
+
+test('ghost count rounds up to complete the row even when the last card is clipped', () => {
+  assert.equal(deviceSlotCount({ room: 320, cardWidth: 320 }), 1);
+  assert.equal(deviceSlotCount({ room: 335, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 351, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 656, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 655, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 1000, cardWidth: 320 }), 4);
+  assert.equal(deviceSlotCount({ room: 319, cardWidth: 320 }), 1);
+  assert.equal(deviceSlotCount({ room: 0, cardWidth: 320 }), 0);
+});
+
+test('carousel sizing places ghosts outside real scroll extents', () => {
+  const realCard = { getBoundingClientRect: () => ({ left: 4, right: 324, top: 4, width: 320, height: 280 }) };
+  const carousel = {
+    clientWidth: 944,
+    scrollWidth: 944,
+    scrollLeft: 0,
+    querySelectorAll: () => [realCard],
+    getBoundingClientRect: () => ({ left: 0, top: 0 }),
+  };
+  const layout = carouselSlots(carousel);
+  assert.equal(layout.count, 2);
+  assert.equal(layout.room, 600);
+  assert.equal(layout.left, 340);
+  assert.equal(layout.width, 320);
+  assert.equal(layout.height, 280);
+  assert.deepEqual(carouselEdgesFrom(carousel), { atStart: true, atEnd: true });
+});
+
+test('a row with real device cards to scroll to shows no ghosts', () => {
+  const cards = [
+    { getBoundingClientRect: () => ({ left: 32, right: 352, top: 32, width: 320, height: 280 }) },
+  ];
+  // The row is 944 wide but the last card ends at 352: a row that scrolled to its end and still
+  // has cards beyond it keeps its own extent, so its last card's right edge fills the view.
+  const carousel = {
+    clientWidth: 400,
+    scrollWidth: 944,
+    querySelectorAll: (selector) => selector === '.haui-device-slot-card' ? [] : cards,
+    getBoundingClientRect: () => ({ left: 32, top: 28 }),
+  };
+  // 32 + 400 - 4 - 352 - 16 = 60px of room: less than one card, so the row shows nothing.
+  assert.equal(carouselSlots(carousel).count, 0);
 });
 
 test('an open device menu renders its actions for that device', () => {
@@ -516,7 +600,7 @@ test('Reset on Fleet starts the latest events at the moment it was pressed, and 
     assert.doesNotMatch(timeline(after), /kitchen failed/);
     assert.match(timeline(after), /No events since the reset/);
 
-    after.querySelector('.haui-event-list .haui-event-window').click();
+    after.querySelector('.haui-event-list .haui-event-restore').click();
     assert.equal(editor._fleetEventsSince, null);
     assert.match(timeline(fleet()), /kitchen failed/);
   } finally {

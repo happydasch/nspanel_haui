@@ -52,7 +52,7 @@ export function isAnchoredOverlayKind(kind) {
  * they are on.
  */
 export const SIDEBAR_OVERLAY_KINDS = Object.freeze([
-  'device-settings', 'panel-catalog', 'panel-editor', 'updates', 'theme', 'logs',
+  'device-settings', 'panel-catalog', 'panel-editor', 'backups', 'updates', 'theme', 'logs',
 ]);
 
 /** @param {string|null|undefined} kind */

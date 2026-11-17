@@ -140,8 +140,8 @@ function displayState(model) {
 }
 
 /**
- * The connection readings of the Connection & device card: how long the device
- * has been online (or that it is offline) and its Wi-Fi signal.
+ * The connection readings of the Connection card: how long the device has
+ * been online (or that it is offline) and its Wi-Fi signal.
  */
 export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} */ model) {
   const { info } = model;

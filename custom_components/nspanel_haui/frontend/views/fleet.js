@@ -2,6 +2,7 @@
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { deviceCard } from '../ui/device-card.js';
+import { deviceSlots } from '../ui/device-slot.js';
 import { deviceRow } from '../ui/device-row.js';
 import { fleetBar, fleetSummary } from '../ui/fleet-summary.js';
 import { eventList, eventsFrom, eventsInLast24Hours, latestEvents } from '../ui/event-list.js';
@@ -12,11 +13,55 @@ import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.j
 import { hasUpdateAvailable } from '../device-status.js';
 import { rolloutCard } from '../ui/rollout-card.js';
 
-/** Where the carousel sits between its scroll extents. */
+/** Where the carousel sits between its real-device scroll extents. */
 export function carouselEdgesFrom(carousel) {
   const max = Math.max(0, (carousel?.scrollWidth || 0) - (carousel?.clientWidth || 0));
   const left = Math.max(0, carousel?.scrollLeft || 0);
   return { atStart: left <= 1, atEnd: left >= max - 1 };
+}
+
+/** The row's card gap and padding, as `fleet-styles.js` sets them. */
+const CARD_GAP = 16;
+const ROW_PADDING = 4;
+const DEVICE_CARD_SELECTOR = '.haui-device-card:not(.haui-device-slot-card)';
+
+/**
+ * How many card-sized placeholders complete the visible row. A final slot may continue beyond its
+ * right edge; ghosts are clipped without implying another real device or adding a fade.
+ * @param {{ room: number, cardWidth: number }} size
+ */
+export function deviceSlotCount({ room, cardWidth }) {
+  if (!(cardWidth > 0) || !(room > 0)) return 0;
+  return Math.ceil((room + CARD_GAP) / (cardWidth + CARD_GAP));
+}
+
+/** No slots when there is no real card or the real device cards already scroll. */
+const NO_SLOTS = Object.freeze({ room: 0, count: 0, width: 0, height: 0, left: 0, top: 0 });
+
+/**
+ * Measure decorative card outlines in the unused end of a row with no real devices to scroll to.
+ * The overlay is clipped to the carousel viewport but never participates in its grid or scroll width.
+ * @returns {{ room: number, count: number, width: number, height: number, left: number, top: number }}
+ */
+export function carouselSlots(carousel) {
+  const cards = carousel ? [...carousel.querySelectorAll(DEVICE_CARD_SELECTOR)] : [];
+  if (!cards.length || !carousel.clientWidth || carousel.scrollWidth > carousel.clientWidth + 1) {
+    return NO_SLOTS;
+  }
+  const row = carousel.getBoundingClientRect();
+  const first = cards[0].getBoundingClientRect();
+  const last = cards[cards.length - 1].getBoundingClientRect();
+  const room = row.left + carousel.clientWidth - ROW_PADDING - last.right - CARD_GAP;
+  const count = deviceSlotCount({ room, cardWidth: first.width });
+  if (!count) return NO_SLOTS;
+  return {
+    room: Math.round(room),
+    count,
+    width: Math.round(first.width),
+    height: Math.round(first.height),
+    left: Math.round(last.right - row.left + CARD_GAP),
+    top: Math.round(first.top - row.top),
+  };
 }
 
 /**
@@ -24,7 +69,7 @@ export function carouselEdgesFrom(carousel) {
  * A fresh `'auto'` jump places a restored selection before the row is painted.
  */
 export function centerCard(carousel, index, behavior = 'smooth') {
-  const card = carousel?.querySelectorAll('.haui-device-card')[index];
+  const card = carousel?.querySelectorAll(DEVICE_CARD_SELECTOR)[index];
   if (!carousel || !card) return;
   const view = carousel.getBoundingClientRect();
   const box = card.getBoundingClientRect();
@@ -34,7 +79,7 @@ export function centerCard(carousel, index, behavior = 'smooth') {
 /** Scroll the carousel sideways until the card at `index` is in view; the page itself stays put. */
 function revealCard(from, index) {
   const carousel = from.closest('.haui-dashboard-content')?.querySelector('.haui-fleet-carousel');
-  const card = carousel?.querySelectorAll('.haui-device-card')[index];
+  const card = carousel?.querySelectorAll(DEVICE_CARD_SELECTOR)[index];
   if (!carousel || !card) return;
   const view = carousel.getBoundingClientRect();
   const box = card.getBoundingClientRect();
@@ -46,6 +91,7 @@ function revealCard(from, index) {
  * Build Fleet from prepared store data; all changes are sent back as callbacks.
  * @param {{ devices: any[], events: any[], version: string, statusPending?: boolean,
  *   carousel?: {atStart: boolean, atEnd: boolean}, menu?: any,
+ *   slots?: {room: number, count: number, width: number, height: number, left: number, top: number},
  *   onCarouselScroll?: (edges: {atStart: boolean, atEnd: boolean}) => void,
  *   onMenu?: ((name: string, anchorKey: string) => void)|null, onCloseMenu?: () => void,
  *   onOpenDevice: (name: string) => void,
@@ -92,7 +138,7 @@ export function renderFleetView(data) {
       reorder(event.dataTransfer?.getData('text/plain'), name);
     },
   });
-  const carouselEdges = data.carousel || { atStart: true, atEnd: false };
+  const carouselEdges = data.carousel || { atStart: true, atEnd: data.slots?.count > 0 };
   const atStart = carouselEdges.atStart !== false;
   const atEnd = carouselEdges.atEnd === true;
   const scrollCarousel = (event, direction) => {
@@ -115,6 +161,15 @@ export function renderFleetView(data) {
     onSelect: data.onSelectDevice ? () => data.onSelectDevice?.(item.name) : null,
     ...dragActions(item.name, '.haui-device-card'),
   }));
+  const hasGhostCards = data.slots?.count > 0;
+  const slots = hasGhostCards
+    ? deviceSlots({ count: data.slots.count, left: data.slots.left, step: data.slots.width + CARD_GAP })
+    : nothing;
+  const slotStyle = hasGhostCards ? [
+    `--haui-device-slots-top: ${data.slots.top}px`,
+    `--haui-device-slot-width: ${data.slots.width}px`,
+    `--haui-device-slot-height: ${data.slots.height}px`,
+  ].join('; ') : nothing;
   const deviceMenu = menu?.key
     ? popover({
       open: true,
@@ -195,7 +250,7 @@ export function renderFleetView(data) {
   return html`<main class="haui-dashboard-content">
     <h1 class="haui-sr-only">${t('Dashboard')}</h1>
     <section class="haui-fleet-carousel-region" aria-label=${t('Your devices')}>
-      ${cards.length ? html`<div class="haui-fleet-carousel-wrap${atStart ? '' : ' is-clipped-start'}${atEnd ? '' : ' is-clipped-end'}">
+      ${cards.length ? html`<div class="haui-fleet-carousel-wrap">
         ${cards.length > 1 ? html`
           ${iconButton({
             label: t('Scroll devices left'), iconName: 'chevronLeft',
@@ -208,7 +263,8 @@ export function renderFleetView(data) {
             onClick: (event) => scrollCarousel(event, 1),
           })}
         ` : ''}
-        <div class="haui-fleet-carousel" role="list" @scroll=${onCarouselScroll}>${cards}</div>
+        <div class="haui-fleet-carousel${atStart ? '' : ' is-clipped-start'} has-right-fade" role="list" @scroll=${onCarouselScroll}>${cards}</div>
+        ${hasGhostCards ? html`<div class="haui-device-slots has-right-fade" aria-hidden="true" style=${slotStyle}>${slots}</div>` : nothing}
       </div>`
         : emptyState({
           iconName: 'devices', title: t('No devices yet'), message: t('Add a device to get started'),

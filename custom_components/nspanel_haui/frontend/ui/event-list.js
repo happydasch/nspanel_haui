@@ -112,15 +112,14 @@ function resetLabel(since) {
 }
 
 /**
- * Render the latest real device log entries as a timeline. `deviceName` names the
- * device the list is scoped to, at the start of the header's second line, ahead of
- * the quiet actions on that same line: the window the list covers stays beside the
- * title, so a long device name has the row to itself and truncates there. Without
- * one the line names the whole fleet (**All devices**) instead of opening with an
- * empty space. `since`
- * replaces the default 24 hours with everything from that moment on (a reset), and
- * the header offers **Reset** (start again from now) plus, while reset, the way back
- * to 24 hours.
+ * Render the latest real device log entries as a timeline. The header's first line
+ * carries the title and, at its end, the quiet actions; the second line opens with
+ * what the list is scoped to — `deviceName`, or the whole fleet (**All devices**)
+ * while nothing is selected — so a long device name has the row to itself, and
+ * closes with the window the list covers (**Last 24 hours**, or **Since 14:32**
+ * after a reset), where the actions used to sit. `since` replaces the default 24
+ * hours with everything from that moment on (a reset), and the header offers
+ * **Reset** (start again from now) plus, while reset, the way back to 24 hours.
  *
  * @param {{ events: Array<{ line: string, deviceName?: string, count?: number }>, deviceName?: string|null,
  *   since?: number|null, onOpenLogs?: () => void, onReset?: () => void, onShowWindow?: () => void }} data
@@ -129,14 +128,11 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
   const windowLabel = since !== null
     ? t('Since {time}').replace('{time}', resetLabel(since))
     : t('Last 24 hours');
-  // The second line: what the list is scoped to — the device, or the whole fleet when nothing is
-  // selected — then the quiet actions at its end. The window stays on the title's line, so the scope
-  // has the room a long device name needs.
-  const scope = html`<span class="haui-event-scope${deviceName ? '' : ' is-all'}">${
-    deviceName || t('All devices')}</span>`;
+  // The header's first line: the title and the count, then the quiet actions at its end — three of
+  // them never squeeze the title into a column of a few characters.
   const actions = html`<div class="haui-event-actions">
     ${since !== null && onShowWindow ? button({
-      label: t('Last 24 hours'), variant: 'quiet', className: 'haui-event-window',
+      label: t('Last 24 hours'), variant: 'quiet', className: 'haui-event-restore',
       title: t('Show the last 24 hours again'), onClick: onShowWindow,
     }) : nothing}
     ${onReset ? button({
@@ -147,13 +143,18 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
       label: t('Logs'), variant: 'quiet', className: 'haui-event-logs', onClick: onOpenLogs,
     }) : nothing}
   </div>`;
+  // The second line: what the list is scoped to — the device, or the whole fleet when nothing is
+  // selected — and, at its end where the actions sat, the window the list covers. The scope opens
+  // the line, so a long device name has the room to truncate instead of pushing the window out.
+  const scope = html`<span class="haui-event-scope${deviceName ? '' : ' is-all'}">${
+    deviceName || t('All devices')}</span>`;
   return html`<section class="haui-event-list">
     <header>${sectionHeading({
       title: t('Latest events'),
-      subtitle: windowLabel,
       className: 'haui-section-heading',
       badge: events.length ? countBadge(events.length) : nothing,
-    })}<div class="haui-event-bar">${scope}${actions}</div>
+      actions,
+    })}<div class="haui-event-bar">${scope}<p class="haui-event-window">${windowLabel}</p></div>
     </header>
     ${events.length ? html`<ol role="list" tabindex="0" aria-label=${t('Latest events')}>
       ${events.map((event) => {

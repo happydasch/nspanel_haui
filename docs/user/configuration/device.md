@@ -13,7 +13,7 @@ This page first explains how to manage devices, then lists every setting. Each s
 
 The dashboard is the editor's start screen. It shows every device as a card and as a row of the **Device inventory**.
 
-**Adding a device.** When the editor opens, it looks for panels in Home Assistant's ESPHome integration and lists new ones under **Discovered Devices**. Select **Add**, or **Add All**. Reloading the editor searches again; while you have no device yet, the dashboard also offers **Scan for devices**. The search only looks at Home Assistant's ESPHome devices. It does not scan your network.
+**Adding a device.** When the editor opens, it looks for panels in Home Assistant's ESPHome integration and lists new ones under **Discovered Devices**. Select **Add**, or **Add All**. Reloading the editor searches again; the dashboard also fills the remaining width beside the device cards with empty dashed card outlines. They are decorative only; the final outline can be clipped, and a right-edge fade stays active to indicate more content. The outlines do not change card sizing, scrolling or snapping. Use **Scan for devices** in the empty state while you have no device; otherwise reload the editor to search again. The search only looks at Home Assistant's ESPHome devices. It does not scan your network.
 
 **What a row shows.** The firmware version, the display (TFT) version and the IP address, and an **Update** badge when an update is available. The icon in front of the name shows the Wi-Fi signal the panel reports, coloured like the signal bars; its dot shows whether the hub is connected. A display that needs a newer TFT is marked **update pending**. A value the panel has not reported yet is shown as **Unknown**; an unknown Wi-Fi signal does not mean the panel is offline.
 
@@ -48,9 +48,9 @@ All device settings and panels are kept in Home Assistant's storage.
 
 ## Device Settings
 
-Open them with **Settings** in the device's **Connection & device** card, in the action card of its **Preview**, or in its row on the dashboard. The settings open on a list of tiles, one per group: **General**, **Screen**, **Sounds**, **Home & idle**, **Gestures**, **Screen buttons**, **Hardware buttons** and **Advanced**. Each tile names the group and says what it holds — the display model, language and theme; your brightness, display-off timeout and how many schedule entries there are; the sound switches; the home panel and idle pages; how many gestures there are; the header buttons you show; what each hardware button does; and the log level. A group with nothing set says so (**No home panel**, **No entries**, **No gestures**).
+Open them with **Settings** in the device's **Connection** card, in the action card of its **Preview**, or in its row on the dashboard. The settings open on a grid of tiles, one per group: **General**, **Screen**, **Sounds**, **Home & idle**, **Gestures**, **Screen buttons**, **Hardware buttons** and **Advanced**. Each tile names the group and says what it holds — the display model, language and theme; your brightness, display-off timeout and how many schedule entries there are; the sound switches; the home panel and idle pages; how many gestures there are; the header buttons you show; what each hardware button does; and the log level. A group with nothing set says so (**No home panel**, **No entries**, **No gestures**).
 
-Selecting a tile replaces the grid with that group: the strip's back arrow and the group's name lead back to the grid. Schedule entries, gestures and the theme choice included, every setting is part of the one draft, so **Cancel** discards it and **Save** applies all of it. The **Updates** sidebar is not one of these groups: the **Updates** row of the **Connection & device** card opens it. The schedule lives in **Screen**, below the brightness, dimming and display-off fields its entries inherit.
+Selecting a tile replaces the grid with that group: the strip's back arrow and the group's name lead back to the grid. Schedule entries, gestures and the theme choice included, every setting is part of the one draft, so **Cancel** discards it and **Save** applies all of it. The **Updates** sidebar is not one of these groups: the **Updates** button below the **Connection**, **Diagnostics** and **Backup** cards opens it. The schedule lives in **Screen**, below the brightness, dimming and display-off fields its entries inherit.
 
 ### General
 
@@ -232,7 +232,7 @@ logger:
 
 ## Themes
 
-In **Device Settings → General**, the **Theme** field selects the device's theme; **Edit theme** beside **Updates** in the **Connection & device** card, which names the selected theme, opens the sidebar that edits semantic page colors and weather, alarm and climate state-icon palettes. The selection saves with the rest of the settings; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
+In **Device Settings → General**, the **Theme** field selects the device's theme; **Themes** below **Updates**, under the **Connection** and **Diagnostics** cards, which names the selected theme, opens the sidebar that edits semantic page colors and weather, alarm and climate state-icon palettes. The selection saves with the rest of the settings; press **Apply** to save color changes or **Cancel** to discard them. The custom theme library is shared by the hub's devices; each device selects its own theme. Editing colors changes the selected shared theme, creating a custom copy when needed.
 
 See [Themes](themes.md) for predefined and custom themes, the icon colors, shared color editing and import/export.
 
@@ -263,7 +263,7 @@ See [Display color behavior](../../develop/design.md#themes-and-colors) for how 
 
 ## Updates
 
-The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. The **Updates** row of the device's **Connection & device** card opens that sidebar too, with what the update settings hold beside its name. Changes save automatically; text fields save after you pause typing. Its title carries the **Enable updates** switch; below, it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and **Install firmware updates automatically**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
+The **Update settings** card in a device's **Updates** sidebar controls update checks and installs for that device. The **Updates** button below the device's side cards opens that sidebar too, with what the update settings hold beside its name. Changes save automatically; text fields save after you pause typing. Its title carries the **Enable updates** switch; below, it shows the **Update channel** (stable or development releases for firmware and display), how often to **Check for a new version** and **Install firmware updates automatically**; the other keys below are folded under **Advanced**. [Updating](../update.md) explains how to update; [Update Process](../../develop/update-process.md) explains every step in detail.
 
 | Key | Default | Description |
 |-----|---------|-------------|

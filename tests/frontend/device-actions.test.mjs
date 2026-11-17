@@ -96,25 +96,22 @@ function controls(preview, callbacks = {}) {
   });
 }
 
-test('Backup import and export are on the Preview side stack below Diagnostics', () => {
-  const calls = [];
+test('the side stack opens Updates, Themes and Backups from its own buttons', () => {
+  const opened = [];
   const view = deviceDetails({
     name: 'kitchen', status: { connected: true, device_info: {} },
-    detailsExpanded: false, diagnosticsExpanded: false, yamlExpanded: true,
-    onLogs() {}, onYamlImport: () => calls.push('import'), onYamlExport: () => calls.push('export'),
-    onToggleYaml() {},
+    detailsExpanded: false, diagnosticsExpanded: false,
+    onLogs() {}, onBackups: () => opened.push('backups'), onUpdates() {},
   });
   const text = templateText(view);
-  assert.ok(text.indexOf('Connection & device') < text.indexOf('Diagnostics'));
-  assert.ok(text.indexOf('Diagnostics') < text.indexOf('Backup'));
-  assert.match(text, /mdi:backup-restore/);
-  assert.match(text, /haui-backup-status/);
-  assert.equal(templatesMatching(view, 'haui-surface-body').length, 1);
-  for (const label of ['Import', 'Export']) {
-    click(templatesMatching(view, '<button').filter((entry) => templateText(entry).includes(label)).at(-1));
-  }
-  assert.deepEqual(calls, ['import', 'export']);
-  assert.equal(templatesMatching(view, 'haui-yaml-actions').length, 1);
+  assert.match(text, /Backups/);
+  // Backups comes last, after the two buttons that open a sidebar with settings.
+  assert.ok(text.indexOf('Updates') < text.indexOf('Backups'));
+  // The YAML import and export are the Backups sidebar's, not the side stack's.
+  assert.doesNotMatch(text, /haui-yaml-actions/);
+  assert.equal(templatesMatching(view, 'haui-surface-body').length, 0);
+  click(templatesMatching(view, '<button').filter((entry) => templateText(entry).includes('Backups')).at(-1));
+  assert.deepEqual(opened, ['backups']);
 });
 
 test('the schedule and the gestures are each their own block in the settings draft', () => {

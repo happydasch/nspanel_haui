@@ -1,9 +1,9 @@
 /**
  * NSPanel HAUI - the Device screen's sidebars.
  *
- * The Updates and Logs sidebars: what they show, how they open and close, and
- * the update settings save queue. Every function takes the editor element
- * (`host`) as its first parameter; the shell keeps thin wrappers.
+ * The Backups, Updates and Logs sidebars: what they show, how they open and
+ * close, and the update settings save queue. Every function takes the editor
+ * element (`host`) as its first parameter; the shell keeps thin wrappers.
  */
 import { html } from './lit-import.js';
 import { t } from './localize.js';
@@ -97,6 +97,28 @@ export async function saveUpdateSettings(host, event) {
 /** @param {any} host */
 export function closeUpdates(host) {
   host._store.actions.closeOverlay('updates', 'updates');
+  host._restoreSidebarFocus();
+}
+
+/* ── backups sidebar ─────────────────────────────────────────────────────── */
+
+/** Open the Backups sidebar: the device's YAML Export and Import. @param {any} host @param {string} deviceName */
+export function openBackups(host, deviceName) {
+  host._captureSidebarFocus();
+  host._store.actions.pushOverlay({ kind: 'backups', anchorKey: 'backups', subject: deviceName, draft: null });
+}
+
+/** The Backups sidebar's body, whose two cards run the device's YAML export and import. @param {any} host */
+export function renderBackups(host) {
+  return html`<nspanel-backup-sidebar .open=${true}
+    @backup-export=${() => host._exportYaml()}
+    @backup-import=${() => host._importYaml()}
+  ></nspanel-backup-sidebar>`;
+}
+
+/** @param {any} host */
+export function closeBackups(host) {
+  host._store.actions.closeOverlay('backups', 'backups');
   host._restoreSidebarFocus();
 }
 

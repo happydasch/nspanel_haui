@@ -159,19 +159,17 @@ test('clicking a Device details section heading folds it, except on its controls
   const device = deviceDetails({
     name: 'kitchen', status: { connected: true, device_info: {} },
     onLogs() {}, onToggleDetails: () => toggled.push('details'),
-    yamlExpanded: false, onToggleYaml: () => toggled.push('yaml'),
-    onYamlImport() {}, onYamlExport() {},
     onToggleDiagnostics: () => toggled.push('diagnostics'),
   });
   const headings = templatesMatching(device, 'haui-surface-heading-copy').filter((entry) =>
     entry.values.some((value) => typeof value === 'string' && value.includes('haui-surface-heading-toggle')));
   const handlers = headings.map((entry) => entry.values.find((value) => typeof value === 'function'));
-  assert.equal(handlers.length, 3);
+  assert.equal(handlers.length, 2);
   // A click on the chevron or another heading control is that control's own.
   handlers.forEach((handler) => handler({ target: { closest: () => ({}) } }));
   assert.deepEqual(toggled, []);
   handlers.forEach((handler) => handler({ target: { closest: () => null } }));
-  assert.deepEqual(toggled, ['details', 'diagnostics', 'yaml']);
+  assert.deepEqual(toggled, ['details', 'diagnostics']);
 });
 
 test('the Panels view has a search field; the Device view does not', () => {

@@ -23,17 +23,16 @@ export const deviceLayoutStyles = css`
   .haui-device-rail-item.active { border-color: var(--primary-color); background: var(--primary-color); color: var(--text-primary-color, #fff); }
   .haui-device-rail-item.active .haui-status-dot { background: currentColor; }
   .haui-device-rail-item > span:nth-of-type(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-device-rail-update { color: var(--haui-warn-text); }
+  .haui-device-rail-update { color: var(--haui-warn-icon); }
   /* Both columns stick to the viewport; the taller one sets the scrolling range for the shorter one.
      In one column, the lead sits above the workspace and the side stack below. */
   .haui-device-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr); grid-template-areas: "workspace side"; align-items: start; gap: 16px 20px; }
   .haui-device-side { position: sticky; top: 18px; display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
   .haui-device-lead { min-width: 0; grid-area: lead; }
-  .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); transition: background 150ms ease, border-color 150ms ease; }
+  .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); transition: background 150ms ease, border-color 150ms ease; }
   .haui-device-workspace.is-live { border-color: var(--haui-live-border); background: var(--haui-live-surface); }
   .haui-device-workspace.is-live .haui-workspace-header { border-color: var(--haui-live-border); }
   .haui-device-side-stack { display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
-  .haui-device-side-stack > .haui-surface { box-shadow: var(--haui-shadow-card); }
   .haui-device-side-stack .haui-surface-heading-copy { min-width: 0; flex: 1 1 auto; }
   .haui-device-side-stack .haui-surface-heading-copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-side-stack .haui-surface-heading .haui-button { flex: 0 0 auto; min-height: 32px; padding: 0 8px; font-size: var(--haui-text-label); }

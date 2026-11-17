@@ -128,7 +128,7 @@ export const itemListStyles = css`
     --mdc-icon-size: 18px;
     color: var(--secondary-text-color, #666);
   }
-  .haui-item-row-remove:hover { color: var(--haui-bad-text); }
+  .haui-item-row-remove:hover { color: var(--haui-bad-icon); }
 
   /* ── advanced fold (details/summary) ── */
   .haui-collapsible-title {

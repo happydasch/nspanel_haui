@@ -28,7 +28,6 @@ export const previewStyles = css`
     overflow: hidden;
     border-radius: calc(var(--vp-frame-pad) * 1.5);
     background: var(--haui-bezel);
-    box-shadow: var(--haui-shadow-device-preview);
   }
   .haui-preview-loading {
     display: flex;

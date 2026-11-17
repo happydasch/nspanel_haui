@@ -45,6 +45,7 @@ export const devicePanelStyles = css`  /* The Panels view's card in the side sta
   /* The actions mirror the row's menu; Delete reads as the destructive one. */
   .haui-panel-info .haui-card-actions .haui-button { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
   .haui-panel-info .haui-button-danger { color: var(--haui-bad-text); }
+  .haui-panel-info .haui-button-danger ha-icon { color: var(--haui-bad-icon); }
   .haui-panel-info .haui-button-danger:hover:not(:disabled) {
     border-color: var(--error-color, #db4437);
     background: var(--haui-bad-soft);

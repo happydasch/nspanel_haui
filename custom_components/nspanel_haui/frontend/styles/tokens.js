@@ -34,18 +34,21 @@ export const dashboardTokens = css`
     --haui-good-soft: color-mix(in srgb, var(--haui-good) 16%, var(--card-background-color, #fff));
     --haui-warn-soft: color-mix(in srgb, var(--haui-warn) 16%, var(--card-background-color, #fff));
     --haui-bad-soft: color-mix(in srgb, var(--haui-bad) 16%, var(--card-background-color, #fff));
-    /* Text and icons in a tone, mixed with the theme's text colour as close to
-       the tone as 4.5:1 on the card, the soft surface and the tone's soft tint
-       allows in light and dark themes. Each tone carries its own share because
-       warning orange loses contrast fastest; the plain tones above stay for
-       fills, bars and dots. */
+    /* Text in a tone, mixed with the theme's text colour as close to the tone
+       as 4.5:1 on the card, the soft surface and the tone's soft tint allows in
+       light and dark themes. Each tone carries its own share because warning
+       orange loses contrast fastest; the plain tones above stay for fills, bars
+       and dots. */
     --haui-good-text: color-mix(in srgb, var(--haui-good) 65%, var(--primary-text-color, #212121));
     --haui-warn-text: color-mix(in srgb, var(--haui-warn) 50%, var(--primary-text-color, #212121));
     --haui-bad-text: color-mix(in srgb, var(--haui-bad) 70%, var(--primary-text-color, #212121));
     --haui-accent-text: color-mix(in srgb, var(--primary-color, #03a9f4) 55%, var(--primary-text-color, #212121));
-    /* A primary fill dark enough for white text (4.5:1), and its hover. */
-    --haui-primary-fill: color-mix(in srgb, var(--primary-color, #03a9f4) 78%, #000);
-    --haui-primary-fill-hover: color-mix(in srgb, var(--primary-color, #03a9f4) 70%, #000);
+    /* The same tone on an icon, which is a graphic (3:1) and so keeps the tone
+       the text version gives up: as close to the tone as 3:1 on the card and on
+       the tone's own soft tint allows in light and dark themes. */
+    --haui-good-icon: color-mix(in srgb, var(--haui-good) 94%, var(--primary-text-color, #212121));
+    --haui-warn-icon: color-mix(in srgb, var(--haui-warn) 71%, var(--primary-text-color, #212121));
+    --haui-bad-icon: var(--haui-bad);
     --haui-surface-soft: var(--secondary-background-color, #f5f5f5);
     --haui-surface-strong: var(--divider-color, #e0e0e0);
     --haui-border-strong: var(--secondary-text-color, #666);
@@ -68,7 +71,6 @@ export const dashboardTokens = css`
     --haui-hardware-button-active: #292d34;
     --haui-hardware-button-border: #34383f;
     --haui-hardware-led-well: #20242a;
-    --haui-shadow-device-preview: 0 2px 8px rgb(0 0 0 / 40%);
     --haui-mono: var(--ha-font-family-code, ui-monospace, "SFMono-Regular", Menlo, monospace);
     --haui-shadow-card: 0 1px 3px rgb(0 0 0 / 12%);
     --haui-shadow-overlay: 0 12px 32px rgb(0 0 0 / 24%);

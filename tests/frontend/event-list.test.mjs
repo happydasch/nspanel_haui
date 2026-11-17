@@ -8,7 +8,7 @@ function templateText(template) {
   return render(template).innerHTML;
 }
 
-import { eventList, eventsInLast24Hours, latestEvents, parseEvent } from '../../custom_components/nspanel_haui/frontend/ui/event-list.js';
+import { eventList, eventsFrom, eventsInLast24Hours, latestEvents, parseEvent } from '../../custom_components/nspanel_haui/frontend/ui/event-list.js';
 
 test('Latest events keeps warnings and errors only, lists a repeated message once with its count', () => {
   const missing = "Entity 'cover.hall' not available for state";
@@ -94,4 +94,64 @@ test('the 24-hour event window includes its boundary and ignores older, future, 
   ];
 
   assert.deepEqual(eventsInLast24Hours(events, now), [events[0], events[2]]);
+});
+
+test('a reset window starts at its own moment and keeps the 24-hour rules after it', () => {
+  const now = Date.parse('2026-11-14T12:00:00Z');
+  const since = Date.parse('2026-11-14T11:30:00Z');
+  const entry = (time) => ({ line: `[${time}] WARNING event` });
+  const events = [
+    entry('2026-11-14T11:29:59.999Z'),
+    entry('2026-11-14T11:30:00Z'),
+    entry('2026-11-14T12:00:00Z'),
+    entry('2026-11-14T12:00:01Z'),
+    { line: 'unstructured event' },
+  ];
+
+  assert.deepEqual(eventsFrom(events, since, now), [events[1], events[2]]);
+});
+
+test('Latest events names the device it is scoped to on its second line, before the actions', () => {
+  const root = render(eventList({
+    events: [{ deviceName: 'Office', line: '[2026-01-01T12:00:00Z] ERROR Office failed' }],
+    deviceName: 'Office', onOpenLogs() {}, onReset() {},
+  }));
+  const header = root.querySelector('.haui-event-list > header');
+  // The title and the window it covers stay on the first line.
+  assert.equal(header.querySelector('h2').textContent, 'Latest events');
+  assert.equal(header.querySelector('p').textContent, 'Last 24 hours');
+  // The device opens the second line and the actions close it.
+  const bar = header.querySelector('.haui-event-bar');
+  assert.equal(bar.firstElementChild.className, 'haui-event-scope');
+  assert.equal(bar.firstElementChild.textContent, 'Office');
+  assert.deepEqual([...bar.querySelectorAll('button')].map((button) => button.textContent.trim()),
+    ['Reset', 'Logs']);
+
+  // With nothing selected the second line holds only the actions.
+  const everyone = render(eventList({ events: [], onOpenLogs() {}, onReset() {} }));
+  const everyoneBar = everyone.querySelector('.haui-event-list > header .haui-event-bar');
+  assert.equal(everyoneBar.querySelector('.haui-event-scope'), null);
+  assert.equal(everyone.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
+});
+
+test('a reset replaces the 24 hours with its own moment and can be taken back', () => {
+  let reset = 0;
+  let shown = 0;
+  const root = render(eventList({
+    events: [],
+    since: Date.parse('2026-11-14T11:30:00Z'),
+    onOpenLogs() {},
+    onReset() { reset += 1; },
+    onShowWindow() { shown += 1; },
+  }));
+  const header = root.querySelector('.haui-event-list > header');
+  assert.match(header.querySelector('p').textContent, /^Since /);
+  assert.deepEqual([...header.querySelectorAll('button')].map((button) => button.textContent.trim()),
+    ['Last 24 hours', 'Reset', 'Logs']);
+  // An empty timeline after a reset says so instead of claiming there is nothing yet.
+  assert.match(root.innerHTML, /No events since the reset/);
+  header.querySelector('.haui-event-window').click();
+  header.querySelector('.haui-event-reset').click();
+  assert.equal(shown, 1);
+  assert.equal(reset, 1);
 });

@@ -23,6 +23,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Editor: the **Schedule** sidebar shows the settings that apply outside its entries (brightness, dimming, display off, notification sound) read-only, with a link to the device settings.
 - Editor: **Move to…** in a panel's menu groups the other devices in a submenu and moves the panel there in one save; it keeps its key unless that device uses it.
 - Editor: an item's name, icon, color and value, and a grid tile's colors, switch between **One value** and **Per state**: a row per entity state, which the state field suggests, instead of typed JSON.
+- Editor: **Latest events** names the selected device under its title, and **Reset** starts the list at the moment you press it instead of the last 24 hours, with **Last 24 hours** to go back ([Logs](docs/user/configuration/README.md#logs)).
+- Editor: the **Device inventory** closes with a bar of one connection segment per device ([Managing devices](docs/user/configuration/device.md#managing-devices)).
 
 ### Changed
 
@@ -57,8 +59,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Updates: an offline panel, or a status the editor could not refresh, offers no **Install**; the device screen and the Updates sidebar say the values are the last ones read.
 - Updates: a failed firmware install clears once the panel reconnects with another firmware, and a second install while one runs is refused instead of reported as started.
 - Updates: the dashboard notices a rollout another editor started, a finished rollout can be dismissed, and a rollout no longer waits on a device that was disabled or reloaded meanwhile.
-- Editor: the dashboard meets WCAG AA contrast for status text, badges, icons and the primary button in light and dark themes, and a screen reader hears event levels, the page heading, named device cards and table columns, and rollout changes.
-- Fleet: the **Latest events** level dots carry their tone itself — a lighter blue, amber and red — instead of the dark text tone, which read almost black at 12px; each keeps 3:1 on its own tint in both themes.
+- Editor: the dashboard meets WCAG AA contrast for status text, badges and icons in light and dark themes, and a screen reader hears event levels, the page heading, named device cards and table columns, and rollout changes.
+- Fleet: the **Latest events** level dots carry their tone itself — a lighter blue, amber and red — instead of the dark text tone, which read almost black at 12px.
+- Editor: an icon in a tone keeps the tone itself — **Delete** in a panel's actions and its menu row, a remove button, a theme's delete action, the empty-state check, the stale-status dot and a device's update warning — instead of the darker shade 4.5:1 text needs.
 - Editor: a tile's fact card keeps a long label or reading inside its border instead of letting it spill over the edge — the label wraps and the value moves to its own line, ellipsized only when it alone is too wide (the connection and integration-details fact rows too).
 
 ## [0.5.1] — 2026-11-14

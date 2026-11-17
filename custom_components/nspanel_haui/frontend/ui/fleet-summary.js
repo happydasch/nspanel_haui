@@ -1,5 +1,5 @@
 // @ts-check
-import { html } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { icon } from './icon.js';
 import { deviceConnectionState } from '../device-status.js';
@@ -50,13 +50,16 @@ export function fleetSummary({ total, online, updates, version, heading, action,
   </section>`;
 }
 
-/** Render the connection bar independently from the inventory summary. */
+/**
+ * One segment per device in its connection tone; the Device inventory keeps it
+ * in its footer, under the table.
+ * @param {{ devices: any[], total: number, online: number }} data
+ */
 export function fleetBar({ devices, total, online }) {
-  return total ? html`<div class="haui-inventory-bar">
-    <div class="haui-fleet-bar" role="img"
-      aria-label=${t('{online} of {total} devices connected')
+  if (!total) return nothing;
+  return html`<div class="haui-fleet-bar" role="img"
+    aria-label=${t('{online} of {total} devices connected')
     .replace('{online}', String(online)).replace('{total}', String(total))}>
-      ${devices.map(({ name, status }) => html`<span class=${deviceTone(status)} title=${name}></span>`)}
-    </div>
-  </div>` : '';
+    ${devices.map(({ name, status }) => html`<span class=${deviceTone(status)} title=${name}></span>`)}
+  </div>`;
 }

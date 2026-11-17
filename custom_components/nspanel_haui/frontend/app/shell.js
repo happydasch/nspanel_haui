@@ -135,6 +135,7 @@ class NSPanelEditor extends LitElement {
       _selectedPanelKey: { type: String, state: true },
       _panelSubmenuKey: { type: String, state: true },
       _fleetSelection: { type: String, state: true },
+      _fleetEventsSince: { type: Number, state: true },
       _panelPreviewCollapsed: { type: Boolean, state: true },
       _collapsedPanelGroups: { type: Array, state: true },
       _railCollapsed: { type: Boolean, state: true },
@@ -209,6 +210,8 @@ class NSPanelEditor extends LitElement {
     this._selectedPanelKey = null;
     this._panelSubmenuKey = null;
     this._fleetSelection = null;
+    // The moment Fleet's latest events were reset to, or null for the default 24 hours.
+    this._fleetEventsSince = null;
     this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
     this._collapsedPanelGroups = [];
     this._railCollapsed = false;
@@ -1146,6 +1149,12 @@ class NSPanelEditor extends LitElement {
         onOpenDevice: (name) => this._navigateToDevice(name),
         selectedDevice: this._fleetSelection,
         onSelectDevice: (name) => { this._fleetSelection = this._fleetSelection === name ? null : name; },
+        // Reset starts the timeline at the moment it was pressed instead of the default 24 hours.
+        // Hub log lines carry whole seconds, so the window starts at the second: a line written
+        // right after the press is still inside it.
+        eventsSince: this._fleetEventsSince,
+        onResetEvents: () => { this._fleetEventsSince = Math.floor(Date.now() / 1000) * 1000; },
+        onShowAllEvents: () => { this._fleetEventsSince = null; },
         onReorderDevices: (order) => this._store.actions.reorderDevices(order),
         discovered: this._discoveredDevices(),
         scanning: this._scanning,

@@ -53,7 +53,7 @@ test('Fleet uses real device status and versions in the summary, inventory and e
   assert.match(text, /Update available/);
 });
 
-test('the summary strip reports health and one segment per device', () => {
+test('the summary strip reports health and the footer one segment per device', () => {
   const deviceFor = (name, status) => ({
     name, device: { friendlyName: name, config: {}, panels: [] }, status, updates: false,
   });
@@ -72,7 +72,6 @@ test('the summary strip reports health and one segment per device', () => {
   const overview = inventory.querySelector('.haui-inventory-overview');
   const table = inventory.querySelector('.haui-device-table');
   const summary = inventory.querySelector('.haui-fleet-summary');
-  const bar = inventory.querySelector('.haui-inventory-bar');
   assert.ok(overview && table && overview.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary && overview.contains(summary));
   const orb = summary?.querySelector('.haui-fleet-orb');
@@ -88,7 +87,13 @@ test('the summary strip reports health and one segment per device', () => {
   assert.equal(heading.closest('.haui-fleet-inventory-heading')?.parentElement, count.parentElement);
   assert.ok(lead.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary?.querySelector('.haui-inventory-update'));
-  assert.ok(bar && table.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_PRECEDING);
+  // The segments close the card: always drawn, in the inventory's footer under the table.
+  const footer = inventory.querySelector('.haui-inventory-footer');
+  const bar = footer?.querySelector('.haui-fleet-bar');
+  assert.ok(bar && table.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.deepEqual([...bar.querySelectorAll('span')].map(({ className }) => className),
+    ['is-online', 'is-online']);
+  assert.equal(bar.getAttribute('aria-label'), '2 of 2 devices connected');
   assert.match(summary.textContent, /All devices connected/);
 
   const partial = render(renderFleetView({
@@ -314,7 +319,7 @@ test('Fleet comes back with the selected device centred in the carousel', () => 
   assert.equal(scrolled.length, 1);
 });
 
-test("a selected device scopes Fleet's latest events to itself", () => {
+test('a selected device scopes Fleet\'s latest events to itself and names it under the title', () => {
   const deviceFor = (name, label) => ({
     name, device: { friendlyName: label, config: {}, panels: [] }, status: { connected: true, logs: [] },
     updates: false,
@@ -339,6 +344,15 @@ test("a selected device scopes Fleet's latest events to itself", () => {
   const scoped = timeline({ ...base, selectedDevice: 'office' });
   assert.match(scoped, /office says hello/);
   assert.doesNotMatch(scoped, /kitchen says hello/);
+
+  const scopedRoot = render(renderFleetView({ ...base, selectedDevice: 'office' }));
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header h2').textContent, 'Latest events');
+  // The device opens the header's second line, where a long name truncates instead of wrapping.
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'Office');
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
+  const everyoneRoot = render(renderFleetView(base));
+  assert.equal(everyoneRoot.querySelector('.haui-event-list > header .haui-event-scope'), null);
+  assert.equal(everyoneRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
 
   // The device, not its label, decides: two devices named alike never share lines.
   const mislabelled = timeline({
@@ -378,7 +392,7 @@ test('Logs opens on the device Fleet selected, and on every device without one',
     assert.match(timeline(everyone), /office says hello/);
     // Fleet lists the problems; the info line is only in the sidebar's full log.
     assert.doesNotMatch(timeline(everyone), /kitchen says hello/);
-    everyone.querySelector('.haui-event-list button').click();
+    everyone.querySelector('.haui-event-list .haui-event-logs').click();
     assert.deepEqual(overlays(), [['logs', null]]);
     editor.store.actions.closeOverlay('logs', 'logs');
 
@@ -386,7 +400,7 @@ test('Logs opens on the device Fleet selected, and on every device without one',
     const selected = fleet();
     assert.match(timeline(selected), /office says hello/);
     assert.doesNotMatch(timeline(selected), /kitchen failed/);
-    selected.querySelector('.haui-event-list button').click();
+    selected.querySelector('.haui-event-list .haui-event-logs').click();
     assert.deepEqual(overlays(), [['logs', 'office']]);
   } finally {
     // The poller's interval would keep the test process alive.
@@ -445,7 +459,70 @@ test('Fleet shows all distinct problems from the last 24 hours and omits info, o
   assert.doesNotMatch(list.textContent, /just started|heartbeat/);
 });
 
+test('a reset starts Fleet\'s latest events at its own moment instead of the last 24 hours', () => {
+  const now = Date.now();
+  const entry = (level, message, ageMs) => ({
+    deviceName: 'Kitchen', line: eventLine(level, message, ageMs),
+  });
+  const root = render(renderFleetView({
+    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: { connected: true } }],
+    events: [
+      entry('ERROR', 'before the reset', 60_000),
+      entry('WARNING', 'after the reset', 0),
+      { deviceName: 'Kitchen', line: eventLine('WARNING', 'after the reset', 0) },
+    ],
+    version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
+    eventsSince: now - 30_000, onResetEvents() {}, onShowAllEvents() {},
+  }));
+  const card = root.querySelector('.haui-event-list');
+  assert.match(card.textContent, /Since /);
+  assert.match(card.textContent, /after the reset/);
+  assert.doesNotMatch(card.textContent, /before the reset/);
+  // The repeats are still counted from the reset on.
+  assert.match(card.textContent, /×2/);
+});
 
+test('Reset on Fleet starts the latest events at the moment it was pressed, and 24 hours bring them back', async () => {
+  const editor = makeHost({
+    device_order: ['kitchen'],
+    devices: { kitchen: { config: {}, panels: [] } },
+  }, (method, path) => { throw new Error(`unexpected request ${method} ${path}`); });
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  editor.renderRoot = { querySelector: () => null, activeElement: null };
+  editor._fleetSelection = null;
+  editor._fleetEventsSince = null;
+  const logged = new Date(Date.now() - 60_000).toISOString();
+  editor.api.status.getAll = async () => ({
+    kitchen: { connected: true, logs: [`[${logged}] ERROR kitchen failed`] },
+  });
+  editor.api.updates.rollout = async () => null;
+  editor.store.actions.startAllStatusPolling();
+  await flush(3);
+
+  try {
+    const fleet = () => render(editor._renderFleetScreen());
+    const timeline = (root) => root.querySelector('.haui-event-list').textContent;
+
+    const before = fleet();
+    assert.match(timeline(before), /kitchen failed/);
+    assert.match(timeline(before), /Last 24 hours/);
+
+    before.querySelector('.haui-event-list .haui-event-reset').click();
+    assert.ok(Number.isFinite(editor._fleetEventsSince));
+    const after = fleet();
+    // The line was written before the reset, so it is no longer in the window.
+    assert.doesNotMatch(timeline(after), /kitchen failed/);
+    assert.match(timeline(after), /No events since the reset/);
+
+    after.querySelector('.haui-event-list .haui-event-window').click();
+    assert.equal(editor._fleetEventsSince, null);
+    assert.match(timeline(fleet()), /kitchen failed/);
+  } finally {
+    // The poller's interval would keep the test process alive.
+    editor.store.actions.stopAllStatusPolling();
+  }
+});
 const ROLLOUT_DEVICES = [
   {
     name: 'kitchen',

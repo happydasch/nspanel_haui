@@ -22,8 +22,8 @@ export const dashboardComponentStyles = css`
     cursor: pointer;
     transition: background 120ms ease, border-color 120ms ease;
   }
-  .haui-button-primary { border-color: var(--haui-primary-fill); background: var(--haui-primary-fill); color: var(--text-primary-color, #fff); }
-  .haui-button-primary:hover:not(:disabled) { background: var(--haui-primary-fill-hover); border-color: var(--haui-primary-fill-hover); }
+  .haui-button-primary { border-color: var(--primary-color, #03a9f4); background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff); }
+  .haui-button-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--primary-color, #03a9f4) 85%, #000); border-color: color-mix(in srgb, var(--primary-color, #03a9f4) 85%, #000); }
   .haui-button-quiet { border-color: transparent; background: transparent; }
   .haui-button-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--secondary-text-color, #666); }
   /* A plain surface tint is invisible on a white card, so the hover also tints the border. */
@@ -97,7 +97,7 @@ export const dashboardComponentStyles = css`
   .haui-status-dot { display: inline-block; width: 8px; height: 8px; flex: 0 0 auto; border-radius: var(--haui-radius-round); background: var(--disabled-text-color, #888); }
   .haui-status-dot-online { background: var(--haui-good); }
   .haui-status-dot-offline { background: var(--haui-bad); }
-  .haui-status-dot-stale { background: var(--haui-warn-text); }
+  .haui-status-dot-stale { background: var(--haui-warn-icon); }
   .haui-status-dot-unknown { background: var(--secondary-text-color, #666); }
   .haui-surface { min-width: 0; overflow: hidden; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); }
   .haui-surface-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
@@ -125,13 +125,14 @@ export const dashboardComponentStyles = css`
   .haui-empty-state-compact p { color: var(--secondary-text-color, #666); }
   .haui-empty-state-inset { display: block; padding: 12px; border: 1px dashed var(--divider-color, #e0e0e0); border-radius: var(--haui-radius-control); font-size: var(--haui-text-caption); }
   .haui-empty-state-horizontal { display: flex; min-height: 72px; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; font-size: var(--haui-text-label); font-weight: 500; }
-  .haui-empty-state-horizontal .haui-empty-state-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: var(--haui-radius-round); color: var(--haui-good-text); background: var(--haui-good-soft); --mdc-icon-size: 16px; }
+  .haui-empty-state-horizontal .haui-empty-state-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: var(--haui-radius-round); color: var(--haui-good-icon); background: var(--haui-good-soft); --mdc-icon-size: 16px; }
   .haui-popover { position: fixed; z-index: 30; box-sizing: border-box; max-width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: 0 8px 28px #0003; }
   .haui-popover[role="menu"] { display: grid; gap: 4px; width: max-content; min-width: min(236px, calc(100vw - 24px)); padding: 4px; }
   .haui-menu-separator { height: 1px; margin: 4px 4px; background: var(--divider-color, #e0e0e0); }
   .haui-menu-item { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; padding: 4px 8px; border: 0; border-radius: var(--haui-radius-control); background: transparent; text-align: left; cursor: pointer; }
   .haui-menu-item:hover { background: var(--secondary-background-color, #f5f5f5); }
   .haui-menu-item.danger { color: var(--haui-bad-text); }
+  .haui-menu-item.danger ha-icon { color: var(--haui-bad-icon); }
   .haui-menu-item > span { flex: 1 1 auto; }
   .haui-menu-submenu { display: grid; gap: 4px; }
   .haui-menu-submenu-items {

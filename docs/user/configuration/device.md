@@ -26,6 +26,8 @@ The dashboard is the editor's start screen. It shows every device as a card and 
 - **Disable** — a disabled device stays in the list with its settings but is not served by the hub. Enable it again from the **More** menu or with the **Device Enabled** switch in its settings. Updates are only available for enabled devices.
 - **Remove** — asks for confirmation, then removes the device and deletes its settings and panels.
 
+The **Device inventory** card closes with a thin bar: one segment per device, in the colour of its connection, so you can see at a glance which panel is offline.
+
 Every device has these basic fields:
 
 | Key | Description |

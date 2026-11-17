@@ -351,7 +351,8 @@ test('a selected device scopes Fleet\'s latest events to itself and names it und
   assert.equal(scopedRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'Office');
   assert.equal(scopedRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
   const everyoneRoot = render(renderFleetView(base));
-  assert.equal(everyoneRoot.querySelector('.haui-event-list > header .haui-event-scope'), null);
+  // Nothing selected: the same line says the timeline covers every device.
+  assert.equal(everyoneRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'All devices');
   assert.equal(everyoneRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
 
   // The device, not its label, decides: two devices named alike never share lines.

@@ -17,7 +17,6 @@ export const fleetStyles = css`
      the title's baseline, not centred on the title and subtitle together. */
   .haui-section-heading.haui-surface-heading { justify-content: flex-start; align-items: baseline; gap: 8px; padding: 0; border: 0; }
   .haui-section-heading h2 { margin: 0; }
-  .haui-inventory-overview > header,
   .haui-event-list > header {
     display: flex;
     justify-content: space-between;
@@ -40,9 +39,11 @@ export const fleetStyles = css`
   /* Neither line wraps: the subtitle ellipsizes, the title keeps its few characters. */
   .haui-event-list > header h2,
   .haui-event-list > header p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* The device line: its name gives way to the actions, which stay whole. */
+  /* The scope line: its name gives way to the actions, which stay whole. The whole fleet reads
+     quieter than a device name, since it is the list's scope and not one of its devices. */
   .haui-event-list > header .haui-event-bar { display: flex; min-width: 0; flex: 1 1 100%; align-items: center; gap: var(--haui-space-2); }
   .haui-event-list > header .haui-event-scope { min-width: 0; overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-event-list > header .haui-event-scope.is-all { color: var(--secondary-text-color); font-weight: 400; }
   .haui-device-inventory h2,
   .haui-event-list h2 {
     margin: 0;
@@ -125,7 +126,16 @@ export const fleetStyles = css`
     .haui-device-card:hover .haui-device-sort, .haui-device-card:focus-within .haui-device-sort { opacity: 1; }
   }
   .haui-fleet-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr); gap: 16px; margin-top: 8px; }
-  .haui-inventory-overview { padding: 20px 28px 16px; }
+  /* The summary strip is the inventory's header, and it is as tall as the Latest events header
+     beside it — that one carries a title line, the quiet actions under it and its padding — so
+     the first row under either card starts level. */
+  .haui-inventory-overview {
+    display: grid;
+    align-content: center;
+    box-sizing: border-box;
+    min-height: calc(var(--haui-text-body) * var(--haui-line-height-tight) + 30px + var(--haui-space-1) + var(--haui-space-3) * 2);
+    padding: 20px 28px 16px;
+  }
   .haui-fleet-inventory-heading { flex: 0 0 auto; }
   .haui-fleet-inventory-heading h2 { white-space: nowrap; }
   .haui-fleet-summary { display: grid; gap: 0; padding: 0; }

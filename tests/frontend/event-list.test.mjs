@@ -127,10 +127,13 @@ test('Latest events names the device it is scoped to on its second line, before 
   assert.deepEqual([...bar.querySelectorAll('button')].map((button) => button.textContent.trim()),
     ['Reset', 'Logs']);
 
-  // With nothing selected the second line holds only the actions.
+  // With nothing selected the same line names the whole fleet, so it never opens with an empty space.
   const everyone = render(eventList({ events: [], onOpenLogs() {}, onReset() {} }));
   const everyoneBar = everyone.querySelector('.haui-event-list > header .haui-event-bar');
-  assert.equal(everyoneBar.querySelector('.haui-event-scope'), null);
+  assert.equal(everyoneBar.firstElementChild.className, 'haui-event-scope is-all');
+  assert.equal(everyoneBar.firstElementChild.textContent, 'All devices');
+  assert.deepEqual([...everyoneBar.querySelectorAll('button')].map((button) => button.textContent.trim()),
+    ['Reset', 'Logs']);
   assert.equal(everyone.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
 });
 

@@ -30,13 +30,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Editor: entities go by their Home Assistant name without the device name in front (entity picker, item lists, **Diagnostics**, the preview's entity tooltip); the picker still finds them by the full name.
 - Editor: every switch sits at the right end of its row, after its label.
-- Editor: a device selected on the dashboard scopes **Latest events** and **Logs** to it; without a selection both list every device.
+- Editor: a device selected on the dashboard scopes **Latest events** and **Logs** to it; without a selection both list every device, and the timeline names that scope **All devices** on the header's second line.
 - Fleet: **Latest events** lists only the last 24 hours' warnings and errors; the full log, info and debug included, is the **Logs** sidebar.
 - Editor: one type scale at Home Assistant's sizes: title bar and page titles 20px, sidebar titles 18px, card and section titles 16px, names, values and labels 14px in one weight, hints and meta 13px; every size follows the Home Assistant font size setting.
 - Editor: the panel list says "1 panel" instead of "1 panels".
 - Editor: the **Update settings** card picks the channel from a list and turns updates and automatic firmware installs on with switches, like the other forms.
 - Editor: the device settings show one field per row, with the **Home panel** and **Idle panels** pickers at the right edge like the switches.
 - Updates: an offered update shows as one badge from the installed to the new version, the integration's version moved to the end of the **Check for updates** row, and a narrow sidebar shortens the labels.
+- Fleet: the **Device inventory**'s summary strip is as tall as the **Latest events** header beside it, so the first row under either card starts level.
 - Fleet: the dashboard fills wide windows, a long **Device inventory** scrolls under its column headings, and **Latest events** takes the inventory's height.
 - Device screen: the **Connection & device** and **Diagnostics** tiles show their values in smaller text, with the Wi-Fi signal bars at the tile's edge.
 - Fleet and the device screen show the Wi-Fi strength the panel last reported even while it is offline; the connection dot keeps the connection state and the uptime tile is green while the panel is online and stable.

@@ -1,39 +1,34 @@
 /**
  * NSPanel HAUI - the editor shell.
  *
- * The custom element and its render code. Shared state lives in
- * `store/store.js`; the shell mirrors it into Lit properties for the existing
- * render modules and delegates every action to the store or the API client.
+ * The custom element: one API client and one store, the hash route, the
+ * status pollers' scope, overlay and focus handling, and the editor's loading
+ * and error states. Shared state lives in `store/store.js`; the shell mirrors
+ * it into the Lit properties the render modules read and keeps one-line
+ * wrappers around its collaborators (the screen compositions in
+ * `fleet-screen.js` and `device-screen.js`, the panel models, the device
+ * sidebars and the editor's bootstrap data).
  */
 import '../iconset.js';
 
-import { LitElement, html, nothing } from '../lit-import.js';
-import { clone, isPortraitModel } from '../constants.js';
-import { fetchTranslations, fetchStateNames, t, getLanguage } from '../localize.js';
+import { LitElement, html } from '../lit-import.js';
+import { clone } from '../constants.js';
+import { t, getLanguage } from '../localize.js';
 import { haStyle, haStyleDialog, editorContainerStyles, editorStyles } from '../styles.js';
 import { createApiClient } from '../api/client.js';
 import { createStore } from '../store/store.js';
 import { StoreController } from '../store/controller.js';
 import { createRouter } from './router.js';
-import { renderFleetView, carouselEdgesFrom, centerCard } from '../views/fleet.js';
-import { renderDeviceView } from '../views/device.js';
-import { modalSidebar } from '../ui/sidebar.js';
+import { carouselEdgesFrom, centerCard } from '../views/fleet.js';
 import { railOverflows } from '../ui/device-rail.js';
-import { deviceDetails } from '../ui/device-details.js';
-import { diagnosticsReport } from '../ui/device-diagnostics.js';
-import { eventsByTime } from '../ui/event-list.js';
-import { panelActions, panelManager, deviceOptionPanel, deviceOptionSummaries } from '../ui/panel-manager.js';
-import { panelSideCard } from '../ui/panel-info.js';
-import { deviceActions } from '../ui/device-actions.js';
-import { button } from '../ui/button.js';
-import { emptyState } from '../ui/empty-state.js';
-import { idlePanelKeys } from '../ui/panel-pills.js';
-import { renderSimulatorPreview } from '../previews/simulator-frame.js';
-import { previewRenderKey } from '../previews/previewer.js';
 import * as Crud from '../crud.js';
-import { panelHasOptionErrors } from '../option-rules.js';
 import * as DeviceConfig from '../device-config.js';
-import * as Toast from '../toast.js';
+import * as EditorData from '../editor-data.js';
+import * as EditorPreferences from '../editor-preferences.js';
+import * as FleetScreen from '../fleet-screen.js';
+import * as DeviceScreen from '../device-screen.js';
+import * as DeviceSidebars from '../device-sidebars.js';
+import * as PanelModels from '../panel-models.js';
 
 // Register dialog custom elements
 import '../views/panel-editor.js';
@@ -44,52 +39,24 @@ import '../dialogs/logs.js';
 import '../dialogs/theme.js';
 import '../views/workspace.js';
 
-import { copyText, readStorage, writeStorage } from '../dom-helpers.js';
 import { anchorElement, focusAnchor, focusMenu, overlayAnchor, placeOpenPopovers, popoverSurface } from '../ui/popover.js';
-import { isAnchoredOverlayKind, isDeviceOptionOverlayKind, isSidebarOverlayKind } from '../store/store.js';
+import { isAnchoredOverlayKind, isSidebarOverlayKind } from '../store/store.js';
 import { selectDevice, importDeviceYaml, exportDeviceYaml } from '../device-yaml.js';
-import { deviceBrightness, hasUpdateAvailable } from '../device-status.js';
-import { groupPanels, panelRoleMarkers } from '../panel-utils.js';
-import { renderPanelList } from '../views/panel-list.js';
 import { notificationsView } from '../views/notifications.js';
-import { panelCatalog } from '../views/panel-catalog.js';
 import { renderTitleHeader, renderFooter } from '../toolbar.js';
 import { HA_ELEMENTS_TIMEOUT_MS, undefinedHaElements, whenHaElementsDefined } from '../ha-elements.js';
 
 import * as SystemPanels from '../system-panels.js';
 import * as ThemeEditor from '../theme-editor.js';
-import * as DeviceEvents from '../device-events.js';
+import { readStorage, writeStorage } from '../dom-helpers.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
-
-// Whether the Connection & device card lists its facts and the Diagnostics card
-// shows its tiles; per-browser preferences.
-const DETAILS_EXPANDED_KEY = 'haui_deviceDetailsExpanded';
-const DIAGNOSTICS_EXPANDED_KEY = 'haui_diagnosticsExpanded';
-// The device side-stack cards the user expanded (comma-separated card ids); the rest stay collapsed.
-const PANEL_CARDS_EXPANDED_KEY = 'haui_panelCardsExpanded';
-// Whether the selected panel's card shows its render large; remembered per browser.
-const PANEL_PREVIEW_FOLDED_KEY = 'haui_panelPreviewFolded';
-// Which preview size the Add panel catalog last used ('1' compact), so it opens the way it was left.
-const CATALOG_COMPACT_KEY = 'haui_panelCatalogCompact';
 
 /** @type {import("../store/store.js").StoreStorage} */
 const STORAGE = {
   read: (key, fallback) => readStorage(key, fallback),
   write: (key, value) => writeStorage(key, value),
 };
-/** Build the common input shared by the shell's hub-rendered panel previews. */
-function buildPreviewContext(entryId, deviceName, device, status, api, themes) {
-  return {
-    entryId,
-    device: deviceName,
-    deviceConfig: device.config,
-    panels: device.panels,
-    theme: themes?.[device.config?.theme_id] || null,
-    deviceInfo: status?.device_info || null,
-    api,
-  };
-}
 
 
 class NSPanelEditor extends LitElement {
@@ -160,6 +127,7 @@ class NSPanelEditor extends LitElement {
 
   constructor() {
     super();
+    const preferences = EditorPreferences.readEditorPreferences();
     this.api = createApiClient(() => this.hass);
     this._store = createStore({ client: this.api, storage: STORAGE });
     this._router = null;
@@ -178,7 +146,7 @@ class NSPanelEditor extends LitElement {
     this._editingPanelType = null;
     this._panelCatalogOpen = false;
     this._panelCatalogSearch = '';
-    this._panelCatalogCompact = readStorage(CATALOG_COMPACT_KEY, '0') === '1';
+    this._panelCatalogCompact = preferences.catalogCompact;
     this._saving = false;
     this.__pendingUpdateSettings = null;
     this.__savingUpdateSettings = false;
@@ -212,12 +180,12 @@ class NSPanelEditor extends LitElement {
     this._fleetSelection = null;
     // The moment Fleet's latest events were reset to, or null for the default 24 hours.
     this._fleetEventsSince = null;
-    this._panelPreviewCollapsed = readStorage(PANEL_PREVIEW_FOLDED_KEY, '0') === '1';
+    this._panelPreviewCollapsed = preferences.panelPreviewCollapsed;
     this._collapsedPanelGroups = [];
     this._railCollapsed = false;
-    this._detailsExpanded = readStorage(DETAILS_EXPANDED_KEY, '1') === '1';
-    this._diagnosticsExpanded = readStorage(DIAGNOSTICS_EXPANDED_KEY, '0') === '1';
-    this._panelCardsExpanded = readStorage(PANEL_CARDS_EXPANDED_KEY, '').split(',').filter(Boolean);
+    this._detailsExpanded = preferences.detailsExpanded;
+    this._diagnosticsExpanded = preferences.diagnosticsExpanded;
+    this._panelCardsExpanded = preferences.panelCardsExpanded;
     // Earlier versions allowed multiple side cards to stay expanded. Prefer Diagnostics, then
     // Backup, then Connection & device when normalizing those saved browser preferences.
     if (this._diagnosticsExpanded) {
@@ -607,24 +575,7 @@ class NSPanelEditor extends LitElement {
   /* ── data loading ─────────────────────────────────────────────────────── */
 
   async _loadEntries() {
-    if (!this.hass) return;
-    try {
-      const entries = await this.api.entries.list();
-      this._entriesError = null;
-      if (entries.length && !this.entryId) {
-        const entryId = entries[0].entry_id;
-        this.__notificationsFor = entryId;
-        await this._load(entryId);
-        // Not awaited: Fleet shows what it finds when the scan returns.
-        this._scanDevices();
-      } else if (!entries.length) {
-        this._store.actions.setLoading(false);
-      }
-    } catch (error) {
-      console.error("Failed to load NSPanel HAUI integration list:", error);
-      this._entriesError = error.message || t("Failed to load the integration list");
-      this._store.actions.setLoading(false);
-    }
+    return EditorData.loadEntries(this);
   }
 
   async _load(entryId = this.entryId) {
@@ -640,34 +591,7 @@ class NSPanelEditor extends LitElement {
   }
 
   async _loadThemeLibrary(entryId = this.entryId, force = false) {
-    if (!entryId || (!force && this.__themeLibraryEntry === entryId)
-        || this.__themeLibraryLoadingEntry === entryId) return;
-    this.__themeLibraryLoadingEntry = entryId;
-    this._themesLoading = true;
-    this._themesError = '';
-    if (this.__themeLibraryEntry !== entryId) {
-      this._builtinThemes = {};
-      this._customThemes = {};
-    }
-    this.requestUpdate();
-    try {
-      const data = await this.api.editor.themes(entryId);
-      if (this.entryId !== entryId) return;
-      this._builtinThemes = data.builtins || {};
-      this._customThemes = data.themes || {};
-      this.__themeLibraryEntry = entryId;
-    } catch (_error) {
-      if (this.entryId === entryId) {
-        this._themesError = t('Unable to load color themes.');
-        this.__themeLibraryEntry = entryId;
-      }
-    } finally {
-      if (this.__themeLibraryLoadingEntry === entryId) {
-        this.__themeLibraryLoadingEntry = null;
-        this._themesLoading = false;
-        this.requestUpdate();
-      }
-    }
+    return EditorData.loadThemeLibrary(this, entryId, force);
   }
 
   /* ── CRUD actions ─────────────────────────────────────────────────────── */
@@ -816,7 +740,7 @@ class NSPanelEditor extends LitElement {
   /** The catalog's preview size is a per-browser preference: the next open keeps it. */
   _chooseCatalogPreviewSize(compact) {
     this._panelCatalogCompact = compact;
-    writeStorage(CATALOG_COMPACT_KEY, compact ? '1' : '0');
+    EditorPreferences.writeCatalogCompact(compact);
   }
   _openEdit(i) { this._captureSidebarFocus(); Crud.openEdit(this, i); }
   _closeEdit() {
@@ -824,6 +748,18 @@ class NSPanelEditor extends LitElement {
     this._restoreSidebarFocus();
   }
   _toggleNavVisibility(key) { Crud.toggleNavVisibility(this, key); }
+
+  /**
+   * Put the device on screen before a sidebar opens over it: a new history
+   * entry, so Back returns to Fleet, where the sidebar was opened.
+   * @param {string} name
+   */
+  _ensureDeviceRoute(name) {
+    if (this._route?.view !== 'device' || this._route.device !== name) {
+      this._router?.navigate({ view: 'device', device: name, panelView: 'preview' });
+    }
+  }
+
   /**
    * Open one device option's editor in the modal sidebar.
    * @param {'schedule'|'gestures'} option
@@ -831,10 +767,7 @@ class NSPanelEditor extends LitElement {
   _openDeviceOption(option) {
     const name = this._selectedDevice;
     if (!name) return;
-    // A new history entry: Back returns to Fleet, where the sidebar was opened.
-    if (this._route?.view !== 'device' || this._route.device !== name) {
-      this._router?.navigate({ view: 'device', device: name, panelView: 'preview' });
-    }
+    this._ensureDeviceRoute(name);
     const kind = `device-${option}`;
     this._store.actions.pushOverlay({ kind, anchorKey: kind, subject: name, draft: null });
   }
@@ -984,10 +917,7 @@ class NSPanelEditor extends LitElement {
   _openSettings(sections = []) {
     const name = this._selectedDevice;
     if (!name) return;
-    // A new history entry: Back returns to Fleet, where the sidebar was opened.
-    if (this._route?.view !== 'device' || this._route.device !== name) {
-      this._router?.navigate({ view: 'device', device: name, panelView: 'preview' });
-    }
+    this._ensureDeviceRoute(name);
     this._deviceSettingsSections = sections;
     this._loadDeviceConfig(name);
     this._openDeviceConfig();
@@ -1000,87 +930,37 @@ class NSPanelEditor extends LitElement {
 
   /* ── device discovery, enabling and removal ───────────────────────── */
 
-  /**
-   * Look for HAUI devices the hub does not manage yet. Runs once the editor has
-   * loaded and on request from Fleet; the result is what Fleet offers to add.
-   */
   async _scanDevices() {
-    if (!this.entryId || this._scanning) return;
-    this._scanning = true;
-    this._scanError = '';
-    try {
-      const result = await this.api.devices.scan(this.entryId);
-      this._discovered = result.devices || [];
-    } catch (error) {
-      this._scanError = error.message || t('Scan failed');
-    }
-    this._scanning = false;
+    return FleetScreen.scanDevices(this);
   }
 
-  /** Devices found by the scan that are not configured (anymore). */
   _discoveredDevices() {
-    const known = this._store.getState().devices.byName;
-    return (this._discovered || []).filter((device) => !known[device.name || device.friendly_name]);
+    return FleetScreen.discoveredDevices(this);
   }
 
   /** @param {Array<any>} devices */
   async _addDevices(devices) {
-    await DeviceEvents.addDevices(this, devices);
+    await FleetScreen.addDevices(this, devices);
   }
 
-  /** Connected devices with an offered update the hub may install. */
   _updatableDevices() {
-    const state = this._store.getState();
-    // A status that failed to refresh may describe a device that went offline.
-    if (state.hub.statusError) return [];
-    return state.devices.order.filter((name) => {
-      const status = state.devices.byName[name].status;
-      const update = status?.update;
-      return status?.connected === true && update && update.enabled !== false
-        && !update.firmware_installing
-        && hasUpdateAvailable(update);
-    });
+    return FleetScreen.updatableDevices(this);
   }
 
   get _bulkUpdateParams() {
-    return {
-      title: t('Install all offered updates?'),
-      message: t('Install the offered firmware and display updates on {count} device(s), one after the other? A display cannot be used while it updates, and a firmware update restarts the panel. The first failure stops the devices after it.')
-        .replace('{count}', String(this._updatableDevices().length)),
-      confirmText: t('Install'),
-      cancelText: t('Cancel'),
-      confirmVariant: 'brand',
-    };
+    return FleetScreen.bulkUpdateParams(this);
   }
 
-  /**
-   * Install what each device is offered, one device at a time on the hub: a
-   * panel is offline while it updates, so they never all go at once.
-   */
   async _installOfferedUpdates() {
-    this._confirmBulkUpdate = false;
-    await this._store.actions.startRollout();
+    return FleetScreen.installOfferedUpdates(this);
   }
 
   get _removeDeviceParams() {
-    const name = this._removeTarget;
-    if (!name) return null;
-    return {
-      title: t('Remove device?'),
-      message: t('Remove {name} from the hub? Its settings and panels are deleted. This cannot be undone.')
-        .replace('{name}', this._panels.devices?.[name]?.friendly_name || name),
-      confirmText: t('Remove'),
-      cancelText: t('Cancel'),
-    };
+    return FleetScreen.removeDeviceParams(this);
   }
 
   async _confirmRemoveDevice() {
-    const name = this._removeTarget;
-    this._removeTarget = null;
-    if (!name) return;
-    await DeviceEvents.removeDevice(this, name);
-    // A removed device is discoverable again.
-    this._scanDevices();
+    return FleetScreen.confirmRemoveDevice(this);
   }
 
 
@@ -1090,831 +970,123 @@ class NSPanelEditor extends LitElement {
 
   /* ── localization ─────────────────────────────────────────────────────── */
 
-
   /** Load the UI translations and the localized panel types for `lang`. */
   async _loadLanguage(lang) {
-    // Translations first: panel types carry translated labels, and a failed
-    // load is reported through t(), which is only translated once this resolves.
-    await fetchTranslations(this.api, lang);
-    await Promise.all([this._loadPanelTypes(), fetchStateNames(this.api, lang)]);
-    // t() reads a module-level map, so Lit does not know the text changed.
-    this.requestUpdate();
+    return EditorData.loadLanguage(this, lang);
   }
 
   /* ── render ───────────────────────────────────────────────────────────── */
 
   _renderFleetScreen() {
-    const state = this._store.getState();
-    const devices = state.devices.order.map((name) => {
-      const device = state.devices.byName[name];
-      const status = device.status;
-      const configuredKey = device.config.home_panel;
-      const configuredIndex = device.panels.findIndex((panel) => panel.key === configuredKey);
-      const fallbackIndex = device.panels.findIndex((panel) => panel.show_in_navigation !== false);
-      const panelIndex = configuredIndex >= 0 ? configuredIndex : fallbackIndex;
-      const panel = panelIndex >= 0
-        ? device.panels[panelIndex]
-        : state.hub.systemPanels.find((entry) => entry.key === configuredKey);
-      const context = buildPreviewContext(state.hub.entryId, name, device, status, this.api, state.hub.themes);
-      return {
-        name,
-        device,
-        status,
-        disabled: device.config.enabled === false,
-        updates: hasUpdateAvailable(status?.update),
-        preview: panel ? renderSimulatorPreview(context, panel, panelIndex < 0 ? -1 : panelIndex) : null,
-      };
-    });
-    const events = devices.flatMap(({ name, status }) => (status?.logs || []).map((line) => ({
-      device: name,
-      deviceName: state.devices.byName[name].friendlyName,
-      line,
-    })));
-    const versions = [...new Set(devices.map(({ status }) => status?.integration_version).filter(Boolean))];
-    const hubVersion = versions.length === 1 ? versions[0] : versions.length > 1 ? t('Mixed versions') : t('Unknown');
-    // Logs is Fleet's one sidebar.
-    const logsOpen = this._isOverlayOpen('logs');
-    return html`<div class="haui-container">
-      ${renderTitleHeader(this)}
-      ${renderFleetView({
-        devices,
-        events,
-        version: hubVersion,
-        statusPending: devices.some(({ status }) => !status),
-        carousel: this.__carousel || { atStart: true, atEnd: false },
-        onCarouselScroll: (edges) => this._setCarouselEdges(edges),
-        menu: this._deviceMenuModel(),
-        onMenu: (name, anchorKey) => this._toggleDeviceMenu(name, anchorKey),
-        onCloseMenu: () => this._closeAnchoredPopover('device-menu'),
-        onOpenDevice: (name) => this._navigateToDevice(name),
-        selectedDevice: this._fleetSelection,
-        onSelectDevice: (name) => { this._fleetSelection = this._fleetSelection === name ? null : name; },
-        // Reset starts the timeline at the moment it was pressed instead of the default 24 hours.
-        // Hub log lines carry whole seconds, so the window starts at the second: a line written
-        // right after the press is still inside it.
-        eventsSince: this._fleetEventsSince,
-        onResetEvents: () => { this._fleetEventsSince = Math.floor(Date.now() / 1000) * 1000; },
-        onShowAllEvents: () => { this._fleetEventsSince = null; },
-        onReorderDevices: (order) => this._store.actions.reorderDevices(order),
-        discovered: this._discoveredDevices(),
-        scanning: this._scanning,
-        scanError: this._scanError,
-        statusError: state.hub.statusError,
-        installable: this._updatableDevices().length,
-        onInstallUpdates: () => { this._confirmBulkUpdate = true; },
-        onScan: () => this._scanDevices(),
-        onAddDevices: (found) => this._addDevices(found),
-        // Logs follows Fleet's selection; no selection lists every device's lines.
-        onOpenLogs: () => this._openLogs(this._fleetSelection),
-        rollout: state.hub.rollout,
-        onCancelRollout: (device) => this._store.actions.cancelRollout(device),
-        onDismissRollout: () => this._store.actions.dismissRollout(),
-      })}
-      ${this._renderNotificationsView()}
-      <nspanel-dialog-confirm
-        .hass=${this.hass} .open=${this._removeTarget !== null}
-        .params=${this._removeDeviceParams}
-        @dialog-closed=${() => { this._removeTarget = null; }}
-        @dialog-confirmed=${this._confirmRemoveDevice}
-      ></nspanel-dialog-confirm>
-      <nspanel-dialog-confirm
-        .hass=${this.hass} .open=${this._confirmBulkUpdate === true}
-        .params=${this._confirmBulkUpdate ? this._bulkUpdateParams : null}
-        @dialog-closed=${() => { this._confirmBulkUpdate = false; }}
-        @dialog-confirmed=${this._installOfferedUpdates}
-      ></nspanel-dialog-confirm>
-      ${logsOpen ? modalSidebar({
-        label: t('Logs'),
-        body: this._renderLogs(),
-        onClose: () => this._closeLogs(),
-      }) : nothing}
-      ${this._toast ? Toast.renderToast(this) : ''}
-      ${renderFooter(this)}
-    </div>`;
+    return FleetScreen.renderFleetScreen(this);
   }
 
   _renderDeviceScreen() {
-    const state = this._store.getState();
-    const route = state.ui.route;
-    const name = route.device;
-    const device = name ? state.devices.byName[name] : null;
-    if (!name || !device) return this._renderFleetScreen();
-    const status = device.status;
-    const railDevices = state.devices.order.map((deviceName) => {
-      const entry = state.devices.byName[deviceName];
-      return {
-        name: deviceName,
-        device: entry,
-        status: entry.status,
-        updates: hasUpdateAvailable(entry.status?.update),
-      };
-    });
-    const preview = state.ui.preview;
-    const previewState = this.__previewState || {};
-    // Every open sidebar stays rendered and the topmost one is shown, so a nested
-    // editor keeps the draft below it.
-    const sidebarKinds = state.ui.overlays.map((overlay) => overlay.kind).filter(isSidebarOverlayKind);
-    const sidebarKind = sidebarKinds.at(-1);
-    const interactiveSession = html`<nspanel-preview-workspace class="haui-inline-live-preview"
-      .hass=${this.hass} .active=${true} .entryId=${this.entryId} .device=${name}
-      .mode=${preview.mode} .showEntities=${preview.showEntities}
-      .optionSelection=${isDeviceOptionOverlayKind(sidebarKind) ? sidebarKind : ''}
-      @preview-state=${(event) => this._onPreviewState(event)}
-      @preview-notice=${(event) => this._showToast(event.detail.message, event.detail.type)}
-    ></nspanel-preview-workspace>`;
-    // Only the Panels view pays for the list: the Preview view renders on every
-    // Home Assistant state change and would build every card for nothing.
-    const workspace = route.panelView === 'panels'
-      ? renderPanelList(this._panelListModel(device, status))
-      : interactiveSession;
-    // Every open sidebar stays rendered and the topmost one is shown, so a nested
-    // editor keeps the draft below it.
-    const panelEditor = sidebarKinds.includes('panel-editor') && this._editingPanel ? html`<nspanel-panel-editor
-      .hass=${this.hass} .api=${this.api} .open=${true}
-      .panel=${this._editingPanel} .panelTypes=${this._panelTypes}
-      .themes=${{ ...this._builtinThemes, ...this._customThemes }}
-      .devicePanels=${this._devicePanels()} .systemPanels=${this._panels?.system_panels || []}
-      .saving=${this._saving} .error=${this._error} .entryId=${this.entryId}
-      .serverErrors=${this._serverErrors || []}
-      .dialogVersion=${this._dialogVersion}
-      .previewContext=${buildPreviewContext(this.entryId, name, device, status, this.api, state.hub.themes)}
-      @dialog-closed=${() => {
-        this.__openedRoutePanel = null;
-        this._closeEdit();
-        if (state.ui.route.panel) this._router?.navigate({ view: 'device', device: name, panelView: 'panels' }, { replace: true });
-      }} @dialog-save=${this._save}
-    ></nspanel-panel-editor>` : null;
-    // The settings follow the stored config, so a save in a sidebar opened from
-    // them (theme, schedule, gestures, updates) reaches their form.
-    const deviceSettings = html`<nspanel-device-settings
-      .hass=${this.hass} .open=${true}
-      .config=${device.config}
-      .summaries=${deviceOptionSummaries({
-        config: device.config, builtinThemes: this._builtinThemes, customThemes: this._customThemes,
-      })}
-      .panels=${device.panels}
-      .deviceBrightness=${deviceBrightness(status, this.hass)}
-      .openSections=${this._deviceSettingsSections}
-      .saving=${this._saving}
-      .api=${this.api} .entryId=${this.entryId}
-      @dialog-closed=${this._closeDeviceConfig}
-      @dialog-save=${this._onDeviceConfigSave}
-      @open-option=${(event) => this._openSettingsOption(name, event.detail.option)}
-    ></nspanel-device-settings>`;
-    const catalog = () => panelCatalog({
-      panelTypes: this._panelTypes,
-      query: this._panelCatalogSearch,
-      onQuery: (query) => { this._panelCatalogSearch = query; },
-      compactPreviews: this._panelCatalogCompact,
-      onPreviewSize: (compact) => this._chooseCatalogPreviewSize(compact),
-      onSelect: (type) => this._openAdd(type),
-      copies: this._panelTemplates(),
-      onSelectCopy: (panel) => this._openAddFrom(panel),
-      starters: state.hub.panelTemplates || [],
-      onSelectStarter: (panel) => {
-        this._panelCatalogOpen = false;
-        Crud.openAddFromTemplate(this, panel);
-      },
-      popups: groupPanels(device.panels, state.hub.systemPanels || []).defaults,
-      onSelectPopup: (entry) => this._openSysPanelFromCatalog(entry),
-      preview: (panel, byKey = false) => renderSimulatorPreview(
-        buildPreviewContext(this.entryId, name, device, status, this.api, state.hub.themes), panel, byKey ? -1 : 0),
-      portrait: isPortraitModel(device.config.display_model),
-    });
-    const theme = () => html`<nspanel-theme-sidebar
-      .hass=${this.hass} .api=${this.api} .open=${true}
-      .entryId=${this.entryId}
-      .themeId=${this._themeId || 'dark'}
-      .themeVariant=${this._themeVariant}
-      @dialog-closed=${this._closeThemeSidebar} @dialog-save=${this._onThemeSave}
-    ></nspanel-theme-sidebar>`;
-    /** @param {string} kind @param {() => unknown} content */
-    const layer = (kind, content) => (sidebarKinds.includes(kind)
-      ? html`<div class="haui-sidebar-layer" ?hidden=${kind !== sidebarKind}>${content()}</div>`
-      : nothing);
-    // What the device's settings and its option sidebars edit.
-    const managerOptions = {
-      panels: device.panels,
-      systemPanels: state.hub.systemPanels || [],
-      config: device.config,
-      saving: state.hub.saving,
-      scheduleDraft: this._scheduleDraft?.device === name ? this._scheduleDraft : null,
-      deviceBrightness: deviceBrightness(status, this.hass),
-      builtinThemes: this._builtinThemes,
-      customThemes: this._customThemes,
-      onScheduleChange: (draft) => this._changeSchedule(draft),
-      onScheduleEntryToggle: (index, isOpen) => this._onScheduleEntryToggle(index, isOpen),
-      onScheduleSave: () => this._saveSchedule(),
-      onOpenDeviceSettings: () => this._openSettings(['screen', 'sounds']),
-      gestureDraft: this._gestureDraft?.device === name ? this._gestureDraft : null,
-      onGestureChange: (draft) => this._changeGestures(draft),
-      onGestureEntryToggle: (index, isOpen) => this._onGestureEntryToggle(index, isOpen),
-      onGestureSave: () => this._saveGestures(),
-    };
-    // The modal sidebar opens over the page; the side stack below it stays as it is.
-    const sidebarContent = sidebarKind ? html`${layer('device-settings', () => deviceSettings)}${
-      layer('device-schedule', () => deviceOptionPanel('schedule', managerOptions))}${
-      layer('device-gestures', () => deviceOptionPanel('gestures', managerOptions))}${
-      layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
-      layer('updates', () => this._renderUpdates(name))}${layer('theme', theme)}${
-      layer('logs', () => this._renderLogs())}` : null;
-    const leadContent = route.panelView === 'panels'
-      ? panelActions({
-          panels: device.panels,
-          onAdd: () => this._openCatalog(),
-          onSettings: () => this._openSettings(),
-        })
-      : deviceActions({
-          status,
-          onSettings: () => this._openSettings(),
-          onUpdates: () => this._openUpdates(name),
-          onAdd: () => this._openCatalog(),
-          management: panelManager({
-            ...managerOptions,
-            // The theme has its own shared editor; the other two open theirs.
-            onOpen: (option) => (option === 'theme'
-              ? this._openTheme()
-              : this._openDeviceOption(option)),
-          }),
-        });
-    const sideContent = route.panelView === 'panels'
-      ? panelSideCard(this._panelSideModel(device, status))
-      : deviceDetails({
-            name,
-            status,
-            statusError: this._deviceStatusError,
-            hass: this.hass,
-            onLogs: () => this._openLogs(name),
-            onUpdates: () => this._openUpdates(name),
-            onCopyReport: () => this._copyDiagnostics(name, status),
-            detailsExpanded: this._detailsExpanded,
-            onToggleDetails: () => this._toggleDetails(),
-            diagnosticsExpanded: this._diagnosticsExpanded,
-            onToggleDiagnostics: () => this._toggleDiagnostics(),
-            yamlExpanded: this._panelCardsExpanded.includes('yaml'),
-            onToggleYaml: () => this._togglePanelCard('yaml'),
-            onYamlImport: () => this._importYaml(),
-            onYamlExport: () => this._exportYaml(),
-            showEntities: preview.showEntities,
-            onShowEntities: (show) => this._store.actions.setPreviewEntities(show),
-            // Live already shows the device's page; only the simulated preview follows a click.
-            onOpenPage: (previewState.mode || preview.mode) !== 'live' && previewState.ready && status?.current_panel
-              ? () => this._callPreviewWorkspace(
-                'openPanel', status.current_panel, status.idle_page?.state === 'active',
-              )
-              : null,
-            previewTools: {
-              live: (previewState.mode || preview.mode) === 'live',
-              ready: Boolean(previewState.ready),
-              canInteract: Boolean(previewState.canInteract),
-              sandboxChanged: Boolean(previewState.sandboxChanged),
-              onReset: () => this._callPreviewWorkspace('resetSession'),
-              onRedraw: () => this._redrawDisplay(name),
-            },
-          });
-
-    return html`<div class="haui-container">
-      ${renderTitleHeader(this)}
-      ${renderDeviceView({
-        devices: railDevices,
-        selectedName: name,
-        title: device.friendlyName || name,
-        onBack: () => this._navigateToFleet(),
-        panelCount: device.panels.length,
-        panelView: route.panelView,
-        panelSearch: { query: this._panelSearch, onQuery: (value) => { this._panelSearch = value; } },
-        railCollapsed: this._railCollapsed,
-        workspace,
-        leadContent,
-        sideContent,
-        sideLabel: route.panelView === 'panels' ? t('Panel details') : t('Device details'),
-        sidebarContent,
-        preview: {
-          mode: previewState.mode || preview.mode,
-          idle: Boolean(previewState.idle),
-          canInteract: Boolean(previewState.canInteract),
-        },
-        sidebarOpen: Boolean(sidebarContent),
-        sidebarLabel: sidebarKind ? this._sidebarLabel(sidebarKind) : undefined,
-        onCloseSide: () => this._closeSidebar(),
-        onSelectDevice: (deviceName) => this._navigateToDevice(deviceName),
-        onSwitchView: (panelView) => this._router?.navigate(
-          { view: 'device', device: name, panelView }, { replace: true },
-        ),
-        onMode: (mode) => {
-          this._store.actions.setPreviewMode(mode);
-          // Also when the store already holds this mode: a Live session that failed
-          // to start must still switch back to Simulated.
-          this._callPreviewWorkspace('setLive', mode === 'live');
-        },
-        onIdle: () => this._onPreviewIdle(device.config, previewState),
-      })}
-      <nspanel-dialog-confirm
-        .hass=${this.hass} .open=${this._deleteTarget !== null}
-        .params=${this._deleteTarget !== null ? this._confirmDialogParams : null}
-        @dialog-closed=${this._cancelDelete} @dialog-confirmed=${this._doDelete}
-      ></nspanel-dialog-confirm>
-      <nspanel-dialog-confirm
-        .hass=${this.hass} .open=${this._tftInstallTarget !== null}
-        .params=${this._tftInstallTarget !== null ? this._tftInstallParams : null}
-        @dialog-closed=${this._cancelTftInstall} @dialog-confirmed=${this._confirmTftInstall}
-      ></nspanel-dialog-confirm>
-      ${this._renderNotificationsView()}
-      ${this._toast ? Toast.renderToast(this) : ''}
-      ${renderFooter(this)}
-    </div>`;
+    return DeviceScreen.renderDeviceScreen(this);
   }
 
-  /** The sidebar strip's title for the panel editor: a new panel, or an existing one. */
   _panelEditorLabel() {
-    const editing = this._editingPanel;
-    const system = (this._panels?.system_panels || []).some((entry) => entry.key === editing?.data?.key);
-    // A system panel's first edit has no index yet, but it is not a new panel.
-    return editing && editing.index < 0 && !system ? t('Add Panel') : t('Edit Panel');
+    return DeviceScreen.panelEditorLabel(this);
   }
 
-  /**
-   * The modal sidebar's title for a sidebar overlay kind.
-   * @param {string|undefined} kind
-   */
+  /** @param {string|undefined} kind */
   _sidebarLabel(kind) {
-    /** @type {Record<string, () => string>} */
-    const labels = {
-      'device-settings': () => t('Device settings'),
-      'device-schedule': () => t('Schedule'),
-      'device-gestures': () => t('Gestures'),
-      'panel-editor': () => this._panelEditorLabel(),
-      'panel-catalog': () => t('Add panel'),
-      updates: () => t('Updates'),
-      theme: () => t('Theme'),
-      logs: () => t('Logs'),
-    };
-    const label = kind ? labels[kind] : undefined;
-    if (!label) throw new Error(`Unknown sidebar kind: ${kind}`);
-    return label();
+    return DeviceScreen.sidebarLabel(this, kind);
   }
 
-  /** The Fleet device menu: the actions the overview can reach without a route change. */
   _deviceMenuModel() {
-    const top = this._store.getState().ui.overlays.at(-1);
-    if (top?.kind !== 'device-menu') return null;
-    const name = top.subject;
-    const enabled = this._store.getState().devices.byName[name]?.config.enabled !== false;
-    const at = (action) => () => {
-      this._selectDevice(name);
-      action();
-    };
-    return {
-      key: name,
-      anchorKey: top.anchorKey,
-      label: t('Actions for {name}').replace('{name}', this._panels.devices?.[name]?.friendly_name || name),
-      items: [
-        { label: t('View'), iconName: 'screen', onSelect: at(() => this._navigateToDevice(name)) },
-        { label: t('Panels'), iconName: 'panels', onSelect: at(() => this._router?.navigate({ view: 'device', device: name, panelView: 'panels' })) },
-        'divider',
-        { label: t('Logs'), iconName: 'log', onSelect: at(() => this._openLogs(name)) },
-        'divider',
-        {
-          label: enabled ? t('Disable') : t('Enable'),
-          iconName: enabled ? 'close-circle-outline' : 'check-circle-outline',
-          onSelect: () => DeviceEvents.toggleDevice(this, name),
-        },
-        { label: t('Remove'), iconName: 'delete', danger: true, onSelect: () => { this._removeTarget = name; } },
-      ],
-    };
+    return FleetScreen.deviceMenuModel(this);
   }
 
   /** @param {string} name @param {string} anchorKey */
   _toggleDeviceMenu(name, anchorKey) {
-    this._toggleAnchoredPopover('device-menu', anchorKey, name);
+    return FleetScreen.toggleDeviceMenu(this, name, anchorKey);
   }
 
-  /** Keep the Device header in step with the preview session it cannot see. */
+  /** Keep the Device header in step with the preview session it cannot see. @param {any} event */
   _onPreviewState(event) {
-    const detail = event.detail || {};
-    const previous = this.__previewState;
-    this.__previewState = detail;
-    this._store.actions.setPreviewIdle(Boolean(detail.idle));
-    if (detail.mode && detail.mode !== this._store.getState().ui.preview.mode) {
-      this._store.actions.setPreviewMode(detail.mode);
-    }
-    if (!previous || previous.idle !== detail.idle || previous.ready !== detail.ready
-        || previous.canInteract !== detail.canInteract || previous.mode !== detail.mode
-        || previous.sandboxChanged !== detail.sandboxChanged) {
-      this.requestUpdate();
-    }
+    return DeviceScreen.onPreviewState(this, event);
   }
 
   /** Ask the hub to redraw the device display. @param {string} name */
   async _redrawDisplay(name) {
-    if (!name || !this.entryId) return;
-    try {
-      await this.api.devices.refreshDisplay(this.entryId, name);
-      this._showToast(t('Display refreshed for "{name}"').replace('{name}', name), 'success');
-    } catch (error) {
-      this._showToast(error.message || t('Failed to refresh display'), 'error');
-    }
+    return DeviceScreen.redrawDisplay(this, name);
   }
 
-  /** Toggle the Connection & device card, closing the other side areas when it opens. */
   _toggleDetails() {
-    this._detailsExpanded = !this._detailsExpanded;
-    if (this._detailsExpanded) {
-      this._diagnosticsExpanded = false;
-      this._panelCardsExpanded = [];
-    }
-    writeStorage(DETAILS_EXPANDED_KEY, this._detailsExpanded ? '1' : '0');
-    writeStorage(DIAGNOSTICS_EXPANDED_KEY, this._diagnosticsExpanded ? '1' : '0');
-    writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
+    return DeviceScreen.toggleDetails(this);
   }
 
-  /** Toggle Diagnostics, closing the other side areas when it opens. */
   _toggleDiagnostics() {
-    this._diagnosticsExpanded = !this._diagnosticsExpanded;
-    if (this._diagnosticsExpanded) {
-      this._detailsExpanded = false;
-      this._panelCardsExpanded = [];
-    }
-    writeStorage(DETAILS_EXPANDED_KEY, this._detailsExpanded ? '1' : '0');
-    writeStorage(DIAGNOSTICS_EXPANDED_KEY, this._diagnosticsExpanded ? '1' : '0');
-    writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
+    return DeviceScreen.toggleDiagnostics(this);
   }
 
-  /** Toggle a device side-stack card, closing other side areas when it opens. @param {string} card */
+  /** @param {string} card */
   _togglePanelCard(card) {
-    const expanded = this._panelCardsExpanded.includes(card);
-    this._panelCardsExpanded = expanded
-      ? this._panelCardsExpanded.filter((entry) => entry !== card)
-      : [card];
-    if (!expanded) {
-      this._detailsExpanded = false;
-      this._diagnosticsExpanded = false;
-    }
-    writeStorage(DETAILS_EXPANDED_KEY, this._detailsExpanded ? '1' : '0');
-    writeStorage(DIAGNOSTICS_EXPANDED_KEY, this._diagnosticsExpanded ? '1' : '0');
-    writeStorage(PANEL_CARDS_EXPANDED_KEY, this._panelCardsExpanded.join(','));
-    if (card === 'theme' && !expanded && this._themesError) {
-      this._loadThemeLibrary(this.entryId, true);
-    }
+    return DeviceScreen.togglePanelCard(this, card);
   }
 
-  /** Copy a plain-text diagnostics report for a bug report. @param {string} name @param {any} status */
+  /** @param {string} name @param {any} status */
   async _copyDiagnostics(name, status) {
-    try {
-      await copyText(diagnosticsReport(name, status));
-      this._showToast(t('Diagnostics report copied'), 'success');
-    } catch (error) {
-      this._showToast(error.message || t('Failed to copy the report'), 'error');
-    }
+    return DeviceScreen.copyDiagnostics(this, name, status);
   }
 
-  /**
-   * Toggle idle in the preview, explaining when the device has no idle panels.
-   * @param {any} config
-   * @param {{ idle?: boolean }} previewState
-   */
+  /** @param {any} config @param {{ idle?: boolean }} previewState */
   _onPreviewIdle(config, previewState) {
-    if (!previewState?.idle && !idlePanelKeys(config?.idle_panel, config?.idle_panel_extra).length) {
-      this._showToast(t('No idle panels are configured'), 'error');
-      return;
-    }
-    this._callPreviewWorkspace('idleTimeout');
+    return DeviceScreen.onPreviewIdle(this, config, previewState);
   }
 
-  /** Call a preview-workspace action of the header or the Diagnostics card. @param {string} method @param {...any} args */
+  /** @param {string} method @param {...any} args */
   _callPreviewWorkspace(method, ...args) {
-    const element = this.renderRoot?.querySelector('nspanel-preview-workspace');
-    const action = element?.[method];
-    if (typeof action !== 'function') return;
-    action.apply(element, args);
+    return DeviceScreen.callPreviewWorkspace(this, method, ...args);
   }
 
   _devicePanels() {
-    return this._panels.devices?.[this._selectedDevice]?.panels || [];
+    return PanelModels.devicePanels(this);
   }
 
   /** @param {string} groupId */
   _togglePanelGroup(groupId) {
-    this._collapsedPanelGroups = this._collapsedPanelGroups.includes(groupId)
-      ? this._collapsedPanelGroups.filter((id) => id !== groupId)
-      : [...this._collapsedPanelGroups, groupId];
+    return PanelModels.togglePanelGroup(this, groupId);
   }
 
-  /**
-   * Prepare the Device workspace's panel groups for `views/panel-list.js`.
-   *
-   * Every entry carries its hub-rendered preview, role markers, move state and
-   * menu closures, so the view only renders and reports back through the model's
-   * callbacks.
-   *
-   * @param {any} device - the routed device state (`{ name, panels, config }`)
-   * @param {any} status - that device's status payload
-   */
+  /** @param {any} device @param {any} status */
   _panelListModel(device, status) {
-    const state = this._store.getState();
-    const panels = device?.panels || [];
-    const config = device?.config || {};
-    const systemPanels = state.hub.systemPanels || [];
-    const grouped = groupPanels(panels, systemPanels);
-    const portrait = isPortraitModel(config.display_model);
-    const systemKeys = new Set(systemPanels.map((entry) => entry.key).filter(Boolean));
-    // The hub opens the first navigation panel as home while none is configured
-    // (or the configured one is gone), so that panel carries the Home marker.
-    const homeKnown = panels.some((panel) => panel.key === config.home_panel) || systemKeys.has(config.home_panel);
-    const roleConfig = { ...config, home_panel: homeKnown ? config.home_panel : grouped.navigation[0]?.key };
-    const context = {
-      entryId: this.entryId,
-      device: device?.name ?? this._selectedDevice,
-      deviceConfig: config,
-      panels,
-      deviceInfo: status?.device_info || null,
-      api: this.api,
-    };
-    // Every card shares this context: serialise it once, not once per card.
-    const renderKey = previewRenderKey(context);
-    const descriptorFor = (panel) => this._panelTypes.find((type) => type.type_key === panel.type);
-    const nameOf = (panel) => panel.title || descriptorFor(panel)?.label || panel.key || t('Unnamed panel');
-    // A panel moves to any other device of the hub, enabled or not.
-    const otherDevices = state.devices.order
-      .filter((name) => name !== context.device && state.devices.byName[name])
-      .map((name) => ({ name, label: state.devices.byName[name].friendlyName || name }));
-    const moveItems = (panel) => (otherDevices.length
-      ? ['divider', {
-        label: t('Move to…'),
-        iconName: 'folder-move-outline',
-        submenu: otherDevices.map((target) => ({
-          label: target.label,
-          onSelect: () => Crud.movePanelToDevice(this, panel.key, target.name),
-        })),
-      }]
-      : []);
-
-    /**
-     * @param {Array} list
-     * @param {boolean} isNavigation
-     */
-    const userEntries = (list, isNavigation) => list.map((panel) => {
-      const index = panels.indexOf(panel);
-      const descriptor = descriptorFor(panel);
-      return {
-        key: panel.key,
-        kind: 'user',
-        sortable: true,
-        title: nameOf(panel),
-        typeLabel: descriptor?.label || panel.type || '',
-        itemCount: Array.isArray(panel.items) ? panel.items.length : 0,
-        invalid: panelHasOptionErrors(descriptor, panel, { popup: false }),
-        preview: renderSimulatorPreview(context, panel, index, renderKey),
-        roles: panelRoleMarkers(panel.key, roleConfig),
-        onEdit: () => this._openEdit(index),
-        menu: [
-          { label: t('Edit'), iconName: 'edit', onSelect: () => this._openEdit(index) },
-          { label: t('Duplicate'), iconName: 'content-copy', onSelect: () => Crud.duplicatePanel(this, panel.key) },
-          ...moveItems(panel),
-          'divider',
-          {
-            label: isNavigation ? t('Hide from navigation') : t('Show in navigation'),
-            iconName: isNavigation ? 'eye-off-outline' : 'eye-outline',
-            onSelect: () => this._toggleNavVisibility(panel.key),
-          },
-          'divider',
-          { label: t('Delete'), iconName: 'delete', danger: true, onSelect: () => this._confirmDelete(index) },
-        ],
-      };
-    });
-
-    /** @param {Array} list - the popups this device extends */
-    const popupEntries = (list) => list.map((entry) => ({
-      key: entry.key,
-      kind: 'popup',
-      title: entry.label || entry.key,
-      typeLabel: t('Popup'),
-      preview: renderSimulatorPreview(context, entry, -1, renderKey),
-      roles: panelRoleMarkers(entry.key, roleConfig),
-      onEdit: () => this._openSysPanelEdit(entry),
-      menu: [
-        { label: t('Edit'), iconName: 'edit', onSelect: () => this._openSysPanelEdit(entry) },
-        'divider',
-        { label: t('Reset to default'), iconName: 'restore', onSelect: () => this._resetSysPanelOverride(entry.key) },
-      ],
-    }));
-
-    const count = (list) => String(list.length);
-    // A search narrows every group to the rows that match; while it is active
-    // the list is not a place to reorder, and groups without a match are left out.
-    const query = (this._panelSearch || '').trim().toLocaleLowerCase();
-    const matches = (entry) => `${entry.title} ${entry.key} ${entry.typeLabel || ''}`.toLocaleLowerCase().includes(query);
-    const narrowed = (groups) => {
-      const visibleGroups = query
-        ? groups.map((group) => ({ ...group, dropEnabled: false, entries: group.entries.filter(matches) }))
-          .filter((group) => group.entries.length)
-        : groups;
-      // Search results stay visible; clearing the query restores each group's collapsed state.
-      return visibleGroups.map((group) => ({
-        ...group,
-        collapsed: !query && this._collapsedPanelGroups.includes(group.id),
-      }));
-    };
-    return {
-      emptyMessage: query ? t('No panels match this search.') : '',
-      groups: narrowed([
-        {
-          id: 'navigation',
-          title: grouped.navigation.length === 1
-            ? t('Navigation (1 panel)')
-            : t('Navigation ({count} panels)').replace('{count}', count(grouped.navigation)),
-          hint: t('Drag to reorder or move between groups'),
-          emptyMessage: t('Drop a panel here to show it in navigation.'),
-          dropEnabled: true,
-          entries: userEntries(grouped.navigation, true),
-        },
-        {
-          id: 'hidden',
-          title: grouped.hidden.length === 1
-            ? t('Hidden (1 panel)')
-            : t('Hidden ({count} panels)').replace('{count}', count(grouped.hidden)),
-          hint: t('Reached from other panels, not the header'),
-          emptyMessage: t('Drop a panel here to hide it from navigation.'),
-          dropEnabled: true,
-          entries: userEntries(grouped.hidden, false),
-        },
-        {
-          id: 'popups',
-          title: grouped.popups.length === 1
-            ? t('Popups (1 panel)')
-            : t('Popups ({count} panels)').replace('{count}', count(grouped.popups)),
-          hint: t('Popups this device extends'),
-          emptyMessage: t('Every popup is the built-in one. Extend one from Add panel.'),
-          dropEnabled: false,
-          entries: popupEntries(grouped.popups),
-        },
-      ]),
-      portrait,
-      menuKey: state.ui.overlays.at(-1)?.kind === 'panel-menu' ? state.ui.overlays.at(-1)?.subject : null,
-      submenuKey: state.ui.overlays.at(-1)?.kind === 'panel-menu' ? this._panelSubmenuKey : null,
-      selectedKey: this._selectedPanelKey,
-      onToggleMenu: (key) => this._togglePanelMenu(key),
-      onToggleSubmenu: (key) => this._togglePanelSubmenu(key),
-      onCloseMenu: () => this._closePanelMenu(),
-      onToggleGroup: (groupId) => this._togglePanelGroup(groupId),
-      onSelect: (key) => this._togglePanelSelection(key),
-      onDrop: (move) => Crud.movePanelToGroup(this, move.sourceKey, move.group, move.beforeKey),
-    };
+    return PanelModels.panelListModel(this, device, status);
   }
 
-  /**
-   * The Panels view's side card: the selected panel, or what the list is about
-   * while nothing is selected.
-   *
-   * @param {any} device - the routed device state (`{ name, panels, config }`)
-   * @param {any} status - that device's status payload
-   */
+  /** @param {any} device @param {any} status */
   _panelSideModel(device, status) {
-    const state = this._store.getState();
-    const panels = device?.panels || [];
-    const config = device?.config || {};
-    const grouped = groupPanels(panels, state.hub.systemPanels || []);
-    const systemPanels = state.hub.systemPanels || [];
-    const descriptorFor = (panel) => this._panelTypes.find((type) => type.type_key === panel?.type);
-    const key = this._selectedPanelKey;
-    // Every listed row is either one of the device's panels or a popup it
-    // replaces (stored among them), so the panel configs answer both.
-    const panel = key ? panels.find((entry) => entry.key === key) : null;
-    const titleOf = (panelKey) => {
-      const entry = panelKey ? panels.find((panelEntry) => panelEntry.key === panelKey) : null;
-      const system = panelKey ? systemPanels.find((systemEntry) => systemEntry.key === panelKey) : null;
-      if (!entry && !system) return '';
-      return entry?.title || descriptorFor(entry)?.label || entry?.key || system?.label || panelKey;
-    };
-    if (!panel) {
-      // What the device opens at both ends of its idle cycle: the configured home
-      // panel (or the hub's fallback to the first navigation panel) and the idle
-      // page, whose panel comes from the ordered idle list.
-      const idleKeys = idlePanelKeys(config.idle_panel, config.idle_panel_extra);
-      const idleTitles = idleKeys.map(titleOf).filter(Boolean);
-      const configuredHomeKey = config.home_panel || grouped.navigation[0]?.key || '';
-      const homePanelKey = panels.some((entry) => entry.key === configuredHomeKey) ? configuredHomeKey : '';
-      const idlePanelKey = idleKeys[0] && panels.some((entry) => entry.key === idleKeys[0])
-        ? idleKeys[0]
-        : '';
-      return {
-        kind: 'overview',
-        navigationCount: grouped.navigation.length,
-        hiddenCount: grouped.hidden.length,
-        popupCount: grouped.popups.length,
-        homePanel: titleOf(configuredHomeKey),
-        homePanelKey,
-        idlePanels: idleTitles.length > 1
-          ? t('{name} and {count} more')
-            .replace('{name}', idleTitles[0]).replace('{count}', String(idleTitles.length - 1))
-          : idleTitles[0] || '',
-        idlePanelKey: idleKeys[0] || '',
-        onSelectPanel: (panelKey) => this._togglePanelSelection(panelKey),
-      };
-    }
-    const descriptor = descriptorFor(panel);
-    const systemEntry = systemPanels.find((entry) => entry.key === key);
-    const index = panels.indexOf(panel);
-    const facts = [
-      [t('Type'), descriptor?.label || panel.type || ''],
-      [t('Key'), html`<code class="haui-panel-info-key">${panel.key}</code>`],
-      [t('Group'), systemEntry ? t('Popup') : panel.show_in_navigation === false ? t('Hidden') : t('Navigation')],
-    ];
-    if (Array.isArray(panel.items)) facts.push([t('Items'), String(panel.items.length)]);
-    // The hub opens the first navigation panel as home while none is configured.
-    const home = panel.key === (config.home_panel || grouped.navigation[0]?.key);
-    const roles = [
-      ...(home ? [t('Home panel')] : []),
-      ...(panel.key === config.idle_panel ? [t('Idle panel')] : []),
-    ];
-    if (roles.length) facts.push([t('Role'), roles.join(' · ')]);
-    const context = buildPreviewContext(
-      this.entryId, device?.name ?? this._selectedDevice, device, status, this.api, state.hub.themes,
-    );
-    // A popup override is edited and reset; a panel of the device is edited,
-    // duplicated and deleted, as its row's menu offers.
-    const actions = systemEntry
-      ? [
-        { label: t('Edit'), iconName: 'edit', variant: 'primary', onClick: () => this._openSysPanelEdit(systemEntry) },
-        { label: t('Reset to default'), iconName: 'restore', onClick: () => this._resetSysPanelOverride(panel.key) },
-      ]
-      : [
-        { label: t('Edit'), iconName: 'edit', variant: 'primary', onClick: () => this._openEdit(index) },
-        { label: t('Duplicate'), iconName: 'content-copy', onClick: () => Crud.duplicatePanel(this, panel.key) },
-        { label: t('Delete'), iconName: 'delete', danger: true, onClick: () => this._confirmDelete(index) },
-      ];
-    return {
-      kind: 'panel',
-      iconName: descriptor?.icon || 'panels',
-      title: panel.title || descriptor?.label || panel.key,
-      subtitle: descriptor?.label || panel.type || '',
-      description: descriptor?.description || '',
-      preview: renderSimulatorPreview(context, panel, systemEntry ? -1 : index, previewRenderKey(context)),
-      portrait: isPortraitModel(config.display_model),
-      facts,
-      actions,
-      previewExpanded: !this._panelPreviewCollapsed,
-      onTogglePreview: () => this._togglePanelPreview(),
-      onClose: () => { this._selectedPanelKey = null; },
-    };
+    return PanelModels.panelSideModel(this, device, status);
   }
 
-  /** Select a panel row; picking the selected row again clears the selection.
-   * @param {string} key */
+  /** @param {string} key */
   _togglePanelSelection(key) {
-    this._selectedPanelKey = this._selectedPanelKey === key ? null : key;
+    return PanelModels.togglePanelSelection(this, key);
   }
 
-  /** Fold or unfold the selected panel's render; the choice is remembered per browser. */
   _togglePanelPreview() {
-    this._panelPreviewCollapsed = !this._panelPreviewCollapsed;
-    writeStorage(PANEL_PREVIEW_FOLDED_KEY, this._panelPreviewCollapsed ? '1' : '0');
+    return PanelModels.togglePanelPreview(this);
   }
 
   /** @param {string} key */
   _togglePanelMenu(key) {
-    this._panelSubmenuKey = null;
-    const top = this._store.getState().ui.overlays.at(-1);
-    if (top?.kind === 'panel-menu' && top.subject === key) {
-      this._closePanelMenu();
-      return;
-    }
-    this._store.actions.pushOverlay({
-      kind: 'panel-menu',
-      anchorKey: overlayAnchor('panel-menu', key),
-      subject: key,
-      draft: null,
-    });
+    return PanelModels.togglePanelMenu(this, key);
   }
 
   /** @param {string} key */
   _togglePanelSubmenu(key) {
-    const opening = this._panelSubmenuKey !== key;
-    this._panelSubmenuKey = opening ? key : null;
-    if (opening && this.updateComplete) {
-      void this.updateComplete.then(() => {
-        this.renderRoot?.querySelector(`#haui-panel-submenu-${key} [role="menuitem"]`)?.focus();
-      });
-    }
+    return PanelModels.togglePanelSubmenu(this, key);
   }
 
   /** @param {boolean} [restoreFocus] */
   _closePanelMenu(restoreFocus = true) {
-    this._closeAnchoredPopover('panel-menu', restoreFocus);
+    return PanelModels.closePanelMenu(this, restoreFocus);
   }
 
+  /** @param {string} message */
   _renderLoading(message) {
-    return html`<div class="haui-container">
-      ${renderTitleHeader(this)}
-      <div class="haui-main-content">
-        ${emptyState({ message, iconName: null, className: 'haui-empty-state-loading' })}
-        ${this._haElementsSlow ? html`<div class="haui-loading-actions">
-          ${button({ label: t('Continue anyway'), variant: 'outline', onClick: () => this._forceRenderWithoutHaElements() })}
-          ${button({ label: t('Reload page'), variant: 'primary', onClick: () => this._reloadPage() })}
-        </div>` : nothing}
-      </div>
-      ${renderFooter(this)}
-    </div>`;
+    return DeviceScreen.renderLoading(this, message);
   }
 
   render() {
@@ -1976,172 +1148,79 @@ class NSPanelEditor extends LitElement {
   /* ── TFT install confirmation ───────────────────────────────────────────── */
 
   get _tftInstallParams() {
-    return {
-      title: t("Install display TFT?"),
-      message: t("The display model changed. Install the matching TFT now? The display cannot be used while the TFT updates."),
-      confirmText: t("Install TFT"),
-      cancelText: t("Not now"),
-      confirmVariant: "brand",
-    };
+    return DeviceConfig.tftInstallParams();
   }
 
   async _confirmTftInstall() {
-    const name = this._tftInstallTarget;
-    this._tftInstallTarget = null;
-    if (!name) return;
-    await DeviceEvents.installTft(this, { detail: { name } });
+    return DeviceConfig.confirmTftInstall(this);
   }
 
   _cancelTftInstall() {
-    this._tftInstallTarget = null;
-    this.requestUpdate();
+    return DeviceConfig.cancelTftInstall(this);
   }
 
   /* ── device config save handler ──────────────────────────────────────────── */
   /* Receives form state from nspanel-device-settings and saves directly.      */
 
-  async _onDeviceConfigSave(e) {
-    const cfg = e.detail?.config;
-    if (!cfg || !this._selectedDevice) return;
-    const previousModel = this._deviceConfig?.display_model;
-
-    // saveDeviceConfig shows the success or error toast; keep the dialog open on failure.
-    if (await this._saveDeviceConfig(clone(cfg), t("Device configuration saved"))) {
-      this._closeDeviceConfig();
-      // The display cannot report which layout it runs, so a model change
-      // needs the matching TFT.  The upload restarts the display, so ask
-      // first instead of installing on save.
-      if (cfg.display_model !== previousModel && cfg.update?.enabled !== false) {
-        this._tftInstallTarget = this._selectedDevice;
-      }
-    }
-    this.requestUpdate();
+  /** @param {any} event */
+  async _onDeviceConfigSave(event) {
+    return DeviceConfig.onDeviceConfigSave(this, event);
   }
 
   /* ── updates sidebar ──────────────────────────────────────────────── */
 
-  /** The Updates sidebar's body: the device's updates and its update settings. @param {string} name */
+  /** @param {string} name */
   _renderUpdates(name) {
-    const state = this._store.getState();
-    const device = state.devices.byName[name];
-    return html`<nspanel-updates-sidebar
-      .hass=${this.hass} .api=${this.api} .open=${true}
-      .deviceStatus=${device.status} .statusError=${this._store.getState().hub.statusError}
-      .deviceName=${name} .entryId=${this.entryId}
-      .config=${device.config}
-      @dialog-closed=${() => this._closeUpdates()}
-      @update-check=${() => this._store.actions.pollSelectedStatus()}
-      @save-update-settings=${(event) => this._saveUpdateSettings(event)}
-      @update-tft=${(event) => this._installThenRefresh(DeviceEvents.installTft(this, event))}
-      @update-firmware=${(event) => this._installThenRefresh(DeviceEvents.installFirmware(this, event))}
-      @update-control=${(event) => this._controlUpdate(name, event.detail)}
-    ></nspanel-updates-sidebar>`;
+    return DeviceSidebars.renderUpdates(this, name);
   }
 
-  /**
-   * Read the status as soon as an install request is answered, so the sidebar
-   * shows the install running (and stops offering it) without waiting for the
-   * next poll. @param {Promise<unknown>} request
-   */
+  /** @param {Promise<unknown>} request */
   async _installThenRefresh(request) {
-    await request;
-    await this._store.actions.pollSelectedStatus();
+    return DeviceSidebars.installThenRefresh(this, request);
   }
 
-  /** Open the Updates sidebar on the device's screen. @param {string} deviceName */
+  /** @param {string} deviceName */
   _openUpdates(deviceName) {
-    this._captureSidebarFocus();
-    this._store.actions.pushOverlay({ kind: 'updates', anchorKey: 'updates', subject: deviceName, draft: null });
+    return DeviceSidebars.openUpdates(this, deviceName);
   }
 
-  /**
-   * Start, put off or skip the device's scheduled firmware install, then read
-   * its status again so the sidebar shows the result.
-   * @param {string} name
-   * @param {{ action: 'install_now'|'defer'|'skip', seconds?: number }} detail
-   */
+  /** @param {string} name @param {{ action: 'install_now'|'defer'|'skip', seconds?: number }} detail */
   async _controlUpdate(name, detail) {
-    if (await this._store.actions.controlUpdate(name, detail.action, detail.seconds)) {
-      await this._store.actions.pollSelectedStatus();
-    }
+    return DeviceSidebars.controlUpdate(this, name, detail);
   }
 
+  /** @param {any} event */
   async _saveUpdateSettings(event) {
-    const update = event.detail?.update;
-    const deviceName = this._selectedDevice;
-    if (!update || !deviceName) return;
-    this.__pendingUpdateSettings = { deviceName, update: clone(update) };
-    if (this.__savingUpdateSettings) return;
-
-    this.__savingUpdateSettings = true;
-    try {
-      while (this.__pendingUpdateSettings) {
-        const pending = this.__pendingUpdateSettings;
-        this.__pendingUpdateSettings = null;
-        while (this._store.getState().hub.saving) {
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-        const config = this._store.selectors.configFor(pending.deviceName);
-        if (!config) continue;
-        await Crud.saveDeviceConfig(
-          this,
-          { ...config, update: pending.update },
-          '',
-          pending.deviceName,
-        );
-      }
-    } finally {
-      this.__savingUpdateSettings = false;
-    }
+    return DeviceSidebars.saveUpdateSettings(this, event);
   }
 
   _closeUpdates() {
-    this._store.actions.closeOverlay('updates', 'updates');
-    this._restoreSidebarFocus();
+    return DeviceSidebars.closeUpdates(this);
   }
 
   /* ── logs sidebar ─────────────────────────────────────────────────── */
 
-  /**
-   * Open the Logs sidebar on the screen shown, with one device selected or
-   * every device (`null`, Fleet's Latest events).
-   * @param {string|null} deviceName
-   */
+  /** @param {string|null} deviceName */
   _openLogs(deviceName) {
-    this._captureSidebarFocus();
-    this._store.actions.pushOverlay({ kind: 'logs', anchorKey: 'logs', subject: deviceName, draft: null });
+    return DeviceSidebars.openLogs(this, deviceName);
   }
 
   _closeLogs() {
-    this._store.actions.closeOverlay('logs', 'logs');
-    this._restoreSidebarFocus();
+    return DeviceSidebars.closeLogs(this);
   }
 
-  /** The Logs sidebar's device selection changed; '' is every device. @param {string} deviceName */
+  /** @param {string} deviceName */
   _selectLogsDevice(deviceName) {
-    this._store.actions.pushOverlay({ kind: 'logs', anchorKey: 'logs', subject: deviceName || null, draft: null });
+    return DeviceSidebars.selectLogsDevice(this, deviceName);
   }
 
-  /** Every device's lines and the device selector; the overlay's subject is the selected device. */
   _renderLogs() {
-    const state = this._store.getState();
-    const selected = state.ui.overlays.find((overlay) => overlay.kind === 'logs')?.subject || '';
-    const devices = state.devices.order.map((name) => ({ name, label: state.devices.byName[name].friendlyName }));
-    const logs = eventsByTime(devices.flatMap(({ name, label }) => (
-      state.devices.byName[name].status?.logs || []).map((line) => ({ line, device: name, deviceName: label }))));
-    return html`<nspanel-logs-sidebar .open=${true} .logs=${logs} .devices=${devices} .device=${selected}
-      @device-selected=${(event) => this._selectLogsDevice(event.detail.device)}
-      @copy-logs=${(event) => this._copyLogs(event.detail.text)}></nspanel-logs-sidebar>`;
+    return DeviceSidebars.renderLogs(this);
   }
 
   /** @param {string} text */
   async _copyLogs(text) {
-    try {
-      await copyText(text);
-      this._showToast(t('Logs copied'), 'success');
-    } catch (error) {
-      this._showToast(error.message || t('Failed to copy the logs'), 'error');
-    }
+    return DeviceSidebars.copyLogs(this, text);
   }
 
   _renderNotificationsView() {
@@ -2176,10 +1255,7 @@ class NSPanelEditor extends LitElement {
   _openTheme() {
     const name = this._selectedDevice;
     if (!name) return;
-    // A new history entry: Back returns to Fleet, where the sidebar was opened.
-    if (this._route?.view !== 'device' || this._route.device !== name) {
-      this._router?.navigate({ view: 'device', device: name, panelView: 'preview' });
-    }
+    this._ensureDeviceRoute(name);
     return ThemeEditor.openThemeSidebar(this);
   }
   _closeThemeSidebar()                   { return ThemeEditor.closeThemeSidebar(this); }

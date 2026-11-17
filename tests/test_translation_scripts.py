@@ -78,3 +78,20 @@ def test_merge_keeps_non_ascii_text_readable(tmp_path):
     )
     assert '"Close": "Schließen"' in de
     assert de.endswith("\n")
+
+
+def test_extract_finds_a_translate_call_wrapped_by_the_formatter(tmp_path):
+    repo = _repo(tmp_path)
+    (repo / "custom_components" / "nspanel_haui" / "page.py").write_text(
+        "def reason(self):\n"
+        "    return self.translate(\n"
+        '        "A sentence too long for one line"  # noqa: E501\n'
+        "    )\n"
+    )
+
+    result = _run(repo, "extract_translations.py")
+
+    assert result.returncode == 0, result.stderr
+    locale = repo / "custom_components" / "nspanel_haui" / "haui" / "locale"
+    en = json.loads((locale / "en.json").read_text(encoding="utf-8"))["text"]
+    assert en["A sentence too long for one line"] == "A sentence too long for one line"

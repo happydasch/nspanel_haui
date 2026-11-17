@@ -527,13 +527,14 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         Covers the panel's main entity (keyed ``PAGE_ENTITY_KEY``: it applies
         anywhere on the page), page-specific widget/entity links, function
         components with an item (header buttons, clock entity buttons) and the
-        grid/row tiles (keyed by each tile's overlay).
+        grid/row tiles (keyed by each tile's overlay). An entity Home Assistant
+        does not have is named too: its widget shows it as unavailable.
         """
         result: dict[str, str] = {}
 
         def add(component: Any, item: HAUIItem | None) -> None:
             entity_id = item.get_item_id() if item is not None else ""
-            if not entity_id or not self.app.item_exists(entity_id):
+            if not entity_id:
                 return
             name = getattr(component, "name", None)
             if name is None and isinstance(component, tuple | list):
@@ -545,7 +546,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
             main = self._extract_entity_id(
                 self.panel.get("item_id", None) or self.panel.get("item", None)
             )
-            if main and self.app.item_exists(main):
+            if main:
                 result[PAGE_ENTITY_KEY] = main
         for component, item in self.entity_map_components():
             add(component, item)

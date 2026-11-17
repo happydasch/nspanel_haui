@@ -7,7 +7,7 @@
  */
 
 import { html, nothing } from './lit-import.js';
-import { t } from './localize.js';
+import { t, stateNames } from './localize.js';
 import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 
 /** Override field names that can be set on any item config.
@@ -39,25 +39,86 @@ function getDomains(entityIds) {
     .map(([d]) => d);
 }
 
+/* ── states of an entity ───────────────────────────────────────────────── */
+
+/** An attribute, or a value inside one by a path (`["forecast", 0, "condition"]`), as the hub reads it. */
+function attributeValue(attributes, attr) {
+  let path = attr;
+  if (typeof attr === 'string' && attr.startsWith('[')) {
+    try { path = JSON.parse(attr); } catch { path = attr; }
+  }
+  if (!Array.isArray(path)) return attributes?.[path];
+  let value = attributes;
+  for (const key of path) {
+    if (value == null) return undefined;
+    value = value[key];
+  }
+  return value;
+}
+
+/**
+ * The states an item can give a value of its own: the entity's current state
+ * first, then the states the display has names for, a select's options and a
+ * climate entity's modes. With a `state` attribute the item's state is that
+ * attribute, of which only the current value is known; the hub matches a
+ * text value only.
+ *
+ * @param {object} hass
+ * @param {string} entityId
+ * @param {unknown} [stateAttr] - the item's `state` field
+ * @returns {{ value: string, label: string }[]}
+ */
+export function entityStateSuggestions(hass, entityId, stateAttr = '') {
+  if (!entityId) return [];
+  const stateObj = hass?.states?.[entityId];
+  if (stateAttr !== '' && stateAttr != null) {
+    const current = attributeValue(stateObj?.attributes, stateAttr);
+    return typeof current === 'string' && current !== '' ? [{ value: current, label: '' }] : [];
+  }
+  const names = stateNames(entityId.split('.')[0], stateObj?.attributes?.device_class);
+  const lists = [stateObj?.attributes?.options, stateObj?.attributes?.hvac_modes]
+    .flatMap((list) => (Array.isArray(list) ? list : []));
+  const values = [stateObj?.state, ...Object.keys(names), ...lists, 'unavailable']
+    .filter((value) => typeof value === 'string' && value !== '');
+  return [...new Set(values)].map((value) => ({ value, label: names[value] || '' }));
+}
+
 /* ── entity picker field ───────────────────────────────────────────────── */
 
-/** Entity lists per `hass.states` object, then per domain filter. */
+/** Entity lists per `hass.states` and entity-registry snapshot, then domain filter. */
 const _entityListCache = new WeakMap();
+const EMPTY_ENTITY_REGISTRY = {};
 
 /** Rows a picker's dropdown shows at once; a longer list is narrowed by typing. */
 const ENTITY_MATCH_LIMIT = 100;
 
 /**
- * The picker's entities and their domains. HA replaces `hass.states` on every
- * state change, so caching per states object lets all pickers rendered for one
- * hass share a single scan. The sorted list is built on first use: a render
- * needs only the domains, an open dropdown needs the entities.
+ * Entity labels prefer HA's registry name, which omits the device prefix added
+ * to the legacy `friendly_name` state attribute.
  */
-function entityListFor(states, domain) {
-  let byDomain = _entityListCache.get(states);
+export function entityDisplayName(hass, entityId) {
+  return hass?.entities?.[entityId]?.name
+    || hass?.states?.[entityId]?.attributes?.friendly_name
+    || '';
+}
+
+/**
+ * The picker's entities and their domains. HA replaces `hass.states` and
+ * `hass.entities` on updates, so caching per snapshot lets all pickers share a
+ * single scan while invalidating names when the registry changes.
+ */
+function entityListFor(hass, domain) {
+  const states = hass?.states || EMPTY_ENTITY_REGISTRY;
+  const registry = hass?.entities || EMPTY_ENTITY_REGISTRY;
+  let byRegistry = _entityListCache.get(states);
+  if (!byRegistry) {
+    byRegistry = new WeakMap();
+    _entityListCache.set(states, byRegistry);
+  }
+  let byDomain = byRegistry.get(registry);
   if (!byDomain) {
     byDomain = new Map();
-    _entityListCache.set(states, byDomain);
+    byRegistry.set(registry, byDomain);
   }
   const key = domain || '';
   if (!byDomain.has(key)) {
@@ -69,8 +130,10 @@ function entityListFor(states, domain) {
       entities: () => (entities ??= entityIds
         .sort((a, b) => a.localeCompare(b))
         .map((entityId) => {
-          const name = states[entityId]?.attributes?.friendly_name || entityId;
-          return { entityId, name, search: `${entityId}\n${name}`.toLowerCase() };
+          const name = entityDisplayName(hass, entityId) || entityId;
+          const friendlyName = states[entityId]?.attributes?.friendly_name;
+          const search = [entityId, name, friendlyName].filter(Boolean).join('\n').toLowerCase();
+          return { entityId, name, search };
         })),
     });
   }
@@ -137,7 +200,7 @@ export function fillEntityDropdown(dropdown, { matches, total }) {
 }
 
 export function renderEntityPicker({ id, value, label, hint, placeholder, hass, domain, onInput, onSelect }) {
-  const entityList = entityListFor(hass?.states || {}, domain);
+  const entityList = entityListFor(hass, domain);
   const { domains } = entityList;
   const dropdownId = `${id}-dropdown`;
 

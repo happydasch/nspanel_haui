@@ -104,7 +104,8 @@ function selectedPanel({
 /**
  * What the panel list is about while no panel is selected: how many panels each
  * group holds, which panel the device opens as home and while idle, and how the
- * rows are worked with.
+ * rows are worked with. It sits in the side stack as plain content — no card of
+ * its own and no heading — because the list beside it already is the Panels view.
  *
  * @param {PanelsOverview} model
  */
@@ -140,43 +141,38 @@ function panelsOverview({
       text: t('The row menu duplicates, hides and deletes a panel.'),
     },
   ];
-  return surface({
-    className: 'haui-panel-info haui-panels-overview',
-    leading: html`<span class="haui-panel-info-icon">${icon('panels')}</span>`,
-    title: t('About panels'),
-    subtitle: t('Select a panel in the list to see its details.'),
-    body: html`
-      <ul class="haui-panels-overview-groups">
-        ${groups.map((group) => html`<li data-group=${group.key}>
-          ${icon(group.iconName)}<span>${group.label}</span>${countBadge(group.count)}
-        </li>`)}
-      </ul>
-      <div class="haui-panels-overview-roles">
-        ${roles.map((role) => {
-          const label = t('Select {role}: {name}')
-            .replace('{role}', role.label).replace('{name}', role.value);
-          return html`<button type="button" data-role=${role.key}
-            class="haui-panels-overview-role-tile"
-            aria-label=${label} title=${label}
-            ?disabled=${!role.panelKey || !onSelectPanel}
-            @click=${role.panelKey && onSelectPanel ? () => onSelectPanel(role.panelKey) : null}>
-            <span class="haui-panels-overview-role-heading">
-              <span class=${`haui-panel-role haui-panels-overview-role-icon haui-panel-role-${role.key}`}>${icon(role.iconName)}</span>
-              <span class="haui-panels-overview-role-label">${role.label}</span>
-            </span>
+  return html`<div class="haui-panels-overview">
+    <ul class="haui-panels-overview-groups">
+      ${groups.map((group) => html`<li data-group=${group.key}>
+        ${icon(group.iconName)}<span>${group.label}</span>${countBadge(group.count)}
+      </li>`)}
+    </ul>
+    <div class="haui-panels-overview-roles">
+      ${roles.map((role) => {
+        const label = t('Select {role}: {name}')
+          .replace('{role}', role.label).replace('{name}', role.value);
+        return html`<button type="button" data-role=${role.key}
+          class="haui-panels-overview-role-tile"
+          aria-label=${label} title=${label}
+          ?disabled=${!role.panelKey || !onSelectPanel}
+          @click=${role.panelKey && onSelectPanel ? () => onSelectPanel(role.panelKey) : null}>
+          <span class=${`haui-panel-role haui-panels-overview-role-icon haui-panel-role-${role.key}`}>${icon(role.iconName)}</span>
+          <span class="haui-panels-overview-role-text">
+            <span class="haui-panels-overview-role-label">${role.label}</span>
             <span class="haui-panels-overview-role-value">${role.value}</span>
-          </button>`;
-        })}
-      </div>
-      <ul class="haui-panels-overview-hints">
-        ${hints.map((hint) => html`<li data-hint=${hint.key}>${icon(hint.iconName)}<span>${hint.text}</span></li>`)}
-      </ul>`,
-  });
+          </span>
+        </button>`;
+      })}
+    </div>
+    <ul class="haui-panels-overview-hints">
+      ${hints.map((hint) => html`<li data-hint=${hint.key}>${icon(hint.iconName)}<span>${hint.text}</span></li>`)}
+    </ul>
+  </div>`;
 }
 
 /**
- * The side card of the Panels view: the selected panel, or the general overview
- * of the list while nothing is selected.
+ * The Panels view's side stack: the selected panel as a card, or the list's
+ * overview as plain content while nothing is selected.
  *
  * @param {PanelInfo|PanelsOverview} model
  */

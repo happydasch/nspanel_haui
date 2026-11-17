@@ -2,9 +2,11 @@ import './support/browser.mjs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { render } from './support/render.mjs';
+import { flush, render } from './support/render.mjs';
 
-import { renderFleetView, carouselEdgesFrom } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
+import { renderFleetView, carouselEdgesFrom, carouselSlots, deviceSlotCount } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
+import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
+import { makeHost } from './fake-host.mjs';
 
 function templateText(template) {
   return render(template).innerHTML;
@@ -51,7 +53,7 @@ test('Fleet uses real device status and versions in the summary, inventory and e
   assert.match(text, /Update available/);
 });
 
-test('the summary strip reports health and one segment per device', () => {
+test('the summary strip reports health and the footer one segment per device', () => {
   const deviceFor = (name, status) => ({
     name, device: { friendlyName: name, config: {}, panels: [] }, status, updates: false,
   });
@@ -70,7 +72,6 @@ test('the summary strip reports health and one segment per device', () => {
   const overview = inventory.querySelector('.haui-inventory-overview');
   const table = inventory.querySelector('.haui-device-table');
   const summary = inventory.querySelector('.haui-fleet-summary');
-  const bar = inventory.querySelector('.haui-inventory-bar');
   assert.ok(overview && table && overview.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary && overview.contains(summary));
   const orb = summary?.querySelector('.haui-fleet-orb');
@@ -86,7 +87,13 @@ test('the summary strip reports health and one segment per device', () => {
   assert.equal(heading.closest('.haui-fleet-inventory-heading')?.parentElement, count.parentElement);
   assert.ok(lead.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary?.querySelector('.haui-inventory-update'));
-  assert.ok(bar && table.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_PRECEDING);
+  // The segments close the card: always drawn, in the inventory's footer under the table.
+  const footer = inventory.querySelector('.haui-inventory-footer');
+  const bar = footer?.querySelector('.haui-fleet-bar');
+  assert.ok(bar && table.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.deepEqual([...bar.querySelectorAll('span')].map(({ className }) => className),
+    ['is-online', 'is-online']);
+  assert.equal(bar.getAttribute('aria-label'), '2 of 2 devices connected');
   assert.match(summary.textContent, /All devices connected/);
 
   const partial = render(renderFleetView({
@@ -107,7 +114,8 @@ test('Fleet renders inventory and latest-event content', () => {
     devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: { connected: true } }],
     events: [
       { deviceName: 'Kitchen', line: eventLine('WARNING', 'Slow heartbeat') },
-      { deviceName: 'Office', line: eventLine('INFO', 'Started', 60_000) },
+      { deviceName: 'Office', line: eventLine('ERROR', 'Template failed', 60_000) },
+      { deviceName: 'Office', line: eventLine('INFO', 'Started', 120_000) },
     ],
     version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
   });
@@ -115,7 +123,9 @@ test('Fleet renders inventory and latest-event content', () => {
   assert.ok(root.querySelector('.haui-device-inventory'));
   assert.ok(root.querySelector('.haui-event-list'));
   assert.match(root.textContent, /Slow heartbeat/);
-  assert.match(root.textContent, /Started/);
+  assert.match(root.textContent, /Template failed/);
+  // The timeline shows the last day's problems only; the Logs sidebar has every line.
+  assert.doesNotMatch(root.textContent, /Started/);
 });
 
 test('Fleet has a useful empty state when there are no devices or events', () => {
@@ -184,23 +194,107 @@ test('the carousel arrows follow the scroll extents and the summary waits for st
   assert.match(atEnd, /aria-label="Scroll devices right"/);
 });
 
-test('the carousel fades only the edges with cards beyond them', () => {
+test('the right carousel edge always fades while the left follows scroll position', () => {
   const deviceFor = (name) => ({ name, device: { friendlyName: name, config: {}, panels: [] }, status: null, updates: false });
-  const wrap = (carousel) => render(renderFleetView({
+  const carousel = (edges) => render(renderFleetView({
     devices: [deviceFor('kitchen'), deviceFor('office')], events: [], version: '0.5.0',
-    onOpenDevice() {}, onReorderDevices() {}, carousel,
-  })).querySelector('.haui-fleet-carousel-wrap').classList;
-  assert.deepEqual([...wrap({ atStart: true, atEnd: true })], ['haui-fleet-carousel-wrap']);
-  assert.ok(wrap({ atStart: true, atEnd: false }).contains('is-clipped-end'));
-  assert.ok(!wrap({ atStart: true, atEnd: false }).contains('is-clipped-start'));
-  const middle = wrap({ atStart: false, atEnd: false });
-  assert.ok(middle.contains('is-clipped-start') && middle.contains('is-clipped-end'));
+    onOpenDevice() {}, onReorderDevices() {}, carousel: edges,
+  })).querySelector('.haui-fleet-carousel').classList;
+  const atBothEnds = carousel({ atStart: true, atEnd: true });
+  assert.ok(atBothEnds.contains('has-right-fade'));
+  assert.ok(!atBothEnds.contains('is-clipped-start'));
+  const atStart = carousel({ atStart: true, atEnd: false });
+  assert.ok(atStart.contains('has-right-fade'));
+  assert.ok(!atStart.contains('is-clipped-start'));
+  const middle = carousel({ atStart: false, atEnd: false });
+  assert.ok(middle.contains('is-clipped-start') && middle.contains('has-right-fade'));
 });
 
 test('the carousel edges follow scroll position', () => {
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 1000, clientWidth: 400, scrollLeft: 0 }), { atStart: true, atEnd: false });
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 1000, clientWidth: 400, scrollLeft: 600 }), { atStart: false, atEnd: true });
   assert.deepEqual(carouselEdgesFrom({ scrollWidth: 300, clientWidth: 400, scrollLeft: 0 }), { atStart: true, atEnd: true });
+});
+
+test('empty ghost cards fill the row outside the real carousel and stay inert', () => {
+  const deviceFor = (name) => ({ name, device: { friendlyName: name, config: {}, panels: [] }, status: null, updates: false });
+  const root = render(renderFleetView({
+    devices: [deviceFor('kitchen')], events: [], version: '0.5.0',
+    onOpenDevice() {}, onReorderDevices() {},
+    slots: { room: 640, count: 3, width: 300, height: 280, left: 340, top: 4 },
+  }));
+  const carousel = root.querySelector('.haui-fleet-carousel');
+  const overlay = root.querySelector('.haui-device-slots');
+  const slots = [...root.querySelectorAll('.haui-device-slot-card')];
+  assert.equal(slots.length, 3);
+  assert.equal(overlay.parentElement, root.querySelector('.haui-fleet-carousel-wrap'));
+  assert.notEqual(overlay.parentElement, carousel);
+  assert.ok(slots.every((slot) => slot.getAttribute('aria-hidden') === 'true'));
+  assert.ok(slots.every((slot) => slot.textContent === '' && !slot.querySelector('button, ha-icon')));
+  assert.equal(overlay.style.getPropertyValue('--haui-device-slot-width'), '300px');
+  assert.equal(overlay.style.getPropertyValue('--haui-device-slot-height'), '280px');
+  assert.equal(slots[0].style.getPropertyValue('--haui-device-slot-left'), '340px');
+  assert.equal(slots[1].style.getPropertyValue('--haui-device-slot-left'), '656px');
+  assert.equal(slots[2].style.getPropertyValue('--haui-device-slot-left'), '972px');
+  assert.equal(overlay.style.getPropertyValue('--haui-device-slots-top'), '4px');
+  assert.ok(carousel.classList.contains('has-right-fade'));
+  assert.ok(!carousel.classList.contains('is-clipped-start'));
+  assert.ok(overlay.classList.contains('has-right-fade'));
+});
+
+test('ghosts are only rendered for a measured row with available space', () => {
+  const fleet = (extra) => render(renderFleetView({
+    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: null, updates: false }],
+    events: [], version: '0.5.0', onOpenDevice() {}, onReorderDevices() {}, ...extra,
+  }));
+  const slots = { room: 640, count: 2, width: 300, height: 280, top: 4 };
+  assert.equal(fleet({}).querySelector('.haui-device-slot-card'), null);
+  assert.equal(fleet({ slots: { ...slots, count: 0 } }).querySelector('.haui-device-slot-card'), null);
+});
+
+test('ghost count rounds up to complete the row even when the last card is clipped', () => {
+  assert.equal(deviceSlotCount({ room: 320, cardWidth: 320 }), 1);
+  assert.equal(deviceSlotCount({ room: 335, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 351, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 656, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 655, cardWidth: 320 }), 2);
+  assert.equal(deviceSlotCount({ room: 1000, cardWidth: 320 }), 4);
+  assert.equal(deviceSlotCount({ room: 319, cardWidth: 320 }), 1);
+  assert.equal(deviceSlotCount({ room: 0, cardWidth: 320 }), 0);
+});
+
+test('carousel sizing places ghosts outside real scroll extents', () => {
+  const realCard = { getBoundingClientRect: () => ({ left: 4, right: 324, top: 4, width: 320, height: 280 }) };
+  const carousel = {
+    clientWidth: 944,
+    scrollWidth: 944,
+    scrollLeft: 0,
+    querySelectorAll: () => [realCard],
+    getBoundingClientRect: () => ({ left: 0, top: 0 }),
+  };
+  const layout = carouselSlots(carousel);
+  assert.equal(layout.count, 2);
+  assert.equal(layout.room, 600);
+  assert.equal(layout.left, 340);
+  assert.equal(layout.width, 320);
+  assert.equal(layout.height, 280);
+  assert.deepEqual(carouselEdgesFrom(carousel), { atStart: true, atEnd: true });
+});
+
+test('a row with real device cards to scroll to shows no ghosts', () => {
+  const cards = [
+    { getBoundingClientRect: () => ({ left: 32, right: 352, top: 32, width: 320, height: 280 }) },
+  ];
+  // The row is 944 wide but the last card ends at 352: a row that scrolled to its end and still
+  // has cards beyond it keeps its own extent, so its last card's right edge fills the view.
+  const carousel = {
+    clientWidth: 400,
+    scrollWidth: 944,
+    querySelectorAll: (selector) => selector === '.haui-device-slot-card' ? [] : cards,
+    getBoundingClientRect: () => ({ left: 32, top: 28 }),
+  };
+  // 32 + 400 - 4 - 352 - 16 = 60px of room: less than one card, so the row shows nothing.
+  assert.equal(carouselSlots(carousel).count, 0);
 });
 
 test('an open device menu renders its actions for that device', () => {
@@ -227,9 +321,181 @@ test('an open device menu renders its actions for that device', () => {
   assert.match(text, /device-menu:kitchen/);
 });
 
+test('an inventory row selects its device on Fleet and brings its card into view', () => {
+  const deviceFor = (name) => ({
+    name, device: { friendlyName: name, config: {}, panels: [] }, status: { connected: true, logs: [] }, updates: false,
+  });
+  const chosen = [];
+  const view = (selectedDevice) => renderFleetView({
+    devices: [deviceFor('kitchen'), deviceFor('office')],
+    events: [], version: '0.5.0', selectedDevice,
+    onSelectDevice: (name) => chosen.push(name), onOpenDevice() {}, onReorderDevices() {},
+  });
+  const root = render(view(null));
+  const carousel = root.querySelector('.haui-fleet-carousel');
+  const scrolled = [];
+  carousel.scrollBy = (options) => scrolled.push(options.left);
+  carousel.getBoundingClientRect = () => ({ left: 0, right: 400, width: 400 });
+  const officeCard = [...root.querySelectorAll('.haui-device-card')].find((card) => card.textContent.includes('office'));
+  officeCard.getBoundingClientRect = () => ({ left: 600, right: 900, width: 300 });
+  const officeRow = [...root.querySelectorAll('.haui-device-row[tabindex]')].find((row) => row.textContent.includes('office'));
+  officeRow.querySelector('.haui-device-row-ip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  assert.deepEqual(chosen, ['office']);
+  assert.equal(scrolled.length, 1);
+  assert.ok(scrolled[0] > 0);
+
+  render(view('office'), root);
+  const current = [...root.querySelectorAll('[aria-current="true"]')];
+  assert.equal(current.length, 2);
+  assert.ok(current.every((node) => node.textContent.includes('office')));
+  // Selecting the selected device again clears it without moving the carousel.
+  officeRow.querySelector('.haui-device-row-ip').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  assert.deepEqual(chosen, ['office', 'office']);
+  assert.equal(scrolled.length, 1);
+  // The strip under a card selects the same device.
+  officeCard.querySelector('.haui-device-card-info').click();
+  assert.deepEqual(chosen, ['office', 'office', 'office']);
+});
+
+test('Fleet comes back with the selected device centred in the carousel', () => {
+  const editor = makeHost({
+    device_order: ['kitchen', 'hall', 'office'],
+    devices: {
+      kitchen: { config: {}, panels: [] }, hall: { config: {}, panels: [] }, office: { config: {}, panels: [] },
+    },
+  }, () => { throw new Error('unexpected request'); });
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  const deviceFor = (name) => ({
+    name, device: { friendlyName: name, config: {}, panels: [] }, status: { connected: true, logs: [] }, updates: false,
+  });
+  const row = render(renderFleetView({
+    devices: ['kitchen', 'hall', 'office'].map(deviceFor),
+    events: [], version: '0.5.0', selectedDevice: 'office',
+    onOpenDevice() {}, onReorderDevices() {},
+  }));
+  const carousel = row.querySelector('.haui-fleet-carousel');
+  const scrolled = [];
+  carousel.scrollBy = (options) => scrolled.push(options);
+  carousel.getBoundingClientRect = () => ({ left: 0, right: 480, width: 480 });
+  [...row.querySelectorAll('.haui-device-card')].forEach((card, index) => {
+    card.getBoundingClientRect = () => ({ left: index * 320, right: index * 320 + 320, width: 320 });
+  });
+  editor.renderRoot = row;
+
+  // Nothing is selected: the row stays at its first card.
+  editor._watchCarousel();
+  assert.deepEqual(scrolled, []);
+
+  // The device screen is shown instead: Fleet's row is gone.
+  editor.renderRoot = { querySelector: () => null };
+  editor._watchCarousel();
+  assert.deepEqual(scrolled, []);
+
+  // Back on Fleet the selection is kept, and its card comes back to the middle in one jump.
+  editor.renderRoot = row;
+  editor._fleetSelection = 'office';
+  editor._watchCarousel();
+  assert.deepEqual(scrolled, [{ left: 640 + 160 - 240, behavior: 'auto' }]);
+
+  // A row that stays on screen is measured, never scrolled again.
+  editor._watchCarousel();
+  assert.equal(scrolled.length, 1);
+});
+
+test('a selected device scopes Fleet\'s latest events to itself and names it under the title', () => {
+  const deviceFor = (name, label) => ({
+    name, device: { friendlyName: label, config: {}, panels: [] }, status: { connected: true, logs: [] },
+    updates: false,
+  });
+  const base = {
+    devices: [deviceFor('kitchen', 'Kitchen'), deviceFor('office', 'Office')],
+    events: [
+      { device: 'kitchen', deviceName: 'Kitchen', line: eventLine('WARNING', 'kitchen says hello') },
+      { device: 'kitchen', deviceName: 'Kitchen', line: eventLine('INFO', 'kitchen started') },
+      { device: 'office', deviceName: 'Office', line: eventLine('ERROR', 'office says hello') },
+    ],
+    version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
+  };
+  const timeline = (data) => render(renderFleetView(data)).querySelector('.haui-event-list').textContent;
+
+  const all = timeline(base);
+  assert.match(all, /kitchen says hello/);
+  assert.match(all, /office says hello/);
+  // Info lines are the Logs sidebar's; the timeline carries the problems of the last day.
+  assert.doesNotMatch(all, /kitchen started/);
+
+  const scoped = timeline({ ...base, selectedDevice: 'office' });
+  assert.match(scoped, /office says hello/);
+  assert.doesNotMatch(scoped, /kitchen says hello/);
+
+  const scopedRoot = render(renderFleetView({ ...base, selectedDevice: 'office' }));
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header h2').textContent, 'Latest events');
+  // The device opens the header's second line, where a long name truncates instead of wrapping.
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'Office');
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
+  const everyoneRoot = render(renderFleetView(base));
+  // Nothing selected: the same line says the timeline covers every device.
+  assert.equal(everyoneRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'All devices');
+  assert.equal(everyoneRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
+
+  // The device, not its label, decides: two devices named alike never share lines.
+  const mislabelled = timeline({
+    ...base,
+    selectedDevice: 'office',
+    events: base.events.map((event) => ({ ...event, deviceName: 'Office' })),
+  });
+  assert.match(mislabelled, /office says hello/);
+  assert.doesNotMatch(mislabelled, /kitchen says hello/);
+});
+
+test('Logs opens on the device Fleet selected, and on every device without one', async () => {
+  const editor = makeHost({
+    device_order: ['kitchen', 'office'],
+    devices: { kitchen: { config: {}, panels: [] }, office: { config: {}, panels: [] } },
+  }, (method, path) => { throw new Error(`unexpected request ${method} ${path}`); });
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  editor.renderRoot = { querySelector: () => null, activeElement: null };
+  editor._fleetSelection = null;
+  const now = new Date().toISOString();
+  editor.api.status.getAll = async () => ({
+    kitchen: { connected: true, logs: [`[${now}] INFO kitchen says hello`, `[${now}] ERROR kitchen failed`] },
+    office: { connected: true, logs: [`[${now}] WARNING office says hello`] },
+  });
+  editor.api.updates.rollout = async () => null;
+  editor.store.actions.startAllStatusPolling();
+  await flush(3);
+
+  try {
+    const fleet = () => render(editor._renderFleetScreen());
+    const timeline = (root) => root.querySelector('.haui-event-list').textContent;
+    const overlays = () => editor.store.getState().ui.overlays.map(({ kind, subject }) => [kind, subject]);
+
+    const everyone = fleet();
+    assert.match(timeline(everyone), /kitchen failed/);
+    assert.match(timeline(everyone), /office says hello/);
+    // Fleet lists the problems; the info line is only in the sidebar's full log.
+    assert.doesNotMatch(timeline(everyone), /kitchen says hello/);
+    everyone.querySelector('.haui-event-list .haui-event-logs').click();
+    assert.deepEqual(overlays(), [['logs', null]]);
+    editor.store.actions.closeOverlay('logs', 'logs');
+
+    editor._fleetSelection = 'office';
+    const selected = fleet();
+    assert.match(timeline(selected), /office says hello/);
+    assert.doesNotMatch(timeline(selected), /kitchen failed/);
+    selected.querySelector('.haui-event-list .haui-event-logs').click();
+    assert.deepEqual(overlays(), [['logs', 'office']]);
+  } finally {
+    // The poller's interval would keep the test process alive.
+    editor.store.actions.stopAllStatusPolling();
+  }
+});
+
 test('Fleet lists the newest events of every device first', () => {
   const start = Date.now() - 60 * 60 * 1000;
-  const line = (minute, message) => `[${new Date(start + minute * 60_000).toISOString()}] INFO ${message}`;
+  const line = (minute, message) => `[${new Date(start + minute * 60_000).toISOString()}] WARNING ${message}`;
   const view = renderFleetView({
     devices: [{
       name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] },
@@ -250,14 +516,16 @@ test('Fleet lists the newest events of every device first', () => {
   ]);
 });
 
-test('Fleet shows all distinct events from the last 24 hours and omits older or undated logs', () => {
+test('Fleet shows all distinct problems from the last 24 hours and omits info, older or undated logs', () => {
   const events = Array.from({ length: 12 }, (_, index) => ({
     deviceName: 'Kitchen',
-    line: eventLine('INFO', `event ${index}`, index * 60_000),
+    line: eventLine(index % 2 ? 'WARNING' : 'ERROR', `event ${index}`, index * 60_000),
   }));
   events.push(
-    { deviceName: 'Kitchen', line: eventLine('INFO', 'older than a day', 24 * 60 * 60 * 1000 + 1) },
-    { deviceName: 'Kitchen', line: eventLine('INFO', 'future event', -60_000) },
+    { deviceName: 'Kitchen', line: eventLine('INFO', 'just started', 5_000) },
+    { deviceName: 'Kitchen', line: eventLine('DEBUG', 'heartbeat', 6_000) },
+    { deviceName: 'Kitchen', line: eventLine('ERROR', 'older than a day', 24 * 60 * 60 * 1000 + 1) },
+    { deviceName: 'Kitchen', line: eventLine('ERROR', 'future event', -60_000) },
     { deviceName: 'Kitchen', line: 'undated event' },
   );
   const root = render(renderFleetView({
@@ -272,9 +540,74 @@ test('Fleet shows all distinct events from the last 24 hours and omits older or 
   assert.match(root.querySelector('.haui-event-list').textContent, /Last 24 hours/);
   assert.match(list.textContent, /event 0/);
   assert.doesNotMatch(list.textContent, /older than a day|future event|undated event/);
+  // Info and debug lines are inside the window but belong to the Logs sidebar.
+  assert.doesNotMatch(list.textContent, /just started|heartbeat/);
 });
 
+test('a reset starts Fleet\'s latest events at its own moment instead of the last 24 hours', () => {
+  const now = Date.now();
+  const entry = (level, message, ageMs) => ({
+    deviceName: 'Kitchen', line: eventLine(level, message, ageMs),
+  });
+  const root = render(renderFleetView({
+    devices: [{ name: 'kitchen', device: { friendlyName: 'Kitchen', config: {}, panels: [] }, status: { connected: true } }],
+    events: [
+      entry('ERROR', 'before the reset', 60_000),
+      entry('WARNING', 'after the reset', 0),
+      { deviceName: 'Kitchen', line: eventLine('WARNING', 'after the reset', 0) },
+    ],
+    version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
+    eventsSince: now - 30_000, onResetEvents() {}, onShowAllEvents() {},
+  }));
+  const card = root.querySelector('.haui-event-list');
+  assert.match(card.textContent, /Since /);
+  assert.match(card.textContent, /after the reset/);
+  assert.doesNotMatch(card.textContent, /before the reset/);
+  // The repeats are still counted from the reset on.
+  assert.match(card.textContent, /×2/);
+});
 
+test('Reset on Fleet starts the latest events at the moment it was pressed, and 24 hours bring them back', async () => {
+  const editor = makeHost({
+    device_order: ['kitchen'],
+    devices: { kitchen: { config: {}, panels: [] } },
+  }, (method, path) => { throw new Error(`unexpected request ${method} ${path}`); });
+  Object.setPrototypeOf(editor, NSPanelEditor.prototype);
+  editor._store = editor.store;
+  editor.renderRoot = { querySelector: () => null, activeElement: null };
+  editor._fleetSelection = null;
+  editor._fleetEventsSince = null;
+  const logged = new Date(Date.now() - 60_000).toISOString();
+  editor.api.status.getAll = async () => ({
+    kitchen: { connected: true, logs: [`[${logged}] ERROR kitchen failed`] },
+  });
+  editor.api.updates.rollout = async () => null;
+  editor.store.actions.startAllStatusPolling();
+  await flush(3);
+
+  try {
+    const fleet = () => render(editor._renderFleetScreen());
+    const timeline = (root) => root.querySelector('.haui-event-list').textContent;
+
+    const before = fleet();
+    assert.match(timeline(before), /kitchen failed/);
+    assert.match(timeline(before), /Last 24 hours/);
+
+    before.querySelector('.haui-event-list .haui-event-reset').click();
+    assert.ok(Number.isFinite(editor._fleetEventsSince));
+    const after = fleet();
+    // The line was written before the reset, so it is no longer in the window.
+    assert.doesNotMatch(timeline(after), /kitchen failed/);
+    assert.match(timeline(after), /No events since the reset/);
+
+    after.querySelector('.haui-event-list .haui-event-restore').click();
+    assert.equal(editor._fleetEventsSince, null);
+    assert.match(timeline(fleet()), /kitchen failed/);
+  } finally {
+    // The poller's interval would keep the test process alive.
+    editor.store.actions.stopAllStatusPolling();
+  }
+});
 const ROLLOUT_DEVICES = [
   {
     name: 'kitchen',
@@ -324,18 +657,44 @@ test('a running rollout lists every device with its step and can be cancelled', 
   assert.deepEqual(cancelled, ['office', null]);
 });
 
-test('a stopped rollout names the failure and offers no cancel', () => {
+test('a stopped rollout names the failure, offers no cancel and is dismissed', () => {
+  let dismissed = 0;
   const root = render(rolloutView({
     id: 1, state: 'stopped', devices: [
       { name: 'kitchen', kind: 'firmware', state: 'failed', error: 'the panel did not reboot' },
       { name: 'office', kind: 'tft', state: 'not_started', error: null },
     ],
-  }));
+  }, { onDismissRollout: () => { dismissed += 1; } }));
   const card = root.querySelector('.haui-rollout');
 
   assert.match(card.textContent, /the panel did not reboot/);
   assert.match(card.textContent, /Not started/);
   assert.equal([...card.querySelectorAll('button')].filter((button) => /Cancel/.test(button.textContent + (button.getAttribute('aria-label') || ''))).length, 0);
+  [...card.querySelectorAll('button')].find((button) => /Dismiss/.test(button.textContent)).click();
+  assert.equal(dismissed, 1);
+});
+
+test('the inventory table is named by its heading and every column has a name', () => {
+  const root = render(rolloutView(null, { onSelectDevice() {} }));
+  // The screen's own heading leads the h2 sections, as the device screen's h1 does there.
+  assert.equal(root.querySelectorAll('h1').length, 1);
+  const table = root.querySelector('[role="table"]');
+  assert.equal(table.getAttribute('aria-labelledby'), 'haui-inventory-heading');
+  assert.match(root.querySelector(`#${table.getAttribute('aria-describedby')}`).textContent, /Enter or Space/);
+  const heads = [...table.querySelectorAll('[role="columnheader"]')].map((head) => head.textContent.trim());
+  assert.ok(heads.every(Boolean), `unnamed column: ${heads}`);
+  assert.equal(root.querySelector('.haui-fleet-carousel').getAttribute('role'), 'list');
+  assert.ok([...root.querySelectorAll('.haui-device-card')].every((card) => card.getAttribute('role') === 'listitem'
+    && card.getAttribute('aria-label')));
+});
+
+test('a failed status refresh and a rollout\'s state are announced politely', () => {
+  const root = render(rolloutView({
+    id: 1, state: 'done', devices: [{ name: 'kitchen', kind: 'firmware', state: 'done', error: null }],
+  }, { statusError: 'Connection lost' }));
+  assert.equal(root.querySelector('.haui-rollout-summary').getAttribute('role'), 'status');
+  const refresh = [...root.querySelectorAll('[role="status"]')].find((node) => /could not be refreshed/.test(node.textContent));
+  assert.ok(refresh, 'the failed refresh is a polite status, not an alert');
 });
 
 test('no rollout card without a rollout', () => {

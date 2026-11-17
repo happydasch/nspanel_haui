@@ -149,29 +149,46 @@ test('every sidebar kind has a title in its strip', () => {
   assert.throws(() => editor._sidebarLabel('not-a-sidebar'), /Unknown sidebar kind/);
 });
 
-test('the Schedule and Gestures buttons open their sidebar and closing it drops the draft', () => {  const editor = host();
+test('the device settings open on a group and Back returns to the tile grid', async () => {
+  const editor = host();
   Object.setPrototypeOf(editor, NSPanelEditor.prototype);
   editor._store = editor.store;
   editor._selectedDevice = 'kitchen';
   editor._deviceConfig = {};
-  editor._scheduleDraft = { device: 'kitchen', schedule: [] };
-  editor._gestureDraft = { device: 'kitchen', gestures: [] };
+  editor._deviceSettingsSection = null;
+  editor._loadDeviceConfig = () => {};
   editor._route = { view: 'device', device: 'kitchen' };
   editor.renderRoot = { querySelector: () => null, activeElement: null };
   const kinds = () => editor.store.getState().ui.overlays.map(({ kind }) => kind);
+  const themeLibraryLoads = [];
+  editor._loadThemeLibrary = (entryId) => themeLibraryLoads.push(entryId ?? editor.entryId);
 
-  editor._openDeviceOption('schedule');
-  assert.deepEqual(kinds(), ['device-schedule']);
-  editor._openDeviceOption('gestures');
-  assert.deepEqual(kinds(), ['device-schedule', 'device-gestures']);
+  await openDeviceConfig(editor);
+  assert.deepEqual(kinds(), ['device-settings']);
+  // The settings open on their tile grid first.
+  assert.equal(editor._deviceSettingsSection, null);
+  assert.equal(editor._sidebarLabel('device-settings'), 'Device settings');
 
-  // Only the top one closes, and an unsaved draft goes with it.
-  editor._closeSidebar();
-  assert.deepEqual(kinds(), ['device-schedule']);
-  assert.equal(editor._gestureDraft, null);
+  // A group opens the settings on that group instead of a sidebar of its own.
+  await editor._openSettings(['screen']);
+  await flush();
+  assert.deepEqual(kinds(), ['device-settings']);
+  assert.equal(editor._deviceSettingsSection, 'screen');
+  assert.equal(editor._sidebarLabel('device-settings'), 'Screen');
+  // General's theme choice lists the hub's themes: opening the settings loads them.
+  assert.ok(themeLibraryLoads.length > 0, 'the theme library is loaded for the settings');
+  assert.deepEqual([...new Set(themeLibraryLoads)], ['entry1']);
+
+  // Back returns to the grid; the sidebar and its draft stay open.
+  editor._deviceConfigForm = { locale: 'de_DE' };
+  editor._openDeviceSettingsSection(null);
+  assert.equal(editor._deviceSettingsSection, null);
+  assert.equal(editor._sidebarLabel('device-settings'), 'Device settings');
+  assert.deepEqual(editor._deviceConfigForm, { locale: 'de_DE' });
+
   editor._closeSidebar();
   assert.deepEqual(kinds(), []);
-  assert.equal(editor._scheduleDraft, null);
+  assert.equal(editor._deviceSettingsSection, null);
 });
 
 test('Logs opens as a sidebar for one device or every device and closes like the others', () => {

@@ -14,8 +14,9 @@ import { rssiStrengthClass, rssiBarCount, fmtRssi, isOlderVersion } from '../dev
 import { relativeTime, uptimeLabel } from './format.js';
 import { button } from './button.js';
 import { icon } from './icon.js';
-import { infoTile } from './info-tile.js';
+import { closeHoverCard, infoTile, toggleHoverCard } from './info-tile.js';
 import { deviceConnectionState } from '../device-status.js';
+import { entityDisplayName } from '../haui-entity.js';
 
 const LOG_PROBLEM = /^\[([^\]]*)\]\s+(WARNING|ERROR|CRITICAL)\b/;
 // From this many drops in 24 hours the connection counts as an issue.
@@ -87,20 +88,27 @@ export function diagnosticsModel(status, now = Date.now()) {
   };
 }
 
-/** The header icon: a check for "All good", or an alert with the issue count and the issues as its tooltip. */
+/** The header status button and its popover of current diagnostic findings. */
 export function diagnosticsIcon(/** @type {ReturnType<typeof diagnosticsModel>} */ model) {
   const count = model.issues.length;
-  if (count === 0) {
-    return html`<span class="haui-diag-status is-good" role="img" title=${t('All good')} aria-label=${t('All good')}>
-      ${icon('check-circle-outline')}</span>`;
-  }
-  const summary = count === 1 ? t('1 issue') : t('{count} issues').replace('{count}', String(count));
-  // The issues are the icon's accessible name too: a tooltip alone reaches
-  // neither the keyboard, touch nor a screen reader.
-  return html`<span class="haui-diag-status is-warning" role="img"
-    title=${`${summary}\n${model.issues.map((issue) => issue.label).join('\n')}`}
-    aria-label=${`${summary}: ${model.issues.map((issue) => issue.label).join(', ')}`}>
-    ${icon('alert-circle-outline')}<span class="haui-diag-status-count" aria-hidden="true">${count}</span></span>`;
+  const summary = count === 0 ? t('All good')
+    : count === 1 ? t('1 issue') : t('{count} issues').replace('{count}', String(count));
+  const labels = model.issues.map((issue) => issue.label);
+  const label = `${t('Diagnostics')}: ${summary}`;
+  const id = 'haui-diag-status-card';
+  return html`<span class="haui-diag-status-wrap">
+    <button type="button" class=${`haui-diag-status ${count === 0 ? 'is-good' : 'is-warning'}`}
+      aria-label=${label} aria-describedby=${id} aria-expanded="false"
+      @click=${toggleHoverCard} @blur=${closeHoverCard} @keydown=${closeHoverCard}>
+      ${icon(count === 0 ? 'check-circle-outline' : 'alert-circle-outline')}
+      ${count ? html`<span class="haui-diag-status-count" aria-hidden="true">${count}</span>` : nothing}
+    </button>
+    <div class="haui-conn-card haui-diag-popover" id=${id} role="tooltip">
+      <strong>${t('Diagnostics')}</strong>
+      <p>${summary}</p>
+      ${count ? html`<ul>${labels.map((issue) => html`<li>${issue}</li>`)}</ul>` : nothing}
+    </div>
+  </span>`;
 }
 
 export function diagnosticsSubtitle(model) {
@@ -132,8 +140,8 @@ function displayState(model) {
 }
 
 /**
- * The connection readings of the Connection & device card: how long the device
- * has been online (or that it is offline) and its Wi-Fi signal.
+ * The connection readings of the Connection card: how long the device has
+ * been online (or that it is offline) and its Wi-Fi signal.
  */
 export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} */ model) {
   const { info } = model;
@@ -154,12 +162,12 @@ export function connectionTiles(/** @type {ReturnType<typeof diagnosticsModel>} 
       key: 'uptime',
       label: model.connected ? t('Online for') : t('Status'),
       value: model.connected ? (model.uptime != null ? uptimeLabel(model.uptime) : t('Online')) : t('Offline'),
-      tone: !model.connected ? 'is-danger' : model.unstable ? 'is-warning' : '',
+      tone: !model.connected ? 'is-danger' : model.unstable ? 'is-warning' : 'is-good',
       facts: uptimeFacts,
     }),
     infoTile({
       key: 'wifi', label: t('Wi-Fi'),
-      value: html`${fmtRssi(info.rssi)}${signalBars(info.rssi)}`, heading: fmtRssi(info.rssi),
+      value: fmtRssi(info.rssi), aside: signalBars(info.rssi),
       tone: model.weakSignal ? 'is-warning' : '',
       facts: [[t('SSID'), info.ssid || unknown], [t('IP address'), info.ip || unknown]],
     }),
@@ -184,7 +192,7 @@ function tiles(model, status, onLogs) {
       ],
     })}
     ${infoTile({
-      key: 'diag-log', label: t('Hub log'), value: logValue, tone: model.logProblems ? 'is-warning' : '',
+      key: 'diag-log', label: t('Integration log'), value: logValue, tone: model.logProblems ? 'is-warning' : '',
       note: t('in the last 24 h'), onClick: onLogs,
     })}
   </div>`;
@@ -231,7 +239,7 @@ export function watchedEntities(listeners, hass) {
       entityId,
       attributes,
       stateObj,
-      name: stateObj?.attributes?.friendly_name || entityId,
+      name: entityDisplayName(hass, entityId) || entityId,
       value: !hass ? '' : missing ? t('Not found') : hass.formatEntityState(stateObj),
       problem: missing || stateObj?.state === 'unavailable',
     };
@@ -302,7 +310,7 @@ function hubDetails(model, status, hass, onCopyReport) {
     ...(model.health ? [dropsRow(model), lateHeartbeatsRow(model.health)] : []),
   ];
   return html`<details class="haui-details-more haui-diag-internals">
-    <summary>${t('Hub details')} · ${entities.length === 1 ? t('1 watched entity')
+    <summary>${t('Integration details')} ·${entities.length === 1 ? t('1 watched entity')
       : t('{count} watched entities').replace('{count}', String(entities.length))}${problems
       ? html` · <span class="is-warning">${problems === 1 ? t('1 unavailable')
         : t('{count} unavailable').replace('{count}', String(problems))}</span>` : nothing}</summary>
@@ -421,7 +429,7 @@ export function diagnosticsReport(name, status, now = new Date()) {
     `Timers (${status?.active_timer_count ?? timers.length}):`,
     ...timers.map((timer) => `  ${timer.callback_name} (${timer.type} ${fmtInterval(timer.interval)})`),
     '',
-    `Recent hub log (${model.logs.length} lines):`,
+    `Recent integration log (${model.logs.length} lines):`,
     ...model.logs.map(scrubLogLine),
   ];
   return `${lines.join('\n')}\n`;

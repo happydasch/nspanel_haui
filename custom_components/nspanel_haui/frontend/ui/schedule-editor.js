@@ -12,6 +12,8 @@ export const NEW_SCHEDULE_ENTRY = {
 };
 
 export const DEFAULT_SCHEDULE_BRIGHTNESS = 100;
+/** Mirrors FIRMWARE_BRIGHTNESS_DIM in Python (hub/storage.py): the firmware's initial value. */
+export const DEFAULT_SCHEDULE_BRIGHTNESS_DIM = 20;
 
 /** One schedule entry's window as text, e.g. "Sunset −30 min → 22:00". */
 export function scheduleWindowLabel(entry) {
@@ -111,20 +113,20 @@ export function scheduleEditor({
       </div>
       <div class="haui-checkbox-wrap">
         <div class="haui-checkbox-row">
-          ${renderToggle(id('display_off'), Boolean(item.display_off), (checked) => setField('display_off', checked))}
           <label for=${id('display_off')}>${t('Screen off')}</label>
+          ${renderToggle(id('display_off'), Boolean(item.display_off), (checked) => setField('display_off', checked))}
         </div>
         <div class="haui-field-hint">${t('Turn the display off after the display-off timeout. When off, the display stays on.')}</div>
       </div>
-      ${item.display_off ? numberField('timeout_display_off', t('Display-off timeout (s)'),
-        item.timeout_display_off, { min: 0, max: 3600 }) : nothing}
       <div class="haui-checkbox-wrap">
         <div class="haui-checkbox-row">
-          ${renderToggle(id('sound'), Boolean(item.sound), (checked) => setField('sound', checked))}
           <label for=${id('sound')}>${t('Notification sound')}</label>
+          ${renderToggle(id('sound'), Boolean(item.sound), (checked) => setField('sound', checked))}
         </div>
         <div class="haui-field-hint">${t('When off, no sounds are played and a notification does not wake the display.')}</div>
-      </div>`;
+      </div>
+      ${item.display_off ? numberField('timeout_display_off', t('Display-off timeout (s)'),
+        item.timeout_display_off, { min: 0, max: 3600 }) : nothing}`;
   };
   return entryList({
     entries: schedule,

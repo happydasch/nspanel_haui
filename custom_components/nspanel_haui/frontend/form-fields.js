@@ -28,8 +28,8 @@ export function renderToggleField({ id, checked, label, hint = "", title, onChan
   return html`
     <div class="haui-checkbox-wrap">
       <div class="haui-checkbox-row">
-        ${renderToggle(id, checked, onChange)}
         <label for=${id} title=${title ?? nothing}>${label}</label>
+        ${renderToggle(id, checked, onChange)}
       </div>
       ${hint ? html`<div class="haui-field-hint">${hint}</div>` : nothing}
     </div>

@@ -3,7 +3,7 @@ import { css } from '../lit-import.js';
 export const deviceLayoutStyles = css`
   .haui-device-screen { display: flex; flex-direction: column; gap: 16px; }
   .haui-device-head { display: flex; align-items: center; gap: 12px 12px; min-width: 0; }
-  .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-display); font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-headline); font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
   .haui-back-button { flex: 0 0 auto; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--secondary-text-color); transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
   /* Outranks the generic grey icon-button hover, which clashed with the blue border and arrow. */
   .haui-back-button:hover:not(:disabled) { border-color: var(--primary-color); color: var(--primary-color); background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color, #fff)); }
@@ -23,17 +23,16 @@ export const deviceLayoutStyles = css`
   .haui-device-rail-item.active { border-color: var(--primary-color); background: var(--primary-color); color: var(--text-primary-color, #fff); }
   .haui-device-rail-item.active .haui-status-dot { background: currentColor; }
   .haui-device-rail-item > span:nth-of-type(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-device-rail-update { color: var(--warning-color); }
+  .haui-device-rail-update { color: var(--haui-warn-icon); }
   /* Both columns stick to the viewport; the taller one sets the scrolling range for the shorter one.
      In one column, the lead sits above the workspace and the side stack below. */
   .haui-device-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr); grid-template-areas: "workspace side"; align-items: start; gap: 16px 20px; }
   .haui-device-side { position: sticky; top: 18px; display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
   .haui-device-lead { min-width: 0; grid-area: lead; }
-  .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); transition: background 150ms ease, border-color 150ms ease; }
+  .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); transition: background 150ms ease, border-color 150ms ease; }
   .haui-device-workspace.is-live { border-color: var(--haui-live-border); background: var(--haui-live-surface); }
   .haui-device-workspace.is-live .haui-workspace-header { border-color: var(--haui-live-border); }
   .haui-device-side-stack { display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
-  .haui-device-side-stack > .haui-surface { box-shadow: var(--haui-shadow-card); }
   .haui-device-side-stack .haui-surface-heading-copy { min-width: 0; flex: 1 1 auto; }
   .haui-device-side-stack .haui-surface-heading-copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-side-stack .haui-surface-heading .haui-button { flex: 0 0 auto; min-height: 32px; padding: 0 8px; font-size: var(--haui-text-label); }
@@ -48,7 +47,9 @@ export const deviceLayoutStyles = css`
     padding: 12px 16px;
     border-bottom: 1px solid var(--divider-color);
   }
-  .haui-sidebar-title { overflow: hidden; font-size: var(--haui-text-title); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-sidebar-title { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: var(--haui-text-title); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  /* The back control starts the strip, before the group's name. */
+  .haui-sidebar-back { margin-left: -8px; }
   .haui-sidebar-body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
   .haui-sidebar-body > *, .haui-sidebar-layer > * { flex: 1 1 auto; min-height: 0; }
   /* A sidebar opened from another (Colors from Device settings) covers it; the one below stays rendered, so its draft survives. */

@@ -56,7 +56,7 @@ export const panelEditorStyles = css`
   }
   .haui-panel-editor-pin-text { display: grid; min-width: 0; gap: 4px; }
   .haui-panel-editor-pin-text > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-panel-editor-pin-text strong { font-size: var(--haui-text-body); font-weight: 600; }
+  .haui-panel-editor-pin-text strong { font-size: var(--haui-text-label); font-weight: 500; }
   .haui-panel-editor-pin-text span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   @media (prefers-reduced-motion: reduce) { .haui-panel-editor-pin-bar { transition: none; } }
   .haui-panel-editor-alert { margin-top: 12px; }

@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/views/panel-editor.js';
 import '../../custom_components/nspanel_haui/frontend/views/workspace.js';
+import { render } from './support/render.mjs';
+import { byRole } from './support/queries.mjs';
 
 function collect(value, out = []) {
   if (typeof value === 'string') out.push(value);
@@ -81,16 +83,6 @@ test('the reported state follows the session idle flag', async () => {
   dlg._stopSession();
 });
 
-test('changing the open device option clears the preview entity selection', () => {
-  const { dlg } = makeWorkspace({ optionSelection: 'theme' });
-  dlg._hover = { entityId: 'light.lamp', x: 20, y: 20, width: 100, height: 100 };
-
-  dlg.optionSelection = 'schedule';
-  dlg.updated(new Map([['optionSelection', 'theme']]));
-
-  assert.equal(dlg._hover, null);
-});
-
 function tooltipStyle(dlg) {
   return dlg._renderTooltip().values.slice(0, 2);
 }
@@ -156,6 +148,92 @@ test('hovering a linked widget shows its entity; leaving or pressing hides it', 
   dlg.showEntities = false;
   dlg.updated(new Map([['showEntities', false]]));
   assert.equal(dlg._hover, null);
+  dlg._stopSession();
+});
+
+test('in Live, hovering a linked widget shows its entity', async () => {
+  const { dlg } = makeWorkspace({ active: true, mode: 'live', showEntities: true });
+  dlg.hass.states = { 'light.lamp': { attributes: { friendly_name: 'Lamp' } } };
+  dlg.updated(new Map([['active', false]]));
+  await flush();
+  const session = dlg._session;
+  assert.equal(session.live, true);
+  session.display = {
+    layout: { width: 480, height: 320, visible_width: 450 },
+    components: new Map([['b', { id: 1, name: 'b', hidden: false, attrs: { x: 0, y: 0, w: 225, h: 160 } }]]),
+  };
+  session._apply({ type: 'entities', map: { b: 'light.lamp' } });
+  const rect = { left: 0, top: 0, width: 900, height: 640 };
+  dlg.renderRoot = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+
+  dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX: 100, clientY: 100 });
+
+  const tooltip = render(dlg._renderTooltip()).textContent;
+  assert.match(tooltip, /Lamp/);
+  assert.match(tooltip, /light\.lamp/);
+  dlg._stopSession();
+});
+
+test('the tooltip says when Home Assistant does not have the entity or it is unavailable', async () => {
+  const { dlg } = makeWorkspace({ active: true, showEntities: true });
+  dlg.hass.states = { 'light.lamp': { state: 'unavailable', attributes: { friendly_name: 'Lamp' } } };
+  dlg.updated(new Map([['active', false]]));
+  await flush();
+  const session = dlg._session;
+  session.display = {
+    layout: { width: 480, height: 320, visible_width: 450 },
+    components: new Map([
+      ['a', { id: 1, name: 'a', hidden: false, attrs: { x: 0, y: 0, w: 225, h: 160 } }],
+      ['b', { id: 2, name: 'b', hidden: false, attrs: { x: 225, y: 0, w: 225, h: 160 } }],
+    ]),
+  };
+  session._apply({ type: 'entities', map: { a: 'light.gone', b: 'light.lamp' } });
+  const rect = { left: 0, top: 0, width: 900, height: 640 };
+  dlg.renderRoot = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+  const hover = (clientX) => {
+    dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX, clientY: 100 });
+    return render(dlg._renderTooltip()).textContent;
+  };
+
+  const missing = hover(100);
+  assert.match(missing, /Not found/);
+  assert.match(missing, /light\.gone/);
+  const unavailable = hover(600);
+  assert.match(unavailable, /Lamp/);
+  assert.match(unavailable, /Unavailable/);
+  assert.match(unavailable, /light\.lamp/);
+  dlg._stopSession();
+});
+
+test('hovering a hardware button shows the entity it switches', async () => {
+  const { dlg } = makeWorkspace({ active: true });
+  dlg.hass.states = { 'light.lamp': { attributes: { friendly_name: 'Lamp' } } };
+  dlg.updated(new Map([['active', false]]));
+  await flush();
+  const session = dlg._session;
+  session.display = { layout: { width: 480, height: 320, visible_width: 450 }, components: new Map() };
+  // The right button switches its relay, which did not resolve.
+  session._apply({ type: 'buttons', left: 'light.lamp', right: null });
+  const rect = { left: 0, top: 0, width: 900, height: 640 };
+  dlg.renderRoot = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+  const tooltip = () => render(dlg._renderTooltip()).textContent;
+  const button = (name) => byRole(render(dlg._renderHardwareButtons(session)), 'button', { name });
+  const pointer = (type) => new PointerEvent(type, { pointerType: 'mouse', clientX: 200, clientY: 600 });
+
+  // Off by default: no tooltip until "Show entities" is switched on.
+  button('Left button').dispatchEvent(pointer('pointermove'));
+  assert.equal(tooltip().trim(), '');
+  dlg.showEntities = true;
+
+  const left = button('Left button');
+  left.dispatchEvent(pointer('pointermove'));
+  assert.match(tooltip(), /Lamp/);
+  assert.match(tooltip(), /light\.lamp/);
+  left.dispatchEvent(pointer('pointerleave'));
+  assert.equal(tooltip().trim(), '');
+
+  button('Right button').dispatchEvent(pointer('pointermove'));
+  assert.equal(tooltip().trim(), '');
   dlg._stopSession();
 });
 

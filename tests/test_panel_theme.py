@@ -24,7 +24,7 @@ def _app():
     domain, values = next(iter(custom["icons"]["dark"].items()))
     icon_key = next(iter(values))
     custom["icons"]["dark"][domain][icon_key] = 5678
-    library = ThemeLibrary({**BUILTIN_THEMES, "custom": custom}, "dark")
+    library = ThemeLibrary({**BUILTIN_THEMES, "custom": custom})
     return SimpleNamespace(theme_library=library, theme=library.theme("dark")), domain, icon_key
 
 

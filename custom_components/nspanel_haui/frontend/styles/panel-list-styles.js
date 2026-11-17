@@ -14,7 +14,8 @@ export const panelListStyles = css`
     background: var(--haui-surface-soft);
     border-bottom: 1px solid var(--divider-color);
   }
-  .haui-panel-group-heading h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 600; }
+  .haui-panel-group-heading .haui-surface-heading-copy { flex: 1 1 auto; }
+  .haui-panel-group-heading h2 { margin: 0; font-size: var(--haui-text-label); font-weight: 500; }
   .haui-panel-group-heading span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-panel-group-toggle { width: 28px; height: 28px; flex: 0 0 auto; --mdc-icon-size: 20px; }
   .haui-panel-list { display: flex; min-height: 48px; flex-direction: column; }
@@ -65,7 +66,7 @@ export const panelListStyles = css`
     color: var(--primary-text-color);
     background: transparent;
     font: inherit;
-    font-size: var(--haui-text-body);
+    font-size: var(--haui-text-label);
     font-weight: 500;
     text-align: start;
     text-overflow: ellipsis;

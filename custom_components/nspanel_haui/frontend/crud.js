@@ -194,6 +194,22 @@ export function duplicatePanel(host, panelKey) {
   host._savePanels(next, t('Panel duplicated'));
 }
 
+/* ── move to another device ───────────────────────────────────────────────── */
+
+/**
+ * Move a panel of the selected device to the device `target`. The panel's row
+ * leaves this device, so its selection goes with it.
+ *
+ * @param {any} host - editor component
+ * @param {string} panelKey
+ * @param {string} target - the device's name
+ */
+export async function movePanelToDevice(host, panelKey, target) {
+  if (getSystemPanelKeys(host).has(panelKey)) return;
+  const moved = await host.store.actions.movePanel({ key: panelKey, to: target, deviceName: host._selectedDevice });
+  if (moved !== null && host._selectedPanelKey === panelKey) host._selectedPanelKey = null;
+}
+
 /* ── delete ───────────────────────────────────────────────────────────────── */
 
 export function confirmDelete(host, index) {

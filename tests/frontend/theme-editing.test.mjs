@@ -16,6 +16,7 @@ const DIALOGS = [
   'nspanel-panel-editor',
   'nspanel-dialog-confirm',
   'nspanel-device-settings',
+  'nspanel-backup-sidebar',
   'nspanel-updates-sidebar',
   'nspanel-logs-sidebar',
   'nspanel-theme-sidebar',
@@ -40,7 +41,6 @@ test('changing a color of a built-in theme switches to a custom copy and saves i
   const dark = { name: 'Dark', colors: { background: 10, text: 20 }, icons };
   Object.assign(dlg, {
     api: createApiClient(() => dlg.hass),
-    themeVariant: 'dark',
     themeId: 'dark',
     _themes: { dark },
     _builtins: { dark },
@@ -230,9 +230,7 @@ test('changed count tolerates a theme with a missing icon variant', () => {
   };
   Object.assign(dlg, {
     themeId: 'custom',
-    themeVariant: 'dark',
     _originalThemeId: 'custom',
-    _originalThemeVariant: 'dark',
     _themes: { custom: theme },
     _colors: { background: 10 },
     _icons: {
@@ -256,7 +254,6 @@ test('reverting a changed color restores only that saved theme value', () => {
   };
   Object.assign(dlg, {
     themeId: 'custom',
-    iconVariant: 'dark',
     _themes: { custom: theme },
     _colors: { background: 11, text: 21 },
     _icons: structuredClone(theme.icons),
@@ -326,7 +323,7 @@ test('applying a theme saves settings separately and preserves panel color overr
     requestUpdate() {},
   };
 
-  await saveTheme(host, { themeId: 'dark', themeVariant: 'dark' });
+  await saveTheme(host, { themeId: 'dark' });
 
   assert.equal(savedPanels, undefined);
   assert.deepEqual(panels, [{
@@ -357,7 +354,7 @@ test('theme color reset saves settings first, then saves that device’s panels'
     requestUpdate() {},
   };
 
-  await saveTheme(host, { themeId: 'dark', themeVariant: 'dark', resetPanelColors: true });
+  await saveTheme(host, { themeId: 'dark', resetPanelColors: true });
 
   assert.deepEqual(calls, [
     ['settings', 'dark', 'Theme applied'],

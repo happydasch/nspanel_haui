@@ -32,6 +32,10 @@ DEVICE_CONFIG_KEY_RENAMES: dict[str, str] = {
     "timeout_sleep": "timeout_display_off",
 }
 
+# Settings that no longer exist: the theme variant went away with the themes'
+# own icon palettes, which the theme's page background selects.
+REMOVED_DEVICE_CONFIG_KEYS = ("theme_variant",)
+
 
 def migrate_device_config_keys(device_config: dict) -> bool:
     """Rename legacy device-config keys in place and convert the old gesture settings."""
@@ -43,6 +47,10 @@ def migrate_device_config_keys(device_config: dict) -> bool:
         if new_key not in device_config:
             device_config[new_key] = old_value
         modified = True
+    for removed_key in REMOVED_DEVICE_CONFIG_KEYS:
+        if removed_key in device_config:
+            del device_config[removed_key]
+            modified = True
     return migrate_gesture_settings(device_config) or modified
 
 
@@ -119,6 +127,39 @@ def migrate_gesture_settings(device_config: dict) -> bool:
         for sequence in sequences
     ]
     device_config["gestures"] = gestures
+    return True
+
+
+# The firmware's initial "Brightness Dimmed" (esphome/nspanel_haui/number.yaml).
+FIRMWARE_BRIGHTNESS_DIM = 20
+
+
+def migrate_schedule_brightness_dim(device_name: str, device_config: dict) -> bool:
+    """Give a schedule that dims a dimmed brightness to restore when its entries end.
+
+    0.5.0 let an entry set ``brightness_dim`` while the device left it to the
+    panel, so the entry's value stayed after the entry ended. A device setting
+    is required now; such a device takes the firmware's default.
+
+    Args:
+        device_name: Name of the device, for the log.
+        device_config: The device's stored settings.
+
+    Returns:
+        True when the setting was added.
+    """
+    if device_config.get("brightness_dim") is not None:
+        return False
+    schedule = device_config.get("schedule") or []
+    if not any(entry.get("brightness_dim") is not None for entry in schedule):
+        return False
+    device_config["brightness_dim"] = FIRMWARE_BRIGHTNESS_DIM
+    _LOGGER.warning(
+        "Set the dimmed brightness of %s to %s %%: its schedule dims the display and "
+        "needs a dimmed brightness to restore when an entry ends",
+        device_name,
+        FIRMWARE_BRIGHTNESS_DIM,
+    )
     return True
 
 
@@ -289,8 +330,11 @@ class PanelStorage:
             if not isinstance(dev_data, dict):
                 continue
             config = dev_data.get("config")
-            if isinstance(config, dict) and migrate_device_config_keys(config):
-                modified = True
+            if isinstance(config, dict):
+                if migrate_device_config_keys(config):
+                    modified = True
+                if migrate_schedule_brightness_dim(dev_name, config):
+                    modified = True
             if drop_fixed_sys_overrides(dev_name, dev_data):
                 modified = True
 

@@ -21,6 +21,10 @@ export const formCommonStyles = css`
   .haui-field-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 12px; }
   /* Paired fields keep a one-line label height without leaving a large gap above inputs. */
   .haui-field-pair > .haui-field > label { min-height: 1.3em; }
+  /* A label with its control at the row's right edge, like a switch row; a control too wide to share the row wraps under the label and keeps that edge. */
+  .haui-field-inline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+  .haui-field-inline > label { margin-bottom: 0; }
+  .haui-field-inline > .haui-pill-list { flex: 1 1 auto; justify-content: flex-end; }
 
   /* ── inputs ──────────────────────── */
   textarea {
@@ -119,7 +123,7 @@ export const formCommonStyles = css`
     color: var(--secondary-text-color, #666);
     margin-top: 4px;
     margin-bottom: 0;
-    line-height: 1.4;
+    line-height: var(--haui-line-height-copy);
   }
   /* Where a pointer can hover, a field's hint floats under the field while the
      pointer rests on it or keyboard focus is in it. Out of the layout, it moves
@@ -187,14 +191,16 @@ export const formCommonStyles = css`
     transform: translateX(16px);
   }
 
-  /* ── checkbox / switch row ───────── */
+  /* ── checkbox / switch row: the label fills the row, the switch keeps its right edge ── */
   .haui-checkbox-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     margin-bottom: 8px;
   }
   .haui-checkbox-row label {
+    flex: 1 1 auto;
+    min-width: 0;
     margin-bottom: 0;
     font-weight: 500;
     font-size: var(--haui-text-label);
@@ -221,7 +227,7 @@ export const formCommonStyles = css`
     cursor: pointer;
     padding: 12px 16px 12px 8px;
     font-weight: 500;
-    font-size: var(--haui-text-title);
+    font-size: var(--haui-text-body);
     color: var(--primary-text-color, #212121);
     display: flex;
     align-items: center;
@@ -254,7 +260,8 @@ export const formCommonStyles = css`
   }
   .haui-config-section-intro {
     margin: 0 0 16px;
-    font-size: var(--haui-text-title);
+    font-size: var(--haui-text-label);
+    line-height: var(--haui-line-height-copy);
     color: var(--secondary-text-color, #666);
   }
   .haui-config-section-body .haui-field:last-child,
@@ -324,20 +331,6 @@ export const formCommonStyles = css`
     word-break: break-word;
   }
   .haui-template-preview[hidden] {
-    display: none;
-  }
-
-  /* ── state-keyed preview ──────────── */
-  .haui-state-keyed-preview {
-    margin-top: 4px;
-    font-size: var(--haui-text-caption);
-    padding: 4px 8px;
-    border-left: 3px solid var(--accent-color, #ff9800);
-    background: var(--secondary-background-color, #f5f5f5);
-    border-radius: 0 var(--haui-radius-control) var(--haui-radius-control) 0;
-    word-break: break-word;
-  }
-  .haui-state-keyed-preview[hidden] {
     display: none;
   }
 

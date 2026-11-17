@@ -229,9 +229,11 @@ export function renderColorPresets(onPick) {
  * (`hexToColorMatching`); typed text is stored parsed (`parseFieldValue`).
  * The caller owns whether the presets are shown, so they close with its editing session.
  *
- * @param {{ id: string, value: any, api?: object|null, onChange: (value: any) => void, presetsOpen?: boolean, onTogglePresets: () => void }} options
+ * `label` names the text field where no `<label for>` does.
+ *
+ * @param {{ id: string, value: any, api?: object|null, onChange: (value: any) => void, presetsOpen?: boolean, onTogglePresets: () => void, label?: string }} options
  */
-export function renderColorField({ id, value, api = null, onChange, presetsOpen = false, onTogglePresets }) {
+export function renderColorField({ id, value, api = null, onChange, presetsOpen = false, onTogglePresets, label }) {
   const colorHex = parseRgbListToHex(value);
   const hasTemplate = formatFieldValue(value).includes("{{");
   const presetsId = `${id}-presets`;
@@ -247,7 +249,7 @@ export function renderColorField({ id, value, api = null, onChange, presetsOpen 
           <input type="color" aria-label=${t("Pick color")} .value=${colorHex || "#000000"}
             @input=${(event) => pick(event.target.value)} />
         </span>
-        <input id=${id} class="haui-input" .value=${colorFieldText(value)}
+        <input id=${id} class="haui-input" aria-label=${label ?? nothing} .value=${colorFieldText(value)}
           @input=${(event) => {
             const raw = event.target.value;
             if (api) scheduleTemplateRender(api, raw, `tp-${id}`, event.target);
@@ -523,8 +525,9 @@ export function scheduleTemplateRender(api, value, previewId, contextEl) {
  * @param {string}  value   - Current value (e.g. "mdi:home")
  * @param {object}  [api=null]   - HA api object (needed for API call + template rendering)
  * @param {function} [onInput=null] - Called with the new value on every input/dropdown selection
+ * @param {{ label?: string }} [opts] - `label` names the field where no `<label for>` does
  */
-export function renderIconPicker(id, value, api = null, onInput = null) {
+export function renderIconPicker(id, value, api = null, onInput = null, { label } = {}) {
   const currentVal = value || "";
 
   // Kick off background fetch (result used when focused)
@@ -543,6 +546,7 @@ export function renderIconPicker(id, value, api = null, onInput = null) {
         <input
           id=${id}
           class="haui-input haui-icon-picker-input"
+          aria-label=${label ?? nothing}
           .value=${currentVal}
         placeholder=${t("mdi:home")}
         @input=${(e) => {

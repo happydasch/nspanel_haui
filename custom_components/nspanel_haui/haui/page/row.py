@@ -224,6 +224,19 @@ class RowPage(PagedItemsMixin, HAUIPage):
         self.set_title(panel.get_title())
         self.set_row_entries()
 
+    def entity_map_components(self) -> list[tuple[Component, HAUIItem]]:
+        # The row's overlay spans only its icon and name; the controls beside
+        # it act on the same entity.
+        controls = ("btn_txt", "btn_up", "btn_stop", "btn_down", "toggle", "slider", "slider_txt")
+        result: list[tuple[Component, HAUIItem]] = []
+        for idx in range(1, self.NUM_ROWS + 1):
+            item = self._active_items.get(getattr(self.COMPONENTS, f"r{idx}_ovl"))
+            if item is not None:
+                result.extend(
+                    (getattr(self.COMPONENTS, f"r{idx}_{part}"), item) for part in controls
+                )
+        return result
+
     # misc
 
     def set_row_entries(self) -> None:

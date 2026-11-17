@@ -25,7 +25,7 @@ flowchart TD
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.
 
-The display has eight fonts; the font ID (as used by `.font=` commands and the alarm keypad font option) grows with the size.
+The display has eight fonts; the font ID (as used by `.font=` commands and the alarm keypad font option) grows with the size. These are the display's fonts only: the editor's own text sizes are in [Frontend → Text sizes](frontend.md#text-sizes).
 
 Fonts for text (Roboto Regular)
 
@@ -51,7 +51,16 @@ The icons available can be viewed here:
 
 ## Themes and colors
 
-The display uses semantic colors from a selected predefined or custom theme. The theme library is shared by all devices in one config entry. Each device selects a theme with `theme_id`; `theme_variant` independently chooses the default dark- or light-background icon palette. Theme colors are edited on the shared theme, not overridden per device. Panel and item colors remain explicit overrides; applying a theme leaves them untouched. Panels can select a library theme of their own; panels without an override follow the device theme.
+The display uses semantic colors from a selected predefined or custom theme. The theme library is shared by all devices in one config entry. Each device selects a theme with `theme_id`, and the theme's own page background selects the icon palette it draws (a dark page the dark-background colors, a light one the light-background colors). Theme colors are edited on the shared theme, not overridden per device. Panel and item colors remain explicit overrides; applying a theme leaves them untouched. Panels can select a library theme of their own; panels without an override follow the device theme.
+
+**Predefined themes.** `BUILTIN_THEMES` in `haui/mapping/color.py` holds the
+neutral Dark, Light, White and Black plus the colorful Midnight, Ocean, Forest,
+Sunset, Violet and Sky. A new theme is one override dict over `COLORS`, so every
+semantic role stays defined; `tests/test_color.py` checks that each colorful
+theme's foregrounds reach WCAG AA on its own background. A theme whose page is
+light needs a light header with a dark `header_text`: `header_text` is also the
+default text colour of body widgets (`FunctionButtonMixin`), so a dark header
+would leave row names and notification texts white on a light page.
 
 **Backgrounds and contrast.** Each decorative background used by Clock, Weather, and Clock Two has an explicit light/dark contrast variant. That variant controls text, cycle cards, and state icons together, not icons alone. **Use color scheme** selects the TFT's solid dark/light fill based on the active theme's `background` role and uses the active theme's semantic foreground/state colors. The TFT includes only those two solid fill pictures; it does not display its layout-helper picture in this mode. `BACKGROUND_VARIANTS` in `haui/mapping/background.py` is the central image-background mapping; add a contrast variant whenever a background is added.
 

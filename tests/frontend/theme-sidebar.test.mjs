@@ -16,6 +16,7 @@ const DIALOGS = [
   'nspanel-panel-editor',
   'nspanel-dialog-confirm',
   'nspanel-device-settings',
+  'nspanel-backup-sidebar',
   'nspanel-updates-sidebar',
   'nspanel-logs-sidebar',
   'nspanel-theme-sidebar',
@@ -39,17 +40,20 @@ test('every editor dialog shares the dialog base class', () => {
 test('theme sidebar loads themes, switches palette, and edits custom definitions', async () => {
   const ThemeSidebar = customElements.get('nspanel-theme-sidebar');
   const dlg = document.createElement('nspanel-theme-sidebar');
+  const palettes = (dark, light) => ({
+    dark: { weather: { default: dark }, alarm: { armed: dark + 1 }, climate: { off: dark + 2 } },
+    light: { weather: { default: light }, alarm: { armed: light + 1 }, climate: { off: light + 2 } },
+  });
   const builtins = {
-    dark: { name: 'Dark', colors: { background: 2 }, icons: { weather: { default: 3 }, alarm: { armed: 4 }, climate: { off: 5 } } },
-    light: { name: 'Light', colors: { background: 6 }, icons: { weather: { default: 7 }, alarm: { armed: 8 }, climate: { off: 9 } } },
-    black: { name: 'Black', colors: { background: 10 }, icons: { weather: { default: 11 }, alarm: { armed: 12 }, climate: { off: 13 } } },
+    dark: { name: 'Dark', colors: { background: 2 }, icons: palettes(3, 30) },
+    light: { name: 'Light', colors: { background: 65535 }, icons: palettes(7, 70) },
+    black: { name: 'Black', colors: { background: 10 }, icons: palettes(11, 110) },
   };
   Object.assign(dlg, {
     api: createApiClient(() => dlg.hass),
     open: true,
     entryId: 'entry',
     themeId: 'dark',
-    themeVariant: 'dark',
     hass: { fetchWithAuth: async (url) => url.endsWith('color_defaults')
       ? { ok: true, json: async () => ({ background: 2 }) }
       : { ok: true, json: async () => ({ builtins, themes: {} }) } },
@@ -64,6 +68,12 @@ test('theme sidebar loads themes, switches palette, and edits custom definitions
   dlg._applyTheme('black');
   assert.equal(dlg.themeId, 'black');
   assert.equal(dlg._colors.background, 10);
+  // The theme's own page background picks the icon palette its edits land in.
+  dlg._applyTheme('light');
+  assert.equal(dlg.themeId, 'light');
+  dlg._onColorChange('icons.weather.default', { target: { value: '#ff0000' } });
+  assert.equal(dlg._icons.light.weather.default, hexToRgb565('#ff0000'));
+  assert.equal(dlg._icons.dark.weather.default, 7);
 });
 test('the Theme sidebar shows a loading note, then the preview, palettes and actions without a dialog', async () => {
   const ThemeSidebar = customElements.get('nspanel-theme-sidebar');
@@ -79,7 +89,6 @@ test('the Theme sidebar shows a loading note, then the preview, palettes and act
     open: true,
     entryId: 'entry',
     themeId: 'dark',
-    themeVariant: 'dark',
     _loading: true,
     _themes: {},
     _builtins: {},
@@ -126,8 +135,6 @@ test('the Theme sidebar shows a loading note, then the preview, palettes and act
   const changedIndicator = findTemplateResult(loadedTemplate, (template) =>
     template.strings.join('').includes('haui-footer-changed'));
   assert.deepEqual(changedIndicator.values, ['1 changed']);
-  assert.ok(findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-icon-theme'));
-  assert.ok(findTemplateResult(loadedTemplate, (template) => template.values[0] === 'cp-icon-variant'));
   // Both intro notes use the shared intro style, like the other sidebars' notes.
   assert.doesNotMatch(loaded, /haui-theme-section-description|haui-theme-color-scope-note/);
 });
@@ -139,7 +146,6 @@ test('theme color edits update the selected shared palette', () => {
   const icons = { dark: { weather: { sunny: 1 } }, light: { weather: { sunny: 2 } } };
   Object.assign(dlg, {
     themeId: 'custom',
-    iconVariant: 'dark',
     _colors: { background: 0x1234 },
     _icons: structuredClone(icons),
     _themeData: () => ({ colors: { background: 0x1234 }, icons }),
@@ -181,7 +187,7 @@ test('saving a theme persists its active ID without device color overrides', asy
     requestUpdate() {},
   };
 
-  await saveTheme(host, { themeId: 'custom-theme', themeVariant: 'dark' });
+  await saveTheme(host, { themeId: 'custom-theme' });
 
   assert.equal(savedConfig.theme_id, 'custom-theme');
   assert.equal('theme_overrides' in savedConfig, false);
@@ -189,10 +195,10 @@ test('saving a theme persists its active ID without device color overrides', asy
   assert.deepEqual(closed, ['theme']);
 });
 
-test('opening the theme sidebar selects the saved theme and icon variant', () => {
+test('opening the theme sidebar selects the saved theme', () => {
   const host = {
     _selectedDevice: 'panel',
-    _panels: { devices: { panel: { config: { theme_id: 'evening', theme_variant: 'light' } } } },
+    _panels: { devices: { panel: { config: { theme_id: 'evening' } } } },
     _loadDeviceConfig() {},
     store: { actions: { pushOverlay: (overlay) => { host.overlay = overlay; } } },
     requestUpdate() {},
@@ -201,6 +207,5 @@ test('opening the theme sidebar selects the saved theme and icon variant', () =>
   openThemeSidebar(host);
 
   assert.equal(host._themeId, 'evening');
-  assert.equal(host._themeVariant, 'light');
   assert.deepEqual([host.overlay.kind, host.overlay.subject], ['theme', 'panel']);
 });

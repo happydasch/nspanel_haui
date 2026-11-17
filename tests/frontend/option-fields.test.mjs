@@ -220,3 +220,88 @@ test('the advanced item fields fold behind a native disclosure', () => {
   const summary = byText(container, 'Advanced');
   assert.equal(summary.closest('summary')?.parentElement?.tagName, 'DETAILS');
 });
+
+/** Render the inline item editor for an entity item; `hass` has the entity's state. */
+function mountEntityItemEditor(config, { itemOptions = [], state = 'on' } = {}) {
+  const container = document.createElement('div');
+  const descriptor = { type_key: 'grid', item_options: itemOptions };
+  const h = {
+    hass: { states: { 'light.desk': { state, attributes: { friendly_name: 'Desk' } } } },
+    renderRoot: container,
+    _editingPanel: { index: 0, data: { type: 'grid' } },
+    _itemListData: { entities: [{ ...config }] },
+    _editingItem: { optKey: 'entities', index: 0, config: { ...config }, domain: '' },
+    _editingItemType: 'entity_id',
+    requestUpdate() { render(renderItemEditFields(h, descriptor), container); },
+  };
+  h.requestUpdate();
+  return { h, container };
+}
+
+/** The "One value / Per state" switch of a field. */
+function modeButton(container, field, mode) {
+  const group = container.querySelector(`[role="group"][aria-label="Values of ${field}"]`);
+  return group && byRole(group, 'button', { name: mode });
+}
+
+function typeInto(input, value) {
+  input.value = value;
+  input.dispatchEvent(new Event('input'));
+}
+
+/** Apply the item: Home Assistant's `ha-button` has no native button role here. */
+function applyItem(container) {
+  [...container.querySelectorAll('ha-button')].find((b) => b.textContent.trim() === 'Apply').click();
+}
+
+test('an entity item gives its name one value per state, starting with the current state', () => {
+  const { h, container } = mountEntityItemEditor({ item: 'light.desk', name: 'Desk' });
+  assert.equal(modeButton(container, 'Name', 'One value').getAttribute('aria-pressed'), 'true');
+
+  modeButton(container, 'Name', 'Per state').click();
+  assert.equal(modeButton(container, 'Name', 'Per state').getAttribute('aria-pressed'), 'true');
+  assert.equal(byRole(container, 'textbox', { name: 'Name for state on' }).value, 'Desk');
+
+  byRole(container, 'button', { name: '+ Add state' }).click();
+  typeInto(byRole(container, 'textbox', { name: 'Name for state new state' }), 'Desk is off');
+  typeInto([...container.querySelectorAll('li input[aria-label="State"]')][1], 'off');
+  assert.deepEqual(h._editingItem.config.name, { on: 'Desk', off: 'Desk is off' });
+
+  applyItem(container);
+  assert.deepEqual(h._itemListData.entities[0], { item: 'light.desk', name: { on: 'Desk', off: 'Desk is off' } });
+});
+
+test('icons saved per state open as rows, and one value keeps the current state\'s icon', () => {
+  const { h, container } = mountEntityItemEditor(
+    { item: 'light.desk', icon: { off: 'mdi:lightbulb-outline', on: 'mdi:lightbulb' } },
+    { state: 'on' },
+  );
+  assert.equal(modeButton(container, 'Icon', 'Per state').getAttribute('aria-pressed'), 'true');
+  assert.equal(byRole(container, 'textbox', { name: 'Icon for state off' }).value, 'mdi:lightbulb-outline');
+
+  modeButton(container, 'Icon', 'One value').click();
+  assert.equal(h._editingItem.config.icon, 'mdi:lightbulb');
+  assert.equal(byLabel(container, 'Icon').value, 'mdi:lightbulb');
+});
+
+test('a tile colour option takes a colour per state in its colour field', () => {
+  const { h, container } = mountEntityItemEditor({ item: 'light.desk' }, {
+    itemOptions: [{ key: 'back_color', kind: 'color', label: 'Background color', description: 'Background of the tile.' }],
+  });
+  modeButton(container, 'Background color', 'Per state').click();
+  const field = byRole(container, 'textbox', { name: 'Background color for state on' });
+  field.value = '#00ff00';
+  field.dispatchEvent(new Event('change'));
+  assert.deepEqual(h._editingItem.config.back_color, { on: '#00ff00' });
+});
+
+test('a state without a value is not saved, and an item without states offers no values per state', () => {
+  const { h, container } = mountEntityItemEditor({ item: 'light.desk' });
+  modeButton(container, 'Value', 'Per state').click();
+  assert.deepEqual(h._editingItem.config.value, {});
+  applyItem(container);
+  assert.deepEqual(h._itemListData.entities[0], { item: 'light.desk' });
+
+  const text = mountItemEditor([], { item: 'Hello' });
+  assert.equal(modeButton(text.container, 'Name', 'Per state'), null);
+});

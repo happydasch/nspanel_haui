@@ -11,15 +11,14 @@ import { icon } from './icon.js';
  * `tool` is an icon-only control at the end of the heading (the device settings).
  *
  * @param {{ iconName: string, title: unknown, subtitle?: unknown, tool?: unknown, primary: unknown,
- *   secondary?: unknown[], stacked?: boolean, inlineActions?: boolean, note?: unknown, management?: unknown }} options
+ *   secondary?: unknown[], stacked?: boolean, inlineActions?: boolean, note?: unknown }} options
  */
 export function actionCard({
-  iconName, title, subtitle, tool, primary, secondary = [], stacked = false, inlineActions = false, note, management,
+  iconName, title, subtitle, tool, primary, secondary = [], stacked = false, inlineActions = false, note,
 }) {
   const innerClasses = [
     'haui-action-card-inner',
     ...(note ? ['is-with-note'] : []),
-    ...(management ? ['is-with-management'] : []),
   ].join(' ');
   return html`<section class="haui-action-card">
     <div class=${innerClasses}>
@@ -31,7 +30,6 @@ export function actionCard({
         ${secondary.length ? html`<div class="haui-action-card-secondary">${secondary}</div>` : nothing}
       </div>
       ${note ? html`<p class="haui-action-card-note">${note}</p>` : nothing}
-      ${management ? html`<div class="haui-action-card-management">${management}</div>` : nothing}
     </div>
   </section>`;
 }

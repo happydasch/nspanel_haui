@@ -8,6 +8,7 @@ The HA stubs mirror the upstream behaviour the views rely on:
 from __future__ import annotations
 
 import asyncio
+import copy
 import sys
 import time
 import types
@@ -184,6 +185,7 @@ _PROTECTED = [
     (api.DeviceSettingsView, "get", {"entry_id": "entry1", "device": "kitchen"}),
     (api.DeviceSettingsView, "put", {"entry_id": "entry1", "device": "kitchen"}),
     (api.DevicePanelsView, "put", {"entry_id": "entry1", "device": "kitchen"}),
+    (api.DevicePanelMoveView, "post", {"entry_id": "entry1", "device": "kitchen"}),
     (api.DeviceYamlView, "get", {"entry_id": "entry1"}),
     (api.DeviceYamlView, "post", {"entry_id": "entry1"}),
     (api.DeviceRefreshDisplayView, "post", {"entry_id": "entry1"}),
@@ -392,6 +394,24 @@ def test_translations_view_rejects_path_like_language(language):
     result = asyncio.run(api.TranslationsView().get(request, language=language))
 
     assert result["status_code"] == 400
+
+
+def test_translations_view_serves_the_state_names_of_each_domain():
+    from custom_components.nspanel_haui.haui.utils.text import get_translations
+
+    hass = MagicMock()
+
+    async def run_in_executor(fn, *args):
+        return fn(*args)
+
+    hass.async_add_executor_job = run_in_executor
+    request = _Request(hass, admin=False, query={"section": "component"})
+
+    result = asyncio.run(api.TranslationsView().get(request, language="de"))
+
+    assert result["status_code"] == 200
+    assert result["body"] == get_translations("de")["component"]
+    assert "on" in result["body"]["light"]["state"]["_"]
 
 
 def test_translations_accept_region_suffixed_language():
@@ -642,6 +662,109 @@ def test_device_panels_put_replaces_only_one_device_and_reloads_only_its_app(mon
     assert written["devices"]["office"] == old["devices"]["office"]
     assert kitchen.calls == ["worker", "reload_config"]
     assert office.calls == []
+
+
+def _two_devices_store():
+    return {
+        "version": 1,
+        "devices": {
+            "kitchen": {
+                "config": {"locale": "de_DE"},
+                "panels": [
+                    {"type": "clock", "key": "clock_0", "title": "Clock"},
+                    {"type": "grid", "key": "lights", "items": [{"item": "light.a"}]},
+                ],
+            },
+            "office": {
+                "config": {"locale": "fr_FR"},
+                "panels": [{"type": "clock", "key": "office"}],
+            },
+        },
+    }
+
+
+def test_moving_a_panel_saves_both_devices_and_reloads_both_apps(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = _two_devices_store()
+    saved = _use_store(monkeypatch, hass, copy.deepcopy(old))
+    kitchen = _WorkerApp()
+    office = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": kitchen, "office": office}
+
+    result = asyncio.run(
+        api.DevicePanelMoveView().post(
+            _Request(hass, admin=True, body={"key": "lights", "to": "office"}),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["key"] == "lights"
+    (written,) = saved
+    moved = {"type": "grid", "key": "lights", "items": [{"item": "light.a"}]}
+    assert written["devices"]["kitchen"]["panels"] == [old["devices"]["kitchen"]["panels"][0]]
+    assert written["devices"]["office"]["panels"] == [{"type": "clock", "key": "office"}, moved]
+    assert written["devices"]["office"]["config"] == old["devices"]["office"]["config"]
+    assert result["body"]["panels"] == {
+        "kitchen": written["devices"]["kitchen"]["panels"],
+        "office": written["devices"]["office"]["panels"],
+    }
+    assert kitchen.calls == ["worker", "reload_config"]
+    assert office.calls == ["worker", "reload_config"]
+
+
+def test_a_moved_panel_whose_key_the_target_uses_gets_a_free_key(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    store = _two_devices_store()
+    store["devices"]["office"]["panels"] = [
+        {"type": "clock", "key": "Clock_0"},
+        {"type": "clock", "key": "clock_1"},
+    ]
+    saved = _use_store(monkeypatch, hass, store)
+
+    result = asyncio.run(
+        api.DevicePanelMoveView().post(
+            _Request(hass, admin=True, body={"key": "clock_0", "to": "office"}),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["key"] == "clock_2"
+    (written,) = saved
+    assert written["devices"]["office"]["panels"][-1] == {
+        "type": "clock",
+        "key": "clock_2",
+        "title": "Clock",
+    }
+
+
+@pytest.mark.parametrize(
+    ("body", "device", "status"),
+    [
+        ({"key": "lights"}, "kitchen", 400),
+        ({"key": "lights", "to": "kitchen"}, "kitchen", 400),
+        ({"key": "missing", "to": "office"}, "kitchen", 404),
+        ({"key": "lights", "to": "garage"}, "kitchen", 404),
+        ({"key": "popup_cover", "to": "office"}, "kitchen", 400),
+    ],
+)
+def test_a_panel_move_that_cannot_happen_changes_nothing(monkeypatch, body, device, status):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    store = _two_devices_store()
+    store["devices"]["kitchen"]["panels"].append(
+        {"type": "cover", "key": "popup_cover", "show_in_navigation": False}
+    )
+    saved = _use_store(monkeypatch, hass, store)
+
+    result = asyncio.run(
+        api.DevicePanelMoveView().post(_Request(hass, admin=True, body=body), "entry1", device)
+    )
+
+    assert result["status_code"] == status
+    assert saved == []
 
 
 def test_device_panels_put_rejects_missing_panels_and_unknown_devices(monkeypatch):
@@ -2114,6 +2237,30 @@ def test_rollout_cancels_one_queued_device(monkeypatch):
     states = {entry["name"]: entry["state"] for entry in result["body"]["rollout"]["devices"]}
     assert states["office"] == "cancelled"
     assert ("hold", False) in apps["office"].calls
+
+
+def test_rollout_delete_cancels_a_running_rollout_and_dismisses_a_finished_one(monkeypatch):
+    apps = {"kitchen": _RolloutApp(firmware=True), "office": _RolloutApp(firmware=True)}
+    hass = _rollout_hass(monkeypatch, apps, ["kitchen", "office"])
+    tasks = []
+    hass.async_create_background_task = lambda coro, name: (
+        tasks.append(asyncio.get_running_loop().create_task(coro)) or tasks[-1]
+    )
+
+    async def run():
+        await api.RolloutView().post(_Request(hass, admin=True, body={}), "entry1")
+        # Cancelled before its task ran, the rollout installs nothing and ends.
+        cancelled = await api.RolloutView().delete(_Request(hass, admin=True), "entry1")
+        await tasks[0]
+        dismissed = await api.RolloutView().delete(_Request(hass, admin=True), "entry1")
+        return cancelled, dismissed
+
+    cancelled, dismissed = asyncio.run(run())
+
+    states = {entry["name"]: entry["state"] for entry in cancelled["body"]["rollout"]["devices"]}
+    assert states == {"kitchen": "cancelled", "office": "cancelled"}
+    assert dismissed["body"]["rollout"]["state"] == "idle"
+    assert dismissed["body"]["rollout"]["devices"] == []
 
 
 @pytest.mark.parametrize(

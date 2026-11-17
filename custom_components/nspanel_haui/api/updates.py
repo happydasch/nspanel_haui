@@ -603,11 +603,13 @@ class RolloutView(HomeAssistantView):
     @require_admin
     @api_errors
     async def delete(self, request, entry_id: str):
-        """Cancel every device still queued; the one installing finishes."""
+        """Cancel every device still queued (the one installing finishes), or
+        dismiss a rollout that has finished."""
         from ..hub.rollout import async_get_rollout
 
-        rollout = await async_get_rollout(request.app["hass"], entry_id).async_cancel()
-        return self.json({"status": "ok", "rollout": rollout})
+        rollout = async_get_rollout(request.app["hass"], entry_id)
+        snapshot = await rollout.async_cancel() if rollout.running else rollout.dismiss()
+        return self.json({"status": "ok", "rollout": snapshot})
 
 
 class RolloutDeviceView(HomeAssistantView):

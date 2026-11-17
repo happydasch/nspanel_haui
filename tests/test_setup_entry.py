@@ -233,24 +233,6 @@ def test_store_device_name_matches_case_insensitively():
     assert cfg["panels"] == [clock]
 
 
-def test_explicit_theme_variant_survives_config_build():
-    cfg = nspanel_haui._build_config_dict(
-        {"name": "Hub", "devices": [{"name": "kitchen"}]},
-        {
-            "devices": {
-                "kitchen": {
-                    "config": {"theme_variant": "dark"},
-                    "panels": [],
-                }
-            }
-        },
-        device_name="kitchen",
-    )
-
-    assert cfg["devices"][0]["theme_variant"] == "dark"
-    assert cfg["devices"][0]["theme_id"] == "dark"
-
-
 def test_build_config_passes_theme_library_and_normalizes_unknown_panel_theme():
     cfg = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]},
@@ -380,10 +362,11 @@ class _Navigation:
         self.reloads.append(self.app.theme.get("background"))
 
 
-def _reload(saved_config: dict):
+def _reload(saved_config: dict, running_config: dict | None = None):
     app = NSPanelHAUI.__new__(NSPanelHAUI)
     app.device_config = _DeviceConfig()
     app.device = _Device()
+    app.device.config.update(running_config or {})
     app.controller = {"navigation": _Navigation(app)}
     app.theme = Theme()
     app._runtime_device_name = "kitchen"
@@ -397,11 +380,10 @@ def _reload(saved_config: dict):
     return app
 
 
-def test_reload_config_applies_icon_theme_variant():
-    app = _reload({"theme_variant": "light"})
+def test_reload_config_applies_the_themes_icon_palette():
+    app = _reload({"theme_id": "light"})
 
     assert app.theme.variant == "light"
-    assert app.device.config["theme_variant"] == "light"
 
 
 def test_reload_config_applies_the_selected_theme_before_navigation_reloads():
@@ -429,6 +411,15 @@ def test_reload_config_applies_only_auto_switch_settings_that_changed():
 
     assert app.device.synced == [{"use_auto_display_off"}]
     assert app.device.config["use_auto_display_off"] is False
+
+
+def test_removing_the_schedule_hands_the_display_off_switch_back_to_the_setting():
+    """The schedule set the switch from its entries; without it the setting applies again."""
+    entry = {"start": "22:00", "end": "07:00", "sound": True, "display_off": False}
+
+    app = _reload({}, running_config={"schedule": [entry]})
+
+    assert app.device.synced == [{"use_auto_display_off"}]
 
 
 # --- app lifecycle on the app's worker --------------------------------------

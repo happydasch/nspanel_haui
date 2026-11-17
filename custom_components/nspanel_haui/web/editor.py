@@ -58,6 +58,9 @@ async def async_register_frontend(hass) -> None:
     # Register the custom icon set as a global frontend module so the sidebar
     # icon (haui:home-assistant) is available before the editor panel loads.
     add_extra_js_url(hass, f"{static_url_path}/iconset.js")
+    # The dashboard card (custom:nspanel-haui-card), for every user: its data
+    # comes only through the card's own WebSocket commands (web/card.py).
+    add_extra_js_url(hass, f"{static_url_path}/card/card.js")
 
     await panel_custom.async_register_panel(
         hass=hass,
@@ -68,6 +71,9 @@ async def async_register_frontend(hass) -> None:
         sidebar_icon="haui:home-assistant",
         require_admin=True,
         embed_iframe=False,
+        # Home Assistant would pad the panel with the page background; the editor pads
+        # the insets itself so its header colour fills the status bar strip.
+        handle_safe_area=True,
     )
 
     hass.data["nspanel_haui_frontend_registered"] = True

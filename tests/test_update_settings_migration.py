@@ -1,4 +1,4 @@
-"""Update settings belong to each device; the hub-wide policy of the 0.5.0 dev builds is migrated."""
+"""Update settings belong to each device; the hub-wide 0.5.0 dev-build policy is migrated."""
 
 from __future__ import annotations
 

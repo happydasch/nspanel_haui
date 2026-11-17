@@ -105,6 +105,7 @@ nav:
       - Popup Unlock: user/panels/popup_unlock.md
     - Examples: user/examples.md
     - Services: user/services.md
+    - Dashboard Card: user/dashboard-card.md
     - FAQ: user/faq.md
     - Troubleshooting: user/troubleshooting.md
   - Developer Guide:

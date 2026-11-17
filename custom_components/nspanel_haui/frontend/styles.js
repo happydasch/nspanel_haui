@@ -16,11 +16,16 @@ import { formCommonStyles } from './styles/form-common-styles.js';
 import { itemListStyles } from './styles/item-list-styles.js';
 import { panelListStyles } from './styles/panel-list-styles.js';
 import { panelPillStyles } from './styles/panel-pill-styles.js';
+import { settingsTileStyles } from './styles/settings-tile-styles.js';
 
 export const haStyle = css`
   :host { display: block; }
   .haui-container { display: flex; flex: 1; flex-direction: column; padding-bottom: var(--haui-space-6); }
   ha-icon-button { color: var(--secondary-text-color, #666); }
+  /* Native controls would use the browser's UI font, and headings and strong text its 700 bold,
+     which is off the 400/500/600 scale. */
+  button, input, select, textarea { font: inherit; }
+  h1, h2, h3, strong, b { font-weight: 500; }
   .haui-w-full { width: 100%; }
   .haui-text-caption { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-text-label { font-size: var(--haui-text-label); }
@@ -33,7 +38,14 @@ export const haStyle = css`
 `;
 
 export const editorContainerStyles = css`
-  :host { container-type: inline-size; container-name: haui-editor; min-height: 100dvh; display: flex; flex-direction: column; }
+  /* The panel handles the safe area itself (handle_safe_area in web/editor.py): the
+     title header takes the top inset, the host keeps the sides and the home indicator. */
+  :host {
+    container-type: inline-size; container-name: haui-editor; min-height: 100dvh; display: flex; flex-direction: column;
+    box-sizing: border-box;
+    padding: 0 var(--safe-area-content-inset-right, var(--safe-area-inset-right, 0px))
+      var(--safe-area-inset-bottom, 0px) var(--safe-area-content-inset-left, var(--safe-area-inset-left, 0px));
+  }
 `;
 
 export const haStyleDialog = css`
@@ -45,7 +57,7 @@ export const haStyleDialog = css`
 
 export const sharedStyles = css`
   ${dashboardTokens}${dashboardComponentStyles}${panelPillStyles}${entryStyles}
-  ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${contentStyles}
+  ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${settingsTileStyles}${contentStyles}
 `;
 
 export const dialogStyles = css`${sharedStyles}${updatesStyles}`;

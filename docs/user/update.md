@@ -34,14 +34,14 @@ The four steps are for the **universal firmware**, the `nspanel_haui.bin` that e
 
 ## Update settings
 
-Update settings belong to each device. In the editor, open the device's **Updates** sidebar and change the **Update settings** card; each change is saved automatically, and text fields save after you pause typing. Three choices are always shown:
+Update settings belong to each device. In the editor, open the device's **Updates** sidebar and change the **Update settings** card; each change is saved automatically, and text fields save after you pause typing. The **Enable updates** switch sits beside the card's title; while it is on, three choices follow:
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| **Enable updates** (the switch beside the card's title) | on | Master switch. When off, the hub does not check for updates, installs nothing and refuses manual installs. |
+| **Enable updates** | on | Master switch. When off, the hub does not check for updates, installs nothing and refuses manual installs. |
 | **Update channel** | **Stable** | Stable releases, or published **Development** builds, for both firmware and display. |
-| **When a new version is found** | **Manual** | **Auto** installs new firmware as soon as a release is out. This can happen before you have updated the integration or read the release notes. |
 | **Check for a new version** | **Every hour** | How often the hub looks for a newer release; **Never** turns the regular checks off. |
+| **Install firmware updates automatically** | off | Installs new firmware as soon as a release is out. This can happen before you have updated the integration or read the release notes. |
 
 The rest is folded under **Advanced**:
 
@@ -49,7 +49,7 @@ The rest is folded under **Advanced**:
 |---------|---------|--------------|
 | **Custom manifest URL** | empty | A firmware manifest to follow instead of the channel. |
 | **Check for updates on connect** | on | Also checks for a new release after the panel connects. |
-| **Wait before an automatic firmware install** | 10 minutes | Shown with **Auto**. The firmware install waits this long first. Until then the **Updates** sidebar offers **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**. |
+| **Wait before an automatic firmware install** | 10 minutes | Shown with **Install firmware updates automatically** on. The firmware install waits this long first. Until then the **Updates** sidebar offers **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**. |
 | **Install display updates automatically** | on | Installs the display file right after a firmware update. When off, the panel asks first. |
 | **Failed attempts before it stops** | 3 | After this many failed automatic attempts at one version, the device stops trying until you install it by hand or a newer version comes out. |
 | **Wait between attempts** | 1 hour | How long a failed automatic install waits before it tries again. |
@@ -79,6 +79,18 @@ The hub checks that the file is valid before it installs it. The panel downloads
 
 Some releases change behaviour or need extra steps. All breaking changes, the migration from 0.3.x and the steps for old firmware are listed in [Update Process → Upgrading](../develop/update-process.md#upgrading). The most recent ones:
 
+### The theme picks its own icon colors
+
+The **Theme variant** switch in the device settings is gone, and the Theme sidebar no longer asks which palette to edit. A theme decides which icon palette the display draws: a dark theme uses the colors for a dark background, a light theme such as **Light**, **White** or **Sky** the ones for a light background. There is nothing to set, and a theme can no longer pair its page with the other contrast.
+
+When the integration loads the panel store, it drops the `theme_variant` key from every device's settings. A device that ran a light theme with the dark-background icon colors switches to the light-background ones on its own; remove `theme_variant` from hand-written YAML and select the theme that has the page colors you want.
+
+### A schedule entry that dims needs a dimmed brightness
+
+A schedule entry with its own **Brightness dimmed** kept that brightness after the entry ended when the device settings left **Brightness dimmed** empty. The device setting is now required for such an entry: it is the dimmed brightness outside the entry.
+
+When the integration loads the panel store, it sets **Brightness dimmed** to 20 % (the panel's default) on every device whose schedule needs it and logs a warning. Check the value under **Screen** in the device settings.
+
 ### Automatic installs wait and retry
 
 Two things behave differently:
@@ -90,7 +102,7 @@ Two things behave differently:
 
 The **Device Colors** sidebar is now the **Theme** editor, opened with the **Theme** button of **Manage this device** on the device's **Preview**. Choose the device's theme there; the Appearance section has been removed from device settings. Home and idle page assignments are in **Device Settings → Home & idle**.
 
-When the integration loads the panel store, it does not migrate color schemes or per-device theme settings. Configure the device with `theme_id` and `theme_variant`, and add custom palettes to the shared theme library. Panel and item color settings are separate and unchanged. Use `theme_definition` for an included custom theme.
+When the integration loads the panel store, it does not migrate color schemes or per-device theme settings. Configure the device with `theme_id`, and add custom palettes to the shared theme library. Panel and item color settings are separate and unchanged. Use `theme_definition` for an included custom theme.
 
 ### Schedule replaces Day/Night profiles and quiet hours
 

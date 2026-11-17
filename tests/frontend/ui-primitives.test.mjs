@@ -8,8 +8,11 @@ import { badge, countBadge, statusDot } from '../../custom_components/nspanel_ha
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { popover, menuItem } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
+import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
+import { settingsTile } from '../../custom_components/nspanel_haui/frontend/ui/settings-tile.js';
+import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { render } from './support/render.mjs';
-import { byRole, byText } from './support/queries.mjs';
+import { accessibleName, byRole, byText } from './support/queries.mjs';
 import { assertAccessibleName, assertRole } from './support/a11y.mjs';
 
 test('button primitives expose native disabled and accessible icon-only behavior', () => {
@@ -28,6 +31,19 @@ test('button primitives expose native disabled and accessible icon-only behavior
   const close = byRole(closeRoot, 'button', { name: 'Close panel' });
   assertAccessibleName(close, 'Close panel');
   assert.equal(close.disabled, true);
+});
+
+test('a menu trigger says it opens a menu, and names the menu only while it is open', async () => {
+  const { sortHandle } = await import('../../custom_components/nspanel_haui/frontend/ui/sort-handle.js');
+  const closed = byRole(render(iconButton({
+    label: 'Actions', iconName: 'more', hasPopup: 'menu', expanded: false,
+  })), 'button', { name: 'Actions' });
+  assert.equal(closed.getAttribute('aria-haspopup'), 'menu');
+  assert.equal(closed.getAttribute('aria-expanded'), 'false');
+  assert.equal(closed.getAttribute('aria-controls'), null);
+  // A grip only works by dragging, so a screen reader does not announce it.
+  const grip = render(sortHandle({ label: 'Drag to reorder Kitchen' })).querySelector('.haui-sort-handle');
+  assert.equal(grip.getAttribute('aria-hidden'), 'true');
 });
 
 test('a button detail is shown after the label and is part of its name', () => {
@@ -98,4 +114,39 @@ test('empty states and menu items expose their content and semantic roles', () =
 
   const menu = render([popover({ open: true, id: 'menu', label: 'Device actions', content: 'Actions' }), menuItem({ label: 'Remove', danger: true })]);
   assert.ok(byRole(menu, 'menuitem', { name: 'Remove' }));
+});
+
+test('a value tile pairs its label with its value and detail, and offers no control', () => {
+  const root = render(html`<dl>${valueTile({ label: 'Brightness', value: '80%', detail: 'Dimmed: 15%', iconName: 'brightness' })}${
+    valueTile({ label: 'Notification sound', value: 'Off', muted: true })}</dl>`);
+  const terms = [...root.querySelectorAll('dt')];
+  assert.deepEqual(terms.map((term) => term.textContent.trim()), ['Brightness', 'Notification sound']);
+  assert.deepEqual([...terms[0].parentElement.querySelectorAll('dd')].map((value) => value.textContent.trim()),
+    ['80%', 'Dimmed: 15%']);
+  assert.equal(terms[0].querySelector('ha-icon').getAttribute('aria-hidden'), 'true');
+  assert.equal(root.querySelector('button'), null);
+});
+
+test('a settings tile is one button naming its group and what the group holds', () => {
+  const opened = [];
+  const root = render([
+    settingsTile({
+      key: 'schedule', iconName: 'clock', label: 'Schedule', summary: '3 entries',
+      onClick: () => opened.push('schedule'),
+    }),
+    settingsTile({ key: 'advanced', iconName: 'tuneVariant', label: 'Advanced',
+      onClick: () => opened.push('advanced') }),
+  ]);
+  const tiles = [...root.querySelectorAll('[data-settings-tile]')];
+  assert.deepEqual(tiles.map((tile) => tile.dataset.settingsTile), ['schedule', 'advanced']);
+
+  // The accessible name is the group plus its value line, on the button itself.
+  const schedule = byRole(root, 'button', { name: 'Schedule', exact: false });
+  assert.ok(schedule);
+  assert.equal(accessibleName(schedule).replace(/\s+/g, ' ').trim(), 'Schedule 3 entries');
+  schedule.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(opened, ['schedule']);
+
+  // No nested control: the whole tile is the button.
+  assert.equal(root.querySelector('button button, button a, button [role="button"]'), null);
 });

@@ -10,7 +10,7 @@ The hub updates each panel's **ESPHome firmware** (**HAUI Firmware**,
 `update.<device>_haui_display`). The integration itself comes from the
 Marketplace, see [Updating](../user/update.md). The settings live in the
 device's **Updates** sidebar in the editor: on the Device screen, the **Updates**
-action of the Connection & device card, or **Install update** in the lead card
+button below the side stack, or **Install update** in the lead card
 while an update is offered.
 
 ## Where updates come from
@@ -71,7 +71,7 @@ The manifests ship the universal image, so the hub runs the whole cycle:
 2. **A new release.** The next check reads the manifest: **HAUI Firmware** offers
    the release and the display shows the [release notice](#on-the-display).
 3. **Install.** Press **Install** on **HAUI Firmware** or beside **Firmware** in the
-   **Updates** sidebar, or let **Auto** do it.
+   **Updates** sidebar, or let **Install firmware updates automatically** do it.
 4. **Flash and reboot.** The panel downloads the release's over-the-air image
    (`nspanel_haui_ota.bin`), flashes it and reboots with its Wi-Fi and API key
    unchanged. About a minute after the reconnect the hub installs the TFT the new
@@ -79,7 +79,7 @@ The manifests ship the universal image, so the hub runs the whole cycle:
 
 The same cycle runs for every development build on the **Development**
 channel, which is universal too. To stay on a version, leave
-**Manual** selected and skip the update in Home Assistant, or
+**Install firmware updates automatically** off and skip the update in Home Assistant, or
 install a specific release (the entity's `version`, or the **Updates** sidebar's release
 list).
 
@@ -90,7 +90,7 @@ custom build: it would replace your API and OTA credentials with the public
 ones. For a custom panel:
 
 - **HAUI Firmware** offers nothing. Its state is unknown and its release summary
-  names the variant mismatch; **Auto** does nothing.
+  names the variant mismatch; **Install firmware updates automatically** does nothing.
 - The [release notice](#on-the-display) still appears when a new release is out:
   your cue to rebuild.
 - The **display TFT** is still updated by the hub, because both variants use the
@@ -119,7 +119,7 @@ Update a custom build in one of three ways:
    each build with a manifest: `scripts/dev_release.py --variant custom` writes
    the image and a `firmware-manifest.json` into Home Assistant's `www` folder.
    Set **Custom manifest URL** to that manifest; **HAUI Firmware** offers every
-   newer build and **Auto** installs it. Each build needs
+   newer build and **Install firmware updates automatically** installs it. Each build needs
    a higher version than the last. See
    [Test firmware updates with a local release](release.md#test-firmware-updates-with-a-local-release).
 
@@ -133,8 +133,8 @@ universal panel.
 | When | What the hub does |
 |------|-------------------|
 | Home Assistant starts, or the device settings are saved | While the device is connected: reads the manifest and refreshes the two update entities (a panel that is not connected yet gets its first read at the connect check). Installs nothing and shows nothing on the display. |
-| 60 seconds after the device connects | Compares the display's TFT with the TFT the firmware needs and installs or offers it (always). With **Check for updates on connect**, it also installs a firmware update (when **Auto** is selected) and shows the release notice. |
-| Every **Check for a new version** interval (hourly by default) | Reads the manifest, installs a firmware update (when **Auto** is selected) and shows the release notice. The TFT is not checked here. |
+| 60 seconds after the device connects | Compares the display's TFT with the TFT the firmware needs and installs or offers it (always). With **Check for updates on connect**, it also installs a firmware update (with **Install firmware updates automatically** on) and shows the release notice. |
+| Every **Check for a new version** interval (hourly by default) | Reads the manifest, installs a firmware update (with **Install firmware updates automatically** on) and shows the release notice. The TFT is not checked here. |
 
 ```mermaid
 flowchart TD
@@ -155,7 +155,7 @@ The update entities do not poll: they show what the last check found.
 
 ### Firmware
 
-With **Auto** selected (`firmware_auto_update`, see
+With **Install firmware updates automatically** on (`firmware_auto_update`, see
 [Settings](#settings)), an automatic install is due when:
 
 - the manifest offers a newer version than the device runs, for the device's
@@ -196,7 +196,7 @@ flowchart TD
 ```
 
 With **Check for updates on connect** and periodic checks both off, nothing
-installs the firmware automatically. With **Manual** selected
+installs the firmware automatically. With **Install firmware updates automatically** off
 (the default), the **HAUI Firmware** entity offers the update and you
 [install it yourself](#installing-updates).
 
@@ -344,23 +344,24 @@ actions:
 - **Install update** answers with a toast: *Firmware update started for "…"* or
   *TFT update started for "…"*, or the reason the install could not start.
 - The dashboard marks a device with an offered update (**Update available** on its
-  card, **Update** in its inventory row). On the Device screen the **Connection &
-  device** card opens **Updates**, and the **Diagnostics** card counts a firmware
-  and HAUI version mismatch and a pending or failed display update as issues;
+  card, **Update** in its inventory row). On the Device screen the **Updates**
+  button below the side stack's cards opens the sidebar, and the **Diagnostics**
+  card counts a firmware and HAUI version mismatch and a pending or failed display
+  update as issues;
   expanded, its **Versions** tile shows the HAUI version, the device `yaml_version`
   and the display version with **update pending**, **installing** or **update
   failed**. A version mismatch is only a diagnostic; it never triggers an install.
 - Versions are also shown in the **Updates** sidebar and in the firmware and TFT
-  columns of the Fleet inventory. The **Connection & device** card keeps to the
-  connection facts and the Updates action.
+  columns of the Fleet inventory. The **Connection** card keeps to the
+  connection facts; the Updates button sits below the side stack.
 
 ## Settings
 
 | Setting in the editor | Key | Default | What it does |
 |-----------------------|-----|---------|--------------|
-| **Enable updates** (the switch beside the card's title) | `enabled` | on | Master switch for checks, update entities and every install, see [When updates are disabled](#when-updates-are-disabled). |
+| **Enable updates** | `enabled` | on | Master switch for checks, update entities and every install, see [When updates are disabled](#when-updates-are-disabled). |
 | **Update channel** | `firmware_update_channel` | **Stable** (`stable`) | Which manifest to follow when no custom URL is set: stable releases, or **Development** (`dev`, the published development firmware). Also decides whether the release notice considers prereleases. |
-| **When a new version is found** | `firmware_auto_update` | **Manual** (off) | **Auto** installs a newer firmware without asking, see [Firmware](#firmware). |
+| **Install firmware updates automatically** | `firmware_auto_update` | off | Installs a newer firmware without asking, see [Firmware](#firmware). |
 | **Check for a new version** | `update_interval` | **Every hour** (`3600`) | Seconds between periodic checks; **Never** (`0`) turns them off. The editor offers 15 minutes to one week and keeps another stored value selectable; the hub does not limit the value. |
 | **Skip this version** | `skipped_firmware_version` | empty | A firmware version never installed automatically; a manual install is not affected. |
 
@@ -433,15 +434,20 @@ that to one panel at a time:
    reconnect) before it starts it. A device with only a display update gets that.
 3. It waits for each install to finish, bounded by the controller's own install
    timeouts. The first failure, or a device that does not come back, stops the
-   rollout; the devices after it are *not started*.
+   rollout; the devices after it are *not started*. A device whose app stops
+   meanwhile (disabled, removed or reloaded) fails at once, and a firmware install
+   the device already runs is waited for instead of started again.
 
 The rollout skips the waiting period and installs a skipped version (you pressed
 Install). Devices still queued can be cancelled one by one or all at once
 (`DELETE …/rollout/{entry_id}[/{device}]`); the device installing finishes, since
-its transfer cannot be stopped. The rollout lives in memory: a Home Assistant
-restart or an entry reload drops it, and a device already transferring finishes
-on its own. The dashboard's **Update rollout** card shows each device's state and
-the installing device's progress.
+its transfer cannot be stopped. Once the rollout has finished, the same
+`DELETE …/rollout/{entry_id}` dismisses it (**Dismiss** on the card), for every
+editor. The rollout lives in memory: a Home Assistant restart or an entry reload
+drops it, and a device already transferring finishes on its own. The dashboard's
+**Update rollout** card shows each device's state and the installing device's
+progress; the dashboard reads the rollout with every status poll, so one another
+editor starts shows up too.
 
 ### Progress
 
@@ -484,15 +490,28 @@ device is offered, one device at a time, after a confirmation (see
 
 The sidebar leads with one status: **Up to date**, **Update available**, a running
 install, a failed one with the hub's error, or **No update available** with the reason
-the release does not fit the device. Below it are the installed firmware and display
-versions, each with the latest release or the display version the firmware needs.
+the release does not fit the device. That reason also says when the hub could not read
+the firmware manifest, or has not checked since it started, so neither reads as
+**Up to date**. A check that could not read the release list shows its error under
+the versions. A failed firmware install stays until the next install starts or the
+panel reconnects with another firmware (flashed by other means); a second install
+while one runs is refused with an error instead of reported as started.
 
-For one device, open the Device screen and press **Updates** in the **Connection & device**
-card, or **Install update** in the lead card while an update is offered. Whenever updates are
-enabled for the device, each version row has its own **Install** button, even if
-no automatic compatible update is offered. Press **Install** on **Firmware** or
-**Display**, then choose an offered update, another release, **From URL**, or
-**From local file**.
+While the panel is offline, or the editor could not refresh its status, the sidebar
+says so and the **Install** buttons are off: the versions are the last ones read.
+**Install updates** on the dashboard is not offered while the status could not be
+refreshed. After an install request the editor reads the status at once. Below it
+are the installed firmware and display versions, each with the latest release or
+the display version the firmware needs.
+An offered update turns the installed version into one badge with the version it
+updates to (`0.5.2 → 0.5.3`); a narrow card shows only the target (`→ 0.5.3`).
+
+For one device, open the Device screen and press **Updates** below the side stack's
+cards, or **Install update** in the lead card while an update is offered. Whenever
+updates are enabled for the device, each version row has its own **Install**
+button, even if no automatic compatible update is offered. Press **Install** on
+**Firmware** or **Display**, then choose an offered update, another release,
+**From URL**, or **From local file**.
 
 Under the status, a scheduled automatic firmware install shows when it starts,
 with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**
@@ -501,12 +520,16 @@ with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**
 next one follows, or that the automatic install stopped. A skipped firmware
 version is marked **Skipped** on its row.
 
-**Check for updates** runs along the bottom edge of the status card, and the
+**Check for updates** runs along the bottom edge of the status card, with the
+integration's version at the end of that row (it also shows while updates are
+off; the integration itself updates through the Marketplace). On a card 440 px
+wide or narrower (the default sidebar, a phone) the row reads **Check** and
+shows the version alone, and **Install** shows only its icon. The
 **Update settings** card below the versions holds this device's update
 preferences ([Settings](#settings)). Its title carries the **Enable updates**
-switch; below come the three choices an update needs: the **Update channel**, how often to **Check
-for a new version** (or **Never**), and what happens **When a new version is
-found** (**Manual** or **Auto**). Everything else is
+switch; while it is on, below come the three choices an update needs: the **Update channel** (a list), how often to
+**Check for a new version** (or **Never**) and **Install firmware updates
+automatically** (a switch). Everything else is
 folded under **Advanced**, which opens by itself while a custom manifest URL is
 set.
 Changes save automatically; text fields save after you pause typing.
@@ -844,7 +867,7 @@ entity back, so automations keep working.
 [local test releases](release.md#test-firmware-updates-with-a-local-release)
 through the `firmware_manifest_url` substitution needs the same **Custom
 manifest URL** in the device editor before you update the integration — or
-**Manual** selected. Otherwise the hub reads the GitHub
+**Install firmware updates automatically** off. Otherwise the hub reads the GitHub
 manifest and installs a newer release over the test build.
 
 #### 12. Display TFT updates come from the firmware manifest
@@ -1036,7 +1059,8 @@ normal settings apply. See
 - While `schedule` has entries the hub owns the **Use Auto Display-Off**
   switch: it writes the active entry's `display_off`, or `use_auto_display_off`
   outside every entry, on every sync. Without entries the switch still belongs
-  to its live state.
+  to its live state; the save that removes the last entry writes
+  `use_auto_display_off` to it once.
 - Sun boundaries use Home Assistant's sunrise and sunset of the current day
   plus the boundary's offset, read when the hub evaluates the schedule; the hub arms one timer for the next
   boundary instead of listening for sun events.
@@ -1048,18 +1072,53 @@ normal settings apply. See
 #### 22. A shared theme library replaces per-device colours
 
 NSPanel HAUI 0.5.0 keeps custom themes in one library shared by every device of
-the hub. A device selects its theme with `theme_id` and its icon palette with
-`theme_variant`; panels can select a library theme of their own. See
-[Themes](../user/configuration/themes.md).
+the hub. A device selects its theme with `theme_id`; panels can select a library
+theme of their own. See [Themes](../user/configuration/themes.md).
 
 - **Nothing is converted.** Per-device `color_overrides` and `theme_overrides`
   are no longer read: add the custom palette to the theme library and select it.
-  Hand-written config must use `theme_id` and `theme_variant`; a YAML export
-  carries the selected custom theme as `theme_definition`.
+  Hand-written config must use `theme_id`; a YAML export carries the selected
+  custom theme as `theme_definition`.
 - The **Device Colors** sidebar is now the **Theme** sidebar (the **Theme**
   button of **Manage this device** on the device's Preview), and the Appearance
   section is gone from device settings.
 - Panel and item colour settings are separate and unchanged.
+
+### 0.5.2
+
+#### 23. A schedule entry that dims needs `brightness_dim`
+
+A schedule entry may set `brightness_dim`; 0.5.0 accepted that while the
+device's `brightness_dim` was empty, so the hub had no value to write when the
+entry ended and the panel kept the entry's dimmed brightness.
+
+- `validate_device_config` now refuses an entry with `brightness_dim` while the
+  device's `brightness_dim` is empty, as it refuses a schedule without
+  `brightness`.
+- `PanelStorage.load` migrates such a device once: it sets `brightness_dim` to
+  20, the firmware's initial **Brightness Dimmed**, and logs a warning.
+- The **Schedule** group of the device settings saves the panel's **Brightness
+  Dimmed** reading (20 when there is none) with the schedule when an entry sets a
+  dimmed brightness and the device has none.
+
+#### 24. A theme selects its own icon colors
+
+0.5.0 kept the default icon palette in a device setting (`theme_variant`, the
+**Theme variant** switch of the device settings) and let the Theme sidebar pick
+which palette to edit, independent of the selected theme.
+
+- `Theme.variant` now follows the theme's own page background
+  (`background_variant()` in `haui/mapping/color.py`): the light-background icon
+  colors for **Light**, **White**, **Sky** and any custom theme with a light
+  page, the dark-background ones for the rest. `ThemeLibrary` takes no variant,
+  and a page with a fixed picture background still passes its own variant.
+- `theme_variant` is gone from `DEVICE_CONFIG`, the device-config model and the
+  editor's defaults. `PanelStorage.load` drops the stored key once; the editor
+  and the Theme sidebar send `theme_id` only.
+- The Theme sidebar's **Icon colors** section edits the palette the theme draws
+  (`themeIconVariant()` in `frontend/theme-library.js`, mirroring the hub's
+  rule); there is no palette picker anymore. A custom theme still stores both
+  palettes, because a page with a fixed picture background uses the other one.
 
 ### Older firmware
 

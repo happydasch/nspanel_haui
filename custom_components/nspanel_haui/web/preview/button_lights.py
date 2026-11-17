@@ -3,7 +3,8 @@
 Each button shows its relay; a button that switches an entity instead (relay
 mode off and ``button_<side>_entity`` set) also shows that entity's state.
 The sandbox (``virtual_panel.py``) reads the simulated states, the live
-preview (``live_panel.py``) the real ones.
+preview (``live_panel.py``) the real ones. Both also name the entity each
+button switches, for the preview's entity hover.
 """
 
 from __future__ import annotations
@@ -59,6 +60,21 @@ def light_state(state: Any, attributes: dict[str, Any] | None, entity_id: str) -
     if state == "off" or state is False or state == 0:
         return "off"
     return "unknown"
+
+
+def buttons_message(entity_ids: dict[ButtonLight, str]) -> dict[str, Any]:
+    """The browser message naming the entity each button switches, None for none.
+
+    A press switches the button's entity when one is set without relay mode
+    (``HAUIDevice._toggle_button_state``), otherwise its relay.
+    """
+    return {
+        "type": "buttons",
+        **{
+            side: entity_ids.get(("entity", side)) or entity_ids.get(("relay", side))
+            for side in RELAY_ENTITY_NAMES
+        },
+    }
 
 
 def lights_message(states: dict[ButtonLight, str]) -> dict[str, Any]:

@@ -13,10 +13,11 @@ import { hasUpdateAvailable } from '../device-status.js';
 import {
   DEFAULT_FIRMWARE_MANIFEST_URL, DEVICE_CONFIG_DEFAULTS, FIRMWARE_UPDATE_CHANNELS,
 } from '../constants.js';
-import { renderField, renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
+import {
+  renderField, renderNumberInput, renderSelect, renderToggle, renderToggleField,
+} from '../form-fields.js';
 import { badge } from '../ui/badge.js';
 import { button } from '../ui/button.js';
-import { segmented } from '../ui/segmented.js';
 import { durationLabel, relativeTime, updateOfferLabel, versionLabel } from '../ui/format.js';
 import { updateProgress } from '../ui/update-progress.js';
 import { icon } from '../ui/icon.js';
@@ -106,18 +107,32 @@ export function updateSummary(update) {
   };
 }
 
+/**
+ * The installed version; an offered update turns it into one badge with the
+ * version it updates to, which a narrow card shortens to the target alone.
+ */
+function versionValue(version, offered, target) {
+  if (!offered) return html`<span class="haui-update-version-number">${versionLabel(version)}</span>`;
+  return html`<span title=${t('Update available')}>${badge(target
+    ? html`<span class="haui-update-label-wide">${versionLabel(version)}</span><span>→</span><span>${target}</span>`
+    : versionLabel(version), 'warning', 'haui-update-version-badge')}</span>`;
+}
+
 /** One row of the version list: what is installed, and what the release has for it. */
-function versionRow({ iconName, label, version, note, offered, skipped = false, disabled, onInstall }) {
+function versionRow({
+  iconName, label, compactLabel, version, target, note, offered, skipped = false, disabled, onInstall,
+}) {
   return html`<div class="haui-update-version">
     <dt>
       <span class="haui-update-version-icon">${icon(iconName)}</span>
-      <span class="haui-update-version-name">${label}${offered
-        ? badge(t('Update available'), 'warning') : nothing}${skipped
+      <span class="haui-update-version-name"><span class="haui-update-version-label-wide">${label}</span><span
+        class="haui-update-version-label-narrow"
+      >${compactLabel}</span>${skipped
         ? html`<span title=${t('Skipped: it installs only by hand.')}>${badge(t('Skipped'), 'neutral')}</span>`
         : nothing}${note ? html`<small>${note}</small>` : nothing}</span>
     </dt>
     <dd>
-      <span class="haui-update-version-number">${versionLabel(version)}</span>
+      ${versionValue(version, offered, target)}
       ${onInstall ? html`<ha-button
         size="s"
         appearance=${offered ? 'outlined' : 'plain'}
@@ -127,7 +142,7 @@ function versionRow({ iconName, label, version, note, offered, skipped = false, 
         @click=${onInstall}
       >
         <ha-icon slot="start" icon="mdi:download"></ha-icon>
-        ${t('Install')}
+        <span class="haui-update-label-wide">${t('Install')}</span>
       </ha-button>` : nothing}
     </dd>
   </div>`;
@@ -176,6 +191,7 @@ class UpdatesSidebar extends HauiDialog {
   static get properties() {
     return {
       deviceStatus: { type: Object },
+      statusError: { type: String },
       deviceName: { type: String },
       entryId: { type: String },
       api: { type: Object },
@@ -190,6 +206,8 @@ class UpdatesSidebar extends HauiDialog {
   constructor() {
     super();
     this.deviceStatus = null;
+    /** Why the last status poll failed; the status shown is then the last one read. */
+    this.statusError = null;
     this.deviceName = null;
     this.entryId = null;
     this.config = null;
@@ -257,7 +275,11 @@ class UpdatesSidebar extends HauiDialog {
     this._actionBusy = true;
     this._checkError = null;
     try {
-      await this.api.updates.check(this.entryId, this.deviceName);
+      const result = await this.api.updates.check(this.entryId, this.deviceName);
+      // The hub answers a check that could not read the releases with an error of
+      // its own; a newer check that replaced this one is not a failure.
+      const checkError = result?.results?.[this.deviceName]?.check_error;
+      if (checkError && checkError !== 'check superseded') this._checkError = checkError;
       this._emit('update-check');
     } catch (error) {
       this._checkError = error.message || t('Failed to check for updates');
@@ -463,14 +485,13 @@ class UpdatesSidebar extends HauiDialog {
   }
 
   /** The installed versions, one row each, with what the release offers. */
-  _renderVersions({ status, info, update, requiredTft, updatesEnabled, installDisabled }) {
+  _renderVersions({ info, update, requiredTft, updatesEnabled, installDisabled }) {
     return html`<dl class="haui-update-versions">
       ${versionRow({
-        iconName: 'info', label: t('Integration'), version: status.integration_version,
-      })}
-      ${versionRow({
-        iconName: 'chip', label: t('Firmware (YAML)'), version: info.yaml_version,
-        note: update.firmware_update_version
+        iconName: 'chip', label: t('Firmware (YAML)'), compactLabel: t('YAML'), version: info.yaml_version,
+        target: update.firmware_update_version,
+        // An offered release is in the version badge already.
+        note: update.firmware_update_version && !update.firmware_update_available
           ? t('Latest release: {version}').replace('{version}', update.firmware_update_version) : '',
         offered: update.firmware_update_available,
         skipped: Boolean(update.firmware_update_version)
@@ -481,7 +502,8 @@ class UpdatesSidebar extends HauiDialog {
           : null,
       })}
       ${versionRow({
-        iconName: 'monitor', label: t('Display (TFT)'), version: info.tft_version,
+        iconName: 'monitor', label: t('Display (TFT)'), compactLabel: t('TFT'), version: info.tft_version,
+        target: requiredTft,
         note: requiredTft ? t('The firmware needs {version}').replace('{version}', requiredTft) : '',
         offered: update.tft_update_available,
         disabled: installDisabled,
@@ -490,51 +512,48 @@ class UpdatesSidebar extends HauiDialog {
     </dl>`;
   }
 
-  /** The check action sits after the installed version rows. */
-  _renderCheckAction(updatesEnabled) {
-    return updatesEnabled ? html`<div class="haui-update-check-action">
-      <ha-button
+  /**
+   * The check action sits after the installed version rows, the integration's
+   * version at the row's end: the hub updates through the Marketplace, so it has
+   * nothing to install here. The version stays when updates are off. A narrow
+   * card shows the short label and only the version.
+   */
+  _renderCheckAction(updatesEnabled, integrationVersion) {
+    const label = this._actionBusy ? t('Checking…') : t('Check for updates');
+    return html`<div class="haui-update-check-action">
+      ${updatesEnabled ? html`<ha-button
         size="s"
         appearance="plain"
         ?disabled=${this._actionBusy}
         aria-busy=${this._actionBusy ? 'true' : nothing}
+        aria-label=${label}
         @click=${this._checkForUpdates}
       >
         <ha-icon slot="start" icon="mdi:refresh"></ha-icon>
-        ${this._actionBusy ? t('Checking…') : t('Check for updates')}
-      </ha-button>
-    </div>` : nothing;
+        ${this._actionBusy ? label : html`<span class="haui-update-label-wide">${label}</span><span
+          class="haui-update-label-narrow">${t('Check')}</span>`}
+      </ha-button>` : nothing}
+      <span class="haui-update-integration" title=${t('Integration')}>
+        <span class="haui-update-integration-label">${t('Integration')}</span>
+        <span class="haui-update-version-number">${versionLabel(integrationVersion)}</span>
+      </span>
+    </div>`;
   }
 
-  /** What an update needs decided: where versions come from, what to do with a find, how often to look. */
+  /** What an update needs decided: where versions come from, how often to look, what to do with a find. */
   _renderDecisions(settings) {
     const automatic = Boolean(settingValue(settings, 'firmware_auto_update'));
     return html`<section class="haui-update-group">
-      <div class="haui-field haui-update-field haui-update-choice">
-        <span class="haui-update-choice-label">${t('Update channel')}</span>
-        ${segmented({
-          label: t('Update channel'),
-          options: FIRMWARE_UPDATE_CHANNELS.map((value) => ({
+      <div class="haui-field haui-update-field">
+        <label for="update-channel">${t('Update channel')}</label>
+        ${renderSelect('update-channel', settingValue(settings, 'firmware_update_channel'),
+          FIRMWARE_UPDATE_CHANNELS.map((value) => ({
             value, label: value === 'dev' ? t('Development') : t('Stable'),
           })),
-          value: String(settingValue(settings, 'firmware_update_channel')),
-          onSelect: (value) => setSetting(this, 'firmware_update_channel', value),
-        })}
+          (value) => setSetting(this, 'firmware_update_channel', value))}
         ${settings.firmware_manifest_url
           ? html`<div class="haui-field-hint is-persistent">${t('The custom manifest URL under Advanced overrides the channel for firmware.')}</div>`
           : html`<div class="haui-field-hint">${t('Stable releases, or published development builds, for firmware and display.')}</div>`}
-      </div>
-      <div class="haui-field haui-update-field haui-update-choice">
-        <span class="haui-update-choice-label">${t('When a new version is found')}</span>
-        ${segmented({
-          label: t('When a new version is found'),
-          options: [{ value: false, label: t('Manual') }, { value: true, label: t('Auto') }],
-          value: automatic,
-          onSelect: (value) => setSetting(this, 'firmware_auto_update', value),
-        })}
-        <div class="haui-field-hint">${automatic
-          ? t('A newer firmware installs by itself; the display file it needs follows after the restart.')
-          : t('A newer firmware waits until you press Install.')}</div>
       </div>
       ${renderField({
         id: 'update-interval',
@@ -544,6 +563,15 @@ class UpdatesSidebar extends HauiDialog {
           id: 'update-interval', key: 'update_interval', settings,
           choices: UPDATE_INTERVAL_CHOICES, label: updateIntervalLabel,
         }),
+      })}
+      ${renderToggleField({
+        id: 'update-firmware-auto',
+        checked: automatic,
+        label: t('Install firmware updates automatically'),
+        hint: automatic
+          ? t('A newer firmware installs by itself; the display file it needs follows after the restart.')
+          : t('A newer firmware waits until you press Install.'),
+        onChange: (next) => setSetting(this, 'firmware_auto_update', next),
       })}
     </section>`;
   }
@@ -681,14 +709,20 @@ class UpdatesSidebar extends HauiDialog {
     const requiredTft = info.tft_required_version;
     const updatesEnabled = update.enabled !== false;
     const installing = update.firmware_installing || update.state === 'checking' || update.state === 'installing';
+    // The hub installs only on a connected panel, and a status that failed to
+    // refresh may describe one that went offline.
+    const stale = status.connected !== true || Boolean(this.statusError);
     return html`<div class="haui-update-sidebar">
       <section class="haui-surface haui-update-overview">
         ${this._renderStatus(updateSummary(update))}
+        ${stale ? html`<p class="haui-update-stale" role="status">${this.statusError
+          ? t('Device status could not be refreshed: {error}').replace('{error}', this.statusError)
+          : t('The panel is offline. These are the last versions it reported; install once it is back.')}</p>` : nothing}
         ${this._renderVersions({
-          status, info, update, requiredTft, updatesEnabled,
-          installDisabled: installing || this._actionBusy,
+          info, update, requiredTft, updatesEnabled,
+          installDisabled: installing || this._actionBusy || stale,
         })}
-        ${this._renderCheckAction(updatesEnabled)}
+        ${this._renderCheckAction(updatesEnabled, status.integration_version)}
       </section>
       ${this._renderScheduled(update)}
       ${updateProgress({ progress: update.firmware_progress, label: t('Firmware update') })}

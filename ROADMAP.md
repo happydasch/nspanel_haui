@@ -2,43 +2,33 @@
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
 shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
-2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, and v0.4.7 on 2026-11-11**, each
-tagged from a green `master` commit and published by the release workflow.
+2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, v0.4.7 on 2026-11-11, v0.5.0 and
+v0.5.1 on 2026-11-14, and v0.5.2 on 2026-11-17**, each tagged from a green
+`master` commit and published by the release workflow.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
 its known risks live in [docs/develop/release.md](docs/develop/release.md); day-to-day tasks
 belong in the issue tracker.
 
-**v0.5.0 is next.** Its scope is complete on `dev`: the Fleet/Device dashboard,
-the shared theme library with per-panel themes, device schedules in place of the
-Day/Night profiles and quiet hours, one list of swipe gestures, starter templates
-and option checks in the panel editor, per-device update settings with delayed,
-retried and one-at-a-time installs, and Slovak, contributed in
-[#94](https://github.com/happydasch/nspanel_haui/pull/94). The
-[CHANGELOG](CHANGELOG.md) lists every change and the
-[release notes](.github/release-notes/v0.5.0.md) the upgrade steps; only the
-release gates below remain. **v0.5.x** follows with high-speed TFTs and the
-remaining device and editor polish. **v0.6** adds Display Repair Mode, an
-inspection and cleanup of the Nextion scripts and Home Assistant hub settings;
-multi-hub support remains subject to a needs decision.
+**No version is in development on `dev` right now.** The v0.5.x work below is
+next in line: high-speed TFTs beside the normal-speed ones, predefined palettes
+in the TFT, and the removal of the vendored Nextion patch. **v0.6** adds Display
+Repair Mode, an inspection and cleanup of the Nextion scripts and Home Assistant
+hub settings; multi-hub support remains subject to a needs decision.
 
 ---
 
-## v0.5.0 — Release gates
+## Release gates
 
-0.5.0 updates the integration, the editor and the ESPHome firmware; the TFT files
-are unchanged. Before the `release/0.5.0` PR into `master`:
+Applies to every stable release; the runbook and its known risks are in
+[Release process](docs/develop/release.md).
 
-- **Updates on real panels.** Install firmware and display updates from the
-  Updates sidebar and with **Install updates** on Fleet, and check the step
-  timings behind the progress estimate and a two-device rollout (one device at a
-  time, stop at the first failure, cancel a queued device).
 - **Release-check recovery path.** The 2026-11-09 GitHub Actions outage failed
   runs before their jobs started; the documented recovery (check
   githubstatus.com, close and reopen the PR or push a new head commit, then
   re-run the failed workflow) has not been exercised end to end. Prove it once
-  on a dev-cycle PR before relying on it for the release
+  on a dev-cycle PR before relying on it for a release
   ([release process](docs/develop/release.md#guardrails-and-known-gaps)).
 - **Current screen overview.** A development build regenerates
   `docs/screens.html` and `docs/assets/screens/` and commits them with its
@@ -48,7 +38,7 @@ are unchanged. Before the `release/0.5.0` PR into `master`:
 
 ---
 
-## v0.5.x — After 0.5.0
+## v0.5.x — After 0.5.2
 
 ### Multiple TFTs
 
@@ -81,17 +71,6 @@ Predefine the theme palettes in the TFT so the first render needs fewer color
 commands, without flashing the default palette or showing a partially themed
 page; editor cards must continue to match the device render. It needs a new TFT,
 so it can ship with the high-speed variants.
-
-### Device operations
-
-- Move (not just copy) panels across devices.
-- Keep each device's version and action state correct across stale or failed
-  updates.
-
-### Accessibility
-
-The rest of the editor's accessibility pass: contrast, a screen-reader review of
-the dashboard, and a keyboard way to reorder devices, which only drag today.
 
 ### Remove the vendored Nextion patch
 
@@ -243,6 +222,18 @@ behaving unchanged on hardware after the cleanup.
 - **0.4.7** — consolidation release: one CI pipeline, manually dispatched
   development builds, the editor's store and typed API client foundation, the
   v0.5 architecture and design prototype; no firmware or display changes.
+- **0.5.0** — the Fleet/Device dashboard, a shared theme library with per-panel
+  themes, schedules in place of the Day/Night profiles and quiet hours, one list
+  of swipe gestures, starter templates and option checks in the panel editor,
+  per-device update settings with delayed, retried and one-at-a-time installs,
+  and Slovak.
+- **0.5.1** — Clock panel item-button routing and matching component IDs in
+  Clock, Weather and Clock Two; a 24-hour filter for **Latest events** on Fleet.
+- **0.5.2** — six colorful predefined themes and the theme-owned icon palette
+  that replaces **Theme variant**, the dashboard card, the device settings tile
+  grid with the schedule and gestures inside it, separate **Backups**,
+  **Updates** and **Themes** sidebars, per-state item values, and four schedule
+  fixes.
 
 ---
 

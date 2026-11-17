@@ -16,6 +16,7 @@ import { renderDisplay } from '../virtual/nextion-view.js';
 import { entityAt, toDisplayCoords } from '../virtual/touch-input.js';
 import { LivePanelSession } from '../virtual/live-panel-session.js';
 import { VirtualPanelSession } from '../virtual/virtual-panel-session.js';
+import { entityDisplayName } from '../haui-entity.js';
 
 // Largest on-screen scale; the workspace shrinks it to fit the available width.
 const MAX_SCALE = 1.25;
@@ -49,7 +50,6 @@ class PreviewWorkspace extends LitElement {
       _hover: { state: true },
       mode: { type: String },
       showEntities: { type: Boolean },
-      optionSelection: { type: String },
     };
   }
 
@@ -69,7 +69,6 @@ class PreviewWorkspace extends LitElement {
     this._hover = null;
     this.mode = 'simulated';
     this.showEntities = false;
-    this.optionSelection = '';
     this._pointerId = null;
     this._resizeObserver = null;
   }
@@ -87,7 +86,6 @@ class PreviewWorkspace extends LitElement {
     }
     if (changed.has('mode')) this.setLive(this.mode === 'live');
     if (changed.has('showEntities') && !this.showEntities) this._hover = null;
-    if (changed.has('optionSelection')) this._hover = null;
     const stage = this.renderRoot.querySelector('.haui-preview-stage');
     if (stage && !this._resizeObserver && typeof ResizeObserver === 'function') {
       this._resizeObserver = new ResizeObserver(entries => {
@@ -233,7 +231,16 @@ class PreviewWorkspace extends LitElement {
     const session = this._session;
     if (!session?.ready || !this.showEntities) return;
     const { x, y } = this._coords(e);
-    const entityId = entityAt(session.display, session.entityMap, x, y);
+    this._hoverAt(entityAt(session.display, session.entityMap, x, y), e);
+  }
+
+  /** Name the entity a hardware button switches; null while Show entities is off. */
+  _hoverButton(e, entityId) {
+    if (e.pointerType === 'mouse') this._hoverAt(entityId, e);
+  }
+
+  /** Show the tooltip for an entity at the mouse, or hide it for none. */
+  _hoverAt(entityId, e) {
     if (!entityId) {
       this._hover = null;
       return;
@@ -251,7 +258,10 @@ class PreviewWorkspace extends LitElement {
   _renderTooltip() {
     const hover = this._hover;
     if (!hover) return nothing;
-    const name = this.hass?.states?.[hover.entityId]?.attributes?.friendly_name;
+    const name = entityDisplayName(this.hass, hover.entityId);
+    // Why the panel shows the entity as unavailable.
+    const stateObj = this.hass?.states?.[hover.entityId];
+    const status = !stateObj ? t('Not found') : stateObj.state === 'unavailable' ? t('Unavailable') : '';
     // Keep it inside the frame: left of the cursor on the right side, above it
     // near the bottom.
     const horizontal = hover.x > hover.width * TOOLTIP_FLIP_SHARE
@@ -263,6 +273,7 @@ class PreviewWorkspace extends LitElement {
     return html`
       <div class="vp-tooltip" style="${horizontal};${vertical}">
         ${name ? html`<div>${name}</div>` : nothing}
+        ${status ? html`<div>${status}</div>` : nothing}
         <div class="vp-tooltip-id">${hover.entityId}</div>
       </div>
     `;
@@ -323,13 +334,18 @@ class PreviewWorkspace extends LitElement {
   _renderHardwareButtons(session) {
     return html`
       <div class="vp-hw-buttons">
-        ${['left', 'right'].map(side => html`
+        ${['left', 'right'].map(side => {
+          const label = side === 'left' ? t('Left button') : t('Right button');
+          const entityId = this.showEntities ? session?.buttonEntityIds?.[side] : null;
+          return html`
           <button
             class="vp-hw"
-            aria-label=${side === 'left' ? t('Left button') : t('Right button')}
-            title=${side === 'left' ? t('Left button') : t('Right button')}
+            aria-label=${label}
+            title=${entityId ? nothing : label}
             ?disabled=${!session?.canInteract}
             @click=${() => session?.pressButton(side)}
+            @pointermove=${e => this._hoverButton(e, entityId)}
+            @pointerleave=${() => { this._hover = null; }}
           >
             ${session?.buttonEntityStates?.[side] !== null
               && session?.buttonEntityStates?.[side] !== undefined
@@ -341,7 +357,8 @@ class PreviewWorkspace extends LitElement {
               `
               : html`<span class="vp-relay-light" data-state=${session?.relays?.[side] || 'unknown'}></span>`}
           </button>
-        `)}
+        `;
+        })}
       </div>
     `;
   }

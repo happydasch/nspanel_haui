@@ -115,6 +115,44 @@ test('an open panel menu renders from the model, not a local shell flag', () => 
   assert.match(opened, /panel-menu:clock_0/);
 });
 
+test('a move menu groups destination devices under one expandable entry', () => {
+  const actions = [];
+  const move = {
+    label: 'Move to…',
+    iconName: 'folder-move-outline',
+    submenu: [
+      { label: 'Office', onSelect: () => actions.push('office') },
+      { label: 'Guest room', onSelect: () => actions.push('guest') },
+    ],
+  };
+  const entry = userEntry('clock_0', { menu: [move] });
+  const toggled = [];
+  const closed = flat(renderPanelList({
+    groups: [group('navigation', [entry])], menuKey: 'clock_0',
+  }));
+  assert.match(closed, /Move to…/);
+  assert.match(closed, /aria-haspopup="menu"/);
+  assert.match(closed, /aria-expanded=false/);
+  assert.match(closed, /\?hidden=true/);
+
+  const openedTemplate = renderPanelList({
+    groups: [group('navigation', [entry])],
+    menuKey: 'clock_0',
+    submenuKey: 'clock_0',
+    onToggleSubmenu: (key) => toggled.push(key),
+  });
+  const opened = flat(openedTemplate);
+  assert.match(opened, /aria-expanded=true/);
+  assert.match(opened, /Office/);
+  assert.match(opened, /Guest room/);
+  const toggle = handler(openedTemplate, 'haui-menu-submenu-trigger', '@click');
+  toggle();
+  assert.deepEqual(toggled, ['clock_0']);
+  // Choosing a destination remains an action owned by its submenu entry.
+  move.submenu[1].onSelect();
+  assert.deepEqual(actions, ['guest']);
+});
+
 /** The handler bound to `attribute` on the first template whose strings carry `marker`. */
 function handler(template, marker, attribute) {
   if (!template?.strings) return null;

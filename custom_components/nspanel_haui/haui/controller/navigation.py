@@ -346,6 +346,11 @@ class HAUINavigationController(HAUIBase):
         return self._current_nav
 
     @property
+    def home_panel(self) -> HAUIPanel | None:
+        """The panel Home opens: ``home_panel``, else the first navigation panel."""
+        return self._home_panel
+
+    @property
     def idle_panel_active(self) -> bool:
         """Whether the idle page (automatic page switching) is shown.
 

@@ -9,6 +9,23 @@ import { t } from './localize.js';
 export const THEME_FILE_VERSION = 1;
 
 /**
+ * The icon palette a theme uses: its own page background decides between the
+ * dark and the light one. Mirrors `Theme.background_variant()` in Python
+ * (`custom_components/nspanel_haui/haui/mapping/color.py`).
+ * @param {Record<string, number> | undefined} colors
+ * @returns {'dark'|'light'}
+ */
+export function themeIconVariant(colors) {
+  const background = colors?.background;
+  if (typeof background !== 'number') return 'dark';
+  const red = Math.floor(((background >> 11) & 0x1f) * 255 / 31);
+  const green = Math.floor(((background >> 5) & 0x3f) * 255 / 63);
+  const blue = Math.floor((background & 0x1f) * 255 / 31);
+  const brightness = Math.floor((2126 * red + 7152 * green + 722 * blue) / 10000);
+  return brightness >= 128 ? 'light' : 'dark';
+}
+
+/**
  * The translated name of a built-in theme. Looked up at render: t() returns
  * its key until the translations have loaded, which is after this module.
  * @param {string} id
@@ -19,6 +36,12 @@ export function builtinThemeLabel(id) {
     light: t("Light Color"),
     white: t("White"),
     black: t("Black"),
+    midnight: t("Midnight"),
+    ocean: t("Ocean"),
+    forest: t("Forest"),
+    sunset: t("Sunset"),
+    violet: t("Violet"),
+    sky: t("Sky"),
   }[id];
 }
 

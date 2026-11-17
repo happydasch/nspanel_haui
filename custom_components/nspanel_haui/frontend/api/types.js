@@ -89,7 +89,6 @@
  * @typedef {Object} DeviceConfig
  * @property {boolean} [enabled]
  * @property {string} [display_model]
- * @property {string} [theme_variant]
  * @property {string} [theme_id]
  * @property {string} [home_panel]
  * @property {string} [idle_panel]
@@ -244,6 +243,14 @@
  * @property {number} page
  * @property {string[]} before
  * @property {string[]} commands
+ */
+
+/**
+ * A device a dashboard card can show (`nspanel_haui/card/devices`).
+ * @typedef {Object} CardDevice
+ * @property {string} entry_id
+ * @property {string} name
+ * @property {boolean} portrait
  */
 
 /**

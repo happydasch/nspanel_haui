@@ -84,7 +84,8 @@ class _Hosts:
         task = self._tasks.get(key)
         if task is None or not task.done() or task.exception() is not None:
             return
-        if task.result().viewer_count:
+        host = task.result()
+        if host.viewer_count or host.home.viewer_count:
             self.touch(key)
             return
         # Forgotten before the stop runs: a use in between starts a new host

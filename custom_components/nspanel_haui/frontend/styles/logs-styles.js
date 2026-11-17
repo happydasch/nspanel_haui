@@ -28,31 +28,31 @@ export const logsStyles = css`
   .haui-logs-list h3 {
     position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 16px 4px;
     border-bottom: 1px solid var(--divider-color); background: var(--card-background-color);
-    color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 600;
+    color: var(--secondary-text-color); font-size: var(--haui-text-caption); font-weight: 500;
   }
   .haui-logs-list ol { margin: 0; padding: 0; list-style: none; }
   .haui-log {
-    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 8px;
     padding: 8px 16px 8px 12px; border-inline-start: 3px solid transparent;
-    font-size: var(--haui-text-label); line-height: 1.45;
+    font-size: var(--haui-text-label); line-height: var(--haui-line-height-copy);
   }
   .haui-log + .haui-log { border-top: 1px solid color-mix(in srgb, var(--divider-color) 55%, transparent); }
   .haui-log time {
     color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: var(--haui-text-caption);
-    font-variant-numeric: tabular-nums; line-height: 1.65;
+    font-variant-numeric: tabular-nums;
   }
   .haui-log p { min-width: 0; margin: 0; overflow-wrap: anywhere; }
   .haui-log-text { white-space: pre-wrap; }
   .haui-log-tag {
     display: inline-block; margin-inline-end: 4px; padding: 0 4px; border-radius: var(--haui-radius-control);
-    font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .03em; line-height: 1.6;
+    font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .05em; line-height: var(--haui-line-height);
     text-transform: uppercase; vertical-align: 1px;
   }
   .haui-log-device { margin-inline-end: 4px; color: var(--secondary-text-color); font-weight: 500; }
   .haui-log-warning { border-inline-start-color: var(--haui-warn); background: color-mix(in srgb, var(--haui-warn) 7%, transparent); }
-  .haui-log-warning .haui-log-tag { background: var(--haui-warn-soft); color: var(--haui-warn); }
+  .haui-log-warning .haui-log-tag { background: var(--haui-warn-soft); color: var(--haui-warn-text); }
   .haui-log-error { border-inline-start-color: var(--haui-bad); background: color-mix(in srgb, var(--haui-bad) 8%, transparent); }
-  .haui-log-error .haui-log-tag { background: var(--haui-bad-soft); color: var(--haui-bad); }
+  .haui-log-error .haui-log-tag { background: var(--haui-bad-soft); color: var(--haui-bad-text); }
   .haui-log-debug .haui-log-text { color: var(--secondary-text-color); }
   .haui-log-debug .haui-log-tag { background: var(--haui-surface-soft); color: var(--secondary-text-color); }
 `;

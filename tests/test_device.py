@@ -1,6 +1,7 @@
 import time
 from datetime import datetime
 from datetime import time as dt_time
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -1167,6 +1168,71 @@ def test_schedule_boundary_applies_the_new_settings_and_rearms() -> None:
     assert app.switches["number.device_brightness_full"].state == 5
     # Re-armed for the entry's end, eight hours later.
     assert app.timers[-1][1] == 8 * 3600
+
+
+def test_schedule_timer_counts_real_time_across_a_clock_change() -> None:
+    # Berlin's clocks go forward at 02:00 on 29 March 2026: 21:00 to 07:00 is nine hours.
+    app = _ScheduleApp(datetime(2026, 3, 28, 21, 0, tzinfo=ZoneInfo("Europe/Berlin")))
+    device = _scheduled(app, _entry("07:00", "08:00"))
+
+    device._arm_schedule_timer()
+
+    assert app.timers[-1][1] == 9 * 3600
+
+
+def test_without_any_sun_event_the_schedule_is_checked_again_a_day_later() -> None:
+    """Polar night: the entry starts once the sun sets again, without a reconnect."""
+    app = _ScheduleApp(datetime(2026, 1, 1, 12, 0))
+    app.sun = {"sunrise": None, "sunset": None}
+    device = _scheduled(app, _entry("sunset", "sunrise"))
+
+    device._arm_schedule_timer()
+
+    assert app.timers[-1][1] == 24 * 3600
+
+
+class _LaggingSwitch(_Switch):
+    """A switch whose write lands after the sync, as Home Assistant's service call does."""
+
+    def __init__(self, state):
+        super().__init__(state)
+        self.pending = None
+
+    def turn_on(self):
+        self.turn_on_calls += 1
+        self.pending = "on"
+
+    def turn_off(self):
+        self.turn_off_calls += 1
+        self.pending = "off"
+
+    def settle(self):
+        if self.pending is not None:
+            self.state, self.pending = self.pending, None
+
+
+def test_a_saved_display_off_setting_leaves_the_active_entry_in_charge() -> None:
+    app = _ScheduleApp(datetime(2026, 1, 1, 23, 0))
+    switch = _LaggingSwitch("off")
+    app.switches["switch.device_off"] = switch
+    device = _scheduled(app, _entry("22:00", "06:00", display_off=False))
+
+    device.sync_config_to_device({"use_auto_display_off"})
+    switch.settle()
+
+    assert switch.state == "off"
+    assert switch.turn_on_calls == 0
+
+
+def test_a_saved_display_off_setting_applies_outside_every_entry() -> None:
+    app = _ScheduleApp(datetime(2026, 1, 1, 12, 0))
+    app.switches["switch.device_off"].state = "on"
+    device = _scheduled(app, _entry("22:00", "06:00"), use_auto_display_off=False)
+
+    device.sync_config_to_device({"use_auto_display_off"})
+
+    assert app.switches["switch.device_off"].state == "off"
+    assert app.switches["switch.device_off"].turn_off_calls == 1
 
 
 def test_stopping_the_device_cancels_the_schedule_timer() -> None:

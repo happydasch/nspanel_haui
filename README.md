@@ -69,24 +69,24 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with six device cards showing their home screens, the device inventory and recent events" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with six device cards showing their home screens, the device inventory and latest events" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with six device cards showing their home screens, the device inventory and recent events" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with six device cards showing their home screens, the device inventory and latest events" width="100%">
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" colspan="2">
       <b>Fleet overview</b><br>
-      <sub>See every panel's home screen, connection status, firmware, updates and recent events at a glance.</sub>
+      <sub>See every panel's home screen, connection status, firmware, updates and latest events at a glance.</sub>
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-light.png" alt="Living Room device in the light theme: a landscape grid panel preview beside connection, update, diagnostics and backup details" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-light.png" alt="Living Room device in the light theme: a landscape grid panel preview beside the connection, diagnostics and backup cards and the updates and themes buttons" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-dark.png" alt="Bedroom device in the dark theme: a portrait clock panel preview beside connection, update, diagnostics and backup details" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-dark.png" alt="Bedroom device in the dark theme: a portrait clock panel preview beside the connection, diagnostics and backup cards and the updates and themes buttons" width="100%">
     </td>
   </tr>
   <tr>
@@ -125,16 +125,16 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-light.png" alt="Device settings in the light theme with general, screen, sounds, home and idle, screen buttons and gestures, hardware buttons and advanced sections" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme with general, screen, sounds, home and idle, screen buttons and gestures, hardware buttons and advanced sections" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="100%">
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" colspan="2">
       <b>Configure device behaviour</b><br>
-      <sub>Language, screen, sounds, home and idle panels, buttons and gestures, all in one place.</sub>
+      <sub>Language, screen, sounds, home and idle panels, buttons, gestures and the schedule, each group a page of its own.</sub>
     </td>
   </tr>
 </table>

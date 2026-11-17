@@ -131,7 +131,7 @@ export const themeSelectorStyles = css`
     margin-inline: 4px;
     background: var(--divider-color, #e0e0e0);
   }
-  .haui-theme-selector-actions .haui-row-action.is-danger { color: var(--error-color, #db4437); }
+  .haui-theme-selector-actions .haui-row-action.is-danger { color: var(--haui-bad-icon); }
   .haui-theme-selector-actions .haui-row-action.is-danger:hover:not(:disabled) { background: var(--haui-bad-soft); }
 
   @media (prefers-reduced-motion: reduce) {

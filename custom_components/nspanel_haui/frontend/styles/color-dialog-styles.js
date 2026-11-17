@@ -177,7 +177,7 @@ export const colorDialogStyles = css`
   }
 
   .haui-theme-error {
-    color: var(--error-color, #db4437);
+    color: var(--haui-bad-text);
   }
 
   @media (prefers-reduced-motion: reduce) {

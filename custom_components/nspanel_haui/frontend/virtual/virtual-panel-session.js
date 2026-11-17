@@ -22,8 +22,6 @@ export class VirtualPanelSession extends PanelSession {
     this.sandboxChanged = false;
     this.brightness = 100;
     this.displayOff = false;
-    // Widget name -> entity id on the current page, for the hover tooltip.
-    this.entityMap = {};
     this._openHome = Boolean(opts.openHome);
   }
 
@@ -67,9 +65,6 @@ export class VirtualPanelSession extends PanelSession {
       case 'sandbox':
         this.sandboxChanged = Boolean(message.changed);
         this.onUpdate();
-        return true;
-      case 'entities':
-        this.entityMap = message.map;
         return true;
       default:
         return false;

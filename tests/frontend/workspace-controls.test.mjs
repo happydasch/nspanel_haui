@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
@@ -173,16 +173,6 @@ test('the Panels view hides the preview controls', () => {
   const text = templateText(view);
   assert.match(text, /Groups/);
   assert.doesNotMatch(text, /haui-preview-controls/);
-});
-
-test('the Panels option manager omits Home and Idle assignments', () => {
-  const view = panelManager({
-    panels: [{ key: 'light', title: 'Light' }, { key: 'clock', title: 'Clock' }],
-    config: { home_panel: 'clock', idle_panel: '' },
-  });
-  const text = templateText(view);
-  assert.match(text, /haui-device-option-controls/);
-  assert.doesNotMatch(text, /haui-home-panel|haui-idle-panels|Home panel|Idle panels/);
 });
 
 test('the Live button toggles the mode and stays usable while the session is not ready', () => {

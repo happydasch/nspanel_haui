@@ -13,32 +13,34 @@ import { rssiBarCount, rssiStrengthClass, fmtRssi } from '../device-info.js';
 import { deviceConnectionState } from '../device-status.js';
 
 /**
- * The Device side stack of the Preview view: connection and device facts with
- * the Updates action, Diagnostics, and YAML backup. Device facts and diagnostics
- * come from the real status payload: facts the device did not report stay
- * "Unknown", and while it is offline they are marked stale.
+ * The Device side stack of the Preview view: the connection and device facts,
+ * Diagnostics, and below them the buttons that open a sidebar of their own
+ * (Backups, Updates and Themes). Device facts and diagnostics come from the
+ * real status payload: facts the device did not report stay "Unknown", and
+ * while it is offline they are marked stale.
  *
  * @param {{ name: string, status: any, hass?: any,
- *   onLogs: () => void, onUpdates: () => void, onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
+ *   onLogs: () => void, onBackups?: () => void, onUpdates: () => void, onEditTheme?: () => void,
+ *   onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
+ *   updatesDetail?: string, themeDetail?: string,
  *   diagnosticsExpanded?: boolean, onToggleDiagnostics?: () => void,
- *   yamlExpanded?: boolean, onToggleYaml?: () => void,
- *   onYamlImport?: () => void, onYamlExport?: () => void,
  *   showEntities?: boolean, onShowEntities?: (show: boolean) => void,
  *   previewTools?: import('./device-diagnostics.js').PreviewTools|null,
- *   onOpenPage?: (() => void)|null }} data
+ *   onOpenPage?: (() => void)|null, statusError?: string|null }} data
  *   `onOpenPage` shows the device's current page in the simulated preview; the
- *   Current page tile runs it on a click.
+ *   Current page tile runs it on a click. `statusError` says why the last
+ *   status poll failed: the facts shown are then the last ones read.
  */
 export function deviceDetails({
-  name, status, hass, onLogs, onUpdates,
+  name, status, hass, onLogs, onBackups, onUpdates, onEditTheme,
+  updatesDetail = '', themeDetail = '',
   onCopyReport,
   detailsExpanded = true, onToggleDetails, diagnosticsExpanded = false, onToggleDiagnostics,
-  yamlExpanded = false, onToggleYaml, onYamlImport, onYamlExport,
-  showEntities = false, onShowEntities, previewTools = null, onOpenPage = null,
+  showEntities = false, onShowEntities, previewTools = null, onOpenPage = null, statusError = null,
 }) {
   const info = status?.device_info || {};
   const { connected, tone, label: stateLabel } = deviceConnectionState(status);
-  const stale = Boolean(status) && !connected;
+  const stale = Boolean(status) && (!connected || Boolean(statusError));
   const unknown = t('Unknown');
   const recency = connected && Number.isFinite(info.connection_uptime)
     ? t('Online for {uptime}').replace('{uptime}', uptimeLabel(info.connection_uptime))
@@ -46,8 +48,8 @@ export function deviceDetails({
       ? t('Last seen {time}').replace('{time}', relativeTime(info.disconnected_since))
       : '';
   // Expanded, tiles like the Diagnostics card: the connection readings (once there is a status), then
-  // the device facts and, below them, the Updates action. The versions stay in Diagnostics and the
-  // Updates sidebar.
+  // the device facts. The card carries no actions: Updates and Themes sit in the buttons below it.
+  // The versions stay in Diagnostics and the Updates sidebar.
   const model = status ? diagnosticsModel(status) : null;
   const tiles = [
     ...(model ? connectionTiles(model) : []),
@@ -63,14 +65,15 @@ export function deviceDetails({
     }),
   ];
   return html`${surface({
-    title: t('Connection & device'),
+    title: t('Connection'),
     subtitle: name,
     className: 'haui-device-details',
     leading: connectionStatus({ info, status, tone, stateLabel, recency, stale }),
     actions: expandToggle(detailsExpanded, onToggleDetails),
     onToggle: onToggleDetails,
     body: detailsExpanded ? html`<div class=${`haui-diag-tiles${stale ? ' is-stale' : ''}`} data-stale=${stale ? 'true' : 'false'}>${tiles}</div>${
-      button({ label: t('Updates'), iconName: 'update', onClick: onUpdates, className: 'haui-details-updates' })}` : undefined,
+      statusError ? html`<p class="haui-details-stale" role="status">${
+        t('Device status could not be refreshed: {error}').replace('{error}', statusError)}</p>` : nothing}` : undefined,
   })}${model ? surface({
     title: t('Diagnostics'),
     subtitle: diagnosticsSubtitle(model),
@@ -83,41 +86,61 @@ export function deviceDetails({
         status, hass, expanded: true, onLogs, onCopyReport, showEntities, onShowEntities, previewTools,
       })
       : undefined,
-  }) : nothing}${onYamlImport || onYamlExport ? surface({
-    title: t('Backup'),
-    subtitle: t('Back up this device or restore it on another hub.'),
-    className: 'haui-yaml-card',
-    leading: html`<span class="haui-backup-status" aria-hidden="true">${icon('backup-restore')}</span>`,
-    actions: expandToggle(yamlExpanded, onToggleYaml),
-    onToggle: onToggleYaml,
-    body: yamlExpanded ? html`<div class="haui-card-actions haui-yaml-actions">
-      ${onYamlImport ? button({ label: t('Import'), iconName: 'upload', onClick: onYamlImport }) : nothing}
-      ${onYamlExport ? button({ label: t('Export'), iconName: 'file', onClick: onYamlExport }) : nothing}
-    </div>` : undefined,
-  }) : nothing}`;
+  }) : nothing}${sideActions({
+    onBackups, onUpdates, onEditTheme, updatesDetail, themeDetail,
+  })}`;
 }
 
 /**
- * The MDI icon of the connection state: the Wi-Fi strength while connected,
- * crossed out while not. Shared by the card heading and the Fleet device table.
+ * The buttons below the side stack's cards, as content without a card of their
+ * own: each spans the whole width on a line of its own. **Updates** and
+ * **Themes** also name what they open on their trailing edge — what the update
+ * settings hold, the selected theme's name; **Backups** opens the device's YAML
+ * export and import, **Themes** the theme library with the device's theme
+ * selected.
+ *
+ * @param {{ onBackups?: () => void, onUpdates: () => void, updatesDetail?: string,
+ *   onEditTheme?: (() => void)|null, themeDetail?: string }} data
+ */
+function sideActions({
+  onBackups, onUpdates, onEditTheme, updatesDetail = '', themeDetail = '',
+}) {
+  return html`<div class="haui-details-actions">${button({
+    label: t('Updates'), iconName: 'update', detail: updatesDetail,
+    onClick: onUpdates,
+  })}${onEditTheme ? button({
+    label: t('Themes'), iconName: 'color', detail: themeDetail,
+    onClick: onEditTheme,
+  }) : nothing}${onBackups ? button({
+    label: t('Backups'), iconName: 'backup-restore',
+    onClick: onBackups,
+  }) : nothing}</div>`;
+}
+
+/**
+ * The MDI icon of the connection state: the Wi-Fi strength the panel reports,
+ * crossed out when there is no reading. A status without a hub connection
+ * still shows its reading; the dot beside it keeps the connection tone.
+ * Shared by the card heading and the Fleet device table.
  *
  * @param {any} status - the device status payload, or null while unavailable
  */
 function connectionIconName(status) {
   const bars = rssiBarCount(status?.device_info?.rssi);
-  return !status ? 'wifi-strength-off-outline'
-    : status.connected !== true ? 'wifi-off'
-      : bars ? `wifi-strength-${bars}` : 'wifi-strength-outline';
+  if (!status) return 'wifi-strength-off-outline';
+  if (bars) return `wifi-strength-${bars}`;
+  return status.connected === true ? 'wifi-strength-outline' : 'wifi-off';
 }
 
 /**
- * The connection icon, coloured by the Wi-Fi strength while connected; the
+ * The connection icon, coloured by the Wi-Fi strength the panel reports; the
  * status dot beside it keeps the connection tone.
  *
  * @param {any} status - the device status payload, or null while unavailable
  */
 export function connectionIcon(status) {
-  const strength = status?.connected === true ? rssiStrengthClass(status.device_info?.rssi) : '';
+  const bars = rssiBarCount(status?.device_info?.rssi);
+  const strength = bars ? rssiStrengthClass(status.device_info.rssi) : '';
   return icon(connectionIconName(status), strength);
 }
 

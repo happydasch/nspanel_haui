@@ -6,7 +6,7 @@ import { render } from './support/render.mjs';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
@@ -159,19 +159,17 @@ test('clicking a Device details section heading folds it, except on its controls
   const device = deviceDetails({
     name: 'kitchen', status: { connected: true, device_info: {} },
     onLogs() {}, onToggleDetails: () => toggled.push('details'),
-    yamlExpanded: false, onToggleYaml: () => toggled.push('yaml'),
-    onYamlImport() {}, onYamlExport() {},
     onToggleDiagnostics: () => toggled.push('diagnostics'),
   });
   const headings = templatesMatching(device, 'haui-surface-heading-copy').filter((entry) =>
     entry.values.some((value) => typeof value === 'string' && value.includes('haui-surface-heading-toggle')));
   const handlers = headings.map((entry) => entry.values.find((value) => typeof value === 'function'));
-  assert.equal(handlers.length, 3);
+  assert.equal(handlers.length, 2);
   // A click on the chevron or another heading control is that control's own.
   handlers.forEach((handler) => handler({ target: { closest: () => ({}) } }));
   assert.deepEqual(toggled, []);
   handlers.forEach((handler) => handler({ target: { closest: () => null } }));
-  assert.deepEqual(toggled, ['details', 'diagnostics', 'yaml']);
+  assert.deepEqual(toggled, ['details', 'diagnostics']);
 });
 
 test('the Panels view has a search field; the Device view does not', () => {
@@ -234,7 +232,8 @@ test('the expanded Connection & device card shows its facts as four tiles', () =
   for (const label of ['Disconnected', 'Wi-Fi signal', 'SSID', 'Last connected']) assert.match(card, new RegExp(label));
   assert.match(card, /-61 dBm/);
   assert.match(card, /haui-details-stale/);
-  assert.match(card, /mdi:wifi-off/);
+  // The panel still reports its Wi-Fi reading while the hub is not connected.
+  assert.match(card, /mdi:wifi-strength-2/);
 });
 
 test('the connection icon shows the Wi-Fi strength while connected', () => {

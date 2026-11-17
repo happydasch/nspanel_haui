@@ -40,6 +40,14 @@ test('device diagnostics preserve available readings and report malformed RSSI a
   assert.ok(withIdleState.textContent.includes('Shown'));
 });
 
+test('the Wi-Fi tile value is the reading alone; its signal bars are a hidden glyph of the tile', () => {
+  const status = { connected: true, device_info: { rssi: -54 } };
+  const tiles = render(connectionTiles(diagnosticsModel(status)));
+  const wifi = [...tiles.querySelectorAll('.haui-diag-tile')].find((tile) => tile.textContent.includes('Wi-Fi'));
+  assert.equal(wifi.querySelector('.haui-diag-tile-value').textContent.trim(), '-54 dBm');
+  assert.ok(wifi.querySelector('.haui-rssi-bars').closest('[aria-hidden="true"]'));
+});
+
 test('RSSI display helpers map invalid values to unknown instead of offline or NaN', () => {
   for (const value of [null, undefined, '', 'bad-rssi', 'NaN', Number.NaN, Infinity]) {
     assert.equal(rssiStrengthClass(value), 'haui-wifi-unknown');

@@ -22,16 +22,18 @@ export function button({
 
 /**
  * Icon-only button; the accessible label is always supplied explicitly.
- * @param {{ label: string, iconName: string, onClick?: ((event: MouseEvent) => void)|null, disabled?: boolean, className?: string, anchorKey?: string|null, expanded?: boolean, controls?: string }} options
+ * `hasPopup` marks a trigger that opens a menu (`'menu'`) or a dialog.
+ * @param {{ label: string, iconName: string, onClick?: ((event: MouseEvent) => void)|null, disabled?: boolean, className?: string, anchorKey?: string|null, expanded?: boolean, controls?: string, hasPopup?: string }} options
  */
 export function iconButton({
   label, iconName, onClick, disabled = false, className = '', anchorKey = null,
-  expanded, controls,
+  expanded, controls, hasPopup,
 }) {
   return html`<button type="button" class=${`haui-icon-button ${className}`.trim()}
     aria-label=${label} title=${label} ?disabled=${disabled}
     data-overlay-anchor=${anchorKey ?? nothing}
     aria-expanded=${expanded === undefined ? nothing : String(expanded === true)}
+    aria-haspopup=${hasPopup ?? nothing}
     aria-controls=${controls ?? nothing} @click=${onClick || nothing}>
     ${icon(iconName)}</button>`;
 }

@@ -3541,3 +3541,67 @@ def test_a_tft_release_list_that_fails_on_the_worker_still_answers_its_caller(mo
         ctrl.start_async_list_tft_releases(results.append)
 
     assert results == [{"releases": [], "required": None, "error": "the list broke"}]
+
+
+# --- what the editor shows when nothing is offered ---------------------------
+
+
+def test_a_failed_manifest_read_is_the_reason_nothing_is_offered(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1", "tft_required_version": None},
+        manifest="0.4.2",
+    )
+    assert ctrl.get_update_state()["firmware_update_available"] is True
+    app.served["manifest"] = requests.exceptions.ConnectTimeout("timed out")
+
+    _check(ctrl)
+
+    state = ctrl.get_update_state()
+    assert state["firmware_update_available"] is False
+    assert "Could not read the firmware manifest" in state["firmware_update_reason"]
+    assert "Could not read the firmware manifest" in _firmware_events(app)[-1]["reason"]
+
+
+def test_before_the_first_check_nothing_reads_as_up_to_date(monkeypatch):
+    ctrl, _, _ = _updater(monkeypatch, {"yaml_version": "0.4.1", "tft_version": "0.4.1"})
+
+    assert ctrl.get_update_state()["firmware_update_reason"] == (
+        "The hub has not checked for updates yet"
+    )
+
+
+def test_a_second_install_while_one_runs_is_answered_with_an_error_it_does_not_keep(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.1", "tft_version": "0.4.1"}, manifest="0.4.2"
+    )
+    _install_firmware(ctrl)
+    assert ctrl.get_update_state()["firmware_installing"] is True
+
+    again = _install_firmware(ctrl)
+
+    assert again["firmware_install_error"] == "A firmware install is already running"
+    assert ctrl.get_update_state()["firmware_install_error"] is None
+    assert len(app.published) == 1
+
+
+def test_a_failed_install_clears_once_the_panel_runs_another_firmware(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        connected=False,
+        manifest="0.4.2",
+    )
+    failed = _install_firmware(ctrl)
+    assert failed["firmware_install_error"] == "Device is disconnected"
+
+    # Reconnecting with the same firmware keeps the failure.
+    app.device.connected = True
+    ctrl.on_connection_changed(True)
+    assert ctrl.get_update_state()["firmware_install_error"] == "Device is disconnected"
+
+    # Flashed by other means, the panel reconnects with another firmware.
+    ctrl.on_connection_changed(False)
+    app.device.set_device_info({"yaml_version": "0.4.2"})
+    ctrl.on_connection_changed(True)
+    assert ctrl.get_update_state()["firmware_install_error"] is None

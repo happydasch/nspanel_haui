@@ -52,7 +52,7 @@ The entry is harmless. See [Display-Off Errors](troubleshooting.md#display-off-e
 
 ### The display should change its brightness over the day
 
-Use the **Schedule** option in **Manage this device** on the device's **Preview** view. Add an entry for each time window, from a time, sunrise or sunset (with an offset in minutes) to a time, sunrise or sunset, and set its brightness. Outside the entries, **Brightness full** and **Brightness dimmed** in the **Screen** section of the device settings apply. See [Schedule](configuration/device.md#schedule).
+Use the schedule in the **Screen** group of the device settings. Add an entry for each time window, from a time, sunrise or sunset (with an offset in minutes) to a time, sunrise or sunset, and set its brightness. Outside the entries, **Brightness full** and **Brightness dimmed** in the same group apply. See [Schedule](configuration/device.md#schedule).
 
 Without a schedule and without a **Brightness full** value, the brightness stays manual. An automation that sets `number.<device>_brightness_full` and `number.<device>_brightness_dimmed` works as before.
 

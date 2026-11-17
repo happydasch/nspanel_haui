@@ -17,17 +17,19 @@ NSPanel HAUI is configured in an editor inside Home Assistant. You do not edit Y
 2. The dashboard lists your devices. Select a device to open it. The round back button returns to the dashboard.
 3. A device opens on its **Preview**. Switch to **Panels** to see and edit its panels.
 
-Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**. **Theme**, **Schedule** and **Gestures** sit in one row of buttons in **Manage this device**, each opening its editor in a sidebar. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view lists the panels and describes the selected one in the side column; configure the home and idle pages in **Device Settings → Home & idle**.
+Each view starts with a highlighted card of the next actions. On **Preview**, **Add panel** opens its sidebar; the cog beside the card's title opens **Settings**, which holds the theme choice under **General**, and **Themes**, below the **Connection** and **Diagnostics** cards, opens the theme editor. While an update is offered, the Preview's card also offers **Install update**. The **Panels** view lists the panels and describes the selected one in the side column; configure the home and idle pages in **Device Settings → Home & idle**.
 
 If the editor does not get past its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 
 ## The Device Screen
 
-Beside the preview, the Device screen has two cards about the panel's state.
+Beside the preview, the Device screen has two cards about the panel's state, and below them the buttons that open a sidebar of their own: Updates, Themes and Backups.
 
-### Connection & device
+### Connection
 
-Four tiles: how long the panel has been online (or that it is offline), the Wi-Fi signal, the current page and the IP address. Hover over a tile or tap it for more, such as the Wi-Fi network, the last disconnect or the last panel update. Below the tiles, **Updates** opens the updates; the firmware and display versions are in **Diagnostics** and in the **Updates** sidebar.
+Four tiles: how long the panel has been online (or that it is offline), the Wi-Fi signal, the current page and the IP address. When the editor could not refresh the status, the card says so: the tiles show the last values it read. Hover over a tile or tap it for more, such as the Wi-Fi network, the last disconnect or the last panel update. The firmware and display versions are in **Diagnostics** and in the **Updates** sidebar.
+
+Below the **Connection** and **Diagnostics** cards, three buttons without a card of their own, one per line: **Updates** opens the Updates sidebar, with what the update settings hold on its trailing edge (for example **Development · Auto**, or **Off**), **Themes**, with the selected theme's name, opens the Theme sidebar, and **Backups** opens the Backups sidebar described below.
 
 ### Diagnostics
 
@@ -38,20 +40,24 @@ The icon in the header is a green check while all is good, or an alert with the 
 - a display update is pending or failed
 - the Wi-Fi signal is weak
 - the connection dropped three or more times in 24 hours
-- the hub log has warnings or errors
+- the integration log has warnings or errors
 
 Expand the card for more:
 
-- **Firmware** and **Hub log** tiles. A tap on **Hub log** opens the logs.
-- **Hub details** — the display state (on, dimmed, off), when the idle page opens, the disconnects of the last 24 hours and the entities the current page uses. Select an entity to open it in Home Assistant.
+- **Firmware** and **Integration log** tiles. A tap on **Integration log** opens the logs.
+- **Integration details** — the display state (on, dimmed, off), when the idle page opens, the disconnects of the last 24 hours and the entities the current page uses. Select an entity to open it in Home Assistant.
 - **Copy report** — copies a text report for a bug report. It contains versions, connection history and the recent log, but no network name, IP address or entity ids.
 - The preview's tools, see [The Live Preview](#the-live-preview).
 
+### Backups
+
+The Backups sidebar holds the device's YAML backup in two cards. **Export** saves this device's settings and panels to a `<device key>.yaml` file; **Import** restores such a file on this hub and replaces the settings and panels the device has now — there is no undo, so export first if you want to keep the current setup. Both report their result as a message at the bottom of the page.
+
 ### Logs
 
-The **Logs** sidebar shows the 50 most recent messages of the hub for a device, newest first and grouped by day. Open it with the **Hub log** tile of the Diagnostics card or with **Logs** in the device's **More** menu. Filter them with **All**, **Warnings** and **Errors** or with the search box. The copy button copies the lines shown, for a bug report.
+The **Logs** sidebar shows the 50 most recent messages of the integration for a device, newest first and grouped by day. Open it with the **Integration log** tile of the Diagnostics card or with **Logs** in the device's **More** menu. Filter them with **All**, **Warnings** and **Errors** or with the search box. The copy button copies the lines shown, for a bug report.
 
-On the dashboard, **Logs** beside **Latest events** shows the messages of all devices.
+On the dashboard, **Latest events** lists the warnings and errors of the last 24 hours (info and debug lines are only in **Logs**), and **Logs** at the end of its title line shows the full log. Both cover every device, or only the device selected in the device inventory or under a device card; without a selection they show the messages of all devices, and the line under the title names what the list covers — the selected device's name, or **All devices** — and ends with the window it covers, **Last 24 hours**. **Reset**, beside **Logs**, starts the list again from the moment you press it (the window then reads **Since …**), so only what happens from then on appears; the **Last 24 hours** button that appears beside it while reset brings the default back.
 
 The logs only contain messages of NSPanel HAUI. They are not a full Home Assistant or ESPHome log, and they are not saved to disk.
 
@@ -73,6 +79,7 @@ In this list you can:
 - **Edit** — select a panel's name or the pencil.
 - **Preview** — hover over the picture or tap it to enlarge it.
 - **Duplicate** — in the row's **More** menu.
+- **Move to another device** — **Move to…** in the row's **More** menu opens a submenu of the hub's other devices; selecting one moves the panel to that device, at the end of its panels. It keeps its key unless that device already has a panel with it; then it gets a free key, which the confirmation names. Settings of the old device that name the panel (home and idle panels, gestures, items that open it) keep the key, as after **Delete**. Popups a device extends stay with that device.
 - **Reorder** — drag a row by its grip, also between Navigation and Hidden.
 - **Delete** — remove a panel.
 
@@ -107,29 +114,31 @@ How the editor helps:
 Every item of a panel has its own editor:
 
 - **Entity picker** — search and select a Home Assistant entity.
-- **Advanced** — change the name, value, icon, color, state and popup of the item.
+- **Name**, **Icon**, **Color** — change how the item looks, with one value or one value per state.
+- **Advanced** — the value (also per state), the state, the popup of the item and the item options of the panel type, such as the grid's tile colors.
 
 See [Item Configuration](items.md) for all options.
 
 ## The Device Settings Dialog
 
-**Settings** opens the device settings in a sidebar. You find it as the cog in the action card of the **Preview** and of **Panels** and in the device's row on the dashboard. The settings are grouped into sections:
+**Settings** opens the device settings in a sidebar. You find it as the cog in the action card of the **Preview** and of **Panels** and in the device's row on the dashboard. The settings open on a grid of tiles, one per group; a tile opens that group's page and the strip's back arrow returns to the grid:
 
-| Section | Settings |
+| Group | Settings |
 |---------|----------|
-| **General** | Display model, display language, time and date formats; opens the **Theme** |
-| **Screen** | Brightness, dimming and display off with their timeouts; opens the **Schedule** |
+| **General** | Display model, display language, time and date formats, and the device's theme |
+| **Screen** | Brightness, dimming and display off with their timeouts, and the schedule that sets them by time of day |
 | **Sounds** | Startup and notification sounds |
 | **Home & idle** | Home panel, automatic page switching, idle panels and what the panel shows after waking up |
-| **Screen buttons & gestures** | Home, idle and notifications buttons in the header; opens the **Gestures** |
+| **Gestures** | The swipes and the panel each one opens |
+| **Screen buttons** | Home, idle and notifications buttons in the header |
 | **Hardware buttons** | Relays or entities for the two buttons |
-| **Advanced** | Logging, stale data marking and page settle delay; opens the **Updates** |
+| **Advanced** | Logging, stale data marking and page settle delay |
 
-See [Device Configuration](device.md) for every setting. The **Schedule**, **Gestures**, and **Theme** buttons are in **Manage this device** in the device's **Preview** view; the rows in the settings open the same sidebars. Set the home and idle panel assignments in **Device Settings → Home & idle**.
+See [Device Configuration](device.md) for every setting. Everything in the settings — schedule entries, gestures and the theme choice included — is one draft: **Save** applies it, **Cancel** discards it. Set the home and idle panel assignments in **Device Settings → Home & idle**.
 
 ## The Theme Sidebar
 
-In **Preview**, open **Manage this device** and choose **Theme** to open the Theme sidebar, where you select the device's theme and edit shared colors or icon palettes. The selection is saved immediately; press **Apply** to save color changes or **Cancel** to discard them. See [Themes](themes.md).
+In **Device Settings → General**, the **Theme** field selects the device's theme; **Themes** beside **Updates**, below the **Connection** and **Diagnostics** cards, which names the selected theme, opens the Theme sidebar, where you edit the colors of the selected theme and of the shared library, or its icon palettes. The theme choice saves with the rest of the settings; press **Apply** to save the sidebar's color changes or **Cancel** to discard them. See [Themes](themes.md).
 
 ## The Live Preview
 
@@ -162,7 +171,7 @@ The **Live** button above the screen switches to the real panel and back. While 
 | **Idle** (moon icon) | Bar above the screen | Opens the idle page; press it again to leave the idle page |
 | **Left button**, **Right button** | Below the screen | The two hardware buttons. The light is blue for a relay and yellow for an entity. |
 | **Show entities in the preview** | Diagnostics card | Hover over a tile or button to see the entity behind it |
-| **Current page** | Connection & device card, Simulated mode | Click the tile to show the page the real panel is on, as its idle page when the panel is idle. A popup opens with an example |
+| **Current page** | Connection card, Simulated mode | Click the tile to show the page the real panel is on, as its idle page when the panel is idle. A popup opens with an example |
 | **Reset sandbox** | Diagnostics card, Simulated mode | Drops all simulated states and shows the real states again. Shown only once an action in the preview changed a simulated state |
 | **Reset interaction** | Diagnostics card, Live mode | Restarts the panel's inactivity timer, as if you had touched it. It does not restart the panel. |
 | **Redraw display** | Diagnostics card, Live mode | Draws the current page again, for a display that shows old or broken content |

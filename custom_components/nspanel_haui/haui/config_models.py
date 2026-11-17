@@ -8,7 +8,7 @@ importlib I/O that must stay off the HA event loop.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from .device_config import DEVICE_CONFIG, LOG_LEVEL_OPTIONS
 from .mapping.const import GESTURES
@@ -158,7 +158,6 @@ def _ensure_models() -> None:
         log_level: str = "INFO"
         stale_data_seconds: int = Field(0, ge=0, le=86400)
         auto_navigate_home_timeout: int = Field(0, ge=0, le=86400)
-        theme_variant: Literal["dark", "light"] = "dark"
         theme_id: str = "dark"
         gestures: list[_Gesture] = Field(
             default_factory=lambda: [_Gesture(**entry) for entry in DEVICE_CONFIG["gestures"]]
@@ -171,6 +170,13 @@ def _ensure_models() -> None:
                 raise ValueError(
                     "a schedule needs the brightness setting: it is the brightness "
                     "outside the schedule's windows"
+                )
+            if self.brightness_dim is None and any(
+                entry.brightness_dim is not None for entry in self.schedule
+            ):
+                raise ValueError(
+                    "a schedule entry that sets brightness_dim needs the brightness_dim "
+                    "setting: it is the dimmed brightness outside the entry"
                 )
             return self
 

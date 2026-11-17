@@ -56,6 +56,8 @@ def _import_update(monkeypatch: MonkeyPatch):
     exceptions.HomeAssistantError = _HomeAssistantError
     registry = types.ModuleType("homeassistant.helpers.device_registry")
     registry.DeviceInfo = dict
+    registry.async_get = lambda hass: hass.device_registry
+    registry.async_entries_for_config_entry = lambda dev_reg, entry_id: dev_reg[entry_id]
     entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
     entity_registry.async_get = lambda hass: hass.entity_registry
     monkeypatch.setitem(sys.modules, "homeassistant.components.update", update_mod)
@@ -64,6 +66,7 @@ def _import_update(monkeypatch: MonkeyPatch):
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
     helpers = sys.modules.get("homeassistant.helpers")
     if helpers is not None:
+        monkeypatch.setattr(helpers, "device_registry", registry, raising=False)
         monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
     monkeypatch.delitem(sys.modules, "custom_components.nspanel_haui.update", raising=False)
     from custom_components.nspanel_haui import update
@@ -73,7 +76,7 @@ def _import_update(monkeypatch: MonkeyPatch):
 
 def _entity(update, app=None):
     entry = types.SimpleNamespace(entry_id="entry1")
-    entity = update.NSPanelDisplayUpdate(app or _App(), "kitchen", entry)
+    entity = update.NSPanelDisplayUpdate(app or _App(), "kitchen", entry, device_name="Kitchen")
     entity.async_write_ha_state = lambda: None
     return entity
 
@@ -214,8 +217,15 @@ class _EntityRegistry:
 
 
 def _hass(update, apps, entities=None):
+    esphome_entry = types.SimpleNamespace(entry_id="esphome1", data={"device_name": "kitchen"})
     return types.SimpleNamespace(
         data={update.DOMAIN: {"entry1": apps}},
+        config_entries=types.SimpleNamespace(
+            async_entries=lambda domain: [esphome_entry] if domain == "esphome" else []
+        ),
+        device_registry={
+            "esphome1": [types.SimpleNamespace(name="Kitchen Panel", name_by_user=None)]
+        },
         entity_registry=_EntityRegistry(entities),
         states=types.SimpleNamespace(get=lambda entity_id: None),
     )
@@ -242,6 +252,16 @@ def test_setup_skips_devices_without_an_esphome_link(monkeypatch):
         ("NSPanelFirmwareUpdate", "kitchen"),
         ("NSPanelDisplayUpdate", "kitchen"),
     ]
+
+
+def test_setup_names_the_device_after_the_panel(monkeypatch):
+    update = _import_update(monkeypatch)
+
+    added = _setup(update, _hass(update, {"kitchen": _App()}))
+
+    assert [e._attr_device_info for e in added] == [
+        {"identifiers": {(update.DOMAIN, "kitchen")}, "name": "Kitchen Panel"}
+    ] * 2
 
 
 FIRMWARE_UID = "entry1_kitchen_firmware_update"
@@ -283,7 +303,7 @@ def test_setup_keeps_the_firmware_entity_id(monkeypatch, entities):
 
 def _firmware(update, app=None):
     entry = types.SimpleNamespace(entry_id="entry1")
-    entity = update.NSPanelFirmwareUpdate(app or _App(), "kitchen", entry)
+    entity = update.NSPanelFirmwareUpdate(app or _App(), "kitchen", entry, device_name="Kitchen")
     entity.async_write_ha_state = lambda: None
     return entity
 

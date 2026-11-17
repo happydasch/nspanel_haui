@@ -17,8 +17,10 @@ export const contentStyles = css`
   .haui-toolbar-header {
     display: flex;
     align-items: center;
-    height: var(--header-height, 56px);
-    padding: 0 12px;
+    /* The Home Assistant app draws under the status bar: the header takes the
+       top inset, so the strip above the title shows the header colour. */
+    height: calc(var(--header-height, 56px) + var(--safe-area-inset-top, 0px));
+    padding: var(--safe-area-inset-top, 0px) 12px 0;
     box-sizing: border-box;
     background: var(--app-header-background-color, var(--sidebar-background-color, #f0f0f0));
     color: var(--app-header-text-color, var(--sidebar-text-color, #333));
@@ -26,13 +28,13 @@ export const contentStyles = css`
   }
 
   .haui-toolbar-title {
-    line-height: var(--ha-line-height-normal);
+    line-height: var(--haui-line-height);
     flex-grow: 1;
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
     min-width: 0;
-    font-size: var(--ha-font-size-xl, 20px);
+    font-size: var(--haui-text-headline);
     font-weight: 400;
     margin-inline-start: var(--ha-space-6);
   }
@@ -143,7 +145,7 @@ export const contentStyles = css`
   }
 
   .haui-update-error {
-    color: var(--error-color, #db4437);
+    color: var(--haui-bad-text);
     font-size: var(--haui-text-caption);
     margin: 4px 0 0;
   }
@@ -176,7 +178,7 @@ export const contentStyles = css`
   .haui-dialog-header-title {
     flex: 1;
     min-width: 0;
-    font-size: var(--haui-text-display);
+    font-size: var(--haui-text-headline);
     font-weight: 400;
     color: var(--primary-text-color, #212121);
     overflow: hidden;
@@ -205,7 +207,6 @@ export const contentStyles = css`
   }
   .haui-footer-toggle-wrapper label {
     margin: 0;
-    margin-inline-start: 8px;
     font-weight: 500;
     font-size: var(--haui-text-label);
   }
@@ -223,14 +224,15 @@ export const contentStyles = css`
     background: var(--disabled-text-color, #d0d0d0);
     transition: background 150ms ease;
   }
-  .haui-rssi-bar:nth-child(1) { height: 4px; }
-  .haui-rssi-bar:nth-child(2) { height: 7px; }
-  .haui-rssi-bar:nth-child(3) { height: 10px; }
-  .haui-rssi-bar:nth-child(4) { height: 14px; }
-  .haui-rssi-bar.haui-wifi-excellent { background: var(--success-color, #43a047); }
-  .haui-rssi-bar.haui-wifi-good      { background: var(--haui-wifi-good); }
-  .haui-rssi-bar.haui-wifi-fair      { background: var(--warning-color, #ffa600); }
-  .haui-rssi-bar.haui-wifi-weak      { background: var(--error-color, #db4437); }
+  /* Fractions of the row's height, so a larger row (a tile's aside) scales the bars with it. */
+  .haui-rssi-bar:nth-child(1) { height: 28%; }
+  .haui-rssi-bar:nth-child(2) { height: 50%; }
+  .haui-rssi-bar:nth-child(3) { height: 72%; }
+  .haui-rssi-bar:nth-child(4) { height: 100%; }
+  .haui-rssi-bar.haui-wifi-excellent { background: var(--haui-good); }
+  .haui-rssi-bar.haui-wifi-good      { background: var(--haui-good); }
+  .haui-rssi-bar.haui-wifi-fair      { background: var(--haui-warn); }
+  .haui-rssi-bar.haui-wifi-weak      { background: var(--haui-bad); }
 
   /* ── responsive: tablet (container) ─── */
   @container haui-editor (max-width: 870px) {
@@ -242,7 +244,7 @@ export const contentStyles = css`
   /* ── responsive: narrow container ─── */
   @container haui-editor (max-width: 600px) {
     .haui-toolbar-header {
-      padding: 0 4px;
+      padding-inline: 4px;
     }
     .haui-content-card {
       margin: var(--ha-space-4);
@@ -268,9 +270,8 @@ export const contentStyles = css`
     background: var(--warning-color, #ffa600);
     color: var(--primary-text-color, #212121);
     font-size: var(--haui-text-caption);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 500;
+    text-transform: lowercase;
   }
   .footer-link {
     display: inline-flex;

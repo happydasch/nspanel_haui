@@ -156,9 +156,16 @@ class HAUIDevice(HAUIBase):
             item.turn_off()
 
     def _sync_changed_auto_switch_settings(self, changed_settings: set[str]) -> None:
-        """Apply only automatic-switch settings that changed in the Settings editor."""
+        """Apply only automatic-switch settings that changed in the Settings editor.
+
+        A schedule owns the display-off switch: ``_sync_behavior_config`` writes
+        it from the active entry or this setting.  A second write here would race
+        that one, since a switch write lands in its state only after the sync.
+        """
         for setting in changed_settings:
             switch_key = setting.removeprefix("use_")
+            if switch_key == "auto_display_off" and self.get("schedule"):
+                continue
             if switch_key in AUTO_SWITCHES:
                 self._sync_config_switch(
                     setting,
@@ -491,8 +498,12 @@ class HAUIDevice(HAUIBase):
         now = self.app.now()
         boundary = next_boundary(entries, now, self._sun_time)
         if boundary is None:
-            return
-        delay = (boundary - now).total_seconds()
+            # No sunrise or sunset up to tomorrow: look again once the next day is in reach.
+            delay = 24 * 3600.0
+        else:
+            # Timestamps, not the difference of the two: datetimes sharing a time
+            # zone subtract as wall-clock times and miss a daylight saving change.
+            delay = boundary.timestamp() - now.timestamp()
         self._schedule_timer = self.app.run_in(self._schedule_boundary_callback, max(delay, 1))
 
     def _schedule_boundary_callback(self, _kwargs: Any) -> None:

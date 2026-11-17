@@ -28,7 +28,6 @@ export const previewStyles = css`
     overflow: hidden;
     border-radius: calc(var(--vp-frame-pad) * 1.5);
     background: var(--haui-bezel);
-    box-shadow: var(--haui-shadow-device-preview);
   }
   .haui-preview-loading {
     display: flex;
@@ -44,7 +43,7 @@ export const previewStyles = css`
     padding: 12px;
     border-radius: var(--haui-radius-control);
     background: color-mix(in srgb, var(--error-color, #db4437) 14%, var(--card-background-color, #fff));
-    color: var(--error-color, #db4437);
+    color: var(--haui-bad-text);
     font-size: var(--haui-text-label);
   }
   .haui-preview-stage .haui-empty-state { color: var(--secondary-text-color); }
@@ -118,7 +117,7 @@ export const previewStyles = css`
     background: var(--haui-bezel);
     color: var(--text-primary-color, #fff);
     font-size: var(--haui-text-caption);
-    line-height: 1.35;
+    line-height: var(--haui-line-height-copy);
     pointer-events: none;
     white-space: nowrap;
     overflow: hidden;

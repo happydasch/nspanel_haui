@@ -70,7 +70,13 @@ def test_frontend_urls_carry_the_integration_version(registered):
     # A URL that changes with its content can be cached without revalidation.
     assert [p.cache_headers for p in registered.hass.static_paths] == [True]
     assert registered.panel["module_url"] == f"{base}/haui-editor.js"
-    assert registered.extra_js == [f"{base}/iconset.js"]
+    # The icon set and the dashboard card load on every dashboard page.
+    assert registered.extra_js == [f"{base}/iconset.js", f"{base}/card/card.js"]
+
+
+def test_panel_handles_the_safe_area_itself(registered):
+    """Home Assistant's own padding would paint the status bar strip with the page background."""
+    assert registered.panel["handle_safe_area"] is True
 
 
 def test_version_is_read_off_the_event_loop(registered):

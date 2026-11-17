@@ -1,5 +1,5 @@
 // @ts-check
-import { html } from '../lit-import.js';
+import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { icon } from './icon.js';
 import { deviceConnectionState } from '../device-status.js';
@@ -9,7 +9,7 @@ function deviceTone(status) {
   return `is-${deviceConnectionState(status).tone}`;
 }
 
-/** A labelled figure on the strip's right: updates pending, hub version. */
+/** A labelled figure on the strip's right: updates pending, integration version. */
 function fact(label, value) {
   return html`<div><dt>${label}</dt><dd>${value}</dd></div>`;
 }
@@ -21,7 +21,8 @@ function fact(label, value) {
  *   action?: unknown, pending?: boolean }} stats
  */
 export function fleetSummary({ total, online, updates, version, heading, action, pending = false }) {
-  const value = (text) => (pending ? html`<span class="haui-stat-placeholder"></span>` : text);
+  const placeholder = html`<span class="haui-stat-placeholder"></span><span class="haui-sr-only">${t('Loading')}</span>`;
+  const value = (text) => (pending ? placeholder : text);
   const tone = pending ? 'neutral' : online === total ? 'success' : online ? 'warning' : 'danger';
   const health = pending ? ''
     : online === total ? t('All devices connected')
@@ -29,32 +30,36 @@ export function fleetSummary({ total, online, updates, version, heading, action,
         : t('No device connected');
   return html`<section class=${`haui-fleet-summary haui-fleet-band-${tone} ${
     pending ? 'haui-fleet-summary-pending' : ''}`}
-    aria-label=${t('Fleet overview')} aria-busy=${pending ? 'true' : 'false'}>
+    aria-busy=${pending ? 'true' : 'false'}>
     <div class="haui-fleet-band-top">
       <span class="haui-fleet-orb">${icon('lan-connect')}</span>
       <div class="haui-fleet-lead">
         <div class="haui-fleet-lead-heading">
           ${heading}
-          <strong>${pending ? html`<span class="haui-stat-placeholder"></span>` : `${online} / ${total}`}</strong>
+          <strong>${pending ? placeholder : html`<span aria-hidden="true">${online} / ${total}</span><span class="haui-sr-only">${
+            t('{online} of {total} devices connected').replace('{online}', String(online)).replace('{total}', String(total))}</span>`}</strong>
         </div>
         <span>${health}</span>
       </div>
       <dl class="haui-fleet-facts">
         ${fact(t('Updates'), value(String(updates)))}
-        ${fact(t('Hub version'), value(version))}
+        ${fact(t('Integration version'), value(version))}
       </dl>
       ${action}
     </div>
   </section>`;
 }
 
-/** Render the connection bar independently from the inventory summary. */
+/**
+ * One segment per device in its connection tone; the Device inventory keeps it
+ * in its footer, under the table.
+ * @param {{ devices: any[], total: number, online: number }} data
+ */
 export function fleetBar({ devices, total, online }) {
-  return total ? html`<div class="haui-inventory-bar">
-    <div class="haui-fleet-bar" role="img"
-      aria-label=${t('{online} of {total} devices connected')
+  if (!total) return nothing;
+  return html`<div class="haui-fleet-bar" role="img"
+    aria-label=${t('{online} of {total} devices connected')
     .replace('{online}', String(online)).replace('{total}', String(total))}>
-      ${devices.map(({ name, status }) => html`<span class=${deviceTone(status)} title=${name}></span>`)}
-    </div>
-  </div>` : '';
+    ${devices.map(({ name, status }) => html`<span class=${deviceTone(status)} title=${name}></span>`)}
+  </div>`;
 }

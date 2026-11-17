@@ -100,9 +100,9 @@ def env(monkeypatch):
     thread.join(timeout=2)
 
 
-def _config(extra_panels=(), *, idle_panel=None):
+def _config(extra_panels=(), *, idle_panel=None, home_panel="grid_0"):
     grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
-    device_config = {"home_panel": "grid_0"}
+    device_config = {"home_panel": home_panel}
     if idle_panel:
         device_config.update(idle_panel=idle_panel, use_auto_page=True)
     return nspanel_haui._build_config_dict(
@@ -275,6 +275,27 @@ def test_live_preview_button_light_shows_its_entity_without_relay_mode(session, 
             in session.messages
         )
     )
+
+
+def test_live_preview_names_the_entity_each_hardware_button_switches(session, env):
+    """A button names what a press switches: its relay, or its entity without relay mode."""
+    env._states.update({"switch.relay_left": _State("off", {}), "light.lamp": _State("on", {})})
+    session.app.find_entity_id = lambda domain, name: (
+        "switch.relay_left" if (domain, name) == ("switch", "Relay Left") else None
+    )
+
+    _run(env, session.app.async_run_on_worker(session.app.start_relay_state_tracking))
+    _wait(
+        lambda: {"type": "buttons", "left": "switch.relay_left", "right": None} in session.messages
+    )
+
+    def entity_mode():
+        session.app.device.config["use_relay_left"] = False
+        session.app.device.config["button_left_entity"] = "light.lamp"
+        session.app.start_relay_state_tracking()
+
+    _run(env, session.app.async_run_on_worker(entity_mode))
+    _wait(lambda: {"type": "buttons", "left": "light.lamp", "right": None} in session.messages)
 
 
 def test_live_preview_button_indicator_shows_any_entity_kind(session, env):
@@ -744,6 +765,38 @@ def test_the_browser_learns_which_widgets_show_which_entity(env):
     _run(env, sess.async_stop())
 
 
+def test_the_browser_learns_widgets_of_entities_home_assistant_does_not_know(env):
+    """A missing entity shows as unavailable on the panel; the hover still names it."""
+    grid = {
+        "type": "grid",
+        "key": "grid_0",
+        "items": [{"item": "light.lamp"}, {"item": "light.gone"}],
+    }
+    light = {"type": "light", "key": "light_0", "item": {"item": "light.gone"}}
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {"config": {"home_panel": "grid_0"}, "panels": [grid, light]},
+            }
+        },
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = _open(env, cfg, messages.append)
+    grid_map = {"g1Overlay": "light.lamp", "g2Overlay": "light.gone"}
+    _wait(lambda: {"type": "entities", "map": grid_map} in messages)
+
+    sess.send_event(ESPEvent.GESTURE, "swipe_left")
+    _wait(
+        lambda: any(
+            message["type"] == "entities" and message["map"].get("#page") == "light.gone"
+            for message in messages
+        )
+    )
+    _run(env, sess.async_stop())
+
+
 def test_the_browser_maps_an_entity_popup_from_its_opening_item_id(env):
     messages: list[dict] = []
     sess = _open(env, _config(), messages.append)
@@ -795,6 +848,34 @@ def test_the_browser_maps_a_vacuum_battery_sensor_to_its_header_widget(env):
             message.get("type") == "entities"
             and message["map"].get("#page") == "vacuum.robot"
             and message["map"].get("bFncRSec") == "sensor.robot_battery"
+            for message in messages
+        )
+    )
+    _run(env, sess.async_stop())
+
+
+def test_the_browser_maps_a_rows_controls_to_its_entity(env):
+    env._states["cover.blind"] = _State("open", {"friendly_name": "Blind"})
+    row = {
+        "type": "row",
+        "key": "row_0",
+        "items": [{"item": "light.lamp"}, {"item": "cover.blind"}],
+    }
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {"devices": {"kitchen": {"config": {"home_panel": "row_0"}, "panels": [row]}}},
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = _open(env, cfg, messages.append)
+
+    _wait(
+        lambda: any(
+            message.get("type") == "entities"
+            and message["map"].get("r1Toggle") == "light.lamp"
+            and message["map"].get("r2BtnUp") == "cover.blind"
+            and message["map"].get("r2BtnDown") == "cover.blind"
+            and "r3BtnUp" not in message["map"]
             for message in messages
         )
     )

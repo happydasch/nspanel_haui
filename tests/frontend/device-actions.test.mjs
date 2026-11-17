@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
-import { panelActions, panelManager, deviceOptionPanel } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
+import { scheduleSection } from '../../custom_components/nspanel_haui/frontend/ui/schedule-section.js';
+import { gestureSection } from '../../custom_components/nspanel_haui/frontend/ui/gesture-section.js';
 import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
@@ -94,67 +96,31 @@ function controls(preview, callbacks = {}) {
   });
 }
 
-test('Backup import and export are on the Preview side stack below Diagnostics', () => {
-  const calls = [];
+test('the side stack opens Updates, Themes and Backups from its own buttons', () => {
+  const opened = [];
   const view = deviceDetails({
     name: 'kitchen', status: { connected: true, device_info: {} },
-    detailsExpanded: false, diagnosticsExpanded: false, yamlExpanded: true,
-    onLogs() {}, onYamlImport: () => calls.push('import'), onYamlExport: () => calls.push('export'),
-    onToggleYaml() {},
+    detailsExpanded: false, diagnosticsExpanded: false,
+    onLogs() {}, onBackups: () => opened.push('backups'), onUpdates() {},
   });
   const text = templateText(view);
-  assert.ok(text.indexOf('Connection & device') < text.indexOf('Diagnostics'));
-  assert.ok(text.indexOf('Diagnostics') < text.indexOf('Backup'));
-  assert.match(text, /mdi:backup-restore/);
-  assert.match(text, /haui-backup-status/);
-  assert.equal(templatesMatching(view, 'haui-surface-body').length, 1);
-  for (const label of ['Import', 'Export']) {
-    click(templatesMatching(view, '<button').filter((entry) => templateText(entry).includes(label)).at(-1));
-  }
-  assert.deepEqual(calls, ['import', 'export']);
-  assert.equal(templatesMatching(view, 'haui-yaml-actions').length, 1);
+  assert.match(text, /Backups/);
+  // Backups comes last, after the two buttons that open a sidebar with settings.
+  assert.ok(text.indexOf('Updates') < text.indexOf('Backups'));
+  // The YAML import and export are the Backups sidebar's, not the side stack's.
+  assert.doesNotMatch(text, /haui-yaml-actions/);
+  assert.equal(templatesMatching(view, 'haui-surface-body').length, 0);
+  click(templatesMatching(view, '<button').filter((entry) => templateText(entry).includes('Backups')).at(-1));
+  assert.deepEqual(opened, ['backups']);
 });
 
-test('the device options are three buttons whose editors live in the sidebar', () => {
-  const opened = [];
-  const row = panelManager({
-    panels: [{ key: 'lights', title: 'Lights' }], config: {
-      theme_id: 'dark', schedule: [{ start: '22:00', end: '07:00' }],
-      gestures: [{ swipes: ['swipe_left'], action: 'lights' }],
-    },
-    builtinThemes: { dark: { colors: { background: 0, header_background: 0, component_active: 0, entity_on: 0 } } },
-    onOpen: (key) => opened.push(key),
-  });
-  const rowText = templateText(row);
-  assert.match(rowText, /haui-device-option-controls/);
-  assert.doesNotMatch(rowText, /panel-schedule_add|panel-gesture_add|haui-device-theme/);
-  const buttons = templatesMatching(row, 'class=')
-    .filter((entry) => entry.values.includes('haui-button haui-button-outline haui-device-option'));
-  assert.equal(buttons.length, 3);
-  for (const label of ['Theme', 'Schedule', 'Gestures']) {
-    click(buttons.find((entry) => templateText(entry).includes(label)));
-  }
-  assert.deepEqual(opened, ['theme', 'schedule', 'gestures']);
-
-  // Each editor is its own sidebar, and carries nothing of the other.
-  const schedulePanel = templateText(deviceOptionPanel('schedule', { config: { schedule: [] } }));
-  assert.match(schedulePanel, /panel-schedule_add/);
-  assert.doesNotMatch(schedulePanel, /panel-gesture_add/);
-  const gesturePanel = templateText(deviceOptionPanel('gestures', { config: { gestures: [] } }));
-  assert.match(gesturePanel, /panel-gesture_add/);
-  assert.doesNotMatch(gesturePanel, /panel-schedule_add/);
-  // The theme has no editor panel here: its button opens the shared theme sidebar.
-  assert.throws(() => deviceOptionPanel('theme', { config: {} }), /Unknown device option: theme/);
-});
-
-test('the Device lead card places management controls below its primary action', () => {
-  const view = deviceActions({
-    status: { update: {} }, onSettings() {}, onUpdates() {}, onAdd() {},
-    management: html`<div class="haui-device-option-controls">Theme</div>`,
-  });
-  const text = templateText(view);
-  assert.ok(text.indexOf('Add panel') < text.indexOf('haui-device-option-controls'));
-  assert.match(text, /haui-device-option-controls/);
+test('the schedule and the gestures are each their own block in the settings draft', () => {
+  const scheduleGroup = templateText(scheduleSection({ config: { schedule: [] }, schedule: [] }));
+  assert.match(scheduleGroup, /panel-schedule_add/);
+  assert.doesNotMatch(scheduleGroup, /panel-gesture_add/);
+  const gestureGroup = templateText(gestureSection({ gestures: [] }));
+  assert.match(gestureGroup, /panel-gesture_add/);
+  assert.doesNotMatch(gestureGroup, /panel-schedule_add/);
 });
 
 test('the Panels view keeps its blue lead card and the panel card in the side column', () => {

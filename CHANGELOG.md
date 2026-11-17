@@ -9,6 +9,69 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.2] — 2026-11-17
+
+### Breaking changes
+
+- Themes: the **Theme variant** device setting is gone; a theme's own page background picks its weather, alarm and climate icon palette, and the Theme sidebar edits only that one ([Upgrading](docs/user/update.md#the-theme-picks-its-own-icon-colors)).
+- Schedule: an entry with its own dimmed brightness needs the device's **Brightness dimmed**; stored devices without one get 20 % ([Upgrading](docs/user/update.md#a-schedule-entry-that-dims-needs-a-dimmed-brightness)).
+
+### Added
+
+- Themes: six colorful predefined themes — **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and the light **Sky** — beside Dark, Light, White and Black ([Themes](docs/user/configuration/themes.md)).
+- Dashboard card (`custom:nspanel-haui-card`): a device's home panel or its live screen on any dashboard, view-only, for every signed-in user ([Dashboard Card](docs/user/dashboard-card.md)).
+- Editor: a dashboard device can be selected from its **Device inventory** row or the name strip under its card, which highlights both (a row also scrolls the cards to it, and the device stays centered when you return from it); selecting it again clears it.
+- Editor: the device settings open on a grid of tiles, one per group, each naming what that group holds; a tile opens the group's own page with the sidebar strip's back control returning to the grid ([Device Settings](docs/user/configuration/device.md#device-settings)).
+- Editor: the schedule is part of the device settings' **Screen** group, below the brightness and display-off fields its entries inherit, so **Schedule** and **Gestures** are groups of the device settings instead of sidebars of their own, and the device's theme choice sits in **General**.
+- Editor: **Move to…** in a panel's menu groups the other devices in a submenu and moves the panel there in one save; it keeps its key unless that device uses it.
+- Editor: an item's name, icon, color and value, and a grid tile's colors, switch between **One value** and **Per state**: a row per entity state, which the state field suggests, instead of typed JSON.
+- Editor: **Latest events** names the selected device under its title on a line that ends with the window the list covers, and the title line itself carries **Reset**, which starts the list at the moment you press it instead of the last 24 hours, with **Last 24 hours** to go back ([Logs](docs/user/configuration/README.md#logs)).
+- Editor: the **Device inventory** closes with a bar of one connection segment per device ([Managing devices](docs/user/configuration/device.md#managing-devices)).
+
+### Changed
+
+- Editor: entities go by their Home Assistant name without the device name in front (entity picker, item lists, **Diagnostics**, the preview's entity tooltip); the picker still finds them by the full name.
+- Editor: every switch sits at the right end of its row, after its label.
+- Editor: schedule entries, gestures and the theme choice are part of the device settings draft, so the settings' one **Save** applies them and **Cancel** discards them; the device screen keeps the buttons that open a sidebar of their own, **Backups**, **Updates** and **Themes**, below its side cards.
+- Editor: the **Backup** card is gone; its **Import** and **Export** buttons moved into a **Backups** sidebar of their own, opened by the new **Backups** button below **Themes** ([Backups](docs/user/configuration/README.md#backups)).
+- Editor: the theme editor opens from the **Themes** button below the device's **Connection** and **Diagnostics** cards, which names the selected theme on its trailing edge; the **Updates** button above it says what the device's update settings hold, and both span the whole width, one per line. The **Manage this device** card keeps only **Add panel** and the settings cog.
+- Editor: the device screen's **Connection & device** card is **Connection**; its readings and tiles are unchanged.
+- Editor: a device selected on the dashboard scopes **Latest events** and **Logs** to it; without a selection both list every device, and the timeline names that scope **All devices** on the header's second line.
+- Fleet: **Latest events** lists only the last 24 hours' warnings and errors; the full log, info and debug included, is the **Logs** sidebar.
+- Editor: one type scale at Home Assistant's sizes: title bar and page titles 20px, sidebar titles 18px, card and section titles 16px, names, values and labels 14px in one weight, hints and meta 13px; every size follows the Home Assistant font size setting.
+- Editor: the panel list's group headings say **Navigation (1 panel)** instead of **Navigation (1 panels)**.
+- Editor: the **Update settings** card picks the channel from a list and turns updates and automatic firmware installs on with switches, like the other forms.
+- Editor: the device settings show one field per row, with the **Home panel** and **Idle panels** pickers at the right edge like the switches.
+- Updates: an offered update shows as one badge from the installed to the new version, the integration's version moved to the end of the **Check for updates** row, and a narrow sidebar shortens the labels.
+- Fleet: the **Device inventory**'s summary strip is as tall as the **Latest events** header beside it, so the first row under either card starts level.
+- Fleet: the dashboard fills wide windows, a long **Device inventory** scrolls under its column headings, and **Latest events** takes the inventory's height.
+- Fleet: the device carousel always fades its right edge, which shows that more cards follow, and where the devices end before the row does, dashed card outlines fill the remaining width instead of empty space.
+- Device screen: the **Connection** and **Diagnostics** tiles show their values in smaller text, with the Wi-Fi signal bars at the tile's edge.
+- Fleet and the device screen show the Wi-Fi strength the panel last reported even while it is offline; the connection dot keeps the connection state and the uptime tile is green while the panel is online and stable.
+- Editor: **Hub version**, **Hub log** and **Hub details** on Fleet and in **Diagnostics** are now **Integration version**, **Integration log** and **Integration details**, as in the copied report.
+- Panels: the overview's **Home panel** and **Idle panel** tiles show the role's icon beside its name and panel, and stack on a narrow card.
+
+### Fixed
+
+- Schedule: an entry's dimmed brightness no longer stays after the entry ends when the device left it to the panel.
+- Schedule: saving **Auto display off** while an entry is active no longer overrides the entry, and removing the schedule restores the setting on the panel's switch.
+- Schedule: an entry starts on time on the day the clocks change, and sunrise/sunset entries resume after polar night without a reconnect.
+- Editor: in the Home Assistant app the status bar above the title bar takes the header colour instead of the page background.
+- Editor: with **Show entities in the preview** on, a Row panel's buttons, switches and sliders show their row's entity too.
+- Editor: with **Show entities in the preview** on, hovering a hardware button shows the entity it switches (its entity, or its relay).
+- Editor: with **Show entities in the preview** on, the Live preview names the entity under the mouse too; it raised an error on every mouse move.
+- Editor: with **Show entities in the preview** on, a widget whose entity Home Assistant does not have is named too, and the tooltip says when an entity is not found or unavailable.
+- Updates: the reasons a firmware update is withheld or refused (build variant mismatch, missing or invalid firmware version) and the panel's "firmware is installing" notice are translated.
+- Integration: the device that holds a panel's notify and update entities is named after the panel instead of "NSPanel HAUI Hub".
+- Updates: a firmware manifest the hub could not read, or no check since Home Assistant started, reads as the reason nothing is offered instead of **Up to date**, and **Check for updates** shows an error from the release list.
+- Updates: an offline panel, or a status the editor could not refresh, offers no **Install**; the device screen and the Updates sidebar say the values are the last ones read.
+- Updates: a failed firmware install clears once the panel reconnects with another firmware, and a second install while one runs is refused instead of reported as started.
+- Updates: the dashboard notices a rollout another editor started, a finished rollout can be dismissed, and a rollout no longer waits on a device that was disabled or reloaded meanwhile.
+- Editor: the dashboard meets WCAG AA contrast for status text, badges and icons in light and dark themes, and a screen reader hears event levels, the page heading, named device cards and table columns, and rollout changes.
+- Fleet: the **Latest events** level dots carry their tone itself — a lighter blue, amber and red — instead of the dark text tone, which read almost black at 12px.
+- Editor: an icon in a tone keeps the tone itself — **Delete** in a panel's actions and its menu row, a remove button, a theme's delete action, the empty-state check, the stale-status dot and a device's update warning — instead of the darker shade 4.5:1 text needs.
+- Editor: a tile's fact card keeps a long label or reading inside its border instead of letting it spill over the edge — the label wraps and the value moves to its own line, ellipsized only when it alone is too wide (the connection and integration-details fact rows too).
+
 ## [0.5.1] — 2026-11-14
 
 ### Added
@@ -538,7 +601,8 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
-[0.5.1]: https://github.com/happydasch/nspanel_haui/compare/v0.5.0...dev
+[0.5.2]: https://github.com/happydasch/nspanel_haui/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/happydasch/nspanel_haui/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/happydasch/nspanel_haui/compare/v0.4.7...v0.5.0
 [0.4.7]: https://github.com/happydasch/nspanel_haui/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/happydasch/nspanel_haui/compare/v0.4.5...v0.4.6

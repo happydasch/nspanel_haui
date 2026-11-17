@@ -5,11 +5,11 @@ description: Choose and customize display colors and state-icon palettes for NSP
 
 # Themes
 
-A theme defines the display's semantic page colors and the weather, alarm and climate icon palettes. The four predefined themes are **Dark**, **Light**, **White** and **Black**. Custom themes are shared by all devices under the same hub entry.
+A theme defines the display's semantic page colors and the weather, alarm and climate icon palettes. The predefined themes are the neutral **Dark**, **Light**, **White** and **Black** plus the colorful **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and **Sky**. All of them but **Sky** are dark-background themes; **Sky** is the light one, with a light blue page and a sky blue header. Custom themes are shared by all devices under the same hub entry.
 
-In the device's **Preview** view, the **Manage this device** card has three buttons in one row: **Theme**, **Schedule** and **Gestures**. Each opens its editor in a sidebar: **Theme** the Theme sidebar, **Schedule** and **Gestures** their own, which keep their explicit **Save** action. In the Theme sidebar the **Color theme** picker selects the device's theme (saved immediately); the preview at the top shows the current draft as you edit and stays in view while you scroll through the colors, and **Apply** saves the sidebar changes while **Cancel** discards them.
+The device's theme is chosen in **Device Settings → General**: the **Theme** field selects it, and the **Themes** button below the **Connection** and **Diagnostics** cards, which names the selected theme, opens the Theme sidebar, where the colors of the selected theme and the shared library are edited; the preview at the top shows the current draft as you edit and stays in view while you scroll through the colors, and **Apply** saves the sidebar changes while **Cancel** discards them. The theme choice itself is saved with the rest of the settings.
 
-Choose **Theme** to select a device's theme and to edit the shared theme library and icon palettes.
+Choose **Themes** below the **Connection** and **Diagnostics** cards to edit the selected theme and its icon palettes.
 
 ## Predefined and custom themes
 
@@ -20,10 +20,11 @@ A custom theme includes the semantic page colors and both dark- and light-backgr
 
 ## Per-panel theme
 
-A panel can select its own **Color theme** in the editor's **Advanced** section. By default, it follows the device theme. This applies to user panels and editable popups; a popup uses its own theme when opened over another panel. The panel's theme controls its page, items and icons. Item and panel color fields remain explicit overrides and take precedence. The device's **Default icon color variant** remains in effect for every panel.
-## Icon variant
+A panel can select its own **Color theme** in the editor's **Advanced** section. By default, it follows the device theme. This applies to user panels and editable popups; a popup uses its own theme when opened over another panel. The panel's theme controls its page, items and icons. Item and panel color fields remain explicit overrides and take precedence.
 
-**Default icon color variant** chooses which icon palette to use when the background is dark or light. It is a per-device setting, separate from the selected theme. Pages with a fixed picture background choose the matching palette for that background. **Edit icon colors for** selects which palette you are editing in a custom theme.
+## Icon colors
+
+A theme carries the weather, alarm and climate icon colors for both a dark and a light background. Which of the two the display draws follows the theme itself: a theme with a dark page background uses the dark-background palette, a light theme such as **Light**, **White** or **Sky** the light-background one. There is no separate setting, so a theme's page and its icons always match. Pages with a fixed picture background choose the matching palette for that background instead. The Theme sidebar's **Icon colors** section shows the palette the theme draws, so you edit the colors the display actually uses.
 
 ## Color editing
 

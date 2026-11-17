@@ -6,6 +6,7 @@ import { button, iconButton, backButton } from '../../custom_components/nspanel_
 import { badge, countBadge, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
 import { surface, sectionHeading } from '../../custom_components/nspanel_haui/frontend/ui/surface.js';
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
+import { stateValues } from '../../custom_components/nspanel_haui/frontend/ui/state-values.js';
 import { sortHandle } from '../../custom_components/nspanel_haui/frontend/ui/sort-handle.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { menuItem, popover } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
@@ -14,6 +15,8 @@ import { renderFooter } from '../../custom_components/nspanel_haui/frontend/tool
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
 import { sidebarFrame } from '../../custom_components/nspanel_haui/frontend/ui/sidebar.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
+import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
+import { settingsTile } from '../../custom_components/nspanel_haui/frontend/ui/settings-tile.js';
 import { updateProgress } from '../../custom_components/nspanel_haui/frontend/ui/update-progress.js';
 import { rolloutCard } from '../../custom_components/nspanel_haui/frontend/ui/rollout-card.js';
 
@@ -60,8 +63,20 @@ const DIAGNOSTICS_DEMO = {
     },
     formatEntityState: (stateObj) => (stateObj.state === 'sunny' ? 'Sunny' : 'Unavailable'),
   },
-  onSettings: noop, onUpdates: noop, onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
+  onSettings: noop, onUpdates: noop, updatesDetail: 'Stable · Manual', themeDetail: 'Dark', onEditTheme: noop,
+  onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
 };
+
+/** The editor's text levels, largest first (docs/develop/frontend.md → Text sizes). */
+const TEXT_LEVELS = [
+  ['--haui-text-headline', 500, 'page title (title bar and dialogs at 400)', 'Living Room'],
+  ['--haui-text-title', 500, 'sidebar title', 'Device settings'],
+  ['--haui-text-body', 500, 'card and section title', 'Connection & device'],
+  ['--haui-text-label', 500, 'name, value, label', 'Brightness full (%)'],
+  ['--haui-text-label', 400, 'text, inputs, buttons', 'Add a panel or change the settings.'],
+  ['--haui-text-caption', 400, 'hint, meta, badge', '30 seconds ago · grid_0'],
+  ['--haui-text-eyebrow', 600, 'column head', 'Device'],
+];
 
 class UiPrimitivesPreview extends LitElement {
   static styles = [haStyle, editorContainerStyles, editorStyles, previewStyles, css`
@@ -82,6 +97,13 @@ class UiPrimitivesPreview extends LitElement {
       <h1>NSPanel HAUI · Primitive preview</h1>
       <p>Test-only page. It uses the shipped Lit renderers and editor styles; focus controls or resize the browser to inspect states.</p>
       <div class="gallery-grid">
+        <section class="gallery-card"><h2>Text sizes</h2>
+          <p>Each level from <code>docs/develop/frontend.md</code> → Text sizes, at its token and weight.</p>
+          <div class="gallery-stack">${TEXT_LEVELS.map(([token, weight, role, sample]) => html`<div>
+            <div style=${`font-size: var(${token}); font-weight: ${weight}; text-transform: ${token === '--haui-text-eyebrow' ? 'uppercase' : 'none'}`}>${sample}</div>
+            <code class="haui-text-caption">${token} · ${weight} · ${role}</code>
+          </div>`)}</div>
+        </section>
         <section class="gallery-card"><h2>Icons and buttons</h2>
           <div class="gallery-row">${icon('home')}${button({ label: 'Primary', iconName: 'check', variant: 'primary' })}${button({ label: 'Quiet', variant: 'quiet' })}${backButton({ label: 'Back', onClick: () => {} })}${iconButton({ label: 'Close', iconName: 'close' })}${iconButton({ label: 'Disabled', iconName: 'more', disabled: true })}</div>
           <div class="gallery-row">${button({ label: 'Saving', busy: true })}${button({ label: 'Unavailable', disabled: true })}${button({ label: 'Schedule', iconName: 'clock', detail: '2 entries' })}</div>
@@ -97,6 +119,15 @@ class UiPrimitivesPreview extends LitElement {
         </section>
         <section class="gallery-card"><h2>Segmented control</h2>
           ${segmented({ label: 'Workspace view', value: 'preview', options: [{ label: 'Preview', value: 'preview' }, { label: 'Panels', value: 'panels', count: 3 }, { label: 'Errors', value: 'errors', count: 2, tone: 'danger' }, { label: 'Disabled', value: 'disabled', disabled: true }], onSelect() {} })}
+        </section>
+        <section class="gallery-card"><h2>Values per state</h2>
+          ${stateValues({
+            id: 'demo-name', label: 'Name',
+            rows: [{ state: 'on', value: 'Lights on' }, { state: 'off', value: 'Lights off' }, { state: 'on', value: 'Listed twice' }],
+            states: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }, { value: 'unavailable' }],
+            renderValue: (row, valueId, valueLabel) => html`<input id=${valueId} class="haui-input" aria-label=${valueLabel} .value=${String(row.value)} />`,
+            onChange() {},
+          })}
         </section>
         <section class="gallery-card"><h2>Sorting</h2>
           ${sortHandle({ label: 'Kitchen device', onMoveUp() {}, onMoveDown() {} })}
@@ -131,6 +162,20 @@ class UiPrimitivesPreview extends LitElement {
         </section>
         <section class="gallery-card"><h2>Device details and diagnostics expanded</h2>
           ${deviceDetails({ ...DIAGNOSTICS_DEMO, diagnosticsExpanded: true })}
+        </section>
+        <section class="gallery-card"><h2>Value tiles: value with detail, muted off</h2>
+          <dl class="haui-diag-tiles">
+            ${valueTile({ label: 'Brightness', iconName: 'brightness', value: '80%', detail: 'Dimmed: 15%' })}
+            ${valueTile({ label: 'Auto dimming', iconName: 'dimming', value: 'Off', muted: true })}
+          </dl>
+        </section>
+        <section class="gallery-card"><h2>Settings tiles: a group, its name and one value line</h2>
+          <div class="haui-settings-grid">
+            ${settingsTile({ key: 'general', iconName: 'settings', label: 'General', summary: 'EU (landscape) · English · Dark', onClick() {} })}
+            ${settingsTile({ key: 'screen', iconName: 'dimming', label: 'Screen', summary: 'Full 100% · dimmed 15% · off after 120 s', onClick() {} })}
+            ${settingsTile({ key: 'sounds', iconName: 'sound', label: 'Sounds', summary: 'Startup on · notifications off', onClick() {} })}
+            ${settingsTile({ key: 'advanced', iconName: 'tuneVariant', label: 'Advanced', summary: 'Log level: INFO · page settle 0.3 s', onClick() {} })}
+          </div>
         </section>
         <section class="gallery-card"><h2>Update progress: transferring, past its estimate, failed</h2>
           ${updateProgress({ label: 'Display update', progress: {

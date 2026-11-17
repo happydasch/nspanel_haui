@@ -3,13 +3,17 @@ import { css } from '../lit-import.js';
 /** Shared aliases for the Home Assistant theme and measured editor scale. */
 export const dashboardTokens = css`
   :host {
-    --haui-text-eyebrow: var(--ha-font-size-xs, 10px);
-    --haui-text-caption: var(--ha-font-size-s, 12px);
-    --haui-text-label: 13px;
-    --haui-text-body: var(--ha-font-size-m, 14px);
-    --haui-text-title: var(--ha-font-size-l, 16px);
+    /* Steps Home Assistant lacks follow its font size setting like the others. */
+    --haui-text-eyebrow: calc(11px * var(--ha-font-size-scale, 1));
+    --haui-text-caption: calc(13px * var(--ha-font-size-scale, 1));
+    --haui-text-label: var(--ha-font-size-m, 14px);
+    --haui-text-body: var(--ha-font-size-l, 16px);
+    --haui-text-title: calc(18px * var(--ha-font-size-scale, 1));
+    --haui-text-headline: var(--ha-font-size-xl, 20px);
     --haui-text-display: var(--ha-font-size-2xl, 24px);
     --haui-line-height: var(--ha-line-height-normal, 1.6);
+    --haui-line-height-tight: var(--ha-line-height-condensed, 1.2);
+    --haui-line-height-copy: 1.4;
     --haui-space-1: var(--ha-space-1, 4px);
     --haui-space-2: var(--ha-space-2, 8px);
     --haui-space-3: var(--ha-space-3, 12px);
@@ -30,6 +34,21 @@ export const dashboardTokens = css`
     --haui-good-soft: color-mix(in srgb, var(--haui-good) 16%, var(--card-background-color, #fff));
     --haui-warn-soft: color-mix(in srgb, var(--haui-warn) 16%, var(--card-background-color, #fff));
     --haui-bad-soft: color-mix(in srgb, var(--haui-bad) 16%, var(--card-background-color, #fff));
+    /* Text in a tone, mixed with the theme's text colour as close to the tone
+       as 4.5:1 on the card, the soft surface and the tone's soft tint allows in
+       light and dark themes. Each tone carries its own share because warning
+       orange loses contrast fastest; the plain tones above stay for fills, bars
+       and dots. */
+    --haui-good-text: color-mix(in srgb, var(--haui-good) 65%, var(--primary-text-color, #212121));
+    --haui-warn-text: color-mix(in srgb, var(--haui-warn) 50%, var(--primary-text-color, #212121));
+    --haui-bad-text: color-mix(in srgb, var(--haui-bad) 70%, var(--primary-text-color, #212121));
+    --haui-accent-text: color-mix(in srgb, var(--primary-color, #03a9f4) 55%, var(--primary-text-color, #212121));
+    /* The same tone on an icon, which is a graphic (3:1) and so keeps the tone
+       the text version gives up: as close to the tone as 3:1 on the card and on
+       the tone's own soft tint allows in light and dark themes. */
+    --haui-good-icon: color-mix(in srgb, var(--haui-good) 94%, var(--primary-text-color, #212121));
+    --haui-warn-icon: color-mix(in srgb, var(--haui-warn) 71%, var(--primary-text-color, #212121));
+    --haui-bad-icon: var(--haui-bad);
     --haui-surface-soft: var(--secondary-background-color, #f5f5f5);
     --haui-surface-strong: var(--divider-color, #e0e0e0);
     --haui-border-strong: var(--secondary-text-color, #666);
@@ -52,8 +71,6 @@ export const dashboardTokens = css`
     --haui-hardware-button-active: #292d34;
     --haui-hardware-button-border: #34383f;
     --haui-hardware-led-well: #20242a;
-    --haui-shadow-device-preview: 0 2px 8px rgb(0 0 0 / 40%);
-    --haui-wifi-good: #7cb342;
     --haui-mono: var(--ha-font-family-code, ui-monospace, "SFMono-Regular", Menlo, monospace);
     --haui-shadow-card: 0 1px 3px rgb(0 0 0 / 12%);
     --haui-shadow-overlay: 0 12px 32px rgb(0 0 0 / 24%);

@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  entityDisplayName,
   fillEntityDropdown,
   matchEntities,
   renderEntityPicker,
@@ -43,6 +44,19 @@ test('the entity picker exposes combobox and listbox semantics', () => {
 });
 
 const entity = (entityId, name = entityId) => ({ entityId, name, search: `${entityId}\n${name}`.toLowerCase() });
+
+test('entity labels prefer the registry name without Home Assistant\'s device prefix', () => {
+  const hass = {
+    entities: { 'light.kitchen': { name: 'Lampa Kuchnia' } },
+    states: {
+      'light.kitchen': { attributes: { friendly_name: 'NSPanel Salon Lampa Kuchnia' } },
+    },
+  };
+
+  assert.equal(entityDisplayName(hass, 'light.kitchen'), 'Lampa Kuchnia');
+  assert.equal(entityDisplayName(HASS, 'light.a'), 'Light A');
+  assert.equal(entityDisplayName(HASS, 'switch.b'), '');
+});
 
 test('entity matches follow the query and the domain, and are capped with the total kept', () => {
   const entities = [
@@ -158,4 +172,36 @@ test('arrow keys highlight and select the visible option, not a hidden one', () 
 
   handler({ key: 'Enter', preventDefault() {}, target: input });
   assert.equal(selected, 'opt-c');
+});
+
+test('an item suggests the entity\'s current state first, then the states the display names', async () => {
+  const { entityStateSuggestions } = await import('../../custom_components/nspanel_haui/frontend/haui-entity.js');
+  const { fetchStateNames } = await import('../../custom_components/nspanel_haui/frontend/localize.js');
+  await fetchStateNames({ editor: { stateNames: async () => ({
+    person: { state: { _: { home: 'Home', not_home: 'Away' } } },
+    binary_sensor: { state: { _: { on: 'On', off: 'Off' }, door: { on: 'Open', off: 'Closed' } } },
+  }) } }, 'en');
+  const hass = {
+    states: {
+      'person.anna': { state: 'work', attributes: {} },
+      'binary_sensor.front': { state: 'off', attributes: { device_class: 'door' } },
+      'input_select.mode': { state: 'Movie night', attributes: { options: ['Day', 'Movie night'] } },
+      'light.desk': { state: 'on', attributes: { rgb_color: [255, 0, 0], effect: 'Rainbow' } },
+    },
+  };
+
+  assert.deepEqual(entityStateSuggestions(hass, 'person.anna'), [
+    { value: 'work', label: '' },
+    { value: 'home', label: 'Home' },
+    { value: 'not_home', label: 'Away' },
+    { value: 'unavailable', label: '' },
+  ]);
+  assert.deepEqual(entityStateSuggestions(hass, 'binary_sensor.front').slice(0, 2),
+    [{ value: 'off', label: 'Closed' }, { value: 'on', label: 'Open' }]);
+  assert.deepEqual(entityStateSuggestions(hass, 'input_select.mode').map(({ value }) => value),
+    ['Movie night', 'Day', 'unavailable']);
+  // With a state attribute only its current text value is known; a list never matches.
+  assert.deepEqual(entityStateSuggestions(hass, 'light.desk', 'effect'), [{ value: 'Rainbow', label: '' }]);
+  assert.deepEqual(entityStateSuggestions(hass, 'light.desk', '["rgb_color"]'), []);
+  assert.deepEqual(entityStateSuggestions(hass, ''), []);
 });

@@ -28,6 +28,7 @@ export const themeSidebarStyles = css`
   .haui-theme-color-group { padding-block: 12px; border-bottom: 1px solid var(--divider-color); }
   .haui-theme-color-group:first-child { padding-top: 0; }
   .haui-theme-color-group:last-child { padding-bottom: 0; border-bottom: 0; }
+  .haui-theme-color-group h3 { margin: 0 0 8px; font-size: var(--haui-text-label); font-weight: 500; }
   @container haui-editor (max-width: 600px) {
     .haui-theme-section,
     .haui-theme-colors { padding: 12px; }

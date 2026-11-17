@@ -20,6 +20,7 @@ import { getLanguage, t } from '../localize.js';
 /** @typedef {import('./types.js').FirmwareReleases} FirmwareReleases */
 /** @typedef {import('./types.js').ThemesResponse} ThemesResponse */
 /** @typedef {import('./types.js').PanelRender} PanelRender */
+/** @typedef {import('./types.js').CardDevice} CardDevice */
 /** @typedef {import('./types.js').UpdateResult} UpdateResult */
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
@@ -152,6 +153,27 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
             body: JSON.stringify({ panels }),
           },
           t('Failed to save panels'),
+        );
+      },
+
+      /**
+       * Move a panel of `name` to the device `to`, in one save of both devices.
+       * @param {string} entryId
+       * @param {string} name
+       * @param {string} key
+       * @param {string} to
+       * @returns {Promise<{ key: string, panels: Object<string, PanelConfig[]> }>}
+       */
+      async move(entryId, name, key, to) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/panels/${entryId}/${encodeURIComponent(name)}/move`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, to }),
+          },
+          t('Failed to move the panel'),
         );
       },
     },
@@ -380,6 +402,22 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       },
 
       /**
+       * Forget a finished rollout, so it is no longer shown; the same request
+       * cancels the queued devices of a running one.
+       * @param {string} entryId
+       * @returns {Promise<Record<string, any>>} the rollout
+       */
+      async dismissRollout(entryId) {
+        requireEntry(entryId);
+        const result = await request(
+          `/api/nspanel_haui/rollout/${entryId}`,
+          { method: 'DELETE' },
+          t('Failed to dismiss the update rollout'),
+        );
+        return result.rollout;
+      },
+
+      /**
        * Start, defer or skip a device's scheduled automatic firmware install.
        * @param {string} entryId
        * @param {string} device
@@ -529,6 +567,19 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       },
 
       /**
+       * The names of each domain's states, by device class (`_` for the domain's own).
+       * @param {string} lang
+       * @returns {Promise<Object<string, { state?: Object<string, Object<string, string>> }>>}
+       */
+      stateNames(lang) {
+        return request(
+          `/api/nspanel_haui/translations/${encodeURIComponent(lang)}?section=component`,
+          undefined,
+          t('Failed to load translations'),
+        );
+      },
+
+      /**
        * @param {string} lang
        * @returns {Promise<PanelTypeDescriptor[]>}
        */
@@ -620,6 +671,17 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
           device,
           ...target,
         });
+      },
+    },
+
+    card: {
+      /**
+       * The devices a dashboard card can show: those with a running hub app.
+       * Open to every signed-in user, unlike the editor's calls.
+       * @returns {Promise<CardDevice[]>}
+       */
+      devices() {
+        return hass().connection.sendMessagePromise({ type: 'nspanel_haui/card/devices' });
       },
     },
 

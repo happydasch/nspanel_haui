@@ -7,7 +7,14 @@ import { iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
-import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
+import { menuItem, menuSeparator, menuSubmenu, overlayAnchor, popover } from '../ui/popover.js';
+
+/**
+/**
+ * @typedef {{label: string, iconName?: string, danger?: boolean, disabled?: boolean,
+ *   onSelect: () => void} | {label: string, iconName?: string,
+ *   submenu: Array<{label: string, onSelect: () => void}>} | 'divider'} PanelMenuItem
+ */
 
 /**
  * @typedef {Object} PanelListEntry
@@ -21,7 +28,7 @@ import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.j
  * @property {unknown} [preview]
  * @property {unknown[]} [roles]
  * @property {string} [lockReason]
- * @property {Array<{label: string, iconName?: string, danger?: boolean, disabled?: boolean, onSelect: () => void}|'divider'>} [menu]
+ * @property {PanelMenuItem[]} [menu]
  * @property {(() => void)|null} [onEdit]
  *
  * @typedef {Object} PanelListGroup
@@ -37,9 +44,11 @@ import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.j
 /**
  * Render one entry's overflow menu through the shared anchored popover.
  *
- * @param {{ entry: PanelListEntry, open: boolean, onToggleMenu: (key: string) => void, onCloseMenu: () => void }} options
+ * @param {{ entry: PanelListEntry, open: boolean, submenuOpen: boolean,
+ *   onToggleMenu: (key: string) => void, onToggleSubmenu: (key: string) => void,
+ *   onCloseMenu: () => void }} options
  */
-function renderEntry({ entry, open, onToggleMenu, onCloseMenu }) {
+function renderEntry({ entry, open, submenuOpen, onToggleMenu, onToggleSubmenu, onCloseMenu }) {
   const anchorKey = overlayAnchor('panel-menu', entry.key);
   const items = entry.menu || [];
   const menu = open ? popover({
@@ -49,15 +58,29 @@ function renderEntry({ entry, open, onToggleMenu, onCloseMenu }) {
     role: 'menu',
     className: 'haui-panel-menu',
     anchorKey,
-    content: items.map((item) => (item === 'divider'
-      ? menuSeparator()
-      : menuItem({
+    content: items.map((item) => {
+      if (item === 'divider') return menuSeparator();
+      if ('submenu' in item) {
+        return menuSubmenu({
+          id: `haui-panel-submenu-${entry.key}`,
+          label: item.label,
+          iconName: item.iconName,
+          open: submenuOpen,
+          onToggle: () => onToggleSubmenu(entry.key),
+          items: item.submenu.map((subitem) => menuItem({
+            label: subitem.label,
+            onSelect: () => { onCloseMenu(); subitem.onSelect(); },
+          })),
+        });
+      }
+      return menuItem({
         label: item.label,
         iconName: item.iconName,
         danger: item.danger === true,
         disabled: item.disabled === true,
         onSelect: () => { onCloseMenu(); item.onSelect(); },
-      }))),
+      });
+    }),
   }) : nothing;
   return {
     anchorKey,
@@ -83,15 +106,15 @@ function renderEntry({ entry, open, onToggleMenu, onCloseMenu }) {
  * picked; the caller decides what a selection means (the Panels view's side card
  * describes it).
  *
- * @param {{ groups: PanelListGroup[], portrait?: boolean, menuKey?: string|null, emptyMessage?: string,
+ * @param {{ groups: PanelListGroup[], portrait?: boolean, menuKey?: string|null, submenuKey?: string|null, emptyMessage?: string,
  *   selectedKey?: string|null,
- *   onToggleMenu?: (key: string) => void, onCloseMenu?: () => void,
+ *   onToggleMenu?: (key: string) => void, onToggleSubmenu?: (key: string) => void, onCloseMenu?: () => void,
  *   onToggleGroup?: (groupId: string) => void, onSelect?: (key: string) => void,
  *   onDrop?: (move: {sourceKey: string, group: string, beforeKey: string|null}) => void }} model
  */
 export function renderPanelList({
-  groups = [], portrait = false, menuKey = null, emptyMessage = '', selectedKey = null,
-  onToggleMenu = () => {}, onCloseMenu = () => {}, onToggleGroup = () => {},
+  groups = [], portrait = false, menuKey = null, submenuKey = null, emptyMessage = '', selectedKey = null,
+  onToggleMenu = () => {}, onToggleSubmenu = () => {}, onCloseMenu = () => {}, onToggleGroup = () => {},
   onSelect = () => {}, onDrop = () => {},
 }) {
   return html`<section class="haui-panel-groups" aria-label=${t('Panels')}>
@@ -126,7 +149,12 @@ export function renderPanelList({
       <div class="haui-panel-list" id=${`haui-panel-list-${group.id}`} ?hidden=${group.collapsed === true}>
         ${group.entries.map((entry, position) => {
           const { menu, action } = renderEntry({
-            entry, open: menuKey === entry.key, onToggleMenu, onCloseMenu,
+            entry,
+            open: menuKey === entry.key,
+            submenuOpen: submenuKey === entry.key,
+            onToggleMenu,
+            onToggleSubmenu,
+            onCloseMenu,
           });
           return panelRow({
             key: entry.key,

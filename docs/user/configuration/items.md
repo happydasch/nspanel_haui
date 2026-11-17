@@ -14,7 +14,7 @@ There are two kinds of items:
 
 ## Fields
 
-Pick the entity in the **entity picker**. The other fields are in the **Advanced** section. Leave them empty to use the entity's own values.
+Pick the entity in the **entity picker**. **Name**, **Icon** and **Color** follow it; the other fields are in the **Advanced** section. Leave them empty to use the entity's own values.
 
 | Field | What it changes | Default |
 |-------|-----------------|---------|
@@ -31,12 +31,7 @@ Pick the entity in the **entity picker**. The other fields are in the **Advanced
 `name`, `value`, `icon` and `color` accept more than a fixed value:
 
 - **A fixed value**, for example `Kitchen` or `mdi:lightbulb`.
-- **One value per state**, written as a JSON object:
-
-    ```json
-    {"on": "Lights On", "off": "Lights Off"}
-    ```
-
+- **One value per state**, for example *Lights On* while the light is `on` and *Lights Off* while it is `off`.
 - **A template**, written in Home Assistant's template syntax:
 
     ```jinja
@@ -45,25 +40,29 @@ Pick the entity in the **entity picker**. The other fields are in the **Advanced
 
     The editor shows the result of a template as a preview. `mdi:` icon names inside a template are shown as icons on the display. The older `template:` prefix still works.
 
+For an entity item, each of these fields has a switch beside its label: **One value** or **Per state**. **Per state** turns the field into a list with one row per state:
+
+- **State**: the state the row is for. The field suggests the entity's current state, the states of its kind (`on` and `off` for a light, `home` and `not_home` for a person, the options of a select), and `unavailable`.
+- **The value** for that state, in the field's own control: a text or template for the name and value, the icon picker, the color field.
+- **+ Add state** adds a row; the bin icon removes one.
+
+A state without a row, or a row without a value, uses the default: the entity's own name, icon, color or state. The first row of a state counts; a second row of the same state is marked and not used. Switching back to **One value** keeps the value of the entity's current state.
+
+When the item's [state](#item-state) is an attribute, a row matches the attribute's value. Only a text value can match: an attribute that holds a number or a list never does.
+
+The editor stores the rows as a JSON object, for example `{"on": "Lights On", "off": "Lights Off"}`. Typing such an object into a field opens it as rows.
+
 ### Item name
 
 The name shown for the item. Plain text, one name per state, or a template.
 
 ### Item value
 
-The value shown for the item. A number (`42`, `3.14`), a text, one value per state, or a template:
-
-```json
-{"home": "At home", "not_home": "Away"}
-```
+The value shown for the item. A number (`42`, `3.14`), a text, one value per state, or a template. A person, for example, can show *At home* for the state `home` and *Away* for `not_home`.
 
 ### Item icon
 
-Pick an icon in the icon picker, or enter one icon per state:
-
-```json
-{"on": "mdi:lightbulb", "off": "mdi:lightbulb-outline"}
-```
+Pick an icon in the icon picker, or one icon per state, for example `mdi:lightbulb` for `on` and `mdi:lightbulb-outline` for `off`.
 
 The [Icons Cheatsheet](../../cheatsheet.html) shows all icons.
 
@@ -76,7 +75,7 @@ Click the swatch at the start of the field to open the color picker, choose a re
 | Hex | `#ff6600` |
 | RGB | `[255, 102, 0]` |
 | RGB565 number | `63488` |
-| One color per state | `{"on": "#00ff00", "off": "#ff0000"}` |
+| One color per state | **Per state**, see [Values that depend on the state](#values-that-depend-on-the-state) |
 | Template | `{{ ... }}` |
 
 A typed RGB list or RGB565 number is stored when you leave the field, and the field then shows it as its hex color.
@@ -86,7 +85,7 @@ A typed RGB list or RGB565 number is stored when you leave the field, and the fi
 By default the entity's state is used. To use an attribute instead, enter:
 
 - **The attribute's name**, for example `brightness`.
-- **A path** as a JSON array, for a value inside an attribute: `["attributes", "rgb_color"]`.
+- **A path** as a JSON array, for a value inside an attribute: `["forecast", 0, "condition"]` is the condition of the first entry of a `forecast` attribute.
 
 ## Internal items
 

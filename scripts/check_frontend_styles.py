@@ -17,8 +17,10 @@ HEX_COLOR = re.compile(r"#[\da-fA-F]{3,8}\b")
 COLOR_FUNCTION = re.compile(r"\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\s*\(", re.IGNORECASE)
 PX = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))px\b")
 NON_PX_LENGTH = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))(?:rem|em)\b")
-FONT_SIZES = {"10", "12", "13", "14", "16", "20", "24"}
+FONT_SIZES = {"11", "13", "14", "16", "18", "20", "24"}
 FONT_WEIGHTS = {"400", "500", "600"}
+# 0 and 1 collapse a line box to its content (icons, count bubbles); text uses the tokens.
+LINE_HEIGHTS = {"0", "1", "normal", "inherit"}
 SPACING = {"0", "4", "8", "12", "16", "20", "24", "28", "32", "40"}
 SPACING_PROPERTIES = {
     "padding",
@@ -56,6 +58,33 @@ def css_sources(frontend: Path = FRONTEND) -> list[tuple[Path, str]]:
         for match in CSS_TEMPLATE.finditer(path.read_text(encoding="utf-8")):
             sources.append((path, COMMENT.sub("", match.group(1))))
     return sources
+
+
+def _unused_color_tokens(frontend: Path = FRONTEND, root: Path = ROOT) -> list[str]:
+    """Find color-valued HAUI aliases with no consumer outside their definition."""
+    token_file = frontend / "styles" / "tokens.js"
+    if not token_file.exists():
+        return []
+
+    token_css = next(
+        (css for path, css in css_sources(frontend) if path == token_file),
+        "",
+    )
+    other_sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in frontend.rglob("*.js")
+        if path != token_file and "vendor" not in path.parts
+    )
+    errors = []
+    for match in DECLARATION.finditer(token_css):
+        name, value = match.groups()
+        if not name.startswith("--haui-") or not (
+            HEX_COLOR.search(value) or COLOR_FUNCTION.search(value)
+        ):
+            continue
+        if not re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", other_sources):
+            errors.append(f"{token_file.relative_to(root)}: unused color token {name}")
+    return errors
 
 
 def _inside_var_fallback(value: str, position: int) -> bool:
@@ -240,6 +269,12 @@ def check_css_sources(
                 weights = re.findall(r"(?<![\w.-])\d+(?:\.\d+)?(?![\w.-])", value)
                 if any(weight not in FONT_WEIGHTS for weight in weights):
                     errors.append(f"{where}: off-scale font-weight {value.strip()!r}")
+            elif prop == "font" and value.strip() != "inherit":
+                errors.append(f"{where}: use font-family and font-size, not the font shorthand")
+            elif prop == "line-height" and not (
+                "var(" in value or pixels or value.strip() in LINE_HEIGHTS
+            ):
+                errors.append(f"{where}: line-height must use a --haui-line-height token")
             elif prop == "border-radius":
                 if any(number not in {"0", "8", "12", "999", "9999"} for number in pixels):
                     errors.append(f"{where}: off-scale border-radius {value.strip()!r}")
@@ -292,6 +327,7 @@ def check_css_sources(
 
 def check(frontend: Path = FRONTEND, root: Path = ROOT) -> list[str]:
     errors = check_css_sources(css_sources(frontend), frontend, root)
+    errors.extend(_unused_color_tokens(frontend, root))
     for path in frontend.rglob("*.js"):
         if "vendor" in path.parts:
             continue

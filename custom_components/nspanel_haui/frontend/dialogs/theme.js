@@ -6,7 +6,6 @@ import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 import { t } from '../localize.js';
-import { renderSelect } from '../form-fields.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
 import { themeSelectorStyles } from '../styles/theme-selector-styles.js';
 import { themeSidebarStyles } from '../styles/theme-sidebar-styles.js';
@@ -16,6 +15,7 @@ import {
   builtinThemeLabel,
   downloadThemes,
   parseThemeFile,
+  themeIconVariant,
   themeIdFromName,
   uniqueThemeId,
   uniqueThemeName,
@@ -113,9 +113,7 @@ class ThemeSidebar extends HauiDialog {
 
   static get properties() {
     return {
-      themeVariant: { type: String },
       themeId: { type: String },
-      iconVariant: { type: String },
       entryId: { type: String },
       api: { type: Object },
     };
@@ -123,10 +121,8 @@ class ThemeSidebar extends HauiDialog {
 
   constructor() {
     super();
-    this.themeVariant = "dark";
     this.themeId = "dark";
     this.entryId = "";
-    this.iconVariant = "dark";
     this._colors = {};
     this._icons = {};
     this._themes = {};
@@ -146,7 +142,6 @@ class ThemeSidebar extends HauiDialog {
     if ((changed.has("open") && this.open) || changed.has("entryId")) {
       this._loading = true;
       this._originalThemeId = this.themeId;
-      this._originalThemeVariant = this.themeVariant;
       this._loadThemes();
       this._edited = false;
     } else if (changed.has("themeId") && this._keepThemeColors) {
@@ -168,7 +163,6 @@ class ThemeSidebar extends HauiDialog {
       this._customThemes = data.themes || {};
       this._themes = { ...this._builtins, ...this._customThemes };
       if (!this._themes[this.themeId]) this.themeId = "dark";
-      this.iconVariant = this.themeVariant === "light" ? "light" : "dark";
       this._rebuildColors();
     } catch (_err) {
       this._themeError = t("Unable to load color themes.");
@@ -188,6 +182,14 @@ class ThemeSidebar extends HauiDialog {
 
   _themeData() {
     return this._themes[this.themeId] || this._builtins.dark;
+  }
+
+  /**
+   * The icon palette the theme draws. Its own page background picks it, exactly
+   * like the hub does, so the editor never edits the palette the display ignores.
+   */
+  get _iconVariant() {
+    return themeIconVariant(this._colors);
   }
 
   _rebuildColors() {
@@ -242,7 +244,7 @@ class ThemeSidebar extends HauiDialog {
   _getHex(key) {
     const [, domain, state] = key.split(".");
     const value = key.startsWith("icons.")
-      ? this._icons?.[this.iconVariant]?.[domain]?.[state]
+      ? this._icons?.[this._iconVariant]?.[domain]?.[state]
       : this._colors[key];
     return value !== undefined ? rgb565ToHex(value) : "#000000";
   }
@@ -255,10 +257,10 @@ class ThemeSidebar extends HauiDialog {
     const theme = this._themeData();
     const [, domain, state] = key.split(".");
     const value = key.startsWith("icons.")
-      ? this._icons?.[this.iconVariant]?.[domain]?.[state]
+      ? this._icons?.[this._iconVariant]?.[domain]?.[state]
       : this._colors[key];
     const original = key.startsWith("icons.")
-      ? theme?.icons?.[this.iconVariant]?.[domain]?.[state]
+      ? theme?.icons?.[this._iconVariant]?.[domain]?.[state]
       : theme?.colors?.[key];
     return value !== original;
   }
@@ -275,7 +277,6 @@ class ThemeSidebar extends HauiDialog {
       }
     }
     if (this.themeId !== this._originalThemeId) count++;
-    if (this.themeVariant !== this._originalThemeVariant) count++;
     return count;
   }
 
@@ -286,9 +287,9 @@ class ThemeSidebar extends HauiDialog {
       const [, domain, state] = key.split(".");
       this._icons = {
         ...this._icons,
-        [this.iconVariant]: {
-          ...this._icons[this.iconVariant],
-          [domain]: { ...this._icons[this.iconVariant][domain], [state]: value },
+        [this._iconVariant]: {
+          ...this._icons[this._iconVariant],
+          [domain]: { ...this._icons[this._iconVariant][domain], [state]: value },
         },
       };
     } else {
@@ -304,11 +305,11 @@ class ThemeSidebar extends HauiDialog {
       const [, domain, state] = key.split(".");
       this._icons = {
         ...this._icons,
-        [this.iconVariant]: {
-          ...this._icons[this.iconVariant],
+        [this._iconVariant]: {
+          ...this._icons[this._iconVariant],
           [domain]: {
-            ...this._icons[this.iconVariant][domain],
-            [state]: theme.icons[this.iconVariant][domain][state],
+            ...this._icons[this._iconVariant][domain],
+            [state]: theme.icons[this._iconVariant][domain][state],
           },
         },
       };
@@ -442,7 +443,6 @@ class ThemeSidebar extends HauiDialog {
     }
     this._emit("dialog-save", {
       themeId: this.themeId,
-      themeVariant: this.themeVariant,
     });
   }
 
@@ -600,21 +600,10 @@ class ThemeSidebar extends HauiDialog {
                 <p class="haui-config-section-intro">
                   ${t("Colors the display uses for weather, alarm and climate state icons.")}
                 </p>
-                <div class="haui-field">
-                  <label for="cp-icon-theme">${t("Default icon color variant")}</label>
-                  ${renderSelect("cp-icon-theme", this.themeVariant, [
-                    { value: "dark", label: t("Dark background") },
-                    { value: "light", label: t("Light background") },
-                  ], (value) => { this.themeVariant = value; })}
+                <div class="haui-field-hint">
+                  ${t("The theme's page background decides which of the two palettes the display draws: a dark theme the dark-background one, a light theme the light-background one.")}
                 </div>
-                <div class="haui-field">
-                  <label for="cp-icon-variant">${t("Edit icon colors for")}</label>
-                  ${renderSelect("cp-icon-variant", this.iconVariant, [
-                    { value: "dark", label: t("Dark backgrounds") },
-                    { value: "light", label: t("Light backgrounds") },
-                  ], (value) => { this.iconVariant = value; })}
-                </div>
-                ${getIconColorGroups(this._icons, this.iconVariant).map((group) => this._renderGroup(group, "theme"))}
+                ${getIconColorGroups(this._icons, this._iconVariant).map((group) => this._renderGroup(group, "theme"))}
               </div>
             </details>
 

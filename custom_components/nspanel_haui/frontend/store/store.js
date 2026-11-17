@@ -47,30 +47,17 @@ export function isAnchoredOverlayKind(kind) {
 /**
  * Overlay kinds shown in the Device screen's modal sidebar (Logs also on
  * Fleet: its subject is a device, or null for every device). The topmost one is
- * shown; one opened from another covers it as a layer.
+ * shown; one opened from another covers it as a layer. The device settings'
+ * groups are not overlays of their own: the settings element renders the group
+ * they are on.
  */
 export const SIDEBAR_OVERLAY_KINDS = Object.freeze([
-  'device-settings', 'device-schedule', 'device-gestures',
-  'panel-catalog', 'panel-editor', 'updates', 'theme', 'logs',
+  'device-settings', 'panel-catalog', 'panel-editor', 'backups', 'updates', 'theme', 'logs',
 ]);
 
 /** @param {string|null|undefined} kind */
 export function isSidebarOverlayKind(kind) {
   return typeof kind === 'string' && SIDEBAR_OVERLAY_KINDS.includes(kind);
-}
-
-/**
- * The Preview view's device option sidebars — one editor each for the device's
- * schedule and gestures, opened from the Manage this device card. The theme has
- * no sidebar of its own: its button opens the shared theme editor.
- */
-const DEVICE_OPTION_OVERLAY_KINDS = Object.freeze([
-  'device-schedule', 'device-gestures',
-]);
-
-/** @param {string|null|undefined} kind */
-export function isDeviceOptionOverlayKind(kind) {
-  return typeof kind === 'string' && DEVICE_OPTION_OVERLAY_KINDS.includes(kind);
 }
 
 /**
@@ -582,17 +569,16 @@ export function createStore({ client, storage, onToast }) {
             hub: { ...current.hub, statusError: error },
           };
         });
-        // A running rollout changes every tick; an idle one only when started.
-        if (!state.hub.rollout || state.hub.rollout.state === 'running') {
-          try {
-            const rollout = await client.updates.rollout(entryId);
-            commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
-          } catch (caught) {
-            commit((current) => ({
-              ...current,
-              hub: { ...current.hub, statusError: /** @type {Error} */ (caught).message || t('Fetch failed') },
-            }));
-          }
+        // Read every tick: another tab, an automation or another user may start
+        // one while this one shows an idle or finished rollout.
+        try {
+          const rollout = await client.updates.rollout(entryId);
+          commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
+        } catch (caught) {
+          commit((current) => ({
+            ...current,
+            hub: { ...current.hub, statusError: /** @type {Error} */ (caught).message || t('Fetch failed') },
+          }));
         }
       };
       void fetchAll();
@@ -648,6 +634,50 @@ export function createStore({ client, storage, onToast }) {
       return saved;
     },
 
+    /**
+     * Move a panel of `deviceName` to the device `to`; the hub saves both
+     * devices at once and keeps the key unless `to` already uses it.
+     *
+     * @param {{ key: string, to: string, deviceName?: string }} payload
+     * @returns {Promise<string|null>} the panel's key on `to`, or null when it did not move
+     */
+    async movePanel({ key, to, deviceName }) {
+      const name = deviceName || state.devices.selected;
+      const entryId = state.hub.entryId;
+      if (!name || !entryId || !state.devices.byName[name] || !state.devices.byName[to]) return null;
+      if (state.hub.saving) {
+        showToast(t('Another save is still in progress'), 'error');
+        return null;
+      }
+
+      commit((current) => ({ ...current, hub: { ...current.hub, saving: true } }));
+      try {
+        const result = await client.panels.move(entryId, name, key, to);
+        commit((current) => {
+          const byName = { ...current.devices.byName };
+          for (const [device, panels] of Object.entries(result.panels)) {
+            if (byName[device]) byName[device] = { ...byName[device], panels };
+          }
+          return {
+            ...current,
+            devices: { ...current.devices, byName },
+            hub: { ...current.hub, saving: false, error: null, fieldErrors: [] },
+          };
+        });
+        const target = state.devices.byName[to]?.friendlyName || to;
+        showToast(result.key === key
+          ? t('Panel moved to {device}').replace('{device}', target)
+          : t('Panel moved to {device} as {key}').replace('{device}', target).replace('{key}', result.key),
+        'success');
+        return result.key;
+      } catch (error) {
+        const message = /** @type {Error} */ (error).message || t('Network error');
+        commit((current) => ({ ...current, hub: { ...current.hub, saving: false, error: message } }));
+        showToast(message, 'error');
+        return null;
+      }
+    },
+
     /** Read the hub's update rollout into the store. */
     async loadRollout() {
       const entryId = state.hub.entryId;
@@ -681,6 +711,18 @@ export function createStore({ client, storage, onToast }) {
      * Cancel one queued device of the rollout, or every queued device.
      * @param {string|null} [device]
      */
+    /** Forget the finished rollout on the hub, for every editor showing it. */
+    async dismissRollout() {
+      const entryId = state.hub.entryId;
+      if (!entryId) return;
+      try {
+        const rollout = await client.updates.dismissRollout(entryId);
+        commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
+      } catch (error) {
+        showToast(/** @type {Error} */ (error).message || t('Failed to dismiss the update rollout'), 'error');
+      }
+    },
+
     async cancelRollout(device = null) {
       const entryId = state.hub.entryId;
       if (!entryId) return;

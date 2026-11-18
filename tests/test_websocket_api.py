@@ -81,7 +81,7 @@ class _FakeHost:
         self.viewers = {}
         self.events = []
         self.renders = []
-        self.notifications_from = None
+        self.panel_from = None
         self.reloads = []
         self.idle_count = 0
         self.home_count = 0
@@ -126,8 +126,8 @@ class _FakeHost:
     def show_home(self):
         self.home_count += 1
 
-    async def async_follow_notifications(self, running):
-        self.notifications_from = running
+    async def async_follow_panel(self, running):
+        self.panel_from = running
 
     def show_idle(self):
         self.idle_count += 1
@@ -258,7 +258,7 @@ def test_subscription_follows_the_running_physical_apps_info_and_notifications(w
         await _subscribe(ws, hass, conn)
         host = _FakeHost.instances[0]
         assert host.followed is running
-        assert host.notifications_from is running
+        assert host.panel_from is running
 
     _run(body)
 

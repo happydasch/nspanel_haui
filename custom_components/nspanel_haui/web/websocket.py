@@ -232,7 +232,7 @@ async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(msg["device"])
     if running is not None:
         await host.async_follow_device(running)
-        await host.async_follow_notifications(running)
+        await host.async_follow_panel(running)
     # Closed while the app started: attaching now would keep a viewer nobody sees.
     if closed:
         return

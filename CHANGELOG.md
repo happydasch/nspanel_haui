@@ -11,6 +11,12 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.3] — unreleased
 
+### Added
+
+- Dashboard card: the panel's own state under the screen — connected or offline, awake, dimmed or dark, waiting notifications, firmware and TFT versions — plus the bezel and the hardware buttons' lights, four options (`device`, `mode`, `title`, `scale`) and the `mode: tile` a status tile draws ([Dashboard Card](docs/user/dashboard-card.md)).
+- Dashboard card: the card editor stores the panel's Home Assistant device id next to its name, so renaming the device no longer breaks every dashboard showing it; it also offers a device switched off with **Device Enabled**, marked *(disabled)*.
+- Dashboard card: `scale` draws the screen smaller than the card (20–100 % of the space it has), centered with its frame and the row under it.
+
 ### Changed
 
 - Editor: the Panels view's group counts (**Navigation**, **Hidden**, **Popups**) sit on one soft block like the role tiles and the hints below them, instead of divided rows on the bare card.
@@ -19,6 +25,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Editor: the **Themes** button on the Device screen names the selected theme instead of showing its key (`dark`); a predefined theme reads from its translated label, a custom one from the theme library the screen now loads.
 - Editor: the device carousel fades an edge only while real cards sit beyond it, so the last device's card is never dimmed under the fade; only the ghost-card outlines at the end of a row that fits run behind it.
+- Dashboard card: a card added from the card picker asks for a device instead of starting the hub's work for the first one, the card editor retries a failed device list, and an unknown hub error is a sentence instead of a raw code.
+- Dashboard card: the row under the screen shows the firmware and TFT versions the panel reported — a live card's row reported **Unknown** for both, and a home card's kept the versions it knew when the card subscribed.
 
 ## [0.5.2] — 2026-11-17
 

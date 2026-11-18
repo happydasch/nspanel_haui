@@ -21,7 +21,7 @@ The sandbox preview (``virtual_panel.py``) shares nothing with it.
 
 A save (``api.config.push_panels``) reaches the viewers through
 ``async_reload_viewers``: the button settings decide which entity each
-button light shows.
+hardware button shows.
 
 Admin only, like the editor itself: a live viewer controls real entities.
 """
@@ -40,13 +40,11 @@ from homeassistant.components import websocket_api
 from ...const import DOMAIN
 from ...haui.abstract.haui_event import HAUIEvent
 from ...haui.mapping.const import GESTURES, ESPEvent
-from .button_lights import (
+from .button_entities import (
     RELAY_ENTITY_NAMES,
-    ButtonLight,
+    ButtonEntities,
+    ButtonSlot,
     button_entity_ids,
-    buttons_message,
-    light_state,
-    lights_message,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,23 +78,21 @@ class LivePanel:
         self._source = source
         self._sink = sink
         self._unsubscribes: list[Callable[[], None]] = []
-        self._untrack_lights: Callable[[], None] | None = None
-        self._light_entities: dict[ButtonLight, str] = {}
-        self._lights: dict[ButtonLight, str] = {}
+        self._buttons: ButtonEntities | None = None
         # Widget name -> entity id, as last sent to the viewer (app worker only).
         self._entities: dict[str, str] = {}
         self._stopped = False
 
     async def async_start(self, session_id: str) -> None:
         """Seed the viewer with the panel's screen and follow it from then on."""
-        unsubscribes, light_entities = await self._source.async_run_on_worker(
+        unsubscribes, button_entities = await self._source.async_run_on_worker(
             self._attach, session_id
         )
         self._unsubscribes.extend(unsubscribes)
         if self._stopped:
             self.stop()
             return
-        self._track_lights(light_entities)
+        self._track_buttons(button_entities)
 
     def stop(self) -> None:
         """Stop following the app; runs on the event loop."""
@@ -104,15 +100,15 @@ class LivePanel:
         for unsubscribe in self._unsubscribes:
             unsubscribe()
         self._unsubscribes.clear()
-        if self._untrack_lights is not None:
-            self._untrack_lights()
-            self._untrack_lights = None
+        if self._buttons is not None:
+            self._buttons.stop()
+            self._buttons = None
 
-    async def async_reload_lights(self) -> None:
-        """Follow a save: the button settings decide what each light shows."""
+    async def async_reload_buttons(self) -> None:
+        """Follow a save: the button settings decide which entities a button shows."""
         entity_ids = await self._source.async_run_on_worker(button_entity_ids, self._source.device)
         if not self._stopped:
-            self._track_lights(entity_ids)
+            self._track_buttons(entity_ids)
 
     async def async_event(self, name: str, value: str) -> None:
         """Check a browser interaction and apply it on the app's worker.
@@ -140,7 +136,7 @@ class LivePanel:
 
     def _attach(
         self, session_id: str
-    ) -> tuple[list[Callable[[], None]], dict[ButtonLight, str | None]]:
+    ) -> tuple[list[Callable[[], None]], dict[ButtonSlot, str | None]]:
         """Subscribe and seed in one go, so no display output slips in between.
 
         Seeding replays the page; a page the app has prepared but not drawn
@@ -175,6 +171,8 @@ class LivePanel:
                 "idle": state["idle"],
                 "display_state": state["display_state"],
                 "connected": state["connected"],
+                "firmware": state["firmware"],
+                "tft": state["tft"],
             }
         )
         if state.get("event") == ESPEvent.PAGE and state.get("page") is not None:
@@ -203,37 +201,10 @@ class LivePanel:
 
     # event loop
 
-    def _track_lights(self, entity_ids: dict[ButtonLight, str | None]) -> None:
-        from homeassistant.core import callback
-        from homeassistant.helpers.event import async_track_state_change_event
-
-        if self._untrack_lights is not None:
-            self._untrack_lights()
-            self._untrack_lights = None
-        self._light_entities = {key: eid for key, eid in entity_ids.items() if eid}
-        self._lights = {key: self._light(eid) for key, eid in self._light_entities.items()}
-        self._sink(buttons_message(self._light_entities))
-        self._sink(lights_message(self._lights))
-        if not self._light_entities:
-            return
-
-        @callback
-        def _changed(event: Any) -> None:
-            entity_id = event.data["entity_id"]
-            for key, eid in self._light_entities.items():
-                if eid == entity_id:
-                    self._lights[key] = self._light(eid)
-            self._sink(lights_message(self._lights))
-
-        self._untrack_lights = async_track_state_change_event(
-            self._hass, sorted(set(self._light_entities.values())), _changed
-        )
-
-    def _light(self, entity_id: str) -> str:
-        state = self._hass.states.get(entity_id)
-        if state is None:
-            return light_state(None, None, entity_id)
-        return light_state(state.state, dict(state.attributes), entity_id)
+    def _track_buttons(self, entity_ids: dict[ButtonSlot, str | None]) -> None:
+        if self._buttons is None:
+            self._buttons = ButtonEntities(self._hass, self._sink)
+        self._buttons.track(entity_ids)
 
 
 def _require_connected(source: Any) -> None:
@@ -345,7 +316,7 @@ async def async_reload_viewers(hass: Any, entry_id: str) -> None:
         if owner != entry_id:
             continue
         try:
-            await viewer.async_reload_lights()
+            await viewer.async_reload_buttons()
         except Exception:
             # A viewer of an app that stopped (entry reload) until its dialog closes.
             _LOGGER.exception("Live preview could not follow the save")

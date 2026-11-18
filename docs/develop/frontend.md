@@ -70,9 +70,22 @@ and how it is tested.
    card sessions and the simulator once a card is shown. A card replays the
    hub's output of `nspanel_haui/card/home` or `nspanel_haui/card/live`
    (`virtual/card-sessions.js`, view-only `PanelSession`s) with
-   `renderSimulatorScreen`, scaled to the card's width. When the hub ends its
-   subscription or Home Assistant reconnects, it subscribes again and keeps the
-   last screen meanwhile.
+   `renderSimulatorScreen`, scaled to the card's width (`scale` shrinks it and
+   centers the frame with it). The panel itself — its display state, whether the
+   hub reaches it, its queued notifications, the versions it runs and its two
+   hardware buttons — arrives as `physical`, `notifications` and `buttons`
+   messages (`virtual/panel-session.js` applies them), so the card reports the
+   panel without a second source. A card names its device by the panel's Home
+   Assistant `device_id` (the editor stores it next to the name), which a rename
+   does not change. The card has one shape — the screen in its frame, the
+   hardware buttons and the row about the panel — and `mode: tile` drops the
+   screen, so nothing in the config hides part of it, and nothing new is added
+   to hide. A tile (`CardStatusSession`) subscribes live but builds no display,
+   so a dashboard of tiles downloads neither a layout nor the simulator.
+   `title` and `scale` only redraw; a change of `device`, `device_id`
+   or `mode` subscribes again. When the hub ends its subscription or Home
+   Assistant reconnects, it subscribes again and keeps the last screen
+   meanwhile.
 9. Device settings, the schedule and gesture editors, the panel catalog and
    editor, the updates, the theme and the logs open in the modal sidebar
    (`SIDEBAR_OVERLAY_KINDS` in `store/store.js`); the Panels view's side card

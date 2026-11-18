@@ -32,6 +32,14 @@ export function versionLabel(version) {
   return typeof version === 'string' && version.trim() ? version : t('Unknown');
 }
 
+/** The panel's display as the hub reports it: on, dimmed, off, or unknown. */
+export function displayLabel(state) {
+  if (state === 'on') return t('On');
+  if (state === 'dim') return t('Dimmed');
+  if (state === 'off') return t('Off');
+  return t('Unknown');
+}
+
 /**
  * The update a device is offered, in a sentence; the firmware leads when both are offered.
  * @param {{ firmware_update_available?: boolean, firmware_update_version?: string|null }} update

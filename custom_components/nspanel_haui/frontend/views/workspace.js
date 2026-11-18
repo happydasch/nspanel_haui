@@ -336,7 +336,9 @@ class PreviewWorkspace extends LitElement {
       <div class="vp-hw-buttons">
         ${['left', 'right'].map(side => {
           const label = side === 'left' ? t('Left button') : t('Right button');
-          const entityId = this.showEntities ? session?.buttonEntityIds?.[side] : null;
+          const button = session?.buttons?.[side];
+          // The entity a press switches: the button's entity, else its relay.
+          const entityId = this.showEntities ? button?.entity ?? button?.relay : null;
           return html`
           <button
             class="vp-hw"
@@ -347,15 +349,14 @@ class PreviewWorkspace extends LitElement {
             @pointermove=${e => this._hoverButton(e, entityId)}
             @pointerleave=${() => { this._hover = null; }}
           >
-            ${session?.buttonEntityStates?.[side] !== null
-              && session?.buttonEntityStates?.[side] !== undefined
+            ${button?.entity
               ? html`
                 <span class="vp-relay-indicators">
-                  <span class="vp-relay-light entity" data-state=${session.buttonEntityStates[side]}></span>
-                  <span class="vp-relay-dot" data-state=${session?.relays?.[side] || 'unknown'}></span>
+                  <span class="vp-relay-light entity" data-state=${button.state}></span>
+                  <span class="vp-relay-dot" data-state=${button.relay_state}></span>
                 </span>
               `
-              : html`<span class="vp-relay-light" data-state=${session?.relays?.[side] || 'unknown'}></span>`}
+              : html`<span class="vp-relay-light" data-state=${button?.state ?? 'unknown'}></span>`}
           </button>
         `;
         })}

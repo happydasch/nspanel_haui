@@ -12,11 +12,6 @@ import { PanelSession } from './panel-session.js';
 export class LivePanelSession extends PanelSession {
   static API = 'nspanel_haui/live_panel';
 
-  constructor(hass, opts) {
-    super(hass, opts);
-    this.physical = { display_state: null, connected: null };
-  }
-
   get live() {
     return true;
   }
@@ -25,29 +20,9 @@ export class LivePanelSession extends PanelSession {
     return this.ready && this.physical.connected === true;
   }
 
-  get displayOff() {
-    return this.physical.display_state === 'off';
-  }
-
   /** CSS brightness of the screen. */
   get screenBrightness() {
     return this.displayOff ? 0 : 1;
-  }
-
-  _onMessage(message) {
-    if (!this.display && message.type === 'physical') this._applyMode(message);
-    super._onMessage(message);
-  }
-
-  _applyMode(message) {
-    if (message.type !== 'physical') return false;
-    this.physical = {
-      display_state: message.display_state ?? null,
-      connected: message.connected ?? null,
-    };
-    this.idle = Boolean(message.idle);
-    this.onUpdate();
-    return true;
   }
 
   /** Send a slider value from a browser drag to the app's current page. */

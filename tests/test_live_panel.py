@@ -20,6 +20,7 @@ import pytest
 from test_virtual_panel import (
     G1_POWER,
     GRID_PAGE_ID,
+    _button,
     _commands,
     _config,
     _open,
@@ -596,12 +597,12 @@ def test_a_live_viewer_shows_the_real_button_lights(env):
     viewer, messages = _live(env, source)
 
     try:
-        assert {
-            "type": "relays",
-            "left": "on",
-            "right": "unknown",
-            "entities": {"left": None, "right": None},
-        } in messages
+        assert _button(messages, "left") == {
+            "relay": "switch.kitchen_relay_left",
+            "entity": None,
+            "state": "on",
+            "relay_state": "on",
+        }
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())
@@ -621,13 +622,14 @@ def test_live_button_lights_follow_a_save(env):
     try:
         _run(env, source.app.async_run_on_worker(save_left_button_for_the_lamp))
         marker = len(messages)
-        _run(env, viewer.async_reload_lights())
-        assert {
-            "type": "relays",
-            "left": "on",
-            "right": "unknown",
-            "entities": {"left": "off", "right": None},
-        } in messages[marker:]
+        _run(env, viewer.async_reload_buttons())
+        # The light shows the lamp now; the relay keeps its own light.
+        assert _button(messages[marker:], "left") == {
+            "relay": "switch.kitchen_relay_left",
+            "entity": "light.lamp",
+            "state": "off",
+            "relay_state": "on",
+        }
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())
@@ -644,11 +646,12 @@ def test_a_live_viewer_names_the_entity_each_button_switches(env):
         source.app.device.config["button_left_entity"] = "light.lamp"
 
     try:
-        assert {"type": "buttons", "left": "switch.kitchen_relay_left", "right": None} in messages
+        assert _button(messages, "left")["relay"] == "switch.kitchen_relay_left"
+        assert _button(messages, "left")["entity"] is None
         _run(env, source.app.async_run_on_worker(save_left_button_for_the_lamp))
         marker = len(messages)
-        _run(env, viewer.async_reload_lights())
-        assert {"type": "buttons", "left": "light.lamp", "right": None} in messages[marker:]
+        _run(env, viewer.async_reload_buttons())
+        assert _button(messages[marker:], "left")["entity"] == "light.lamp"
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())
@@ -681,7 +684,7 @@ def test_a_live_viewer_stopped_before_its_start_finished_follows_nothing(env):
 
     try:
         assert messages[marker:] == []
-        assert not any(message["type"] == "relays" for message in messages)
+        assert not any(message["type"] == "buttons" for message in messages)
     finally:
         _run(env, source.async_stop())
 
@@ -709,7 +712,7 @@ class _FakeLive:
     def stop(self):
         self.stopped = True
 
-    async def async_reload_lights(self):
+    async def async_reload_buttons(self):
         if self.fail is not None:
             raise self.fail
         self.reloads += 1

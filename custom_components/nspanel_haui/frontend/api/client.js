@@ -676,7 +676,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
     card: {
       /**
-       * The devices a dashboard card can show: those with a running hub app.
+       * The devices a dashboard card can name, disabled ones included.
        * Open to every signed-in user, unlike the editor's calls.
        * @returns {Promise<CardDevice[]>}
        */

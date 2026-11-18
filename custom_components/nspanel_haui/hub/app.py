@@ -541,14 +541,22 @@ class NSPanelHAUI(HAAdapter):
                 self.log(f"Error notifying live-preview output subscriber: {exc}", level="ERROR")
 
     def get_preview_state(self) -> dict[str, Any]:
-        """Return the current page and display state for a live-preview mirror."""
+        """Return the panel's own state: its page, display, connection and versions.
+
+        A live-preview mirror and a dashboard card report it; nothing here is
+        about the display's output.
+        """
         navigation = self.controller["navigation"]
         page = navigation.page
+        info = self.device.device_info or {}
         return {
             "page": page.page_id if page is not None else None,
             "idle": navigation.idle_panel_active,
             "display_state": self.device.display_state,
             "connected": self.controller["connection"].is_connected,
+            # What the panel runs, as its device state last reported it.
+            "firmware": info.get("yaml_version") or "",
+            "tft": info.get("tft_version") or "",
         }
 
     def callback_event(self, event: Any) -> None:

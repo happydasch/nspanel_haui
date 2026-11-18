@@ -49,13 +49,13 @@ from ...haui.utils.text import get_translation
 from ...haui.version import get_integration_version
 from ...hub.adapter import ItemProxy
 from ...hub.app import NSPanelHAUI
-from .button_lights import (
+from .button_entities import (
     RELAY_ENTITY_NAMES,
-    ButtonLight,
+    ButtonEntities,
+    ButtonSlot,
     button_entity_ids,
+    button_state,
     buttons_message,
-    light_state,
-    lights_message,
 )
 from .home_stream import HomeStream
 from .sample_data import PREVIEW_ENTITIES, sample_forecast
@@ -372,27 +372,26 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         self.sandbox = Sandbox(self._read_real_state)
         self._sink = sink
         self._sandbox_listeners: dict[str, tuple[str, str | None, Callable]] = {}
-        # Hardware button lights (see button_lights.py), from simulated states.
-        self._button_entity_ids: dict[ButtonLight, str] = {}
-        self._button_handles: dict[ButtonLight, str] = {}
-        self._button_states: dict[ButtonLight, str] = {}
+        # Hardware buttons (see button_entities.py), from simulated states.
+        self._button_entity_ids: dict[ButtonSlot, str] = {}
+        self._button_handles: dict[ButtonSlot, str] = {}
+        self._button_states: dict[ButtonSlot, str] = {}
         self.virtual_esphome = VirtualESPHomeProxy(self, sink, device_info)
 
     def _read_real_state(self, entity_id: str) -> tuple[str, dict[str, Any]] | None:
         state = self.hass.states.get(entity_id)
         return (state.state, dict(state.attributes)) if state else None
 
-    def start_relay_state_tracking(self) -> None:
-        """Publish the hardware button lights and follow their simulated states.
+    def start_button_state_tracking(self) -> None:
+        """Publish the hardware buttons and follow their simulated states.
 
         Call again after a config change: it follows the new entities.
         """
         for key, entity_id in button_entity_ids(self.device).items():
             self._track_button_state(key, entity_id)
-        self._sink(buttons_message(self._button_entity_ids))
-        self._publish_relay_states()
+        self._publish_button_states()
 
-    def _track_button_state(self, key: ButtonLight, entity_id: str | None) -> None:
+    def _track_button_state(self, key: ButtonSlot, entity_id: str | None) -> None:
         if self._button_entity_ids.get(key) != entity_id:
             handle = self._button_handles.pop(key, None)
             if handle is not None:
@@ -408,20 +407,20 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
                 )
         if entity_id:
             item = self.get_item(entity_id)
-            self._button_states[key] = light_state(item.state, item.attributes, entity_id)
+            self._button_states[key] = button_state(item.state, item.attributes, entity_id)
         else:
             self._button_states.pop(key, None)
 
-    def _on_button_state_changed(self, key: ButtonLight) -> None:
+    def _on_button_state_changed(self, key: ButtonSlot) -> None:
         entity_id = self._button_entity_ids[key]
         item = self.get_item(entity_id)
-        self._button_states[key] = light_state(item.state, item.attributes, entity_id)
-        self._publish_relay_states()
+        self._button_states[key] = button_state(item.state, item.attributes, entity_id)
+        self._publish_button_states()
 
-    def _publish_relay_states(self) -> None:
-        self._sink(lights_message(self._button_states))
+    def _publish_button_states(self) -> None:
+        self._sink(buttons_message(self._button_entity_ids, self._button_states))
 
-    def stop_relay_state_tracking(self) -> None:
+    def stop_button_state_tracking(self) -> None:
         """Release the state listeners when the virtual app stops."""
         for handle in self._button_handles.values():
             self.cancel_listen_state(handle)
@@ -519,6 +518,11 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
             self.hass.loop.call_soon_threadsafe(
                 self.dispatch, self._fire_state, handle, cb, entity_id, attr, old_val, new_val
             )
+
+
+def _read_panel(app: Any, controller: Any) -> tuple[dict[str, Any], list[Any]]:
+    """The panel's own state and its queued notifications; runs on its app's worker."""
+    return app.get_preview_state(), controller.get_notifications()
 
 
 def _target_entity_ids(target: dict[str, Any] | None) -> list[str]:
@@ -1002,8 +1006,11 @@ class VirtualPanelHost:
         self._viewers: dict[str, Sink] = {}
         # Physical notification id -> its copy in the virtual queue.
         self._preview_notification_ids: dict[str, str] = {}
-        self._notification_source: Any | None = None
-        self._unfollow_notifications: Callable[[], None] | None = None
+        # The device's running app as followed for the cards (async_follow_panel).
+        self._panel_source: Any | None = None
+        self._unfollow_panel: Callable[[], None] | None = None
+        # The hardware buttons, as the cards' frame draws them (real states).
+        self._buttons: ButtonEntities | None = None
         self._viewers_lock = threading.Lock()
         self._connected = False
         info = {
@@ -1066,39 +1073,66 @@ class VirtualPanelHost:
         device_info = await running.async_run_on_worker(lambda: dict(running.device.device_info))
         await self.async_set_device_info(device_info)
 
-    async def async_follow_notifications(self, running: Any) -> None:
-        """Mirror the physical device's notification queue, read-only, from now on.
+    async def async_follow_panel(self, running: Any) -> None:
+        """Mirror the physical panel for the cards: its queue, state and buttons.
 
-        Every change of that queue is applied to the virtual app's queue; a
-        notification dismissed in the preview stays queued on the panel.
+        Every change of the panel's notification queue is applied to the
+        virtual app's queue (read-only: a notification dismissed in the
+        preview stays queued on the panel) and, with the panel's own state and
+        how many notifications it has queued, told to the home-panel cards. One
+        subscription per device serves every card.
+
+        The hardware buttons come from Home Assistant's real entity states, so
+        a preview's simulated states never reach the cards.
         """
-        if self._notification_source is running:
+        if self._panel_source is running:
             return
-        self._stop_following_notifications()
-        self._notification_source = running
+        self._stop_following_panel()
+        self._panel_source = running
         controller = running.controller["notification"]
 
         def _changed(state: dict[str, Any]) -> None:
             # On the physical app's worker, so its queue is read there.
-            if state["event"] == "notifications":
-                self.app.hass.loop.call_soon_threadsafe(
-                    self.app.dispatch, self._sync_notifications, controller.get_notifications()
-                )
+            queued = controller.get_notifications()
+            loop = self.app.hass.loop
+            loop.call_soon_threadsafe(self.app.dispatch, self._sync_notifications, queued)
+            loop.call_soon_threadsafe(self.app.dispatch, self.home.set_panel, state, len(queued))
 
-        self._unfollow_notifications = running.subscribe_preview_state(_changed)
-        snapshot = await running.async_run_on_worker(controller.get_notifications)
+        self._unfollow_panel = running.subscribe_preview_state(_changed)
+        state, snapshot = await running.async_run_on_worker(_read_panel, running, controller)
         await self.app.async_run_on_worker(self._sync_notifications, snapshot)
+        await self.app.async_run_on_worker(self.home.set_panel, state, len(snapshot))
+        await self.async_follow_buttons(running)
 
-    def _stop_following_notifications(self) -> None:
-        if self._unfollow_notifications is not None:
-            self._unfollow_notifications()
-            self._unfollow_notifications = None
-        self._notification_source = None
+    async def async_follow_buttons(self, running: Any) -> None:
+        """Track the entities of the device's hardware buttons for the cards' frame."""
+        if self._buttons is None:
+            self._buttons = ButtonEntities(self.app.hass, self._buttons_changed)
+        entity_ids = await running.async_run_on_worker(button_entity_ids, running.device)
+        if self._buttons is not None and self._panel_source is running:
+            self._buttons.track(entity_ids)
+
+    def _buttons_changed(self, message: dict[str, Any]) -> None:
+        """Send a buttons message to the home cards (the tracker's thread).
+
+        The tracker runs on the event loop; the home stream's viewers belong
+        to the app's worker.
+        """
+        self.app.dispatch(self.home.set_buttons, message)
+
+    def _stop_following_panel(self) -> None:
+        if self._unfollow_panel is not None:
+            self._unfollow_panel()
+            self._unfollow_panel = None
+        if self._buttons is not None:
+            self._buttons.stop()
+            self._buttons = None
+        self._panel_source = None
 
     async def async_stop(self) -> None:
         await self.app.async_run_on_worker(self.home.end)
-        self._stop_following_notifications()
-        await self.app.async_run_on_worker(self.app.stop_relay_state_tracking)
+        self._stop_following_panel()
+        await self.app.async_run_on_worker(self.app.stop_button_state_tracking)
         await self.app.async_run_on_worker(self.app.stop)
 
     async def async_reload(self, config_args: dict) -> None:
@@ -1107,7 +1141,10 @@ class VirtualPanelHost:
         await self.app.async_run_on_worker(self.home.restart)
         # Relay mode and the button entities are device settings.
         if self.viewer_count:
-            await self.app.async_run_on_worker(self.app.start_relay_state_tracking)
+            await self.app.async_run_on_worker(self.app.start_button_state_tracking)
+        # The card's frame shows the panel's real buttons; a save may move them.
+        if self._panel_source is not None:
+            await self.async_follow_buttons(self._panel_source)
 
     # viewers (sandbox previews)
 
@@ -1120,7 +1157,7 @@ class VirtualPanelHost:
         """Attach a viewer; the first one boots the virtual display."""
         with self._viewers_lock:
             self._viewers[viewer_id] = sink
-        self.app.dispatch(self.app.start_relay_state_tracking)
+        self.app.dispatch(self.app.start_button_state_tracking)
         self.app.dispatch(
             lambda: sink({"type": "sandbox", "changed": self.app.sandbox.has_changes})
         )

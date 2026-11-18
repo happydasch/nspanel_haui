@@ -21,12 +21,17 @@ export class VirtualPanelSession extends PanelSession {
     this.onAction = opts.onAction || (() => {});
     this.sandboxChanged = false;
     this.brightness = 100;
-    this.displayOff = false;
+    this._screenOff = false;
     this._openHome = Boolean(opts.openHome);
   }
 
   get live() {
     return false;
+  }
+
+  /** The simulated display, driven by the preview's own brightness/off control. */
+  get displayOff() {
+    return this._screenOff;
   }
 
   /** CSS brightness of the screen; a dimmed panel stays readable. */
@@ -51,9 +56,9 @@ export class VirtualPanelSession extends PanelSession {
         if (message.name === 'set_brightness') {
           this.brightness = Number(message.value) || 0;
         } else if (message.name === 'display_off') {
-          this.displayOff = true;
+          this._screenOff = true;
         } else if (message.name === 'display_on') {
-          this.displayOff = false;
+          this._screenOff = false;
         }
         this.onAction(message);
         this.onUpdate();

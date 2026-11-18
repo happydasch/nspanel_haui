@@ -246,11 +246,15 @@
  */
 
 /**
- * A device a dashboard card can show (`nspanel_haui/card/devices`).
+ * A device a dashboard card can name (`nspanel_haui/card/devices`).
+ * `device_id` is the panel's Home Assistant device, which a rename keeps: a
+ * card stores it and names its device by it. `enabled` is whether the hub
+ * runs it: a disabled device stays in the list, and its card says so.
  * @typedef {Object} CardDevice
  * @property {string} entry_id
  * @property {string} name
- * @property {boolean} portrait
+ * @property {string|null} device_id
+ * @property {boolean} enabled
  */
 
 /**

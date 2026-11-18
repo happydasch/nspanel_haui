@@ -423,7 +423,9 @@ class NSPanelEditor extends LitElement {
         this._store.actions.loadNotifications();
       }
     }
-    if (this._route?.view === 'device' && this._route.panelView === 'panels' && this.entryId) {
+    // The device screen names the selected theme on its Themes row and in the
+    // settings' theme field, so the library loads with either view.
+    if (this._route?.view === 'device' && this.entryId) {
       this._loadThemeLibrary();
     }
     if (changed.has("_selectedDevice") && this._selectedDevice && !this._loading) {

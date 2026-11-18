@@ -23,8 +23,9 @@ export function panelActions({ panels, onAdd, onSettings }) {
 }
 
 /**
- * The name of a device's theme: a custom theme's own name, or the predefined
- * theme's label.
+ * The name of a device's theme: a predefined theme's translated label (static,
+ * so the row reads right before the theme library has loaded), or a custom
+ * theme's own name.
  *
  * @param {unknown} themeId
  * @param {Record<string, any>} builtinThemes
@@ -32,7 +33,7 @@ export function panelActions({ panels, onAdd, onSettings }) {
  */
 export function themeLabel(themeId, builtinThemes, customThemes) {
   const id = String(themeId || 'dark');
-  return customThemes[id]?.name || (builtinThemes[id] ? builtinThemeLabel(id) : id);
+  return builtinThemeLabel(id) || builtinThemes[id]?.name || customThemes[id]?.name || id;
 }
 
 /**

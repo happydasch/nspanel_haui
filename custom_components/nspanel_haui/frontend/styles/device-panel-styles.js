@@ -52,13 +52,16 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   /* The overview is plain content in the side stack, not a card: no frame, no heading,
      only the list's own facts. It is its own container for the role tiles' width. */
   .haui-panels-overview { container: haui-panels-overview / inline-size; display: grid; gap: 12px; }
-  /* The overview: one row per group with its count, then the list's tips on a soft block. */
-  .haui-panels-overview-groups { display: grid; margin: 0; padding: 0; list-style: none; }
-  .haui-panels-overview-groups > li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; border-bottom: 1px solid var(--divider-color); }
-  .haui-panels-overview-groups > li:last-child { border-bottom: 0; }
+  /* The overview: the group counts and the list's tips are the same soft block — plain
+     rows on the soft surface the role tiles below them also sit on. */
+  .haui-panels-overview-groups,
+  .haui-panels-overview-hints { display: grid; margin: 0; padding: 8px 12px; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); list-style: none; }
+  /* A count row keeps the table's height, so the three groups read as one list. */
+  .haui-panels-overview-groups > li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; }
   .haui-panels-overview-groups ha-icon { color: var(--secondary-text-color); --mdc-icon-size: 16px; }
   .haui-panels-overview-groups > li > span:not(.haui-badge) { overflow: hidden; font-size: var(--haui-text-label); text-overflow: ellipsis; white-space: nowrap; }
-  .haui-panels-overview-hints { display: grid; gap: 8px; margin: 0; padding: 8px 12px; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); list-style: none; }
+  /* The tips are separate statements, so they keep a gap between them. */
+  .haui-panels-overview-hints { gap: 8px; }
   .haui-panels-overview-hints > li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-panels-overview-hints ha-icon { --mdc-icon-size: 15px; }
   /* Home and Idle are the two roles the device assigns to panels. */

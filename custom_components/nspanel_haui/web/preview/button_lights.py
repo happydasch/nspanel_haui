@@ -2,13 +2,15 @@
 
 Each button shows its relay; a button that switches an entity instead (relay
 mode off and ``button_<side>_entity`` set) also shows that entity's state.
-The sandbox (``virtual_panel.py``) reads the simulated states, the live
-preview (``live_panel.py``) the real ones. Both also name the entity each
-button switches, for the preview's entity hover.
+The sandbox (``virtual_panel.py``) reads the simulated states; the live
+preview (``live_panel.py``) and a dashboard card's frame read the real ones
+through ``ButtonLights``. Both also name the entity each button switches, for
+the preview's entity hover.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 # The firmware's relay switches (esphome/nspanel_haui/switch.yaml).

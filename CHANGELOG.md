@@ -11,8 +11,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.3] — unreleased
 
+### Changed
+
+- Editor: the Panels view's group counts (**Navigation**, **Hidden**, **Popups**) sit on one soft block like the role tiles and the hints below them, instead of divided rows on the bare card.
+
 ### Fixed
 
+- Editor: the **Themes** button on the Device screen names the selected theme instead of showing its key (`dark`); a predefined theme reads from its translated label, a custom one from the theme library the screen now loads.
 - Editor: the device carousel fades an edge only while real cards sit beyond it, so the last device's card is never dimmed under the fade; only the ghost-card outlines at the end of a row that fits run behind it.
 
 ## [0.5.2] — 2026-11-17

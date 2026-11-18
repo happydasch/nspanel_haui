@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from './support/render.mjs';
 import {
+  themeLabel,
   updatesSummary,
 } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { gestureSection } from '../../custom_components/nspanel_haui/frontend/ui/gesture-section.js';
@@ -51,6 +52,20 @@ test("the update summary carries what the Updates row of Connection & device sho
   assert.equal(updatesSummary(automatic), 'Development · Auto');
   const off = { ...config, update: { ...config.update, enabled: false } };
   assert.equal(updatesSummary(off), 'Off');
+});
+
+test("the Themes row names the device's theme, not its key", () => {
+  // A predefined theme reads with its label before the theme library has loaded.
+  assert.equal(themeLabel('dark', {}, {}), 'Dark Color');
+  assert.equal(themeLabel('midnight', {}, {}), 'Midnight');
+  // A device without a stored choice draws with the predefined dark theme.
+  assert.equal(themeLabel('', {}, {}), 'Dark Color');
+  // A custom theme reads with the name the library holds.
+  assert.equal(themeLabel('evening', {}, { evening: { name: 'Evening' } }), 'Evening');
+  // A predefined theme this editor has no label for still reads with the hub's name.
+  assert.equal(themeLabel('aurora', { aurora: { name: 'Aurora' } }, {}), 'Aurora');
+  // Nothing known at all: the key is all there is to show.
+  assert.equal(themeLabel('gone', {}, {}), 'gone');
 });
 
 const GESTURE_PANELS = [{ key: 'lights', title: 'Lights' }];

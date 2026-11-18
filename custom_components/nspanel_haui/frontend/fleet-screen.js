@@ -200,10 +200,10 @@ export function renderFleetScreen(host) {
       onSelectDevice: (name) => { host._fleetSelection = host._fleetSelection === name ? null : name; },
       // Reset starts the timeline at the moment it was pressed instead of the default 24 hours.
       // Hub log lines carry whole seconds, so the window starts at the second: a line written
-      // right after the press is still inside it.
+      // right after the press is still inside it. The shell keeps it in localStorage.
       eventsSince: host._fleetEventsSince,
-      onResetEvents: () => { host._fleetEventsSince = Math.floor(Date.now() / 1000) * 1000; },
-      onShowAllEvents: () => { host._fleetEventsSince = null; },
+      onResetEvents: () => host._setFleetEventsSince(Math.floor(Date.now() / 1000) * 1000),
+      onShowAllEvents: () => host._setFleetEventsSince(null),
       onReorderDevices: (order) => host._store.actions.reorderDevices(order),
       discovered: host._discoveredDevices(),
       scanning: host._scanning,

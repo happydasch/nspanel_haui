@@ -6,6 +6,7 @@ import { flush, render } from './support/render.mjs';
 
 import { renderFleetView, carouselEdgesFrom, carouselSlots, deviceSlotCount } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
+import * as EditorPreferences from '../../custom_components/nspanel_haui/frontend/editor-preferences.js';
 import { makeHost } from './fake-host.mjs';
 
 function templateText(template) {
@@ -601,6 +602,8 @@ test('Reset on Fleet starts the latest events at the moment it was pressed, and 
 
     before.querySelector('.haui-event-list .haui-event-reset').click();
     assert.ok(Number.isFinite(editor._fleetEventsSince));
+    // The reset is remembered per browser, so a reload starts where it left off.
+    assert.equal(EditorPreferences.readFleetEventsSince(), editor._fleetEventsSince);
     const after = fleet();
     // The line was written before the reset, so it is no longer in the window.
     assert.doesNotMatch(timeline(after), /kitchen failed/);
@@ -608,6 +611,7 @@ test('Reset on Fleet starts the latest events at the moment it was pressed, and 
 
     after.querySelector('.haui-event-list .haui-event-restore').click();
     assert.equal(editor._fleetEventsSince, null);
+    assert.equal(EditorPreferences.readFleetEventsSince(), null);
     assert.match(timeline(fleet()), /kitchen failed/);
   } finally {
     // The poller's interval would keep the test process alive.

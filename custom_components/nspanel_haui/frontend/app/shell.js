@@ -172,8 +172,9 @@ class NSPanelEditor extends LitElement {
     this._selectedPanelKey = null;
     this._panelSubmenuKey = null;
     this._fleetSelection = null;
-    // The moment Fleet's latest events were reset to, or null for the default 24 hours.
-    this._fleetEventsSince = null;
+    // The moment Fleet's latest events were reset to, or null for the default 24 hours;
+    // remembered per browser so a reload keeps the shortened timeline.
+    this._fleetEventsSince = EditorPreferences.readFleetEventsSince();
     this._panelPreviewCollapsed = preferences.panelPreviewCollapsed;
     this._collapsedPanelGroups = [];
     this._railCollapsed = false;
@@ -1136,6 +1137,19 @@ class NSPanelEditor extends LitElement {
 
   _closeUpdates() {
     return DeviceSidebars.closeUpdates(this);
+  }
+
+  /* ── latest events ────────────────────────────────────────────────── */
+
+  /**
+   * Start Fleet's latest-events window at `since` (ms), or restore the default
+   * 24 hours with null. Kept in localStorage so a reload keeps the reset.
+   *
+   * @param {number|null} since
+   */
+  _setFleetEventsSince(since) {
+    this._fleetEventsSince = since;
+    EditorPreferences.writeFleetEventsSince(since);
   }
 
   /* ── logs sidebar ─────────────────────────────────────────────────── */

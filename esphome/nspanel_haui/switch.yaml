@@ -2,20 +2,20 @@
 # Switch Configuration
 switch:
 
-  # Display Always On
-  # this will make sure that the display is always on
+  # Display power (GPIO 4). On after every boot; switching it off leaves the
+  # screen dark until it is switched on again or the device restarts.
   - platform: gpio
     name: Screen Power
     id: screen_power
     entity_category: config
     disabled_by_default: true
     restore_mode: ALWAYS_ON
-    internal: false  # used only for the screen to stay on
+    internal: false
     pin:
       number: 4
       inverted: true
 
-  # Should buttons be used for interaction
+  # Buttons reset the inactivity timer
   - platform: template
     name: Use Button Interaction
     id: use_button_interaction
@@ -23,7 +23,7 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Should auto-dimming be used
+  # Automatic dimming
   - platform: template
     name: Use Auto-Dimming
     id: use_auto_dimming
@@ -31,7 +31,7 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Should the display turn off automatically after the display-off timeout
+  # Automatic brightness 0 after the display-off timeout
   - platform: template
     name: Use Auto Display-Off
     id: use_auto_display_off
@@ -39,10 +39,9 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Physical switch left
-  # RESTORE_DEFAULT_OFF keeps the relay's last state across reboots and firmware
-  # updates (stored in NVS, so it is also restored after a power loss).
-  # ALWAYS_OFF switched every connected load off on each update.
+  # Left relay. RESTORE_DEFAULT_OFF keeps its last state across reboots,
+  # firmware updates and power loss (NVS); ALWAYS_OFF switched connected loads
+  # off on every update.
   - platform: gpio
     name: Relay Left
     id: relay_left
@@ -58,7 +57,7 @@ switch:
         - lambda: |-
             id(publish_event_native).execute("esphome.relay_left", "0");
 
-  # Physical switch right
+  # Right relay; same restore behaviour as the left one
   - platform: gpio
     name: Relay Right
     id: relay_right
@@ -74,7 +73,7 @@ switch:
         - lambda: |-
             id(publish_event_native).execute("esphome.relay_right", "0");
 
-  # Use physical relay left
+  # Let the left button switch the relay
   - platform: template
     name: Use Relay Left
     id: use_relay_left
@@ -82,7 +81,7 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Use physical relay right
+  # Let the right button switch the relay
   - platform: template
     name: Use Relay Right
     id: use_relay_right

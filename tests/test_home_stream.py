@@ -421,3 +421,26 @@ def test_a_late_card_gets_the_panel_state_and_the_lights(env):
     assert {"type": "notifications", "count": 0} in late
     assert _buttons(late)["left"]["state"] == "on"
     _run(env, host.async_stop())
+
+
+def test_a_disabled_device_still_renders_its_home_panel(env):
+    """A card draws a device the hub does not run; only its own state is missing."""
+    config = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"home_panel": "grid_0", "enabled": False},
+                    "panels": [GRID],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+    host = _host(env, config)
+    cards = _watch(env, host)
+
+    _wait(lambda: _drawn(cards))
+    assert cards[0] == STARTED
+    assert _panels(cards) == []
+    _run(env, host.async_stop())

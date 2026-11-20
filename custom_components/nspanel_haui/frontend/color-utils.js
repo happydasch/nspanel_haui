@@ -39,6 +39,20 @@ export function rgb565ToHex(num) {
     + b.toString(16).padStart(2, '0');
 }
 
+/**
+ * Blend two #rrggbb colours: `ratio` 0 keeps `from`, 1 returns `to`.
+ * Returns "" when either input is not a hex colour.
+ */
+export function mixHex(from, to, ratio) {
+  const a = hexToRgbArray(from);
+  const b = hexToRgbArray(to);
+  if (!a || !b) return "";
+  const mix = (index) => Math.round(a[index] + (b[index] - a[index]) * ratio);
+  return "#" + mix(0).toString(16).padStart(2, '0')
+    + mix(1).toString(16).padStart(2, '0')
+    + mix(2).toString(16).padStart(2, '0');
+}
+
 /** Convert hex #rrggbb to "[r, g, b]" string (for template display). */
 function hexToRgbList(hex) {
   const m = hex.match(/^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/);

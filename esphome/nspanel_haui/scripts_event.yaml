@@ -2,8 +2,7 @@
 # Script Configuration
 script:
 
-  # Script to publish an event via ESPHome native API
-  # The name parameter MUST already include the "esphome." prefix
+  # Publish an event to the hub; the name already includes the "esphome." prefix
   - id: publish_event_native
     parameters:
       name: string
@@ -15,14 +14,14 @@ script:
             name: !lambda 'return name;'
             value: !lambda 'return value;'
 
-  # Script to publish a heartbeat event to the hub
+  # Heartbeat event, every heartbeat_interval while connected
   - id: publish_heartbeat
     then:
       - lambda: |-
           ESP_LOGD("haui", "Script: publish_heartbeat");
           id(publish_event_native).execute("esphome.heartbeat", "");
 
-  # Script to publish a connection response
+  # Ask the hub to start the handshake
   - id: publish_connection_request
     then:
       - lambda: |-
@@ -31,16 +30,13 @@ script:
           auto friendly_name = App.get_friendly_name();
           auto ip =  id(ip_address).state;
           auto yaml_version = "$yaml_version";
-          // custom = built from install.yaml/nspanel_haui_dev.yaml, universal =
-          // the prebuilt release image (nspanel_haui_universal.yaml); the hub
-          // refuses to update across variants.
+          // custom = built from install.yaml/nspanel_haui_dev.yaml; universal =
+          // the prebuilt release image. The hub refuses to update across them.
           auto firmware_variant = "$firmware_variant";
           auto wifi_ssid_str = id(wifi_ssid).state;
           float wifi_rssi_val = id(wifi_rssi).state;
-          // Uptime in whole seconds.  millis_64() (not the 32-bit millis())
-          // so the value survives long uptimes - the hub uses it to tell a
-          // fresh boot from a Wi-Fi reconnect when deciding whether to play
-          // the startup sound.
+          // Whole seconds via millis_64() so long uptimes stay correct; the hub
+          // uses it for the startup sound and to verify an install reboot.
           auto uptime_secs = millis_64() / 1000;
           const json::json_build_t payload = [
               yaml_version, name, friendly_name, ip,
@@ -58,7 +54,7 @@ script:
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.req_connection", payload_str);
 
-  # Script to publish a connection response
+  # Answer the hub's handshake with the heartbeat interval
   - id: publish_connection_response
     then:
       - lambda: |-
@@ -70,14 +66,14 @@ script:
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.res_connection", payload_str);
 
-  # Script to publish device state
+  # Publish the full device state
   - id: publish_device_state
     then:
       - lambda: |-
           ESP_LOGD("haui", "Script: publish_device_state");
           int page_val = int(id(page).state);
-          // Guard: template sensor may be uninitialized (NaN);
-          // use 0 to avoid UB from float-to-int conversion of NaN.
+          // The template sensor may be uninitialized (NaN); 0 avoids undefined
+          // behaviour in the float-to-int conversion.
           float brightness_raw = id(brightness).state;
           int brightness_val = isnan(brightness_raw) ? 0 : int(brightness_raw);
           int button_left_val = id(button_left).state;
@@ -86,9 +82,8 @@ script:
           int relay_right_val = id(relay_right).state;
           int use_relay_left_val = id(use_relay_left).state ? 1: 0;
           int use_relay_right_val = id(use_relay_right).state ? 1: 0;
-          // Send display_state as string ("on"/"dim"/"off") so it matches
-          // the esphome.display_state event payload.  device.py compares
-          // against "on" - int 0/1/2 silently breaks that check.
+          // "on"/"dim"/"off" matches the esphome.display_state event; haui/device.py
+          // compares against "on", so 0/1/2 would break it.
           int display_state_int = int(id(haui_display_state));
           std::string display_state_val = display_state_int == 2 ? "on"
               : display_state_int == 1 ? "dim" : "off";

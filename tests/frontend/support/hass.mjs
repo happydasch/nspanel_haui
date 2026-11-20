@@ -3,6 +3,22 @@ export function jsonResponse(body, status = 200) {
   return { ok: status < 400, status, json: async () => body };
 }
 
+/**
+ * The registry records Home Assistant hands to a panel (`hass.areas`,
+ * `hass.devices`, `hass.entities`), built from the entries a test cares about.
+ *
+ * @param {{ areas?: Array<any>, devices?: Array<any>, entities?: Array<any> }} [world]
+ */
+export function registryWorld({ areas = [], devices = [], entities = [] } = {}) {
+  return {
+    areas: Object.fromEntries(areas.map((area) => [area.area_id, { name: area.area_id, ...area }])),
+    devices: Object.fromEntries(devices.map((device) => [device.id, { name: device.id, ...device }])),
+    entities: Object.fromEntries(
+      entities.map((entry) => [entry.entity_id, { name: null, ...entry }]),
+    ),
+  };
+}
+
 /** Build a Home Assistant facade with observable calls and controllable websocket subscriptions. */
 export function makeHass(overrides = {}) {
   const calls = [];

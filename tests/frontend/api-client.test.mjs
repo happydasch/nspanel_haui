@@ -70,6 +70,14 @@ test('panels and status requests use the documented routes and query parameters'
   ]);
 });
 
+test('aggregate status includes the rollout without a second request', async () => {
+  const payload = { devices: { kitchen: { connected: true } }, rollout: { state: 'running' } };
+  const hass = makeHass({ fetchWithAuth: async () => jsonResponse(payload) });
+  const api = createApiClient(() => hass);
+  assert.deepEqual(await api.status.getAll('entry1'), payload);
+  assert.equal(hass.calls.length, 1);
+});
+
 test('status.getAll rejects an unfiltered response without a device map', async () => {
   const api = createApiClient(() => makeHass({
     fetchWithAuth: async () => jsonResponse({ connected: true }),
@@ -137,16 +145,6 @@ test('a refused panel save keeps the fields the hub names', async () => {
   assert.deepEqual(refusal.errors, errors);
 });
 
-test('starter templates are requested in the editor language', async () => {
-  const urls = [];
-  const api = createApiClient(() => makeHass({
-    fetchWithAuth: async (url) => { urls.push(url); return jsonResponse([]); },
-  }));
-
-  assert.deepEqual(await api.editor.panelTemplates('de'), []);
-  assert.deepEqual(urls, ['/api/nspanel_haui/panel_templates?language=de']);
-});
-
 test('rollout and update control use their routes', async () => {
   const calls = [];
   const api = createApiClient(() => makeHass({
@@ -156,14 +154,12 @@ test('rollout and update control use their routes', async () => {
     },
   }));
 
-  assert.deepEqual(await api.updates.rollout('entry1'), { state: 'running' });
   assert.deepEqual(await api.updates.startRollout('entry1'), { state: 'running' });
   await api.updates.cancelRollout('entry1');
   await api.updates.cancelRollout('entry1', 'office');
   await api.updates.dismissRollout('entry1');
   await api.updates.control('entry1', 'kitchen', 'defer', 3600);
   assert.deepEqual(calls, [
-    ['GET', '/api/nspanel_haui/rollout/entry1', null],
     ['POST', '/api/nspanel_haui/rollout/entry1', JSON.stringify({})],
     ['DELETE', '/api/nspanel_haui/rollout/entry1', null],
     ['DELETE', '/api/nspanel_haui/rollout/entry1/office', null],
@@ -186,5 +182,25 @@ test('a panel moves and the state names load through their routes', async () => 
   assert.deepEqual(calls, [
     ['POST', '/api/nspanel_haui/panels/entry1/living%20room/move', JSON.stringify({ key: 'clock_0', to: 'office' })],
     ['GET', '/api/nspanel_haui/translations/de?section=component', null],
+  ]);
+});
+
+test('a copy posts its source, targets and sections', async () => {
+  const calls = [];
+  const api = createApiClient(() => makeHass({
+    fetchWithAuth: async (url, options = {}) => {
+      calls.push([options.method || 'GET', url, options.body || null]);
+      return jsonResponse({ status: 'ok', devices: ['office'] });
+    },
+  }));
+
+  assert.deepEqual(await api.devices.copy('entry1', 'kitchen', ['office'], ['settings', 'panels']), {
+    status: 'ok',
+    devices: ['office'],
+  });
+  assert.deepEqual(calls, [
+    ['POST', '/api/nspanel_haui/copy/entry1', JSON.stringify({
+      from: 'kitchen', to: ['office'], sections: ['settings', 'panels'],
+    })],
   ]);
 });

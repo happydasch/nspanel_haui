@@ -2,33 +2,30 @@
 
 from __future__ import annotations
 
+from aiohttp import web
 from homeassistant.helpers.http import HomeAssistantView
 
 from .common import error
 
 
 class TranslationsView(HomeAssistantView):
-    """REST API view returning translation data for the frontend editor."""
+    """Return the display text translations for one language."""
 
     url = "/api/nspanel_haui/translations/{language}"
     name = "api:nspanel_haui:translations"
     requires_auth = True
 
-    async def get(self, request, language: str):
-        """Return translation data for a language code.
+    async def get(self, request: web.Request, language: str) -> web.Response:
+        """Return the translations of a language code, falling back to English.
 
-        Query param ``flat`` (optional, defaults to ``1``) controls whether the
-        response is a flat ``{text_key: translation}`` mapping.  When ``0`` the
-        full JSON structure (including ``component`` section) is returned.
-        ``section=component`` returns only the ``component`` section: the
-        state names per domain, which the editor offers as an item's states.
-
-        Falls back to English when the requested language is not available.
+        Query param ``flat=1`` (the default) answers the flat
+        ``{text_key: translation}`` mapping; ``flat=0`` the whole structure.
+        ``section=component`` answers only the component section: the state
+        names per domain, which the editor offers as an item's states.
         """
         from ..haui.utils.text import get_translations
 
         hass = request.app["hass"]
-        flat = request.query.get("flat", "1")
         try:
             translations = await hass.async_add_executor_job(get_translations, language)
         except ValueError as exc:
@@ -36,23 +33,23 @@ class TranslationsView(HomeAssistantView):
 
         if request.query.get("section") == "component":
             return self.json(translations.get("component", {}))
-        if flat == "1" or flat is True:
+        if request.query.get("flat", "1") == "1":
             return self.json(translations.get("text", {}))
         return self.json(translations)
 
 
 class PanelTypesView(HomeAssistantView):
-    """REST API view returning panel type descriptors for the frontend editor."""
+    """Return the panel type descriptors for the editor."""
 
     url = "/api/nspanel_haui/panel_types"
     name = "api:nspanel_haui:panel_types"
     requires_auth = True
 
-    async def get(self, request):
-        """Return JSON descriptors for all user-visible panel types.
+    async def get(self, request: web.Request) -> web.Response:
+        """Return the descriptors of every user-visible panel type.
 
-        Query param ``language`` (optional, defaults to ``"en"``) controls the
-        locale for pre-translating string fields.
+        Query param ``language`` (optional, defaults to ``"en"``) selects the
+        locale of the translated fields.
         """
         from ..haui.mapping.panel import get_user_panel_type_descriptors
 
@@ -62,62 +59,36 @@ class PanelTypesView(HomeAssistantView):
         return self.json(descriptors)
 
 
-class PanelTemplatesView(HomeAssistantView):
-    """REST API view returning the starter templates of the *Add panel* catalog."""
-
-    url = "/api/nspanel_haui/panel_templates"
-    name = "api:nspanel_haui:panel_templates"
-    requires_auth = True
-
-    async def get(self, request):
-        """Return the starter templates, texts translated into ``language`` (default ``en``)."""
-        from ..haui.mapping.templates import get_panel_templates
-
-        lang = request.query.get("language", "en")
-        hass = request.app["hass"]
-        return self.json(await hass.async_add_executor_job(get_panel_templates, lang))
-
-
 class ColorDefaultsView(HomeAssistantView):
-    """REST API view returning built-in color defaults for the frontend editor."""
+    """Return the built-in colors of the panel types."""
 
     url = "/api/nspanel_haui/color_defaults"
     name = "api:nspanel_haui:color_defaults"
     requires_auth = True
 
-    async def get(self, request):
-        """Return the COLORS dict as JSON (single source of truth from color.py)."""
+    async def get(self, request: web.Request) -> web.Response:
+        """Return the ``COLORS`` registry as JSON."""
         from ..haui.mapping.color import COLORS
 
         return self.json(COLORS)
 
 
 class IconSearchView(HomeAssistantView):
-    """REST API view providing MDI icon names for the frontend icon picker."""
+    """Return MDI icon names for the editor's icon picker."""
 
     url = "/api/nspanel_haui/icons"
     name = "api:nspanel_haui:icons"
     requires_auth = True
 
-    # Cache the icon list after first load
-    _icons: list[str] | None = None
+    async def get(self, request: web.Request) -> web.Response:
+        """Return the MDI icon names, or those containing the ``q`` query param.
 
-    async def get(self, request):
-        """Return filtered list of MDI icon names.
-
-        Query param ``q`` (optional) filters by substring match on the icon
-        name (case-insensitive).  When omitted returns all icon names, which
-        the icon picker fetches once and searches client-side.
+        Without ``q`` the picker fetches every name once and searches it
+        client-side.
         """
-        if IconSearchView._icons is None:
-            from ..haui.mapping.icon_names import ICON_NAMES
-
-            IconSearchView._icons = ICON_NAMES
+        from ..haui.mapping.icon_names import ICON_NAMES
 
         query = (request.query.get("q") or "").strip().lower()
-        if query:
-            results = [name for name in IconSearchView._icons if query in name]
-        else:
-            results = IconSearchView._icons
-
-        return self.json(results)
+        if not query:
+            return self.json(ICON_NAMES)
+        return self.json([name for name in ICON_NAMES if query in name])

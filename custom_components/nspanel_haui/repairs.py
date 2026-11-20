@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import voluptuous as vol
-from homeassistant import data_entry_flow
-from homeassistant.components.repairs import RepairsFlow
+import probatio as vol
+from homeassistant.components.repairs import RepairsFlow, RepairsFlowResult
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
@@ -28,14 +27,14 @@ class DeviceStartFailedFixFlow(RepairsFlow):
     async def async_step_init(
         self,
         user_input: dict[str, Any] | None = None,
-    ) -> data_entry_flow.FlowResult:
+    ) -> RepairsFlowResult:
         """Start the fix flow."""
         return await self.async_step_reload()
 
     async def async_step_reload(
         self,
         user_input: dict[str, Any] | None = None,
-    ) -> data_entry_flow.FlowResult:
+    ) -> RepairsFlowResult:
         """Confirm and reload the hub so the device is set up again."""
         if user_input is not None:
             entries = self.hass.config_entries.async_entries(DOMAIN)

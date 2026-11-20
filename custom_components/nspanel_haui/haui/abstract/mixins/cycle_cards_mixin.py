@@ -117,12 +117,10 @@ class Card(NamedTuple):
 
 
 class CycleCardsMixin:
-    """Rotates ``tTime``/``tDate`` through the panel's cycle cards.
+    """Rotate ``tTime``/``tDate`` through the panel's cycle cards.
 
-    The host declares ``t_time``, ``t_date`` and ``t_main_icon`` components and
-    ``CARD_BOXES`` (the two widgets per orientation, checked against the HMI
-    layouts by a test), and provides ``_weather_item``, ``_temp_unit``,
-    ``TEMP_PRECISION`` and ``update_main_weather()`` for its header.
+    Hosts declare the three widgets and ``CARD_BOXES`` (a test checks them
+    against the HMI layouts).
     """
 
     CARD_BOXES: ClassVar[dict[str, dict[str, CardBox]]]
@@ -342,9 +340,8 @@ class CycleCardsMixin:
 
     def _tick(self, _data: dict | None = None) -> None:
         """Called every second. Advance cycle card when interval elapses."""
-        # Only the card animation pauses while dark.  Content callbacks keep
-        # drawing: with a hub connected the Nextion stays awake at brightness
-        # 0, and a wake touch lights the backlight before the hub can redraw.
+        # Only the card animation pauses while dark; content callbacks keep
+        # drawing since a wake touch lights the backlight first.
         if self.app.device.device_info.get("display_state") == "off":
             return
         self._card_timer += 1

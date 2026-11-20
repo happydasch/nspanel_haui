@@ -105,9 +105,11 @@ class _UploadBody:
 class _Entry:
     def __init__(self, data: dict) -> None:
         self.entry_id = "entry1"
+        self.domain = "nspanel_haui"
         self.title = "Hub"
         self.data = data
         self.options: dict = {}
+        self.setup_lock = asyncio.Lock()
 
 
 class _ConfigEntries:
@@ -188,6 +190,7 @@ _PROTECTED = [
     (api.DevicePanelMoveView, "post", {"entry_id": "entry1", "device": "kitchen"}),
     (api.DeviceYamlView, "get", {"entry_id": "entry1"}),
     (api.DeviceYamlView, "post", {"entry_id": "entry1"}),
+    (api.DeviceCopyView, "post", {"entry_id": "entry1"}),
     (api.DeviceRefreshDisplayView, "post", {"entry_id": "entry1"}),
     (api.DeviceUpdateTftView, "post", {"entry_id": "entry1"}),
     (api.DeviceTftReleasesView, "get", {"entry_id": "entry1"}),
@@ -664,6 +667,82 @@ def test_device_panels_put_replaces_only_one_device_and_reloads_only_its_app(mon
     assert office.calls == []
 
 
+def test_a_panel_save_drops_the_home_and_idle_keys_of_the_removed_panel(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    old = {
+        "version": 1,
+        "devices": {
+            "kitchen": {
+                "config": {
+                    "home_panel": "lights",
+                    "idle_panel": "lights",
+                    "idle_panel_extra": "weather, clock_0",
+                },
+                "panels": [
+                    {"type": "clock", "key": "clock_0"},
+                    {"type": "grid", "key": "lights"},
+                    {"type": "weather", "key": "weather"},
+                ],
+            },
+        },
+    }
+    saved = _use_store(monkeypatch, hass, old)
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _WorkerApp()}
+
+    result = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": [{"type": "clock", "key": "clock_0"}]}),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    config = written["devices"]["kitchen"]["config"]
+    assert config == {"home_panel": "", "idle_panel": "", "idle_panel_extra": "clock_0"}
+    assert result["body"]["config"] == config
+
+
+def test_a_panel_save_that_removes_nothing_keeps_the_home_and_idle_keys(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    stored_config = {
+        "home_panel": "clock_0",
+        "idle_panel": "clock_0",
+        "idle_panel_extra": "weather",
+    }
+    old = {
+        "version": 1,
+        "devices": {
+            "kitchen": {
+                "config": stored_config,
+                "panels": [
+                    {"type": "clock", "key": "clock_0"},
+                    {"type": "weather", "key": "weather"},
+                ],
+            },
+        },
+    }
+    saved = _use_store(monkeypatch, hass, old)
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _WorkerApp()}
+    panels = [
+        {"type": "clock", "key": "clock_0"},
+        {"type": "weather", "key": "weather"},
+        {"type": "grid", "key": "lights"},
+    ]
+
+    result = asyncio.run(
+        api.DevicePanelsView().put(
+            _Request(hass, admin=True, body={"panels": panels}), "entry1", "kitchen"
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    assert written["devices"]["kitchen"]["config"] == stored_config
+    assert result["body"]["config"] == stored_config
+
+
 def _two_devices_store():
     return {
         "version": 1,
@@ -712,6 +791,35 @@ def test_moving_a_panel_saves_both_devices_and_reloads_both_apps(monkeypatch):
     }
     assert kitchen.calls == ["worker", "reload_config"]
     assert office.calls == ["worker", "reload_config"]
+
+
+def test_moving_a_panel_drops_it_from_the_source_devices_home_and_idle(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = _two_devices_store()
+    old["devices"]["kitchen"]["config"].update(
+        {"home_panel": "lights", "idle_panel": "lights", "idle_panel_extra": "clock_0"}
+    )
+    saved = _use_store(monkeypatch, hass, copy.deepcopy(old))
+
+    result = asyncio.run(
+        api.DevicePanelMoveView().post(
+            _Request(hass, admin=True, body={"key": "lights", "to": "office"}),
+            "entry1",
+            "kitchen",
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    config = written["devices"]["kitchen"]["config"]
+    assert config == {
+        "locale": "de_DE",
+        "home_panel": "",
+        "idle_panel": "",
+        "idle_panel_extra": "clock_0",
+    }
+    assert result["body"]["config"] == config
+    assert written["devices"]["office"]["config"] == old["devices"]["office"]["config"]
 
 
 def test_a_moved_panel_whose_key_the_target_uses_gets_a_free_key(monkeypatch):
@@ -765,6 +873,236 @@ def test_a_panel_move_that_cannot_happen_changes_nothing(monkeypatch, body, devi
 
     assert result["status_code"] == status
     assert saved == []
+
+
+def _copy_store():
+    """Two devices whose settings differ in every section a copy can take."""
+    return {
+        "version": 1,
+        "devices": {
+            "kitchen": {
+                "config": {
+                    "enabled": False,
+                    "locale": "de_DE",
+                    "theme_id": "dark",
+                    "home_panel": "lights",
+                    "idle_panel": "lights",
+                    "idle_panel_extra": "clock_0, ghost",
+                    "update": {"auto_install": True, "channel": "dev"},
+                },
+                "panels": [
+                    {"type": "clock", "key": "clock_0", "title": "Clock"},
+                    {"type": "grid", "key": "lights", "items": [{"item": "light.a"}]},
+                ],
+                "last_panel_update": "old-kitchen",
+            },
+            "office": {
+                "config": {
+                    "enabled": True,
+                    "locale": "fr_FR",
+                    "home_panel": "",
+                    "update": {"auto_install": False, "skipped_firmware_version": "0.4.1"},
+                },
+                "panels": [{"type": "clock", "key": "office"}],
+                "last_panel_update": "old-office",
+            },
+        },
+    }
+
+
+def test_copying_settings_and_panels_writes_the_targets_in_one_save(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = _copy_store()
+    saved = _use_store(monkeypatch, hass, copy.deepcopy(old))
+    office = _WorkerApp()
+    # The source device is switched off and stays off; only the target runs.
+    hass.data["nspanel_haui"]["entry1"] = {"office": office}
+
+    result = asyncio.run(
+        api.DeviceCopyView().post(
+            _Request(
+                hass,
+                admin=True,
+                body={
+                    "from": "kitchen",
+                    "to": ["office"],
+                    "sections": ["settings", "panels"],
+                },
+            ),
+            "entry1",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["devices"] == ["office"]
+    (written,) = saved
+    copied = written["devices"]["office"]
+    assert copied["panels"] == old["devices"]["kitchen"]["panels"]
+    # The settings came over whole, but whether the target runs is its own.
+    assert copied["config"] == {
+        "enabled": True,
+        "locale": "de_DE",
+        "theme_id": "dark",
+        "home_panel": "lights",
+        "idle_panel": "lights",
+        # `ghost` is on neither device, so no copy keeps it.
+        "idle_panel_extra": "clock_0",
+        # The update block is a section of its own, and the skip is the target's.
+        "update": {"auto_install": False, "skipped_firmware_version": "0.4.1"},
+    }
+    assert written["devices"]["kitchen"] == old["devices"]["kitchen"]
+    assert office.calls == ["worker", "reload_config"]
+
+
+def test_copying_settings_without_panels_keeps_only_the_targets_panel_references(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = _copy_store()
+    old["devices"]["office"]["panels"] = [{"type": "clock", "key": "clock_0"}]
+    saved = _use_store(monkeypatch, hass, copy.deepcopy(old))
+
+    result = asyncio.run(
+        api.DeviceCopyView().post(
+            _Request(
+                hass,
+                admin=True,
+                body={"from": "kitchen", "to": ["office"], "sections": ["settings"]},
+            ),
+            "entry1",
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    copied = written["devices"]["office"]
+    assert copied["panels"] == [{"type": "clock", "key": "clock_0"}]
+    # `lights` is the source's panel; `clock_0` is on the target, `ghost` nowhere.
+    assert copied["config"]["home_panel"] == ""
+    assert copied["config"]["idle_panel"] == ""
+    assert copied["config"]["idle_panel_extra"] == "clock_0"
+    assert copied["config"]["locale"] == "de_DE"
+
+
+def test_copying_update_settings_keeps_the_targets_own_skip(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    old = _copy_store()
+    saved = _use_store(monkeypatch, hass, copy.deepcopy(old))
+
+    asyncio.run(
+        api.DeviceCopyView().post(
+            _Request(
+                hass,
+                admin=True,
+                body={"from": "kitchen", "to": ["office"], "sections": ["update"]},
+            ),
+            "entry1",
+        )
+    )
+
+    (written,) = saved
+    assert written["devices"]["office"]["config"]["update"] == {
+        "auto_install": True,
+        "channel": "dev",
+        "skipped_firmware_version": "0.4.1",
+    }
+    # Nothing else moved: the target keeps its settings and panels.
+    assert written["devices"]["office"]["config"]["locale"] == "fr_FR"
+    assert written["devices"]["office"]["panels"] == old["devices"]["office"]["panels"]
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ({"to": ["office"], "sections": ["settings"]}, 400),
+        ({"from": "kitchen", "to": [], "sections": ["settings"]}, 400),
+        ({"from": "kitchen", "to": ["office"], "sections": []}, 400),
+        ({"from": "kitchen", "to": ["office"], "sections": ["everything"]}, 400),
+        ({"from": "kitchen", "to": ["kitchen"], "sections": ["settings"]}, 400),
+        ({"from": "garage", "to": ["office"], "sections": ["settings"]}, 404),
+        ({"from": "kitchen", "to": ["garage"], "sections": ["settings"]}, 404),
+    ],
+)
+def test_a_copy_that_cannot_happen_changes_nothing(monkeypatch, body, status):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    saved = _use_store(monkeypatch, hass, _copy_store())
+
+    result = asyncio.run(api.DeviceCopyView().post(_Request(hass, admin=True, body=body), "entry1"))
+
+    assert result["status_code"] == status
+    assert saved == []
+
+
+def test_a_copy_writes_every_target_named(monkeypatch):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}, {"name": "garage"}))
+    old = _copy_store()
+    old["devices"]["garage"] = {"config": {"locale": "nl_NL"}, "panels": []}
+    saved = _use_store(monkeypatch, hass, copy.deepcopy(old))
+
+    result = asyncio.run(
+        api.DeviceCopyView().post(
+            _Request(
+                hass,
+                admin=True,
+                body={"from": "kitchen", "to": ["office", "garage"], "sections": ["panels"]},
+            ),
+            "entry1",
+        )
+    )
+
+    assert result["status_code"] == 200
+    (written,) = saved
+    assert written["devices"]["office"]["panels"] == old["devices"]["kitchen"]["panels"]
+    assert written["devices"]["garage"]["panels"] == old["devices"]["kitchen"]["panels"]
+    # Panels alone: both targets keep their settings.
+    assert written["devices"]["garage"]["config"] == {"locale": "nl_NL"}
+
+
+def test_copy_refreshes_previews_once_after_all_target_workers_apply_settings(monkeypatch):
+    from custom_components.nspanel_haui.web import websocket
+    from custom_components.nspanel_haui.web.preview import live_panel
+
+    names = ("kitchen", "office", "garage")
+    hass = _Hass(_entry_with(*({"name": name} for name in names)))
+    data = _copy_store()
+    data["devices"]["kitchen"]["config"].update(
+        enabled=True, use_relay_left=False, button_left_entity="light.new"
+    )
+    data["devices"]["office"]["config"]["button_left_entity"] = "light.office"
+    data["devices"]["garage"] = {"config": {"button_left_entity": "light.garage"}, "panels": []}
+    saved = _use_store(monkeypatch, hass, data)
+    apps = {name: _WorkerApp() for name in names}
+    hass.data["nspanel_haui"]["entry1"] = apps
+    preview_bindings = []
+    live_refreshes = []
+
+    async def reload_hosts(_hass, _entry_id, _data):
+        preview_bindings.append(
+            [
+                getattr(apps[name], "cfg", {}).get("device", {}).get("button_left_entity")
+                for name in ("office", "garage")
+            ]
+        )
+
+    async def reload_viewers(_hass, entry_id):
+        live_refreshes.append(entry_id)
+
+    monkeypatch.setattr(websocket, "async_reload_hosts", reload_hosts)
+    monkeypatch.setattr(live_panel, "async_reload_viewers", reload_viewers)
+    result = asyncio.run(
+        api.DeviceCopyView().post(
+            _Request(
+                hass,
+                admin=True,
+                body={"from": "kitchen", "to": ["office", "garage"], "sections": ["settings"]},
+            ),
+            "entry1",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert len(saved) == 1
+    assert not apps["kitchen"].calls
+    assert preview_bindings == [["light.new", "light.new"]]
+    assert live_refreshes == ["entry1"]
 
 
 def test_device_panels_put_rejects_missing_panels_and_unknown_devices(monkeypatch):
@@ -1116,19 +1454,6 @@ def test_yaml_import_rejects_wrapped_device_yaml(monkeypatch):
 
     assert result["status_code"] == 400
     assert result["body"]["message"].startswith("YAML must contain")
-
-
-def test_push_panels_with_legacy_single_app_does_not_reload(monkeypatch):
-    """A non-dict apps value (pre-multi-device format) is never reloaded."""
-    hass = _Hass(_entry_with({"name": "kitchen"}))
-    _use_store(monkeypatch, hass)
-    hass.data["nspanel_haui"]["entry1"] = _WorkerApp()
-
-    result = asyncio.run(api.config.push_panels(hass, "entry1", {"version": 1, "devices": {}}))
-
-    assert result == {"status": "ok"}
-    assert hass.config_entries.reloads == []
-    assert hass.config_entries.scheduled_reloads == []
 
 
 def test_removing_the_hub_deletes_its_panel_store(monkeypatch):
@@ -1672,6 +1997,26 @@ def test_tft_install_rejects_an_unusable_url(body):
     assert app.calls == []
 
 
+@pytest.mark.parametrize(
+    "body",
+    [{"device": 7}, {"device": "kitchen", "version": 1}],
+    ids=["device", "version"],
+)
+def test_an_install_body_with_a_non_string_field_is_refused(body):
+    """A mistyped field must not fall back to installing on every device."""
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateTftView().post(_Request(hass, admin=True, body=body), entry_id="entry1")
+    )
+
+    assert result["status_code"] == 400
+    assert app.calls == []
+
+
 def test_tft_releases_are_listed_on_the_device_worker():
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
@@ -1829,15 +2174,154 @@ def test_yaml_import_that_enables_a_new_device_reloads_the_entry(monkeypatch):
     assert hass.config_entries.scheduled_reloads == ["entry1"]
 
 
-def test_yaml_import_without_running_apps_reloads_the_entry(monkeypatch):
-    hass = _Hass(_entry_with({"name": "kitchen"}))
-    _use_store(monkeypatch, hass)
-    hass.data["nspanel_haui"]["entry1"] = {}
+@pytest.fixture
+def disk_store(monkeypatch):
+    """Each load returns its own snapshot, as a fresh Home Assistant Store does."""
+    disk = types.SimpleNamespace(data=_two_devices_store(), before_save=None)
 
-    result = _import_yaml(hass)
+    class Store:
+        def __init__(self, *_args):
+            pass
+
+        async def async_load(self):
+            return copy.deepcopy(disk.data)
+
+        async def async_save(self, data):
+            if disk.before_save is not None:
+                await disk.before_save(data)
+            disk.data = copy.deepcopy(data)
+
+        async def async_remove(self):
+            disk.data = None
+
+    monkeypatch.setattr(storage, "Store", Store)
+    return disk
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel_first", [False, True])
+async def test_a_panel_save_cannot_overwrite_a_concurrent_device_reorder(disk_store, cancel_first):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    disk_store.data["device_order"] = ["kitchen", "office"]
+    saving = asyncio.Event()
+    finish_save = asyncio.Event()
+    panels = [{"type": "clock", "key": "new_clock"}]
+
+    async def pause_panel_save(data):
+        if not saving.is_set() and data["devices"]["kitchen"]["panels"] == panels:
+            saving.set()
+            await finish_save.wait()
+
+    disk_store.before_save = pause_panel_save
+    async with asyncio.timeout(2), asyncio.TaskGroup() as tasks:
+        panel_save = tasks.create_task(
+            api.DevicePanelsView().put(
+                _Request(hass, admin=True, body={"panels": panels}), "entry1", "kitchen"
+            )
+        )
+        await saving.wait()
+        if cancel_first:
+            panel_save.cancel()
+            await asyncio.sleep(0)
+        order_save = tasks.create_task(
+            api.DeviceOrderView().put(
+                _Request(hass, admin=True, body={"device_order": ["office", "kitchen"]}), "entry1"
+            )
+        )
+        await asyncio.sleep(0)  # Let the reorder reach the store while the first write is pending.
+        finish_save.set()
+
+    if cancel_first:
+        assert panel_save.cancelled()
+    else:
+        assert panel_save.result()["status_code"] == 200
+    assert order_save.result()["status_code"] == 200
+    assert disk_store.data["devices"]["kitchen"]["panels"] == panels
+    assert disk_store.data["device_order"] == ["office", "kitchen"]
+
+
+@pytest.mark.asyncio
+async def test_settings_saves_apply_to_the_worker_in_commit_order(disk_store):
+    hass = _Hass(_entry_with({"name": "kitchen"}, {"name": "office"}))
+    applying = asyncio.Event()
+    finish_apply = asyncio.Event()
+
+    class Worker(_WorkerApp):
+        def __init__(self):
+            super().__init__()
+            self.locales = []
+
+        async def async_run_on_worker(self, fn, cfg):
+            locale = cfg["device"]["locale"]
+            if locale == "de_DE":
+                applying.set()
+                await finish_apply.wait()
+            fn(cfg)
+            self.locales.append(locale)
+
+    worker = Worker()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": worker, "office": _WorkerApp()}
+
+    async def save(locale):
+        return await api.DeviceSettingsView().put(
+            _Request(hass, admin=True, body={"config": {"locale": locale}}), "entry1", "kitchen"
+        )
+
+    async with asyncio.timeout(2), asyncio.TaskGroup() as tasks:
+        older = tasks.create_task(save("de_DE"))
+        await applying.wait()
+        newer = tasks.create_task(save("fr_FR"))
+        await asyncio.sleep(0)
+        finish_apply.set()
+
+    assert older.result()["status_code"] == newer.result()["status_code"] == 200
+    assert disk_store.data["devices"]["kitchen"]["config"]["locale"] == "fr_FR"
+    assert worker.locales == ["de_DE", "fr_FR"]
+
+
+@pytest.mark.asyncio
+async def test_an_edit_waiting_for_a_removed_hub_cannot_recreate_its_store(disk_store, monkeypatch):
+    from custom_components.nspanel_haui import async_remove_entry
+
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    async with asyncio.timeout(2), asyncio.TaskGroup() as tasks:
+        async with entry.setup_lock:
+            edit = tasks.create_task(
+                api.DeviceOrderView().put(
+                    _Request(hass, admin=True, body={"device_order": ["kitchen"]}), "entry1"
+                )
+            )
+            await asyncio.sleep(0)
+            # HA unregisters the entry before calling its removal hook under the lock.
+            monkeypatch.setattr(hass.config_entries, "async_get_entry", lambda _id: None)
+            await async_remove_entry(hass, entry)
+
+    assert edit.result()["status_code"] == 404
+    assert disk_store.data is None
+
+
+@pytest.mark.asyncio
+async def test_idle_hub_reloads_after_releasing_the_edit_lock(disk_store, monkeypatch):
+    entry = _entry_with({"name": "kitchen"}, {"name": "office"})
+    hass = _Hass(entry)
+    hass.data["nspanel_haui"]["entry1"] = {}
+    loaded = []
+
+    async def reload_entry(entry_id):
+        async with entry.setup_lock:
+            loaded.append(await storage.PanelStorage(hass, entry_id, entry).load())
+
+    monkeypatch.setattr(hass.config_entries, "async_reload", reload_entry)
+    request = _Request(
+        hass, admin=True, body=_YAML.format(enabled="true"), query={"device": "kitchen"}
+    )
+    async with asyncio.timeout(2):
+        result = await api.DeviceYamlView().post(request, entry_id="entry1")
 
     assert result["body"]["reloaded"] is True
-    assert hass.config_entries.reloads == ["entry1"]
+    assert loaded == [disk_store.data]
+    assert loaded[0]["devices"]["kitchen"]["config"]["enabled"] is True
 
 
 def test_yaml_import_before_entry_setup_only_saves(monkeypatch):
@@ -2055,23 +2539,6 @@ def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fa
     assert result["body"]["device_info"]["ip"] == ""
     assert result["body"]["device_info"]["ssid"] == ""
     assert result["body"]["device_info"]["rssi"] is None
-
-
-def test_panel_templates_are_served_in_the_language_asked_for(monkeypatch):
-    from custom_components.nspanel_haui.haui.mapping import templates
-
-    asked = []
-    monkeypatch.setattr(
-        templates, "get_panel_templates", lambda language: asked.append(language) or ["t"]
-    )
-    hass = _Hass(_entry_with({"name": "kitchen"}))
-
-    result = asyncio.run(
-        api.PanelTemplatesView().get(_Request(hass, admin=False, query={"language": "de"}))
-    )
-
-    assert result == {"status_code": 200, "body": ["t"]}
-    assert asked == ["de"]
 
 
 class _ControlApp(_WorkerApp):

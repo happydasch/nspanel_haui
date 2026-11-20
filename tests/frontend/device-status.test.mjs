@@ -98,7 +98,7 @@ test('initial editor load caches every device status before previews can render'
   releaseStatuses(jsonResponse({ devices: statuses }));
   await loading;
   await settle();
-  host.store.actions.stopSelectedStatusPolling();
+  host.store.actions.setStatusPolling(null);
 
   assert.equal(host._loading, false);
   assert.deepEqual(Object.keys(host._deviceStatuses), ['kitchen', 'office']);
@@ -108,7 +108,7 @@ test('initial editor load caches every device status before previews can render'
 test('switching devices clears the old status and fetches the new one at once', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   const host = statusHost();
-  host.store.actions.startSelectedStatusPolling();
+  host.store.actions.setStatusPolling('selected');
   host.pending.shift()(jsonResponse({ connected: true, ip: '10.0.0.1' }));
   await settle();
   assert.equal(host._deviceStatus.ip, '10.0.0.1');
@@ -119,7 +119,7 @@ test('switching devices clears the old status and fetches the new one at once', 
   assert.equal(host.urls.at(-1), '/api/nspanel_haui/status/entry1?device=office');
   host.pending.shift()(jsonResponse({ connected: true }));
   await settle();
-  host.store.actions.stopSelectedStatusPolling();
+  host.store.actions.setStatusPolling(null);
 });
 
 test('a status response for the previously selected device is dropped', async () => {
@@ -133,7 +133,7 @@ test('a status response for the previously selected device is dropped', async ()
   assert.equal(host._deviceStatus, null);
   host.pending.shift()(jsonResponse({ connected: true }));
   await settle();
-  host.store.actions.stopSelectedStatusPolling();
+  host.store.actions.setStatusPolling(null);
 });
 
 import { isOlderVersion } from '../../custom_components/nspanel_haui/frontend/device-info.js';

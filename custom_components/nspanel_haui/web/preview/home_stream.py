@@ -31,7 +31,6 @@ from collections.abc import Callable
 from typing import Any
 
 from ...haui.controller.esphome import command_target
-from ...haui.device_config import is_portrait_model
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -195,7 +194,7 @@ class HomeStream:
         if render is None:
             sink({"type": "error", "message": self._error})
             return
-        portrait = is_portrait_model(self._app.device.get("display_model"))
+        portrait = self._app.device.is_portrait
         sink({"type": "started", "portrait": portrait})
         # The panel itself and its buttons, as the hub last reported them.
         if self._panel is not None:

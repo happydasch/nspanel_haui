@@ -12,6 +12,7 @@ import { t } from './localize.js';
 import { isPortraitModel } from './constants.js';
 import { deviceBrightness, hasUpdateAvailable } from './device-status.js';
 import { groupPanels } from './panel-utils.js';
+import { resolveIdleKeys } from './panel-roles.js';
 import { buildPreviewContext } from './previews/context.js';
 import { renderSimulatorPreview } from './previews/simulator-frame.js';
 import { renderDeviceView } from './views/device.js';
@@ -25,8 +26,6 @@ import { deviceDetails } from './ui/device-details.js';
 import { diagnosticsReport } from './ui/device-diagnostics.js';
 import { button } from './ui/button.js';
 import { emptyState } from './ui/empty-state.js';
-import { idlePanelKeys } from './ui/panel-pills.js';
-import * as Crud from './crud.js';
 import * as Toast from './toast.js';
 import { copyText } from './dom-helpers.js';
 import { writeSideCards } from './editor-preferences.js';
@@ -135,12 +134,15 @@ export async function copyDiagnostics(host, name, status) {
 
 /**
  * Toggle idle in the preview, explaining when the device has no idle panels.
+ * The device plays the idle keys that name a panel it still has, so a stale key
+ * leaves it nothing to switch to.
  * @param {any} host
- * @param {any} config
+ * @param {any} device - the routed device state (`{ name, panels, config }`)
  * @param {{ idle?: boolean }} previewState
  */
-export function onPreviewIdle(host, config, previewState) {
-  if (!previewState?.idle && !idlePanelKeys(config?.idle_panel, config?.idle_panel_extra).length) {
+export function onPreviewIdle(host, device, previewState) {
+  const idle = resolveIdleKeys(device?.panels || [], device?.config || {});
+  if (!previewState?.idle && !idle.length) {
     host._showToast(t('No idle panels are configured'), 'error');
     return;
   }
@@ -215,6 +217,7 @@ export function renderDeviceScreen(host) {
     .hass=${host.hass} .open=${true}
     .config=${device.config}
     .panels=${device.panels}
+    .panelTypes=${host._panelTypes}
     .systemPanels=${state.hub.systemPanels || []}
     .builtinThemes=${host._builtinThemes}
     .customThemes=${host._customThemes}
@@ -233,13 +236,8 @@ export function renderDeviceScreen(host) {
     compactPreviews: host._panelCatalogCompact,
     onPreviewSize: (compact) => host._chooseCatalogPreviewSize(compact),
     onSelect: (type) => host._openAdd(type),
-    copies: host._panelTemplates(),
+    copies: host._panelCopies(),
     onSelectCopy: (panel) => host._openAddFrom(panel),
-    starters: state.hub.panelTemplates || [],
-    onSelectStarter: (panel) => {
-      host._panelCatalogOpen = false;
-      Crud.openAddFromTemplate(host, panel);
-    },
     popups: groupPanels(device.panels, state.hub.systemPanels || []).defaults,
     onSelectPopup: (entry) => host._openSysPanelFromCatalog(entry),
     preview: (panel, byKey = false) => renderSimulatorPreview(
@@ -259,7 +257,7 @@ export function renderDeviceScreen(host) {
   // The modal sidebar opens over the page; the side stack below it stays as it is.
   const sidebarContent = sidebarKind ? html`${layer('device-settings', () => deviceSettings)}${
     layer('panel-catalog', catalog)}${layer('panel-editor', () => panelEditor)}${
-    layer('backups', () => host._renderBackups())}${layer('updates', () => host._renderUpdates(name))}${
+    layer('backups', () => host._renderBackups(name))}${layer('updates', () => host._renderUpdates(name))}${
     layer('theme', theme)}${layer('logs', () => host._renderLogs())}` : null;
   const leadContent = route.panelView === 'panels'
     ? panelActions({
@@ -350,7 +348,7 @@ export function renderDeviceScreen(host) {
         // to start must still switch back to Simulated.
         host._callPreviewWorkspace('setLive', mode === 'live');
       },
-      onIdle: () => host._onPreviewIdle(device.config, previewState),
+      onIdle: () => host._onPreviewIdle(device, previewState),
     })}
     <nspanel-dialog-confirm
       .hass=${host.hass} .open=${host._deleteTarget !== null}
@@ -362,6 +360,7 @@ export function renderDeviceScreen(host) {
       .params=${host._tftInstallTarget !== null ? host._tftInstallParams : null}
       @dialog-closed=${() => host._cancelTftInstall()} @dialog-confirmed=${() => host._confirmTftInstall()}
     ></nspanel-dialog-confirm>
+    ${host._renderQuickStart()}
     ${host._renderNotificationsView()}
     ${host._toast ? Toast.renderToast(host) : ''}
     ${renderFooter(host)}

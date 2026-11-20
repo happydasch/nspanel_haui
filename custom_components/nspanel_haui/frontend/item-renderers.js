@@ -303,7 +303,8 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
   }
 
   const domain = opt.domain || "";
-  const choices = Array.isArray(opt.choices) ? opt.choices : null;
+  // The API sends `choices: []` for an option that has none, so an empty list is no dropdown.
+  const choices = Array.isArray(opt.choices) && opt.choices.length ? opt.choices : null;
   const max = opt.max_items;
 
   const mutate = (fn) => {

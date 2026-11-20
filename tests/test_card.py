@@ -117,6 +117,7 @@ def test_devices_lists_the_hubs_devices_disabled_ones_included(card, monkeypatch
 def test_a_card_of_a_disabled_device_is_told_apart_from_one_that_is_starting(
     card, kind, monkeypatch
 ):
+    """A disabled device has no live screen; its home render needs no app."""
     conn = _Connection()
     _store(card, monkeypatch, {"kitchen": {"config": {"enabled": False}}})
 
@@ -125,8 +126,16 @@ def test_a_card_of_a_disabled_device_is_told_apart_from_one_that_is_starting(
         await _subscribe(card, kind, hass, conn)
 
     _run(body)
-    assert conn.errors == [(1, "disabled")]
-    assert _FakeHost.instances == []
+    if kind == "home":
+        # The hub renders the panels from the store: the card keeps its screen.
+        assert conn.results == [1]
+        [host] = _FakeHost.instances
+        assert host.followed is None, "a device that does not run reports no metadata"
+        assert host.panel_from is None, "and no state of its own"
+        assert len(host.home.viewers) == 1
+    else:
+        assert conn.errors == [(1, "disabled")]
+        assert _FakeHost.instances == []
     assert _FakeLive.instances == []
 
 

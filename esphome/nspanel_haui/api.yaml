@@ -2,11 +2,11 @@
 # API Configuration
 api:
 
-  # API Password for HA
+  # Also encrypts native OTA uploads (base.yaml)
   encryption:
     key: $api_encryption_key
 
-  # When native API client connects (HA)
+  # Native API client connected (Home Assistant)
   on_client_connected:
     then:
       - lambda: |-
@@ -14,11 +14,10 @@ api:
       - delay: 500ms
       - script.execute: publish_connection_request
 
-  # When native API client disconnects (HA)
-  # on_client_disconnected fires after the client is removed, so
-  # is_connected() is false only when the last client is gone. Reset
-  # hub_availability then, otherwise the hub-unavailable branches in
-  # check_connection / check_hub_connection never run.
+  # The callback fires after the client is removed, so is_connected() is false
+  # only when the last client is gone. Reset hub_availability then; otherwise
+  # the hub-unavailable branches in check_connection/check_hub_connection never
+  # run.
   on_client_disconnected:
     then:
       - lambda: |-
@@ -31,25 +30,19 @@ api:
   # Available actions
   actions:
 
-    # Install the TFT file at ``url``.  The hub's TFT update (the "HAUI
-    # Display" update entity and the nspanel_haui.update_tft action) sends
-    # it; call those instead, they track the install.
-    # ``prepare_tft_upload`` suspends active device activities first (see
-    # ``suspend_activities``): upload_tft() blocks the main loop for the whole
-    # transfer, so a playing rtttl tune would sound until the reboot.
+    # Install the TFT at ``url``. Prefer the hub's "HAUI Display" entity or
+    # nspanel_haui.update_tft, which track the install. The upload blocks the
+    # main loop for the whole transfer, so active activities are suspended first.
     - action: upload_tft_url
       variables:
         url: string
       then:
         - lambda: id(prepare_tft_upload).execute(url);
 
-    # Install the firmware app image at ``url`` (the OTA image
-    # nspanel_haui_ota.bin, not the factory image); ``md5sum`` is its checksum
-    # (``md5`` itself is taken by ESPHome's md5 component).
-    # The hub sends it for every firmware install: the update its "HAUI
-    # Firmware" entity offers, another release (older ones included) or a
-    # custom build (nspanel_haui.update_firmware, the editor's Install
-    # firmware picker); call those instead, they track the install.
+    # Install the app image at ``url`` (nspanel_haui_ota.bin, not the factory
+    # image); ``md5sum`` is its checksum (``md5`` is ESPHome's component).
+    # Prefer the hub's "HAUI Firmware" entity or nspanel_haui.update_firmware,
+    # which track the install.
     - action: install_firmware_url
       variables:
         url: string
@@ -60,7 +53,7 @@ api:
             url: !lambda return url;
             md5: !lambda return md5sum;
 
-    # Batch send_commands - receives string array, sends each to display
+    # Batch: send every command, then flush once
     - action: send_commands
       variables:
         commands: string[]
@@ -71,24 +64,23 @@ api:
             }
             id(haui_disp).update();
 
-    # Connection handshake - called by HA when it receives req_connection event
+    # HA answers req_connection; the device replies with res_connection
     - action: hub_connection_response
       variables:
-        version: string
+        version: string  # hub version; accepted but not used
       then:
         - script.execute: publish_connection_response
 
-    # HA acknowledges initialization complete
+    # Handshake complete
     - action: hub_connection_initialized
       then:
         - script.execute:
             id: set_hub_connected
             connected: 1
             force: 0
-      # NOTE: set_hub_connected(1) already updates hub_connection internally.
-      # Do NOT add an extra lambda setting id(hub_connection)=true here.
+      # set_hub_connected(1) already sets hub_connection; do not set it here too.
 
-    # HA closes connection
+    # Hub closed the connection
     - action: hub_connection_closed
       then:
         - script.execute:
@@ -101,8 +93,7 @@ api:
       then:
         - script.execute: publish_device_state
 
-    # Action to send a command
-    # This will send a command to the nextion display
+    # Send one command to the display
     - action: send_command
       variables:
         cmd: string
@@ -110,14 +101,14 @@ api:
         - lambda: |-
             id(haui_disp).send_command(cmd.c_str());
 
-    # Action to change the brightness of the display
+    # intensity: 0-100
     - action: set_brightness
       variables:
         intensity: int
       then:
         - lambda: id(set_brightness).execute(intensity);
 
-    # Action to change the page of the display
+    # Open a display page
     - action: goto_page
       variables:
         page: string
@@ -126,24 +117,23 @@ api:
             id: goto_page
             page: !lambda 'return page;'
 
-    # Explicit hardware-sleep action. The automatic display state machine keeps
-    # the panel awake and does not use this.
+    # Explicit hardware sleep; the automatic state machine never sleeps the panel
     - action: display_off
       then:
         - script.execute: display_off
 
-    # Action to wake the display out of hardware sleep
+    # Wake the display from hardware sleep
     - action: display_on
       then:
         - script.execute: display_on
 
-    # HA heartbeat - resets heartbeat timer on device
+    # Reset the device's heartbeat timeout clock
     - action: hub_heartbeat
       then:
         - lambda: |-
             id(hub_heartbeat) = millis() / 1000;
 
-    # Request a number value
+    # Read a number value; answered with read_response
     - action: req_val
       variables:
         name: string
@@ -152,7 +142,7 @@ api:
             id: request_number
             component: !lambda 'return name;'
 
-    # Request a text value
+    # Read a text value; answered with read_response
     - action: req_txt
       variables:
         name: string
@@ -161,47 +151,43 @@ api:
             id: request_text
             component: !lambda 'return name;'
 
-    # Action to play a song for RTTTL strings
+    # Play any RTTTL string (https://picaxe.com/rtttl-ringtones-for-tune-command/)
     - action: play_rtttl
       variables:
-        # see https://picaxe.com/rtttl-ringtones-for-tune-command/
         song_str: string
       then:
         - lambda: id(play_rtttl).execute(song_str);
 
-    # Action to play a named sound
+    # Play a built-in sound (see play_sound in scripts_common.yaml)
     - action: play_sound
       variables:
         name: string
       then:
         - lambda: id(play_sound).execute(name);
 
-    # Action to reset the last interaction value
+    # offset: seconds to rewind the interaction clock
     - action: reset_last_interaction
       variables:
         offset: int
       then:
         - lambda: id(reset_interaction_timer).execute(offset);
 
-    # Action to send a notification.
-    # ESPHome 2026.10 has no optional action variables, so every parameter is
-    # required: pass empty strings for no icon colour and "none" for a silent
-    # notification, ``false`` / ``"auto"`` for the defaults.  (The HA service
-    # and notify entities expose the same fields as optional.)  Severity does
-    # not exist: ``icon_color`` and ``sound`` replace it, and the hub makes any
-    # persistent notification open immediately and loop its sound.
+    # Every parameter is required by this action (the HA service and notify
+    # entities expose them as optional): "" for no icon/colour, "none" for
+    # silence, false and "auto" for the defaults. There is no severity field;
+    # the hub opens persistent notifications immediately and loops their sound.
     - action: send_notification
       variables:
         title: string
         message: string
         icon: string
-        # True loops the alert sound until dismissed.
+        # true = loop the alert sound until dismissed
         persistent: bool
-        # "auto" or a font size 1-3.
+        # "auto" or a font size 1-3
         text_size: string
-        # "#rrggbb" or an RGB565 number; empty = theme text colour.
+        # "#rrggbb" or an RGB565 number; empty = theme text colour
         icon_color: string
-        # play_sound name; empty or "none" = silent.
+        # play_sound name; empty or "none" = silent
         sound: string
       then:
         - lambda: |-

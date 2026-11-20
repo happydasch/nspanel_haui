@@ -1,8 +1,9 @@
 """REST API of the NSPanel HAUI editor.
 
 One module per area: ``editor`` (static editor data), ``config`` (panel store,
-devices, YAML), ``status`` (live device state) and ``updates`` (TFT and
-firmware); ``common`` holds what they share.
+devices, themes, YAML), ``status`` (live device state) and ``updates`` (TFT and
+firmware); ``panel_edits`` serializes the store writes and ``common`` holds the
+helpers they share.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from typing import Any
 
 from .config import (
     DeviceConfigView,
+    DeviceCopyView,
     DeviceOrderView,
     DevicePanelMoveView,
     DevicePanelsView,
@@ -21,7 +23,6 @@ from .config import (
 from .editor import (
     ColorDefaultsView,
     IconSearchView,
-    PanelTemplatesView,
     PanelTypesView,
     TranslationsView,
 )
@@ -49,7 +50,6 @@ VIEWS = (
     PanelConfigView,
     DeviceOrderView,
     PanelTypesView,
-    PanelTemplatesView,
     ColorDefaultsView,
     ThemesView,
     DeviceConfigView,
@@ -70,6 +70,7 @@ VIEWS = (
     RolloutView,
     RolloutDeviceView,
     DeviceYamlView,
+    DeviceCopyView,
     IconSearchView,
 )
 

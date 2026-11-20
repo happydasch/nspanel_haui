@@ -185,7 +185,7 @@ class VirtualESPHomeProxy:
         self._app = app
         self._sink = sink
         self._device_info = device_info
-        self._listeners: list[Callable] = []
+        self._listeners: list[Callable[..., None]] = []
         self._heartbeat_handle: str | None = None
         self._page: int = 0
         self._idle = False
@@ -207,7 +207,9 @@ class VirtualESPHomeProxy:
 
     # ESPHomeProxy interface
 
-    def listen_event(self, cb: Callable, event_type: str, topic: str | None = None, **kw: Any):
+    def listen_event(
+        self, cb: Callable[..., None], event_type: str, topic: str | None = None, **kw: Any
+    ) -> None:
         self._listeners.append(cb)
 
     def cancel_listen_events(self) -> None:
@@ -355,7 +357,7 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         self,
         hass: Any,
         name: str,
-        config_args: dict,
+        config_args: dict[str, Any],
         *,
         runtime_device_name: str,
         ha_device_id: str | None,
@@ -371,7 +373,7 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         )
         self.sandbox = Sandbox(self._read_real_state)
         self._sink = sink
-        self._sandbox_listeners: dict[str, tuple[str, str | None, Callable]] = {}
+        self._sandbox_listeners: dict[str, tuple[str, str | None, Callable[..., None]]] = {}
         # Hardware buttons (see button_entities.py), from simulated states.
         self._button_entity_ids: dict[ButtonSlot, str] = {}
         self._button_handles: dict[ButtonSlot, str] = {}
@@ -442,7 +444,7 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
             raise ValueError(f"Unsupported plugin: {plugin_name}")
         return self.virtual_esphome
 
-    def fire_event(self, event_type: str, data: dict | None = None) -> None:
+    def fire_event(self, event_type: str, data: dict[str, Any] | None = None) -> None:
         # Automations listen for the real device's events; a preview must not trigger them.
         _LOGGER.debug("Virtual panel suppressed event %s", event_type)
 
@@ -453,7 +455,11 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         return SandboxItemProxy(self, entity_id)
 
     def listen_state(
-        self, cb: Callable, entity_id: str, attribute: str | None = None, **kwargs: Any
+        self,
+        cb: Callable[..., None],
+        entity_id: str,
+        attribute: str | None = None,
+        **kwargs: Any,
     ) -> str:
         handle = super().listen_state(cb, entity_id, attribute=attribute, **kwargs)
         self._sandbox_listeners[handle] = (entity_id, attribute, cb)
@@ -608,36 +614,6 @@ _PREVIEW_KWARGS: dict[str, dict[str, Any]] = {
 }
 
 
-def _all_template_slots(entries: Any) -> bool:
-    """Whether a list holds only the empty slots of a starter template (``templates.py``)."""
-    return isinstance(entries, list) and all(
-        isinstance(entry, dict) and entry.get("item") == "" for entry in entries
-    )
-
-
-def _filled_template_slots(
-    entries: list[dict[str, Any]], default_domains: tuple[str, ...]
-) -> list[dict[str, Any]]:
-    """A template's empty slots with example entities of each slot's ``domain`` hint.
-
-    Slots of one domain take that domain's examples in turn; a slot without a
-    hint (or with no example of its domain) takes the list's default examples.
-    The hint itself is dropped, every other field of the slot is kept.
-    """
-    taken: dict[tuple[str, ...], int] = {}
-    filled = []
-    for entry in entries:
-        hint = entry.get("domain")
-        domains = (hint,) if hint and _example_entity_ids((hint,), 1) else default_domains
-        examples = _example_entity_ids(domains, len(PREVIEW_ENTITIES))
-        index = taken.get(domains, 0)
-        taken[domains] = index + 1
-        slot = {key: value for key, value in entry.items() if key != "domain"}
-        slot["item"] = examples[index % len(examples)]
-        filled.append(slot)
-    return filled
-
-
 # Example values used only by the Add panel catalog's temporary, keyless previews.
 _PREVIEW_CONFIG: dict[str, dict[str, Any]] = {
     "qr": {"essid": "NSPanel", "password": "12345678"},
@@ -689,11 +665,10 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
                 if entity_ids:
                     kwargs[option.key] = {"item": entity_ids[0]}
             elif option.kind in ("item_list", "list_entities"):
-                entries = panel_config.get(option.key)
-                if entries and not _all_template_slots(entries):
+                if panel_config.get(option.key):
                     continue
                 if option.kind == "list_entities" and option.domain:
-                    domains = (option.domain,)
+                    domains: tuple[str, ...] = (option.domain,)
                 elif option.key in ("items", "info_items") and panel_type in ("clock", "weather"):
                     domains = ("sensor",)
                 else:
@@ -707,9 +682,6 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
                         )
                         or _sample_item_domains()
                     )
-                if entries:
-                    kwargs[option.key] = _filled_template_slots(entries, domains)
-                    continue
                 limit = option.max_items or 6
                 entity_ids = _example_entity_ids(domains, limit)
                 if entity_ids:
@@ -998,7 +970,7 @@ class VirtualPanelHost:
         self,
         hass: Any,
         device_name: str,
-        config_args: dict,
+        config_args: dict[str, Any],
         *,
         ha_device_id: str | None = None,
         device_info: dict[str, Any] | None = None,
@@ -1130,12 +1102,16 @@ class VirtualPanelHost:
         self._panel_source = None
 
     async def async_stop(self) -> None:
-        await self.app.async_run_on_worker(self.home.end)
         self._stop_following_panel()
+        # An app that is already gone (Home Assistant stopping under a render)
+        # has nothing left to end.
+        if self.app.stopped:
+            return
+        await self.app.async_run_on_worker(self.home.end)
         await self.app.async_run_on_worker(self.app.stop_button_state_tracking)
         await self.app.async_run_on_worker(self.app.stop)
 
-    async def async_reload(self, config_args: dict) -> None:
+    async def async_reload(self, config_args: dict[str, Any]) -> None:
         """Apply a saved config, as a save does on the device's own app."""
         await self.app.async_run_on_worker(self.app.reload_config, config_args)
         await self.app.async_run_on_worker(self.home.restart)
@@ -1261,7 +1237,12 @@ class VirtualPanelHost:
 
         Returns:
             ``{"page": id, "before": [...], "commands": [...]}``: the commands
-            sent before the page switch and those that draw the page.
+            sent before the page switch and those that draw the page. A render
+            that the app's stop interrupted returns what the page had drawn.
+
+        Raises:
+            AppStoppedError: When the app stopped before the page started, so
+                nothing was drawn (the entry unloads, Home Assistant stops).
         """
         kwargs = {**preview_kwargs(self.app.hass, panel_config), **(kwargs or {})}
         render_config = {**panel_config, **kwargs}
@@ -1270,18 +1251,23 @@ class VirtualPanelHost:
             _PanelRender, self.app, panel_config, kwargs, service_responses
         )
         loop = asyncio.get_running_loop()
+        started = False
         try:
             await self.app.async_run_on_worker(render.start)
+            started = True
             deadline = loop.time() + timeout
             count, quiet_since = len(render.commands), loop.time()
-            while loop.time() < deadline:
+            while loop.time() < deadline and not self.app.stopped:
                 await asyncio.sleep(0.05)
                 if len(render.commands) != count:
                     count, quiet_since = len(render.commands), loop.time()
                 elif loop.time() - quiet_since >= settle:
                     break
         finally:
-            await self.app.async_run_on_worker(render.stop)
+            # A stopped app dropped the render with itself: its page, listeners
+            # and queued output are gone, so there is nothing left to restore.
+            if started and not self.app.stopped:
+                await self.app.async_run_on_worker(render.stop)
         return {"page": render.page_id, "before": render.before, "commands": list(render.commands)}
 
     def _sync_notifications(self, notifications: list[Any]) -> None:

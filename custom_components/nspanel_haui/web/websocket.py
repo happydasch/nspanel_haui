@@ -34,10 +34,11 @@ import logging
 import uuid
 from typing import Any
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.components import websocket_api
 
 from ..const import DOMAIN
+from ..hub.adapter import AppStoppedError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class _Hosts:
 
     def __init__(self, hass: Any) -> None:
         self._hass = hass
-        self._tasks: dict[tuple[str, str], asyncio.Task] = {}
+        self._tasks: dict[tuple[str, str], asyncio.Task[Any]] = {}
         self._idle: dict[tuple[str, str], asyncio.TimerHandle] = {}
         # live preview viewer id -> (host key, host, owning connection)
         self.viewers: dict[str, tuple[tuple[str, str], Any, Any]] = {}
@@ -90,7 +91,9 @@ class _Hosts:
             return
         # Forgotten before the stop runs: a use in between starts a new host
         # instead of attaching to this one.
-        self._hass.async_create_task(self._forget(key).async_stop())
+        host = self._forget(key)
+        if host is not None:
+            self._hass.async_create_task(host.async_stop())
 
     def running(self, entry_id: str) -> list[tuple[str, Any]]:
         """(device, host) of every started host of a hub."""
@@ -130,27 +133,33 @@ async def _create_host(hass: Any, entry: Any, device: str) -> Any:
     from ..hub.storage import empty_store, panel_store
     from .preview.virtual_panel import VirtualPanelHost
 
-    store = await panel_store(hass, entry.entry_id).async_load() or empty_store()
-    cfg = _build_config_dict(entry.data, store, device_name=device)
-    ha_device_id = resolve_ha_device_id(hass, device)
-    running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(device)
-    device_info = (
-        await running.async_run_on_worker(lambda: dict(running.device.device_info))
-        if running is not None
-        else {}
-    )
-    host = VirtualPanelHost(
-        hass,
-        device,
-        cfg,
-        ha_device_id=ha_device_id,
-        device_info=device_info,
-    )
-    await host.async_start()
-    return host
+    # A save must either see this host running or leave the new snapshot for it.
+    async with entry.setup_lock:
+        if hass.config_entries.async_get_entry(entry.entry_id) is not entry:
+            raise ValueError("Config entry was removed")
+        if not any(record.get("name") == device for record in entry.data.get("devices", [])):
+            raise ValueError("Device was removed")
+        store = await panel_store(hass, entry.entry_id).async_load() or empty_store()
+        cfg = _build_config_dict(entry.data, store, device_name=device)
+        ha_device_id = resolve_ha_device_id(hass, device)
+        running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(device)
+        device_info = (
+            await running.async_run_on_worker(lambda: dict(running.device.device_info))
+            if running is not None
+            else {}
+        )
+        host = VirtualPanelHost(
+            hass,
+            device,
+            cfg,
+            ha_device_id=ha_device_id,
+            device_info=device_info,
+        )
+        await host.async_start()
+        return host
 
 
-async def async_reload_hosts(hass: Any, entry_id: str, data: dict) -> None:
+async def async_reload_hosts(hass: Any, entry_id: str, data: dict[str, Any]) -> None:
     """Apply a saved store to the hub's virtual apps, as a save does on the devices."""
     from .. import _build_config_dict
 
@@ -195,8 +204,6 @@ def _device_entry(hass: Any, connection: Any, msg: dict[str, Any]) -> Any | None
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
-    from ..haui.device_config import is_portrait_model
-
     entry = _device_entry(hass, connection, msg)
     if entry is None:
         return
@@ -240,7 +247,7 @@ async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
         {
             "type": "started",
             "session_id": viewer_id,
-            "portrait": is_portrait_model(host.app.device.get("display_model")),
+            "portrait": host.app.device.is_portrait,
         }
     )
     hosts.viewers[viewer_id] = (key, host, connection)
@@ -370,13 +377,21 @@ async def ws_render(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
         return
     host = await _hosts(hass).async_get(entry, msg["device"])
     running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(msg["device"])
-    if running is not None:
-        await host.async_follow_device(running)
     try:
+        if running is not None:
+            await host.async_follow_device(running)
         panel = msg["panel"] if "panel" in msg else await host.async_configured_panel(msg["key"])
         result = await host.async_render(panel, msg.get("kwargs"))
     except ValueError as exc:
         connection.send_error(msg["id"], "invalid_panel", str(exc))
+        return
+    except AppStoppedError:
+        # The virtual app was stopped under the render (a save, an entry
+        # reload, Home Assistant stopping): the next request starts a new one
+        # instead of this one failing as an unexpected error.
+        connection.send_error(
+            msg["id"], "app_stopped", "The device's preview stopped before the panel was drawn"
+        )
         return
     connection.send_result(msg["id"], result)
 

@@ -47,6 +47,15 @@ test('a locked row explains why it cannot be edited', () => {
   assert.match(output, /Fixed system panel/);
 });
 
+test('a row a setup just created says so, and every other row does not', () => {
+  const fresh = panelRow({ group: 'navigation', key: 'room_kitchen', title: 'Kitchen', isNew: true });
+  assert.match(flatten(fresh), /is-new/);
+  assert.match(flatten(fresh), /New/);
+  const old = panelRow({ group: 'navigation', key: 'grid_1', title: 'Home' });
+  assert.doesNotMatch(flatten(old), /is-new/);
+  assert.doesNotMatch(flatten(old), /haui-panel-row-new/);
+});
+
 const rowEvent = {
   clientY: 0,
   stopPropagation() {},
@@ -143,13 +152,32 @@ test('a thumbnail enlarges on mouse hover and toggles on tap or key press', () =
 });
 
 test('home and idle markers follow the device role assignments', () => {
-  const home = panelRoleMarkers('kitchen', { home_panel: 'kitchen', idle_panel: 'clock_0' });
-  const idle = panelRoleMarkers('clock_0', { home_panel: 'kitchen', idle_panel: 'clock_0' });
+  const roleConfig = { homePanel: 'kitchen', idleKeys: ['clock_0'] };
+  const home = panelRoleMarkers('kitchen', roleConfig);
+  const idle = panelRoleMarkers('clock_0', roleConfig);
   assert.equal(home.length, 1);
   assert.match(flatten(home[0]), /aria-label=Home panel/);
   assert.equal(idle.length, 1);
   assert.match(flatten(idle[0]), /aria-label=Idle panel/);
-  assert.equal(panelRoleMarkers('other', { home_panel: 'kitchen', idle_panel: 'clock_0' }).length, 0);
+  assert.equal(panelRoleMarkers('other', roleConfig).length, 0);
+});
+
+test('every further idle panel carries a dimmed, numbered marker', () => {
+  const roleConfig = { homePanel: 'kitchen', idleKeys: ['clock', 'weather', 'lights'] };
+  const marker = (key) => {
+    const markers = panelRoleMarkers(key, roleConfig).map(flatten);
+    assert.equal(markers.length, 1);
+    return markers[0];
+  };
+  // The first panel of the cycle is the one the device opens while idle.
+  assert.doesNotMatch(marker('clock'), /is-extra/);
+  assert.match(marker('clock'), /aria-label=Idle panel/);
+  assert.match(marker('weather'), /is-extra/);
+  assert.match(marker('weather'), /aria-label=Idle panel 2/);
+  assert.match(marker('lights'), /aria-label=Idle panel 3/);
+  // The order comes from the sequence, not from which setting holds the key.
+  const first = flatten(panelRoleMarkers('weather', { idleKeys: ['weather', 'clock'] })[0]);
+  assert.doesNotMatch(first, /is-extra/);
 });
 
 test('a row that takes drops allows them on dragover; a locked row does not', () => {

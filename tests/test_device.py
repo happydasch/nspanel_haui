@@ -853,6 +853,56 @@ def test_display_model_sync_is_a_noop_when_no_entity_resolves() -> None:
     assert device is not None
 
 
+@pytest.mark.parametrize("state", ["unknown", "unavailable"])
+def test_display_model_sync_skips_an_unresolved_firmware_state(state: str) -> None:
+    """A display model the panel has not reported yet is not written.
+
+    The device starts before its firmware published the number; "unknown" is a
+    Home Assistant state, not a model, so the start-up sync leaves it alone.
+    """
+    number = _Number(state)
+    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
+
+    device.sync_config_to_device()
+
+    assert number.state == state
+
+
+def test_display_model_sync_writes_once_the_firmware_reports_a_value() -> None:
+    """The sync after the panel reports its model applies the hub's orientation."""
+    number = _Number("unknown")
+    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
+
+    device.sync_config_to_device()
+    assert number.state == "unknown"
+
+    number.state = "0"
+    device.sync_config_to_device()
+
+    assert number.state == 1
+
+
+def test_display_model_defaults_to_the_landscape_panel() -> None:
+    """A device without the setting runs the landscape TFT, never an undefined model."""
+    device = HAUIDevice(_SwitchApp({}), {"name": "nspanel_haui"})
+
+    assert device.display_model == "eu"
+    assert device.is_portrait is False
+
+
+def test_the_firmware_display_model_is_written_for_a_device_without_the_setting() -> None:
+    """A device whose store never set a model still tells the panel to be landscape."""
+    number = _Number("1")
+    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    device = HAUIDevice(app, {"name": "nspanel_haui"})
+
+    device.sync_config_to_device()
+
+    assert number.state == 0
+
+
 def test_dimming_timeout_syncs_to_the_firmware_timeout_dimming_entity() -> None:
     """The firmware's "Timeout Dimming" number is number.<slug>_timeout_dimming."""
     number = _Number("10")
@@ -862,6 +912,18 @@ def test_dimming_timeout_syncs_to_the_firmware_timeout_dimming_entity() -> None:
     device._sync_behavior_config()
 
     assert number.state == 25
+
+
+@pytest.mark.parametrize("state", ["unknown", "unavailable"])
+def test_timeout_dimming_sync_skips_an_unresolved_firmware_state(state: str) -> None:
+    """The numeric sync waits for the panel's value instead of converting "unknown"."""
+    number = _Number(state)
+    app = _SwitchApp({"number.nspanel_haui_timeout_dimming": number})
+    device = HAUIDevice(app, {"name": "nspanel_haui", "timeout_dimming": 25})
+
+    device._sync_behavior_config()
+
+    assert number.state == state
 
 
 def test_connect_pushes_the_device_settings_to_the_firmware() -> None:

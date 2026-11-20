@@ -95,6 +95,7 @@ function revealCard(from, index) {
  *   onCarouselScroll?: (edges: {atStart: boolean, atEnd: boolean}) => void,
  *   onMenu?: ((name: string, anchorKey: string) => void)|null, onCloseMenu?: () => void,
  *   onOpenDevice: (name: string) => void,
+ *   onSetUpDevice?: (name: string) => void,
  *   selectedDevice?: string|null, onSelectDevice?: (name: string) => void,
  *   onReorderDevices: (order: string[]) => void,
  *   discovered?: any[], scanning?: boolean, scanError?: string, statusError?: string|null, onScan?: () => void,
@@ -157,7 +158,11 @@ export function renderFleetView(data) {
   const cards = data.devices.map((item) => deviceCard({
     ...item,
     selected: item.name === data.selectedDevice,
-    onOpen: () => data.onOpenDevice(item.name),
+    // A device that still needs its panels opens the quick start instead of a
+    // page it does not have.
+    onOpen: item.needsSetup
+      ? () => data.onSetUpDevice?.(item.name)
+      : () => data.onOpenDevice(item.name),
     onSelect: data.onSelectDevice ? () => data.onSelectDevice?.(item.name) : null,
     ...dragActions(item.name, '.haui-device-card'),
   }));

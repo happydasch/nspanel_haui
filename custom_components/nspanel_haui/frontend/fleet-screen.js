@@ -16,6 +16,8 @@ import { renderSimulatorPreview } from './previews/simulator-frame.js';
 import { buildPreviewContext } from './previews/context.js';
 import * as DeviceEvents from './device-events.js';
 import * as Toast from './toast.js';
+import { needsSetup } from './panel-utils.js';
+import { resolveHomeKey } from './panel-roles.js';
 
 /* ── device discovery ────────────────────────────────────────────────────── */
 
@@ -156,13 +158,12 @@ export function renderFleetScreen(host) {
   const devices = state.devices.order.map((name) => {
     const device = state.devices.byName[name];
     const status = device.status;
-    const configuredKey = device.config.home_panel;
-    const configuredIndex = device.panels.findIndex((panel) => panel.key === configuredKey);
-    const fallbackIndex = device.panels.findIndex((panel) => panel.show_in_navigation !== false);
-    const panelIndex = configuredIndex >= 0 ? configuredIndex : fallbackIndex;
+    // The device's card shows the panel the device opens as home.
+    const homeKey = resolveHomeKey(device.panels, device.config, state.hub.systemPanels);
+    const panelIndex = device.panels.findIndex((panel) => panel.key === homeKey);
     const panel = panelIndex >= 0
       ? device.panels[panelIndex]
-      : state.hub.systemPanels.find((entry) => entry.key === configuredKey);
+      : state.hub.systemPanels.find((entry) => entry.key === homeKey);
     const context = buildPreviewContext(state.hub.entryId, name, device, status, host.api, state.hub.themes);
     return {
       name,
@@ -170,6 +171,7 @@ export function renderFleetScreen(host) {
       status,
       disabled: device.config.enabled === false,
       updates: hasUpdateAvailable(status?.update),
+      needsSetup: needsSetup(device),
       preview: panel ? renderSimulatorPreview(context, panel, panelIndex < 0 ? -1 : panelIndex) : null,
     };
   });
@@ -196,6 +198,9 @@ export function renderFleetScreen(host) {
       onMenu: (name, anchorKey) => host._toggleDeviceMenu(name, anchorKey),
       onCloseMenu: () => host._closeAnchoredPopover('device-menu'),
       onOpenDevice: (name) => host._navigateToDevice(name),
+      // A device without panels has no page to preview: its card leads to the
+      // Panels view, where the quick start offers example pages.
+      onSetUpDevice: (name) => host._openQuickStart(name),
       selectedDevice: host._fleetSelection,
       onSelectDevice: (name) => { host._fleetSelection = host._fleetSelection === name ? null : name; },
       // Reset starts the timeline at the moment it was pressed instead of the default 24 hours.
@@ -237,6 +242,7 @@ export function renderFleetScreen(host) {
       body: host._renderLogs(),
       onClose: () => host._closeLogs(),
     }) : nothing}
+    ${host._renderQuickStart()}
     ${host._toast ? Toast.renderToast(host) : ''}
     ${renderFooter(host)}
   </div>`;

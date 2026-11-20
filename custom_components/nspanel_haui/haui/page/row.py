@@ -145,18 +145,11 @@ class RowPage(PagedItemsMixin, HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
         self._items = self._build_items_from_panel(panel, "items")
-        # page position is navigation state, not a user option: it lives on
-        # the panel (persists across visits) rather than being reset to a
-        # configured initial page every time the panel opens.
+        # page position is navigation state on the panel, so it persists
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
-        # Pagination sits on fnc_right_sec (inner, beside the title) so
-        # fnc_right_pri stays free for auto-assignment: NEXT in navigation,
-        # CLOSE on a stacked panel.  Only claim the slot when there actually
-        # is more than one page; otherwise _auto_assign_fncs() can put the
-        # notification indicator there.  When pagination does claim it,
-        # auto-assign moves the notification indicator onto the idle button's
-        # left-secondary slot on the home panel.
+        # Pagination sits on the inner-right slot, so fnc_right_pri stays free
+        # for NEXT/CLOSE; only claim it when there is more than one page.
         btn_right_sec: tuple | dict = self.COMPONENTS.fnc_right_sec
         if len(self._items) > self.NUM_ROWS:
             btn_right_sec = {
@@ -208,8 +201,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             self.set_function_component(
                 slider, slider.name, "slider", visible=False, value=0, row_index=i
             )
-            # row sliders are drag controls: bind_slider suppresses the swipe
-            # gesture the drag produces and reads the value on release
+            # row sliders are drag controls: bind_slider reads them on release
             self.bind_slider(slider, self._make_row_slider_handler(slider))
             self.set_function_component(
                 slider_txt,
@@ -225,8 +217,8 @@ class RowPage(PagedItemsMixin, HAUIPage):
         self.set_row_entries()
 
     def entity_map_components(self) -> list[tuple[Component, HAUIItem]]:
-        # The row's overlay spans only its icon and name; the controls beside
-        # it act on the same entity.
+        # the overlay spans icon and name; the controls beside it act on the
+        # same entity
         controls = ("btn_txt", "btn_up", "btn_stop", "btn_down", "toggle", "slider", "slider_txt")
         result: list[tuple[Component, HAUIItem]] = []
         for idx in range(1, self.NUM_ROWS + 1):
@@ -251,8 +243,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             idx = i + 1
             if i < len(items):
                 item = items[i]
-            # click events are captured by overlay, assign
-            # entities to overlay
+            # click events are captured by the overlay
             ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
             self._active_items[ovl] = item
             # visibility of row entry
@@ -395,21 +386,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
     # item detail
 
     def get_item_display_type(self, haui_item: HAUIItem) -> str:
-        """Returns how the item should be displayed.
-
-        Entities support different display types:
-        - text (button with touch disabled)
-        - button (button)
-        - number (slider with number)
-        - timer (button)
-        - cover (3 buttons: up, stop, down)
-
-        Args:
-            haui_item (HAUIItem): item
-
-        Returns:
-            str: display type
-        """
+        """How the item is displayed: text, button, slider, timer or cover."""
         item_type = haui_item.get_item_type()
         # default display type is text
         display_type = "text"
@@ -441,7 +418,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
         self._update_item_value_cell(haui_item, idx, "component_active")
 
     def update_item_timer(self, haui_item: HAUIItem, idx: int) -> None:
-        # The timer cell reuses the same rendering as the text cell.
+        # timer cells render like text cells
         self._update_item_value_cell(haui_item, idx, "component_text")
 
     def _update_item_value_cell(self, haui_item: HAUIItem, idx: int, color_mode: str) -> None:
@@ -453,12 +430,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
         )
 
     def _item_stale(self, haui_item: HAUIItem) -> bool:
-        """Whether the item's value is stale per the device's threshold.
-
-        Returns:
-            True when ``stale_data_seconds`` is configured and the item's
-            entity has not updated within that window.
-        """
+        """Whether the item is stale per the device's ``stale_data_seconds``."""
         max_age = self.app.device.get("stale_data_seconds")
         try:
             max_age = int(max_age)
@@ -484,9 +456,8 @@ class RowPage(PagedItemsMixin, HAUIPage):
     def update_item_toggle(self, haui_item: HAUIItem, idx: int) -> None:
         toggle = getattr(self.COMPONENTS, f"r{idx}_toggle")
         on = haui_item.get_item_state() != "off"
-        # val picks the colour, but a dual-state button has one txt for both
-        # states, so the icon is swapped too; one update sends val or txt, not
-        # both, hence two calls
+        # val picks the colour, but the icon must swap too; one update sends
+        # val or txt, so two calls
         self.update_function_component(toggle.name, value=int(on))
         self.update_function_component(toggle.name, text=ICO_TOGGLE_ON if on else ICO_TOGGLE_OFF)
 
@@ -592,12 +563,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
         return handler
 
     def _handle_row_slider_value(self, component: Component, value: int) -> None:
-        """Handle a row slider value from a read_response event.
-
-        Args:
-            component: The slider component whose value was read.
-            value: The slider value (0-100).
-        """
+        """Handle a row slider value from a read_response event."""
         self.log(f"Row slider value {value} for {component.name}")
         self.log(f"Row slider value {value} from {component.name}", level="DEBUG")
         for _item_id, fnc_item in self._fnc_items.items():

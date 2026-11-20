@@ -15,7 +15,8 @@ import { HauiDialog } from '../dialogs/haui-dialog.js';
 import { t } from '../localize.js';
 import { sidebarFooterStyles } from '../styles/sidebar-footer.js';
 import { themeOptions } from '../theme-library.js';
-import { idlePanelConfig, idlePanelKeys, panelPills } from '../ui/panel-pills.js';
+import { idlePanelConfig, idlePanelKeys, resolveIdleKeys } from '../panel-roles.js';
+import { panelPills } from '../ui/panel-pills.js';
 import { gestureSection } from '../ui/gesture-section.js';
 import { scheduleSection } from '../ui/schedule-section.js';
 import { settingsTile } from '../ui/settings-tile.js';
@@ -169,6 +170,8 @@ class DeviceSettings extends HauiDialog {
       api: { type: Object },
       entryId: { type: String },
       panels: { type: Array },
+      /** The hub's panel type descriptors, for the names of untitled panels. */
+      panelTypes: { type: Array },
       systemPanels: { type: Array },
       deviceBrightness: { type: Object },
       builtinThemes: { type: Object },
@@ -216,6 +219,7 @@ class DeviceSettings extends HauiDialog {
     this.api = null;
     this.entryId = "";
     this.panels = [];
+    this.panelTypes = [];
     this.systemPanels = [];
     /** The panel's own brightness readings: `{ full, dimmed }`, null when unknown. */
     this.deviceBrightness = null;
@@ -273,6 +277,7 @@ class DeviceSettings extends HauiDialog {
   _renderLanding(cfg) {
     const context = {
       panels: this.panels || [],
+      panelTypes: this.panelTypes || [],
       builtinThemes: this.builtinThemes || {},
       customThemes: this.customThemes || {},
     };
@@ -409,7 +414,7 @@ class DeviceSettings extends HauiDialog {
         <div class="haui-field-inline">
           <label for="dc-home-panel">${t("Home panel")}</label>
           ${panelPills({
-            id: "dc-home-panel", panels: this.panels || [],
+            id: "dc-home-panel", panels: this.panels || [], panelTypes: this.panelTypes || [],
             keys: cfg.home_panel ? [String(cfg.home_panel)] : [], single: true,
             addLabel: t("Set panel"), disabled: this.saving,
             onChange: (keys) => {
@@ -424,7 +429,7 @@ class DeviceSettings extends HauiDialog {
         <div class="haui-field-inline">
           <label for="dc-idle-panels">${t("Idle panels")}</label>
           ${panelPills({
-            id: "dc-idle-panels", panels: this.panels || [],
+            id: "dc-idle-panels", panels: this.panels || [], panelTypes: this.panelTypes || [],
             keys: idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra),
             numbered: true, reorderable: true, disabled: this.saving,
             onChange: (keys) => {
@@ -436,7 +441,7 @@ class DeviceSettings extends HauiDialog {
         <div class="haui-field-hint">
           ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
         </div>
-        ${idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra).length ? "" : html`
+        ${resolveIdleKeys(this.panels || [], cfg).length ? "" : html`
           <div class="haui-field-hint is-persistent">${t("Nothing opens automatically until you add a panel.")}</div>
         `}
       </div>
@@ -524,6 +529,7 @@ class DeviceSettings extends HauiDialog {
     return gestureSection({
       panels: this.panels || [],
       systemPanels: this.systemPanels || [],
+      panelTypes: this.panelTypes || [],
       gestures: cfg.gestures || [],
       expandedEntryIndex: this._expanded.gestures,
       onEntryToggle: (index, isOpen) => this._toggleEntry('gestures', index, isOpen),

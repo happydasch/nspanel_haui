@@ -1,5 +1,5 @@
 ---
-# Internal Buzzer
+# Internal buzzer
 output:
   - platform: ledc
     id: haui_rtttl_out
@@ -7,13 +7,13 @@ output:
       number: 21
 
 
-# Ringtone Music Support
+# RTTTL sound playback
 rtttl:
   id: haui_rtttl
   output: haui_rtttl_out
 
 
-# UART for Display
+# Display UART
 uart:
   tx_pin: 16
   rx_pin: 17

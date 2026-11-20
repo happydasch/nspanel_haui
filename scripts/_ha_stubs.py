@@ -1,7 +1,7 @@
-"""Home Assistant import stubs for the code-generation scripts.
+"""Stub Home Assistant imports for the code-generation scripts.
 
-The haui package imports Home Assistant types at module import time. These
-scripts run outside Home Assistant, so importing this module installs stubs.
+haui imports Home Assistant types at import time, but these scripts run outside
+Home Assistant.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from importlib.machinery import ModuleSpec
 
 
 def _install_ha_stubs() -> None:
-    """Install a meta-path finder that stubs any homeassistant.* import on demand."""
+    """Install a finder that stubs every homeassistant.* import on demand."""
     import types
 
     ha_const = types.ModuleType("homeassistant.const")

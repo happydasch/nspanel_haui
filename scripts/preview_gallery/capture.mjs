@@ -1,12 +1,11 @@
-// Capture gallery cards as PNG files with one headless Chrome, over the
-// DevTools protocol (Node 22+ for its built-in WebSocket; no npm packages).
+// Capture gallery cards as PNG files with one headless Chrome, over the DevTools
+// protocol (Node 22+ for its built-in WebSocket; no npm packages).
 //
 // Usage: node capture.mjs <chrome> <jobs.json>
 //
 // jobs.json is a list of {url, width, height, path}, written by
-// gen_preview_gallery.py --png. Each tab is sized to the display, opens the
-// card's single-card gallery URL, waits for the page's `data-ready` (the card
-// drawn, its fonts and pictures loaded) and saves a screenshot.
+// gen_preview_gallery.py --png: each tab opens the card's single-card gallery URL at
+// the display's size, waits for the page's `data-ready` and saves a screenshot.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,8 +14,7 @@ import { pathToFileURL } from 'node:url';
 
 const TABS = 4;
 const STDERR_LIMIT = 8 * 1024;
-// A cold start on a slow hosted runner took longer than 15 s once while
-// Chrome was still making progress; a hung Chrome still fails here.
+// A cold start on a slow runner can exceed 15 s; a hung Chrome still fails here.
 const STARTUP_TIMEOUT_MS = 60000;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
@@ -115,12 +113,10 @@ async function main() {
     '--no-default-browser-check', `--user-data-dir=${profile}`, '--remote-debugging-port=0',
     // Hosted Linux runners may not allow Chrome to start its namespace sandbox.
     ...(process.env.CI ? ['--no-sandbox'] : []),
-    // The tabs run side by side: background tabs must not have their timers
-    // and rendering throttled, or a card waits for its turn to be drawn.
+    // The tabs run side by side, so a background tab must not be throttled.
     '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
-    // A startup failure prints the tail of Chrome's stderr. Without Chrome's own
-    // log, one that hangs before DevTools starts leaves it empty.
+    // A startup failure prints the tail of Chrome's stderr, empty when it hangs.
     '--enable-logging=stderr', '--v=1',
     'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -140,8 +136,7 @@ async function main() {
     await devtools.opened();
     const queue = [...jobs];
     await Promise.all(Array.from({ length: Math.min(TABS, jobs.length) }, async () => {
-      // A window per tab keeps every tab visible: a hidden page never decodes the
-      // card's background pictures, so it would never be ready.
+      // A window per tab keeps it visible: a hidden page never decodes its pictures.
       const { targetId } = await devtools.send('Target.createTarget', {
         url: 'about:blank', newWindow: true,
       });

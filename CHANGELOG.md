@@ -11,22 +11,61 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.3] — unreleased
 
+### Breaking changes
+
+- Panels: the Clock, ClockTwo and Weather **Background** names a picture — **Dark Color** (default), **Light Color** or a decorative one — instead of **Use color scheme**, which those pages never drew; a stored `scheme` falls back to the theme's plain fill ([Upgrading](docs/user/update.md#background-pages-draw-a-picture-of-the-display)).
+
 ### Added
 
-- Dashboard card: the panel's own state under the screen — connected or offline, awake, dimmed or dark, waiting notifications, firmware and TFT versions — plus the bezel and the hardware buttons' lights, four options (`device`, `mode`, `title`, `scale`) and the `mode: tile` a status tile draws ([Dashboard Card](docs/user/dashboard-card.md)).
-- Dashboard card: the card editor stores the panel's Home Assistant device id next to its name, so renaming the device no longer breaks every dashboard showing it; it also offers a device switched off with **Device Enabled**, marked *(disabled)*.
-- Dashboard card: `scale` draws the screen smaller than the card (20–100 % of the space it has), centered with its frame and the row under it.
+- Dashboard card: a read-only status area — connection, display state, queued notifications, firmware and TFT versions, button lights — and `fleet`/`device` modes with `big`, `small` or `status` display modes ([Dashboard Card](docs/user/dashboard-card.md)).
+- Dashboard card: the editor stores the panel's device id, so renaming the device no longer breaks cards, and offers a disabled device marked *(disabled)*.
+- Dashboard card: `scale` draws the big preview at 20–100 % of the card's space.
+- Editor: **Copy to other devices** writes device settings, panels or update settings onto other devices ([Backups](docs/user/configuration/README.md)).
+- Editor: **Quick start** builds a room, whole-home, status, entry/alarm, kitchen-timer or guest-Wi-Fi setup from an area's entities ([Quick Start Guide](docs/user/get-started.md)).
+- Editor: the quick start's second step selects the **Theme** the created pages draw in ([Quick Start Guide](docs/user/get-started.md)).
+- Editor: the panel detail card sets and unsets the **Home panel** and **Idle panel** roles ([Panel Configuration](docs/user/configuration/panels.md)).
 
 ### Changed
 
-- Editor: the Panels view's group counts (**Navigation**, **Hidden**, **Popups**) sit on one soft block like the role tiles and the hints below them, instead of divided rows on the bare card.
+- Dashboard card: `mode` is `fleet` or `device` and `display_mode` is `big`, `small` or `status`; saved `overview`/`home`/`live`/`tile` cards keep their view, and `devices`/`focus_mode` are unused ([Dashboard Card](docs/user/dashboard-card.md)).
+- Dashboard card: the compact preview stacks above the status on narrow cards, and a disabled device keeps its render.
+- Editor: **Add panel** drops **Start from a template** and its endpoint; a panel starts from a type, a built-in popup or a copy ([The Panel List](docs/user/configuration/README.md)).
+- Editor: the Add panel and Quick start catalogs share one card style.
+- Editor: the Device screen orders **Themes**, **Updates** and **Backups**.
+- Editor: the device settings order **General**, **Home & idle**, **Hardware buttons**, **Screen buttons**, **Screen**, **Sounds**, **Gestures** and **Advanced**.
+- Editor: the Panels group counts share one soft block.
+- Editor: the panel detail card uses equal-width action columns with **Delete** across the row.
+- Editor: every panel of the idle sequence carries a marker in the Panels list ([Panel Configuration](docs/user/configuration/panels.md)).
+- Editor: the quick start uses role icons, speaks of the idle panel and puts needs and warnings in one banner ([Quick Start Guide](docs/user/get-started.md)).
+- Editor: the quick start fills grid and row pages with available entities and creates them even when empty ([Quick Start Guide](docs/user/get-started.md)).
+- Editor: Backups lays **Export** and **Import** side by side, and **Copy to other devices** has select all, clear and a status line ([Backups](docs/user/configuration/README.md)).
+- Editor: the titlebar stays pinned while a screen scrolls, and device sticky panels pin below it.
+- Development: `make check` runs the frontend, version, icon and translation checks, `make screens-check` verifies the screen overview, and the git hook refuses unstaged layout inputs ([Development](docs/develop/development.md)).
+- Release: `make release-preflight`, `scripts/release/publish_stable.py`, uv-based CI installs and a separate screen-render job ([Release process](docs/develop/release.md)).
+- Firmware: the dev, universal and hub-managed configs share `esphome/nspanel_haui/packages.yaml` ([ESPHome](docs/develop/esphome.md)).
+- Firmware: local builds need ESPHome 2026.11; the vendored `nextion` patch is that release plus the TFT upload retry fix ([ESPHome](docs/develop/esphome.md)).
+- Docs: feature ideas live in `FEATURE_WISHLIST.md` ([Feature wishlist](FEATURE_WISHLIST.md)).
 
 ### Fixed
 
-- Editor: the **Themes** button on the Device screen names the selected theme instead of showing its key (`dark`); a predefined theme reads from its translated label, a custom one from the theme library the screen now loads.
-- Editor: the device carousel fades an edge only while real cards sit beyond it, so the last device's card is never dimmed under the fade; only the ghost-card outlines at the end of a row that fits run behind it.
-- Dashboard card: a card added from the card picker asks for a device instead of starting the hub's work for the first one, the card editor retries a failed device list, and an unknown hub error is a sentence instead of a raw code.
-- Dashboard card: the row under the screen shows the firmware and TFT versions the panel reported — a live card's row reported **Unknown** for both, and a home card's kept the versions it knew when the card subscribed.
+- Panels: light themes keep body text and control icons readable ([Color Themes](docs/user/configuration/themes.md)).
+- Panels: a collapsed single-navigation header button stays correct when a page updates it ([Panel QR-Code](docs/user/panels/panel_qr.md)).
+- Panels: the quick start's word clock no longer stores the muted text tone for unlit letters ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
+- Panels: ClockTwo's top-left dot keeps its background patch on light pages ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
+- Panels: an empty or unresolved **Background** falls back to the theme's plain fill ([Background pages](docs/user/configuration/device.md#background-pages)).
+- Panels: the Clock's entity buttons follow a light or decorative background's palette ([Panel Clock](docs/user/panels/panel_clock.md)).
+- Editor: deleted panels no longer count as **Home panel** or **Idle panel** ([Panel Configuration](docs/user/configuration/panels.md)).
+- Editor: deleting or moving a panel drops its stale key from the device's **Home & idle** settings ([Panel Configuration](docs/user/configuration/panels.md)).
+- Panels: a keyless panel no longer breaks a device's header buttons.
+- Editor: **Themes**, **Home & idle** and **Gestures** name themes and untitled panels instead of keys.
+- Editor: the device carousel fades an edge only when more cards follow.
+- Dashboard card: a new card starts with all devices, missing selections are prompted, failed lists retry and hub errors read as sentences.
+- Editor: **Add** on an empty list option adds a plain entry or opens the entity picker ([Media Panel](docs/user/panels/panel_media.md)).
+- Dashboard card: the status area shows firmware and TFT versions for home and live sessions.
+- Device: an `unknown` display model or brightness no longer aborts start-up.
+- Device: the display model defaults to `eu`.
+- Editor: a failed render shows the hub's message as `role="alert"`.
+- Editor: a render racing the virtual app's stop ends as a plain hub answer.
 
 ## [0.5.2] — 2026-11-17
 
@@ -38,58 +77,58 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 ### Added
 
 - Themes: six colorful predefined themes — **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and the light **Sky** — beside Dark, Light, White and Black ([Themes](docs/user/configuration/themes.md)).
-- Dashboard card (`custom:nspanel-haui-card`): a device's home panel or its live screen on any dashboard, view-only, for every signed-in user ([Dashboard Card](docs/user/dashboard-card.md)).
-- Editor: a dashboard device can be selected from its **Device inventory** row or the name strip under its card, which highlights both (a row also scrolls the cards to it, and the device stays centered when you return from it); selecting it again clears it.
-- Editor: the device settings open on a grid of tiles, one per group, each naming what that group holds; a tile opens the group's own page with the sidebar strip's back control returning to the grid ([Device Settings](docs/user/configuration/device.md#device-settings)).
-- Editor: the schedule is part of the device settings' **Screen** group, below the brightness and display-off fields its entries inherit, so **Schedule** and **Gestures** are groups of the device settings instead of sidebars of their own, and the device's theme choice sits in **General**.
-- Editor: **Move to…** in a panel's menu groups the other devices in a submenu and moves the panel there in one save; it keeps its key unless that device uses it.
-- Editor: an item's name, icon, color and value, and a grid tile's colors, switch between **One value** and **Per state**: a row per entity state, which the state field suggests, instead of typed JSON.
-- Editor: **Latest events** names the selected device under its title on a line that ends with the window the list covers, and the title line itself carries **Reset**, which starts the list at the moment you press it instead of the last 24 hours, with **Last 24 hours** to go back ([Logs](docs/user/configuration/README.md#logs)).
-- Editor: the **Device inventory** closes with a bar of one connection segment per device ([Managing devices](docs/user/configuration/device.md#managing-devices)).
+- Dashboard card (`custom:nspanel-haui-card`): a device's home panel or live screen on any dashboard, view-only, for every signed-in user ([Dashboard Card](docs/user/dashboard-card.md)).
+- Editor: a dashboard device is selected from its **Device inventory** row or the name strip under its card, with both highlighted.
+- Editor: the device settings open on a grid of tiles, one per group and naming what it holds, with the group's page behind it ([Device Settings](docs/user/configuration/device.md#device-settings)).
+- Editor: the schedule sits in the **Screen** group, **Schedule** and **Gestures** are settings groups, and the device theme choice is in **General** ([Schedule](docs/user/configuration/device.md#schedule), [Gestures](docs/user/configuration/device.md#gestures)).
+- Editor: **Move to…** moves a panel to another device and keeps its key unless that device uses it ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
+- Editor: item name, icon, color and value switch between **One value** and **Per state** rows instead of typed JSON ([Values that depend on the state](docs/user/configuration/items.md#values-that-depend-on-the-state)).
+- Editor: **Latest events** names its selected device and window, with **Reset** and **Last 24 hours** ([Logs](docs/user/configuration/README.md#logs)).
+- Editor: the **Device inventory** closes with one connection segment per device ([Managing devices](docs/user/configuration/device.md#managing-devices)).
 
 ### Changed
 
-- Editor: entities go by their Home Assistant name without the device name in front (entity picker, item lists, **Diagnostics**, the preview's entity tooltip); the picker still finds them by the full name.
-- Editor: every switch sits at the right end of its row, after its label.
-- Editor: schedule entries, gestures and the theme choice are part of the device settings draft, so the settings' one **Save** applies them and **Cancel** discards them; the device screen keeps the buttons that open a sidebar of their own, **Backups**, **Updates** and **Themes**, below its side cards.
-- Editor: the **Backup** card is gone; its **Import** and **Export** buttons moved into a **Backups** sidebar of their own, opened by the new **Backups** button below **Themes** ([Backups](docs/user/configuration/README.md#backups)).
-- Editor: the theme editor opens from the **Themes** button below the device's **Connection** and **Diagnostics** cards, which names the selected theme on its trailing edge; the **Updates** button above it says what the device's update settings hold, and both span the whole width, one per line. The **Manage this device** card keeps only **Add panel** and the settings cog.
-- Editor: the device screen's **Connection & device** card is **Connection**; its readings and tiles are unchanged.
-- Editor: a device selected on the dashboard scopes **Latest events** and **Logs** to it; without a selection both list every device, and the timeline names that scope **All devices** on the header's second line.
-- Fleet: **Latest events** lists only the last 24 hours' warnings and errors; the full log, info and debug included, is the **Logs** sidebar.
-- Editor: one type scale at Home Assistant's sizes: title bar and page titles 20px, sidebar titles 18px, card and section titles 16px, names, values and labels 14px in one weight, hints and meta 13px; every size follows the Home Assistant font size setting.
-- Editor: the panel list's group headings say **Navigation (1 panel)** instead of **Navigation (1 panels)**.
-- Editor: the **Update settings** card picks the channel from a list and turns updates and automatic firmware installs on with switches, like the other forms.
-- Editor: the device settings show one field per row, with the **Home panel** and **Idle panels** pickers at the right edge like the switches.
-- Updates: an offered update shows as one badge from the installed to the new version, the integration's version moved to the end of the **Check for updates** row, and a narrow sidebar shortens the labels.
-- Fleet: the **Device inventory**'s summary strip is as tall as the **Latest events** header beside it, so the first row under either card starts level.
-- Fleet: the dashboard fills wide windows, a long **Device inventory** scrolls under its column headings, and **Latest events** takes the inventory's height.
-- Fleet: the device carousel always fades its right edge, which shows that more cards follow, and where the devices end before the row does, dashed card outlines fill the remaining width instead of empty space.
-- Device screen: the **Connection** and **Diagnostics** tiles show their values in smaller text, with the Wi-Fi signal bars at the tile's edge.
-- Fleet and the device screen show the Wi-Fi strength the panel last reported even while it is offline; the connection dot keeps the connection state and the uptime tile is green while the panel is online and stable.
-- Editor: **Hub version**, **Hub log** and **Hub details** on Fleet and in **Diagnostics** are now **Integration version**, **Integration log** and **Integration details**, as in the copied report.
-- Panels: the overview's **Home panel** and **Idle panel** tiles show the role's icon beside its name and panel, and stack on a narrow card.
+- Editor: entity pickers, item lists, **Diagnostics** and preview tooltips use the entity's own name without the device prefix.
+- Editor: every switch sits at the right end of its row.
+- Editor: schedule, gestures and theme are part of the device settings draft, while **Backups**, **Updates** and **Themes** remain sidebars ([Backups](docs/user/configuration/README.md#backups)).
+- Editor: the **Backups** sidebar replaces the **Backup** card ([Backups](docs/user/configuration/README.md#backups)).
+- Editor: **Themes** opens below **Connection** and **Diagnostics**, **Updates** above it, and both name what they hold and span the width.
+- Editor: **Connection & device** is now **Connection**.
+- Editor: a selected device scopes **Latest events** and **Logs**, otherwise both list every device ([Logs](docs/user/configuration/README.md#logs)).
+- Fleet: **Latest events** lists only the last 24 hours' warnings and errors; the full log is the **Logs** sidebar.
+- Editor: one type scale at Home Assistant's sizes, following its font-size setting.
+- Editor: panel group headings say **Navigation (1 panel)**.
+- Editor: **Update settings** uses a channel list and switches like the other forms.
+- Editor: device settings show one field per row with pickers at the right edge.
+- Updates: an offered update is one installed-to-new badge, the integration version moved to the **Check for updates** row, and narrow sidebars shorten labels.
+- Fleet: the **Device inventory** summary strip matches the **Latest events** header height.
+- Fleet: the dashboard fills wide windows, a long inventory scrolls under its headings, and **Latest events** takes its height.
+- Fleet: the device carousel always fades its right edge and dashed outlines fill leftover width.
+- Device screen: **Connection** and **Diagnostics** use smaller values with the Wi-Fi bars at the tile's edge.
+- Fleet and device: Wi-Fi strength stays visible offline, the dot keeps connection state, and uptime is green while online and stable.
+- Editor: **Hub version**, **Hub log** and **Hub details** are now **Integration version**, **Integration log** and **Integration details**.
+- Panels: the **Home panel** and **Idle panel** tiles show role icons and stack on narrow cards.
 
 ### Fixed
 
-- Schedule: an entry's dimmed brightness no longer stays after the entry ends when the device left it to the panel.
-- Schedule: saving **Auto display off** while an entry is active no longer overrides the entry, and removing the schedule restores the setting on the panel's switch.
-- Schedule: an entry starts on time on the day the clocks change, and sunrise/sunset entries resume after polar night without a reconnect.
-- Editor: in the Home Assistant app the status bar above the title bar takes the header colour instead of the page background.
-- Editor: with **Show entities in the preview** on, a Row panel's buttons, switches and sliders show their row's entity too.
-- Editor: with **Show entities in the preview** on, hovering a hardware button shows the entity it switches (its entity, or its relay).
-- Editor: with **Show entities in the preview** on, the Live preview names the entity under the mouse too; it raised an error on every mouse move.
-- Editor: with **Show entities in the preview** on, a widget whose entity Home Assistant does not have is named too, and the tooltip says when an entity is not found or unavailable.
-- Updates: the reasons a firmware update is withheld or refused (build variant mismatch, missing or invalid firmware version) and the panel's "firmware is installing" notice are translated.
-- Integration: the device that holds a panel's notify and update entities is named after the panel instead of "NSPanel HAUI Hub".
-- Updates: a firmware manifest the hub could not read, or no check since Home Assistant started, reads as the reason nothing is offered instead of **Up to date**, and **Check for updates** shows an error from the release list.
-- Updates: an offline panel, or a status the editor could not refresh, offers no **Install**; the device screen and the Updates sidebar say the values are the last ones read.
-- Updates: a failed firmware install clears once the panel reconnects with another firmware, and a second install while one runs is refused instead of reported as started.
-- Updates: the dashboard notices a rollout another editor started, a finished rollout can be dismissed, and a rollout no longer waits on a device that was disabled or reloaded meanwhile.
-- Editor: the dashboard meets WCAG AA contrast for status text, badges and icons in light and dark themes, and a screen reader hears event levels, the page heading, named device cards and table columns, and rollout changes.
-- Fleet: the **Latest events** level dots carry their tone itself — a lighter blue, amber and red — instead of the dark text tone, which read almost black at 12px.
-- Editor: an icon in a tone keeps the tone itself — **Delete** in a panel's actions and its menu row, a remove button, a theme's delete action, the empty-state check, the stale-status dot and a device's update warning — instead of the darker shade 4.5:1 text needs.
-- Editor: a tile's fact card keeps a long label or reading inside its border instead of letting it spill over the edge — the label wraps and the value moves to its own line, ellipsized only when it alone is too wide (the connection and integration-details fact rows too).
+- Schedule: an entry's dimmed brightness no longer stays after it ends.
+- Schedule: saving **Auto display off** during an entry no longer overrides it, and removing the schedule restores it.
+- Schedule: entries start on time on DST change and sunrise/sunset entries resume after polar night.
+- Editor: the Home Assistant app's status bar takes the header colour.
+- Editor: with **Show entities in the preview**, Row panel buttons, switches and sliders show their entity.
+- Editor: with **Show entities in the preview**, hardware buttons show the entity they switch.
+- Editor: with **Show entities in the preview**, the Live preview names the entity under the mouse instead of erroring.
+- Editor: with **Show entities in the preview**, unknown or unavailable entities are named too.
+- Updates: withheld or refused firmware reasons and the "firmware is installing" notice are translated.
+- Integration: the device holding a panel's notify and update entities is named after the panel.
+- Updates: an unreadable manifest or missing check reads as the reason, not **Up to date**, and **Check for updates** shows release-list errors.
+- Updates: an offline panel offers no **Install**, and the editor marks values as last read.
+- Updates: a failed install clears when another firmware reconnects, and a second install is refused instead of started.
+- Updates: the dashboard sees rollouts from other editors, finished rollouts can be dismissed, and disabled or reloaded devices are skipped.
+- Editor: the dashboard meets WCAG AA contrast and screen readers hear headings, event levels, device cards, table columns and rollout changes.
+- Fleet: event level dots use their tone instead of the dark text tone.
+- Editor: icons in a tone keep the tone instead of a darker shade.
+- Editor: tile fact cards keep long labels and readings inside their border.
 
 ## [0.5.1] — 2026-11-14
 

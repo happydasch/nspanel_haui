@@ -1,8 +1,8 @@
 from string import ascii_letters, digits
 
 import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome.components import color
+import esphome.config_validation as cv
 from esphome.const import CONF_BACKGROUND_COLOR, CONF_FOREGROUND_COLOR, CONF_VISIBLE
 
 from . import CONF_NEXTION_ID, Nextion
@@ -53,8 +53,7 @@ def NextionName(value):
     for char in value:
         if char not in valid_chars:
             raise cv.Invalid(
-                "Must only consist of upper/lowercase characters, numbers, the underscore '_',"
-                f"and the period '.'. The character '{char}' cannot be used."
+                f"Must only consist of upper/lowercase characters, numbers, the underscore '_', and the period '.'. The character '{char}' cannot be used."
             )
 
     return value
@@ -74,7 +73,7 @@ CONFIG_TEXT_COMPONENT_SCHEMA = CONFIG_BASE_COMPONENT_SCHEMA.extend(
     cv.Schema(
         {
             cv.Required(CONF_COMPONENT_NAME): NextionName,
-            cv.Optional(CONF_FONT_ID): cv.int_range(min=0, max=255),
+            cv.Optional(CONF_FONT_ID): cv.uint8_t,
         }
     )
 )
@@ -91,7 +90,7 @@ CONFIG_BINARY_SENSOR_SCHEMA = CONFIG_BASE_COMPONENT_SCHEMA.extend(
 CONFIG_SENSOR_COMPONENT_SCHEMA = CONFIG_BINARY_SENSOR_SCHEMA.extend(
     cv.Schema(
         {
-            cv.Optional(CONF_FONT_ID): cv.int_range(min=0, max=255),
+            cv.Optional(CONF_FONT_ID): cv.uint8_t,
         }
     )
 )
@@ -118,24 +117,18 @@ async def setup_component_core_(var, config, arg):
             )
         )
 
-    if CONF_BACKGROUND_COLOR in config:
-        color_component = await cg.get_variable(config[CONF_BACKGROUND_COLOR])
-        cg.add(var.set_background_color(color_component))
+    await cg.add_variable(var.set_background_color, config.get(CONF_BACKGROUND_COLOR))
 
-    if CONF_BACKGROUND_PRESSED_COLOR in config:
-        color_component = await cg.get_variable(config[CONF_BACKGROUND_PRESSED_COLOR])
-        cg.add(var.set_background_pressed_color(color_component))
+    await cg.add_variable(
+        var.set_background_pressed_color, config.get(CONF_BACKGROUND_PRESSED_COLOR)
+    )
 
-    if CONF_FOREGROUND_COLOR in config:
-        color_component = await cg.get_variable(config[CONF_FOREGROUND_COLOR])
-        cg.add(var.set_foreground_color(color_component))
+    await cg.add_variable(var.set_foreground_color, config.get(CONF_FOREGROUND_COLOR))
 
-    if CONF_FOREGROUND_PRESSED_COLOR in config:
-        color_component = await cg.get_variable(config[CONF_FOREGROUND_PRESSED_COLOR])
-        cg.add(var.set_foreground_pressed_color(color_component))
+    await cg.add_variable(
+        var.set_foreground_pressed_color, config.get(CONF_FOREGROUND_PRESSED_COLOR)
+    )
 
-    if CONF_FONT_ID in config:
-        cg.add(var.set_font_id(config[CONF_FONT_ID]))
+    cg.add_optional(var.set_font_id, config.get(CONF_FONT_ID))
 
-    if CONF_VISIBLE in config:
-        cg.add(var.set_visible(config[CONF_VISIBLE]))
+    cg.add_optional(var.set_visible, config.get(CONF_VISIBLE))

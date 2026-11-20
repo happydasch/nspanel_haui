@@ -29,7 +29,7 @@ function client(overrides = {}) {
     },
     status: {
       get: async () => ({}),
-      getAll: async () => ({}),
+      getAll: async () => ({ devices: {} }),
     },
     notifications: {
       list: async () => [],
@@ -212,7 +212,7 @@ test('a status response for the previously selected device is dropped', async ()
     client: {
       status: {
         get: () => new Promise((resolve) => { release = resolve; }),
-        getAll: async () => ({}),
+        getAll: async () => ({ devices: {} }),
       },
     },
   });
@@ -226,7 +226,7 @@ test('a status response for the previously selected device is dropped', async ()
   await request;
 
   assert.equal(store.selectors.selectedStatus(), null);
-  store.actions.stopSelectedStatusPolling();
+  store.actions.setStatusPolling(null);
 });
 
 test('a failed all-device poll reports its error until a poll succeeds again', async () => {
@@ -237,22 +237,22 @@ test('a failed all-device poll reports its error until a poll succeeds again', a
         get: async () => ({}),
         getAll: async () => {
           if (fail) throw new Error('offline');
-          return { kitchen: { connected: true } };
+          return { devices: { kitchen: { connected: true } } };
         },
       },
     },
   });
   const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
 
-  store.actions.startAllStatusPolling();
+  store.actions.setStatusPolling('all');
   await settle();
-  store.actions.stopAllStatusPolling();
+  store.actions.setStatusPolling(null);
   assert.equal(store.getState().hub.statusError, 'offline');
 
   fail = false;
-  store.actions.startAllStatusPolling();
+  store.actions.setStatusPolling('all');
   await settle();
-  store.actions.stopAllStatusPolling();
+  store.actions.setStatusPolling(null);
   assert.equal(store.getState().hub.statusError, null);
   assert.equal(store.getState().devices.byName.kitchen.status.connected, true);
 });
@@ -263,7 +263,7 @@ test('selecting a device shows only its cached status while fetching the new one
     client: {
       status: {
         get: () => new Promise((resolve) => { resolveRequest = resolve; }),
-        getAll: async () => ({}),
+        getAll: async () => ({ devices: {} }),
       },
     },
   });
@@ -285,7 +285,7 @@ test('selecting a device shows only its cached status while fetching the new one
   resolveRequest({ connected: true, ip: '10.0.0.3' });
   await settle();
   assert.equal(store.selectors.selectedStatus().ip, '10.0.0.3');
-  store.actions.stopSelectedStatusPolling();
+  store.actions.setStatusPolling(null);
 });
 
 test('loadHub keeps the selected device and loads statuses before loading ends', async () => {
@@ -321,12 +321,12 @@ test('loadHub keeps the selected device and loads statuses before loading ends',
   assert.equal(store.getState().hub.loading, true);
   assert.equal(store.getState().devices.selected, 'office');
 
-  releaseStatuses({ kitchen: { connected: true }, office: { connected: true, ip: '10.0.0.2' } });
+  releaseStatuses({ devices: { kitchen: { connected: true }, office: { connected: true, ip: '10.0.0.2' } } });
   await loading;
   await settle();
   assert.equal(store.getState().hub.loading, false);
   assert.equal(store.selectors.selectedStatus().ip, '10.0.0.2');
-  store.actions.stopSelectedStatusPolling();
+  store.actions.setStatusPolling(null);
 });
 
 test('device order is reordered through its dedicated endpoint', async () => {
@@ -396,13 +396,12 @@ test('a refused save keeps the fields the hub names until the next save', async 
   assert.deepEqual(store.getState().hub.fieldErrors, []);
 });
 
-test('panel types load even when the starter templates do not', async () => {
+test('panel types load into the store', async () => {
   const store = seededStore({
     client: {
       language: () => 'en',
       editor: {
         panelTypes: async () => [{ type_key: 'clock', label: 'Clock' }],
-        panelTemplates: async () => { throw new Error('offline'); },
       },
       panels: { load: async () => ({ devices: {} }) },
     },
@@ -411,7 +410,6 @@ test('panel types load even when the starter templates do not', async () => {
   await store.actions.loadPanelTypes({ force: true });
 
   assert.deepEqual(store.getState().hub.panelTypes.map((type) => type.type_key), ['clock']);
-  assert.deepEqual(store.getState().hub.panelTemplates, []);
 });
 
 test('a rollout starts and cancels through the store', async () => {
@@ -440,13 +438,13 @@ test('the Fleet poll reads the rollout', async () => {
   const store = seededStore({
     client: {
       panels: { load: async () => ({ devices: {} }) },
-      updates: { rollout: async () => running },
+      status: { getAll: async () => ({ devices: {}, rollout: running }) },
     },
   });
 
-  store.actions.startAllStatusPolling();
+  store.actions.setStatusPolling('all');
   await settle();
-  store.actions.stopAllStatusPolling();
+  store.actions.setStatusPolling(null);
 
   assert.equal(store.getState().hub.rollout.state, 'running');
 });
@@ -457,19 +455,55 @@ test('the Fleet poll notices a rollout another tab started after an idle one', a
   const store = seededStore({
     client: {
       panels: { load: async () => ({ devices: {} }) },
-      updates: { rollout: async () => rollout },
+      status: { getAll: async () => ({ devices: {}, rollout }) },
     },
   });
 
-  store.actions.startAllStatusPolling();
+  store.actions.setStatusPolling('all');
   await settle();
   assert.equal(store.getState().hub.rollout.state, 'idle');
   rollout = { id: 1, state: 'running', devices: [] };
   t.mock.timers.tick(5000);
   await settle();
-  store.actions.stopAllStatusPolling();
+  store.actions.setStatusPolling(null);
 
   assert.equal(store.getState().hub.rollout.state, 'running');
+});
+
+test('changing status scope discards a slow Fleet poll and starts only the selected poll', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const requests = [];
+  let resolveFleet;
+  const store = seededStore({
+    client: {
+      status: {
+        getAll: () => {
+          requests.push('fleet');
+          return new Promise((resolve) => { resolveFleet = resolve; });
+        },
+        get: async (_entry, name) => {
+          requests.push(name);
+          return { connected: true };
+        },
+      },
+    },
+  });
+
+  store.actions.setStatusPolling('all');
+  t.mock.timers.tick(5000);
+  assert.deepEqual(requests, ['fleet'], 'do not start another request while the first is pending');
+  store.actions.setStatusPolling('selected');
+  await settle();
+  resolveFleet({ devices: { kitchen: { connected: false } }, rollout: { state: 'running' } });
+  await settle();
+  assert.equal(store.selectors.selectedStatus().connected, true);
+  assert.equal(store.getState().hub.rollout, null);
+
+  t.mock.timers.tick(5000);
+  await settle();
+  store.actions.setStatusPolling(null);
+  t.mock.timers.tick(5000);
+  assert.deepEqual(requests, ['fleet', 'kitchen', 'kitchen']);
 });
 
 test('a scheduled install is put off through the store', async () => {

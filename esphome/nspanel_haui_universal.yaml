@@ -1,60 +1,51 @@
 #
 # NSPanel HAUI — universal prebuilt firmware.
 #
-# This config compiles without secrets: every credential is baked in with the
-# documented default values below.  One binary serves **any number of panels**:
-# `name_add_mac_suffix` appends the last six MAC digits to the device name at
-# runtime, so every panel gets its own hostname, mDNS name and setup access
-# point from the same build.  Provisioning runs over that access point:
+# Builds without secrets: the credentials are the documented public defaults.
+# One binary serves any number of panels; `name_add_mac_suffix` appends the
+# last six MAC digits at runtime, giving each panel its own hostname, mDNS name
+# and setup access point. Provisioning runs over that open access point:
 #
-#   1. Flash the compiled `nspanel_haui.bin` (web.esphome.io / wired).
-#   2. The device boots its open AP — named after the device, e.g.
-#      "nspanel-haui-a1b2c3" (captive portal) — because the image carries no
-#      Wi-Fi network of its own.
-#   3. Join the AP, enter your Wi-Fi — ESPHome stores it and reboots.
-#   4. In Home Assistant, add the ESPHome device with the fixed API key below.
-#   5. Add the device in the HAUI editor; the hub links and configures it.
+#   1. Flash `nspanel_haui.bin` (web.esphome.io or wired).
+#   2. Join the AP (named after the device, e.g. "nspanel-haui-a1b2c3"),
+#      enter your Wi-Fi; ESPHome stores it and reboots.
+#   3. In Home Assistant, add the ESPHome device with the fixed API key below.
+#   4. Add the device in the HAUI editor; the hub links and configures it.
 #
-#   Repeat 1-5 for every panel.  No per-device YAML edit and no local ESPHome
-#   build is needed.
+# Repeat 1-4 per panel; no YAML edit and no local ESPHome build is needed.
 #
-# Security: the API key, which also encrypts native OTA, is public (documented).
-# Anyone with LAN access can reflash the panel.  Use `esphome/install.yaml` with secrets
-# when this trade-off is not acceptable.
+# Security: the API key, which also encrypts native OTA, is public, so anyone
+# with LAN access can reflash the panel. Use `esphome/install.yaml` with secrets
+# when that trade-off is not acceptable.
 substitutions:
   heartbeat_interval: '5'
   friendly_name: 'NSPanel HAUI'
-  # Base device name.  The MAC suffix is appended at runtime so panels stay
+  # Base device name. The MAC suffix is appended at runtime so panels stay
   # unique; the hub matches devices on `esphome.project.name`
   # (happydasch.nspanel_haui), not on this name.
   name: nspanel-haui
 
-  # Fixed, documented credentials (see docs/user/install.md "Universal image").
-  # The web server stays disabled in this image (see base.yaml), so no web
-  # credentials are baked in.
+  # Fixed, documented credentials (docs/user/install.md, "Universal image").
+  # No web credentials: the web server stays disabled (base.yaml).
   api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='
-  # Read by base.yaml's station network, which the wifi block below removes;
+  # base.yaml declares a station network that the wifi block below removes;
   # defined only so the package resolves without warnings.
   wifi_ssid: ''
   wifi_password: ''
   # Open fallback AP so the user can always join and provision.
   ap_password: ''
 
-  # Build identity reported in the device state.  This image is the prebuilt
-  # release firmware with the documented public credentials; the hub only
-  # offers/installs it on panels whose reported variant matches (`universal`).
+  # This image is the prebuilt release firmware with the public credentials; the
+  # hub only offers/installs it on panels that report the `universal` variant.
   firmware_variant: 'universal'
 
-  # Default TFT URL of the display component; the hub's TFT update installs
-  # the release asset that matches the display_model on its own.
+  # Display default only; the hub's TFT update installs the release asset that
+  # matches the panel's display_model.
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
-# Temporary: stock `nextion` in released ESPHome lacks the numeric-response
-# delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with
-# the patched component vendored next to this file (see nextion_patch/README).
-# Local source so CI and the release build validate the actual checkout; the
-# remote package (nspanel_haui.yaml) carries the equivalent git-source block
-# for users.
+# Vendored nextion override (local source, so CI and the release build validate
+# this checkout); remove it once every fix in nextion_patch/README.md ships in a
+# released ESPHome.
 external_components:
   - source:
       type: local
@@ -68,11 +59,11 @@ esphome:
   includes:
     - <nvs.h>
   # Builds before 0.4.3 baked a never-matching station network, so ESPHome
-  # keyed the Wi-Fi entered on the captive portal to that build's config hash
-  # and the next firmware update forgot it.  Without a station network ESPHome
-  # uses the fixed key below (WiFiComponent::start(), wifi_component.cpp —
-  # re-check it when bumping ESPHome); copy Wi-Fi saved by an older build there
-  # once, before WiFi's setup (priority 250) reads it.
+  # keyed the captive-portal Wi-Fi to that build's config hash and the next
+  # firmware update forgot it. Without a station network ESPHome uses WiFi's
+  # fixed key (WiFiComponent::start(); re-check it when bumping ESPHome), so
+  # copy Wi-Fi saved by an older build there once, before WiFi's setup
+  # (priority 250) reads it.
   on_boot:
     priority: 800
     then:
@@ -125,11 +116,10 @@ esphome:
             ESP_LOGI("haui", "Moved saved Wi-Fi '%s' to the key firmware updates keep", saved.ssid);
           }
 
-# Drop the compile-time AP SSID from base.yaml so the firmware names the access
-# point after the (suffix-carrying) device name instead.  A fixed SSID would
-# collide as soon as two panels run this image on the same LAN.
-# Drop the station network too: the Wi-Fi comes from the captive portal, and
-# only without a network of its own does ESPHome keep it across updates.
+# Drop the compile-time AP SSID so the firmware names the AP after the
+# suffixed device name (a fixed SSID would collide on a LAN with two panels).
+# Drop the station network too: ESPHome keeps captive-portal Wi-Fi across
+# updates only when the YAML defines no network of its own.
 wifi:
   ssid: !remove
   password: !remove
@@ -137,19 +127,4 @@ wifi:
     ssid: !remove
 
 packages:
-  version: !include nspanel_haui/version.yaml
-  globals: !include nspanel_haui/globals.yaml
-  base: !include nspanel_haui/base.yaml
-  hardware: !include nspanel_haui/hardware.yaml
-  display: !include nspanel_haui/display.yaml
-  interval: !include nspanel_haui/interval.yaml
-  scripts_common: !include nspanel_haui/scripts_common.yaml
-  scripts_connection: !include nspanel_haui/scripts_connection.yaml
-  scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
-  scripts_display: !include nspanel_haui/scripts_display.yaml
-  scripts_event: !include nspanel_haui/scripts_event.yaml
-  api: !include nspanel_haui/api.yaml
-  button: !include nspanel_haui/button.yaml
-  number: !include nspanel_haui/number.yaml
-  switch: !include nspanel_haui/switch.yaml
-  sensor: !include nspanel_haui/sensor.yaml
+  haui: !include nspanel_haui/packages.yaml

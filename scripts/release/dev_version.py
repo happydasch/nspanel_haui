@@ -27,10 +27,9 @@ def version_kind(version: str) -> str | None:
 def derive_dev_version(current_version: str, run_number: str | int) -> str:
     """Derive the PEP 440 dev version from the branch version and run number.
 
-    ``run_number`` is the repository-wide GitHub Actions run counter; it is
-    deliberately not reset per development cycle, so a new cycle continues the
-    global numbering (e.g. ``0.4.6.dev51``) and every build stays unique and
-    monotonic even when a run is canceled or its tag push is retried.
+    ``run_number`` is the repository-wide Actions counter and is deliberately not
+    reset, so every build stays unique and monotonic even when a run is canceled or
+    its tag push is retried.
     """
     stable = _STABLE_RE.fullmatch(current_version)
     previous_dev = _DEV_RE.fullmatch(current_version)
@@ -85,11 +84,9 @@ def write_dev_version(root: Path, run_number: str | int, env_file: Path) -> str:
 def write_tft_version(root: Path, version: str, env_file: Path) -> None:
     """Write the display TFT version the build ships to version.yaml and the env.
 
-    A dev release ships the committed TFTs under the ``system.tftVersion`` both
-    HMIs carry (``shipped_tft_version`` also checks each TFT embeds it), and the
-    firmware requires exactly that TFT (``tft_version``, compiled in as
-    ``tft_required_version``), so a dev panel installs it once its display
-    reports an older one.
+    A dev release ships the committed TFTs under the ``system.tftVersion`` both HMIs
+    carry, and the firmware requires exactly that version, so a dev panel installs it
+    once its display reports an older one.
     """
     version_file = root / "esphome/nspanel_haui/version.yaml"
     source, count = re.subn(

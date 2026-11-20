@@ -10,9 +10,7 @@ from ..utils.icon import get_icon
 
 _LOGGER = logging.getLogger(__name__)
 
-# Cache translation files per language so we read each one only once.
-# Keyed by language code; value is the parsed dict or ``{}`` if the file
-# was missing (cached so we do not retry the disk read on every call).
+# Parsed translation files per language, cached so each is read once.
 _TRANSLATION_CACHE: dict[str, dict] = {}
 
 

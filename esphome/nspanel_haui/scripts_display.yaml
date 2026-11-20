@@ -16,8 +16,7 @@ script:
   - id: update_display
     then:
       - lambda: |-
-          // TFT Version check - throttle update() calls so we don't
-          // flood the UART queue while the value is still empty.
+          // Poll the TFT version every 5 s until the display answers.
           static uint32_t last_tft_check_millis = 0;
           if (id(tft_version).state == "") {
             uint32_t now_millis = millis();
@@ -27,25 +26,21 @@ script:
             }
           }
 
-          // Guard: if brightness sensor returned garbage (e.g., 2147483647
-          // from an uninitialized Nextion dim variable), skip all display
-          // commands to avoid flooding the UART queue.
+          // Guard against an uninitialized brightness value (NaN/out of range);
+          // skip display commands rather than flood the UART queue.
           if (isnan(id(brightness).state) || id(brightness).state < 0 || id(brightness).state > 100) {
             return;
           }
           static int last_set_brightness = -1;
 
           int brightness_val = id(brightness).state;
-          // timeout values
           int timeout_dim_val = int(id(timeout_dim).state);
           int timeout_off_val = int(id(timeout_display_off).state);
-          // duration of dimming
           float duration_dim_val = id(duration_dim).state;
-          // interaction age, evaluated once for the state and the brightness
           float age = id(interaction_age_ms) / 1000.0f;
 
-          // A reconnect/disconnect is not an interaction. Reuse the configured
-          // dim timeout as a brief full-brightness grace after either transition.
+          // A reconnect/disconnect is not an interaction: reuse the dim timeout
+          // as a brief full-brightness grace after either transition.
           if (id(hub_state_change_ms) == 0) {
             id(hub_state_change_ms) = millis();
           }
@@ -53,14 +48,14 @@ script:
           bool connection_grace = timeout_dim_val > 0
               && since_connection_change <= timeout_dim_val;
 
-          // Display state (on/dim/off). While disconnected, the system page is
-          // always visible; it may dim after the connection grace but never turns off.
+          // Display state (on/dim/off); while disconnected it may dim but never
+          // turns off.
           int current_state = int(id(haui_display_state));
           int new_state = current_state;
 
           if (!id(hub_connection)) {
-            // Disconnection temporarily owns the display state: after the dim
-            // grace, dim regardless of the automatic-dimming switch, but never off.
+            // Disconnection owns the state temporarily: dim after the grace
+            // regardless of the auto-dimming switch, never off.
             if (timeout_dim_val > 0 && !connection_grace) {
               new_state = 1;
             } else {
@@ -78,19 +73,18 @@ script:
                      && age > (timeout_dim_val + duration_dim_val)) {
             new_state = 1;
           } else if (!id(use_auto_dimming).state && current_state == 1) {
-            // Auto-dimming was disabled while display was dimmed - go full on
+            // Auto-dimming was disabled while dimmed - go full on
             new_state = 2;
           } else if (current_state != 2) {
             new_state = 2;
           }
 
-          // Hardware sleep is only entered by an explicit display_off action.
-          // Wake it whenever the selected brightness state is visible again.
+          // Hardware sleep is only entered by an explicit display_off action;
+          // wake the panel whenever the state is visible again.
           if (new_state != 0 && id(haui_disp).is_sleeping()) {
             id(display_on).execute();
           }
 
-          // the state changed
           if (new_state != current_state) {
             id(haui_display_state) = new_state;
             std::string display_state_val;
@@ -104,17 +98,15 @@ script:
             id(publish_event_native).execute("esphome.display_state", display_state_val);
           }
 
-          // Desired brightness. While disconnected, the connection grace takes
-          // priority and display-off is never applied. On reconnect the same
-          // grace gives the hub time to restore the current panel before the
-          // firmware resumes its normal interaction-age timeouts.
+          // Desired brightness. While disconnected the connection grace wins and
+          // display-off never applies; on reconnect it gives the hub time to
+          // restore the panel before the normal timeouts resume.
           int target_brightness = int(id(brightness_full).state);
           int new_brightness = brightness_val;
           if (!id(hub_connection)) {
             // No hub: pin the device to the system page.
             if (int(id(page).state) != 0) {
-              // Throttle: only send goto_page once per second to prevent
-              // flooding when the page sensor is stale.
+              // One goto_page per second, in case the page sensor is stale
               static uint32_t last_goto_page_millis = 0;
               uint32_t now_millis = millis();
               if (now_millis - last_goto_page_millis > 1000) {
@@ -143,7 +135,7 @@ script:
           } else if (connection_grace) {
             new_brightness = target_brightness;
           } else if (id(use_auto_display_off).state && timeout_off_val > 0 && age > timeout_off_val) {
-            // display-off timeout means brightness goes off -> target 0
+            // Display-off timeout: target brightness 0
             target_brightness = 0;
             if (brightness_val != 0) {
               ESP_LOGV("haui", "Target brightness for Off: %i -> %i", brightness_val, target_brightness);
@@ -159,31 +151,31 @@ script:
               new_brightness = target_brightness;
             }
           } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && age > timeout_dim_val) {
-            // dim timeout means brightness goes to brightness_dim, never above
-            // the full brightness (a schedule entry may set that lower)
+            // Dim timeout: target brightness_dim, never above full brightness
+            // (a schedule entry may set that lower)
             target_brightness = min(target_brightness, int(id(brightness_dim).state));
             int curr_duration = age - timeout_dim_val;
             float ramp_remaining = duration_dim_val - curr_duration;
             if (duration_dim_val > 0 && curr_duration <= duration_dim_val && ramp_remaining > 0) {
               if (target_brightness < brightness_val) {
-                  float step_size = (brightness_val - target_brightness) / (ramp_remaining * 10) + 1;
-                  new_brightness = max(target_brightness, int(brightness_val - step_size));
-                  ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+                float step_size = (brightness_val - target_brightness) / (ramp_remaining * 10) + 1;
+                new_brightness = max(target_brightness, int(brightness_val - step_size));
+                ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
               } else if (target_brightness > brightness_val) {
-                  float step_size = (target_brightness - brightness_val) / (ramp_remaining * 10) + 1;
-                  new_brightness = min(target_brightness, int(brightness_val + step_size));
-                  ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+                float step_size = (target_brightness - brightness_val) / (ramp_remaining * 10) + 1;
+                new_brightness = min(target_brightness, int(brightness_val + step_size));
+                ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
               }
             } else {
               new_brightness = target_brightness;
             }
           } else if (target_brightness != brightness_val) {
-            // no active timeout, just use full brightness
+            // No active timeout: full brightness
             new_brightness = target_brightness;
             ESP_LOGV("haui", "Target brightness for Full: %i -> %i", brightness_val, target_brightness);
           }
 
-          // set new brightness (only when actually different from last sent value)
+          // Only send when the value actually changed
           if (new_brightness != last_set_brightness) {
             ESP_LOGV("haui", "Setting brightness for screen: %i", new_brightness);
             id(set_brightness).execute(new_brightness);
@@ -200,9 +192,8 @@ script:
             id(haui_disp).goto_page(page.c_str());
           }
 
-  # Script to hardware-sleep the display (explicit action only; not called by update_display).
-  # is_sleeping() is the atomic guard at the framework call itself: the call
-  # must not repeat while a sleep session is already running.
+  # Hardware-sleep the display; an explicit action only, never called by
+  # update_display. is_sleeping() guards against repeated sleep calls.
   - id: display_off
     then:
       - lambda: |-
@@ -212,7 +203,7 @@ script:
             id(publish_event_native).execute("esphome.display_off", "");
           }
 
-  # Script to wake the display out of hardware sleep
+  # Wake the display from hardware sleep
   - id: display_on
     then:
       - lambda: |-

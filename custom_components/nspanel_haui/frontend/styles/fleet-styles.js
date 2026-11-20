@@ -79,28 +79,49 @@ export const fleetStyles = css`
   .haui-carousel-arrow { position: absolute; z-index: 1; top: 90px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-round); color: var(--primary-text-color); background: var(--card-background-color); box-shadow: var(--haui-shadow-card); --mdc-icon-size: 18px; line-height: 1; cursor: pointer; transition: opacity 150ms ease; }
   .haui-carousel-arrow.is-left { left: -4px; }
   .haui-carousel-arrow.is-right { right: -4px; }
-  /* The scroll extents keep the first and the last card at their edge; every card between them snaps to the centre. */
-  .haui-device-card { scroll-snap-align: center; min-width: 0; overflow: hidden; }
-  /* The selected device: its card takes a primary ring and the row's selection tint. The ring is the
-     border plus an outer shadow, since the positioned cover paints over an inset outline; it replaces
-     the card shadow, which is usually none and cannot be listed with another shadow. */
+  /* The scroll extents keep the first and the last card at their edge; every card between them snaps
+     to the centre. A card clips its contents, so the preview's corners are the card's own. */
+  .haui-device-card { scroll-snap-align: center; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  /* The selected device: a primary ring, its border plus one outer shadow — the positioned cover
+     would paint over an inset outline — which replaces the card's shadow. */
   .haui-device-card.is-selected { border-color: var(--primary-color); box-shadow: 0 0 0 1px var(--primary-color); }
-  .haui-device-card.is-selected .haui-device-card-cover {
-    background: linear-gradient(color-mix(in srgb, var(--primary-color) 10%, transparent), color-mix(in srgb, var(--primary-color) 10%, transparent)), var(--haui-screen);
-  }
-  .haui-device-card.is-selected .haui-device-card-info { background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
   .haui-device-card.is-dragging, .haui-device-row.is-dragging { opacity: .5; }
   .haui-device-card.is-drop-target, .haui-device-row.is-drop-target { outline: 2px dashed var(--primary-color); outline-offset: -2px; }
-  .haui-device-card-cover { position: relative; background: var(--haui-screen); padding: 12px 16px 16px; }
-  .haui-device-card-select { display: block; width: 100%; min-height: 176px; border: 0; padding: 0; background: transparent; cursor: pointer; }
-  .haui-device-card-select nspanel-simulator-frame { display: block; overflow: hidden; border: 8px solid var(--haui-bezel); border-radius: var(--haui-radius-control); box-sizing: border-box; }
-  .haui-device-card-bezel { display: block; aspect-ratio: 450 / 320; border: 8px solid var(--haui-bezel); border-radius: var(--haui-radius-control); background: var(--haui-bezel); box-shadow: 0 4px 14px #0003; }
-  .haui-device-card.is-portrait .haui-device-card-select { min-height: 176px; }
-  .haui-device-card.is-portrait .haui-device-card-select nspanel-simulator-frame,
-  .haui-device-card.is-portrait .haui-device-card-bezel { width: 116px; max-width: 100%; margin: 0 auto; aspect-ratio: 320 / 480; }
-  .haui-device-update-badge { position: absolute; right: 8px; bottom: 8px; border-radius: var(--haui-radius-pill); padding: 4px 8px; background: var(--haui-warn-soft); color: var(--haui-warn-text); font-size: var(--haui-text-caption); font-weight: 500; }
-  .haui-device-sort { position: absolute; top: 8px; left: 8px; transition: opacity 150ms ease; }
-  .haui-device-card-info { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 12px 12px 12px; }
+  /* The card's top is the panel's own preview: no bezel and no pad around the screen, which fills the
+     card's width and is clipped by the card's corners. The cover sits on the muted surface, so the
+     room a narrower screen leaves reads as the area around the panel and not as part of the strip
+     under it. */
+  .haui-device-card-cover { position: relative; background: var(--haui-surface-soft); }
+  .haui-device-card-select { display: block; width: 100%; border: 0; padding: 0; background: transparent; cursor: pointer; }
+  /* Until the first render: the screen's shape in the display's own colour. */
+  .haui-device-card-bezel { display: block; aspect-ratio: 450 / 320; background: var(--haui-bezel); }
+  /* A device without panels: its screen's shape, saying what it is missing. The card's cover button
+     is the only control, so the placeholder carries no second target of its own. */
+  .haui-device-card-setup {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    aspect-ratio: 450 / 320;
+    padding: 16px;
+    background: var(--haui-bezel);
+    color: #fff;
+    text-align: center;
+  }
+  .haui-device-card-setup-icon { --mdc-icon-size: 20px; }
+  .haui-device-card-setup-title { font-size: var(--haui-text-label); font-weight: 500; }
+  /* A portrait screen keeps its own shape, centred, and fills the cover's height: the cover is as
+     tall as a landscape screen on the same card width, so a row mixing both shapes keeps one card
+     height and a portrait preview no longer sits in empty space. */
+  .haui-device-card.is-portrait .haui-device-card-select { display: flex; justify-content: center; aspect-ratio: 450 / 320; }
+  .haui-device-card.is-portrait .haui-device-card-select > * { width: auto; max-width: 100%; aspect-ratio: 320 / 480; }
+  /* The overlays float on the preview; the strip under it is the card's bottom, level in every card
+     of the row however tall its preview is. */
+  .haui-device-update-badge { position: absolute; right: 12px; bottom: 12px; border-radius: var(--haui-radius-pill); padding: 4px 8px; background: var(--haui-warn-soft); color: var(--haui-warn-text); font-size: var(--haui-text-caption); font-weight: 500; }
+  .haui-device-sort { position: absolute; top: 12px; left: 12px; transition: opacity 150ms ease; }
+  .haui-device-card-info { display: flex; box-sizing: border-box; min-width: 0; align-items: center; gap: 8px; margin-top: auto; padding: 8px 12px 12px; }
   button.haui-device-card-info { width: 100%; border: 0; color: inherit; background: transparent; font: inherit; text-align: start; cursor: pointer; }
   .haui-device-card-name { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
   /* Decorative outlines are a clipped overlay, never carousel children: they cannot change real

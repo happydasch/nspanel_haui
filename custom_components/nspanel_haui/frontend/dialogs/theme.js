@@ -201,6 +201,17 @@ class ThemeSidebar extends HauiDialog {
   }
 
   /**
+   * The theme definition the backend stores: name, palette and icons.
+   */
+  _themeDefinition(name) {
+    return {
+      name,
+      colors: { ...this._colors },
+      icons: JSON.parse(JSON.stringify(this._icons)),
+    };
+  }
+
+  /**
    * Copy the selected built-in theme into a new custom theme so edits can be
    * saved. The copy holds the palette before the change; the change itself is
    * then tracked as a modification.
@@ -209,12 +220,7 @@ class ThemeSidebar extends HauiDialog {
     if (!this._isBuiltin()) return;
     const name = uniqueThemeName(this._themes, this._themeData().name);
     const id = uniqueThemeId(this._themes, this.themeId);
-    const theme = {
-      name,
-      colors: { ...this._colors },
-      icons: JSON.parse(JSON.stringify(this._icons)),
-    };
-    this._themes = { ...this._themes, [id]: theme };
+    this._themes = { ...this._themes, [id]: this._themeDefinition(name) };
     this._keepThemeColors = true;
     this.themeId = id;
     this._autoThemeId = id;
@@ -373,11 +379,7 @@ class ThemeSidebar extends HauiDialog {
         return;
       }
     }
-    themes[id] = {
-      name,
-      colors: { ...this._colors },
-      icons: JSON.parse(JSON.stringify(this._icons)),
-    };
+    themes[id] = this._themeDefinition(name);
     if (await this._persistThemes(themes)) {
       this.themeId = id;
       this._edited = false;
@@ -397,13 +399,10 @@ class ThemeSidebar extends HauiDialog {
 
   _exportSelectedTheme() {
     const theme = this._themeData();
-    downloadThemes({
-      [this.themeId]: {
-        name: theme.name,
-        colors: { ...this._colors },
-        icons: JSON.parse(JSON.stringify(this._icons)),
-      },
-    }, `nspanel-haui-${this.themeId}.json`);
+    downloadThemes(
+      { [this.themeId]: this._themeDefinition(theme.name) },
+      `nspanel-haui-${this.themeId}.json`,
+    );
   }
 
   async _importThemes(e) {
@@ -432,11 +431,7 @@ class ThemeSidebar extends HauiDialog {
     if (!this._isBuiltin() && this._edited) {
       const themes = {
         ...this._customThemes,
-        [this.themeId]: {
-          name: this._themeData().name,
-          colors: { ...this._colors },
-          icons: JSON.parse(JSON.stringify(this._icons)),
-        },
+        [this.themeId]: this._themeDefinition(this._themeData().name),
       };
       if (!(await this._persistThemes(themes))) return;
       this._edited = false;

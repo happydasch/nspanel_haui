@@ -93,7 +93,7 @@ def _setup(monkeypatch, devices: list[dict], stored: dict | None = None):
         async def load(self):
             return stored or {"version": 1, "devices": {}}
 
-    async def create_app(hass, entry, name, data, panels, device_name):
+    async def create_app(hass, name, data, panels, device_name):
         return _App()
 
     registry = types.ModuleType("homeassistant.helpers.device_registry")
@@ -454,7 +454,7 @@ def test_new_app_initializes_on_its_worker(monkeypatch):
     monkeypatch.setattr(nspanel_haui, "_build_config_dict", lambda *a, **kw: {})
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
 
-    app = asyncio.run(nspanel_haui._create_app(_Hass(), _Entry([]), "Hub", {}, None, "kitchen"))
+    app = asyncio.run(nspanel_haui._create_app(_Hass(), "Hub", {}, None, "kitchen"))
 
     assert app.calls == ["worker", "initialize"]
 

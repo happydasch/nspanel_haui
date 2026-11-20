@@ -290,3 +290,27 @@ def test_load_drops_edits_of_fixed_system_panels() -> None:
 
     assert result["devices"]["Salon"]["panels"] == [cover, grid]
     assert store.saved[-1]["devices"]["Salon"]["panels"] == [cover, grid]
+
+
+def test_load_drops_the_word_clock_off_color_a_preset_stored() -> None:
+    """The quick start's word clock preset stored the theme's muted text tone as
+    the colour of the unlit letters, which on a light page reads as a lit letter.
+    The page now takes the tone of the picture it is drawn on."""
+    stored = {"type": "clocktwo", "key": "salon_clock", "off_color": "#737571"}
+    own_color = {"type": "clocktwo", "key": "kitchen_clock", "off_color": "#00ff00"}
+    payload = {
+        "version": 1,
+        "devices": {"Salon": {"config": {}, "panels": [stored, own_color]}},
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    assert result["devices"]["Salon"]["panels"] == [
+        {"type": "clocktwo", "key": "salon_clock"},
+        own_color,
+    ]
+    assert store.saved[-1]["devices"]["Salon"]["panels"][0] == {
+        "type": "clocktwo",
+        "key": "salon_clock",
+    }

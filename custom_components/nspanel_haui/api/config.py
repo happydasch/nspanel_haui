@@ -4,20 +4,22 @@ from __future__ import annotations
 
 import copy
 import logging
+from collections.abc import Callable
 from typing import Any
 
+import yaml
 from aiohttp import web
 from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
 from ..haui.config_models import PanelValidationError, validate_device_config, validate_panels
 from ..haui.device_config import DEVICE_CONFIG_FIELDS
+from ..haui.mapping.color import BUILTIN_THEMES, validate_themes
 from ..hub.esphome_helpers import lookup_device_registry_name
 from ..hub.storage import (
     async_remove_device,
     empty_device,
     empty_store,
-    enabled_device_names,
     migrate_device_config_keys,
     normalize_device_order,
     panel_store,
@@ -27,33 +29,32 @@ from .common import (
     api_errors,
     ensure_known_theme_ids,
     error,
-    get_apps,
     json_object,
     now_iso,
     query_device,
 )
+from .panel_edits import edit_panels
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def _validate_panels(hass: Any, data: dict, what: str, previous: dict | None = None) -> None:
-    """Validate panel data in the executor.
+async def _validate(hass: Any, what: str, validator: Callable[..., Any], *args: Any) -> None:
+    """Run a config validator off the event loop and answer a failure with a 400.
 
     Args:
         hass: Home Assistant
-        data: The panel data to save
         what: Names the data in the log
-        previous: The stored data the save replaces; unchanged panels skip the
-            option rules (see ``validate_panels``). ``None`` checks every panel.
+        validator: ``validate_panels`` or ``validate_device_config``
+        args: The validator's arguments
 
     Raises:
-        ApiError: With the validation error; a broken option rule adds the
+        ApiError: With the validator's message; a refused panel adds its
             ``errors`` list to the response body
     """
     try:
-        # Pydantic model validation does importlib.metadata I/O, which must
-        # not block the event loop.
-        await hass.async_add_executor_job(validate_panels, data, previous)
+        # Pydantic validation does importlib.metadata I/O, which must not
+        # block the event loop.
+        await hass.async_add_executor_job(validator, *args)
     except PanelValidationError as exc:
         _LOGGER.warning("%s validation failed: %s", what, exc)
         raise ApiError(str(exc), 400, {"errors": exc.errors}) from exc
@@ -62,16 +63,7 @@ async def _validate_panels(hass: Any, data: dict, what: str, previous: dict | No
         raise ApiError(str(exc), 400) from exc
 
 
-async def _validate_device_config(hass: Any, config: dict, what: str = "Device config") -> None:
-    """Validate device settings off the event loop."""
-    try:
-        await hass.async_add_executor_job(validate_device_config, config)
-    except Exception as exc:
-        _LOGGER.warning("%s validation failed: %s", what, exc)
-        raise ApiError(str(exc), 400) from exc
-
-
-def _known_device_config(config: dict) -> dict:
+def _known_device_config(config: dict[str, Any]) -> dict[str, Any]:
     """Return only supported settings, including the nested update settings."""
     migrate_device_config_keys(config)
     known = {key: config[key] for key in DEVICE_CONFIG_FIELDS if key in config}
@@ -80,11 +72,11 @@ def _known_device_config(config: dict) -> dict:
     return known
 
 
-def _keep_skipped_firmware_version(config: dict, stored: dict) -> None:
-    """Carry the stored skipped firmware version into ``config``, whatever it says.
+def _keep_skipped_firmware_version(config: dict[str, Any], stored: dict[str, Any]) -> None:
+    """Carry the stored skipped firmware version into ``config``.
 
-    Only *Skip this version* (``UpdateControlView``) writes the skip; a settings
-    save from an editor that read the settings before the skip must not undo it.
+    Only *Skip this version* (``UpdateControlView``) writes the skip, so a
+    settings save cannot undo it.
     """
     skipped = (stored.get("update") or {}).get("skipped_firmware_version")
     update = config.get("update")
@@ -97,7 +89,7 @@ def _keep_skipped_firmware_version(config: dict, stored: dict) -> None:
         update.pop("skipped_firmware_version", None)
 
 
-def _store_device(data: dict, device: str) -> dict:
+def _store_device(data: dict[str, Any], device: str) -> dict[str, Any]:
     """Return one stored device or raise a not-found API error."""
     devices = data.get("devices", {})
     if device not in devices:
@@ -105,114 +97,83 @@ def _store_device(data: dict, device: str) -> dict:
     return devices[device]
 
 
-async def push_panels(hass: Any, entry_id: str, data: dict, device_name: str | None = None) -> dict:
-    """Apply saved panel data to the running apps; returns the JSON response body.
-
-    Reloads the entry when the set of enabled devices changed (notify entities
-    are created per running device at setup) or no apps are running; otherwise
-    rebuilds each device's runtime config the way setup does and applies it on
-    the app's worker. When ``device_name`` is set, only that app is rebuilt;
-    virtual hosts and viewers still receive the updated store. Live previews
-    follow the reloaded apps.
-    """
-    from .. import _build_config_dict
-    from ..web.preview.live_panel import async_reload_viewers
-    from ..web.websocket import async_reload_hosts
-
-    await async_reload_hosts(hass, entry_id, data)
-    apps = get_apps(hass, entry_id)
-    if not isinstance(apps, dict):
-        # Not set up yet, or an app object instead of the devices dict (the
-        # pre-multi-device store format): nothing to push to.
-        return {"status": "ok"}
-
-    if not apps:
-        # Entry set up without running apps; fall back to reload
-        _LOGGER.info(
-            "No running apps for entry %s; triggering config entry reload",
-            entry_id,
-        )
-        await hass.config_entries.async_reload(entry_id)
-        return {"status": "ok", "reloaded": True}
-
-    entry = hass.config_entries.async_get_entry(entry_id)
-    # Same rule as setup, so a store-only device (settings without a config
-    # entry record) doesn't force a reload on every save.
-    if set(enabled_device_names(entry.data, data)) != set(apps):
-        hass.config_entries.async_schedule_reload(entry_id)
-        return {"status": "ok", "reloaded": True}
-
-    for app_name, app in apps.items():
-        if device_name is not None and app_name != device_name:
-            continue
-        if not app.device_config:
-            continue
-        try:
-            cfg = _build_config_dict(entry.data, data, device_name=app_name)
-            await app.async_run_on_worker(app.reload_config, cfg)
-        except Exception:
-            _LOGGER.exception(
-                "Failed to push panel update to device '%s' for entry %s",
-                app_name,
-                entry_id,
-            )
-    await async_reload_viewers(hass, entry_id)
-
-    return {"status": "ok"}
-
-
-def _strip_empty_configs(dev_data: dict) -> dict:
-    """Remove None-valued keys from config for a cleaner YAML export."""
+def _strip_empty_configs(dev_data: dict[str, Any]) -> dict[str, Any]:
+    """Return a device's settings without the ones it never set, plus its panels."""
     config = dict(dev_data.get("config", {}))
     cleaned = {k: v for k, v in config.items() if v is not None}
-    result: dict = {}
+    result: dict[str, Any] = {}
     if cleaned:
         result["config"] = cleaned
     result["panels"] = list(dev_data.get("panels", []))
     return result
 
 
-def _device_yaml_data(dev_data: dict, store_data: dict) -> dict:
-    """Include the active custom definition so a device YAML is self-contained."""
+def _panel_keys(panels: list[Any]) -> set[str]:
+    """Return the keys a stored panel list names."""
+    return {str(panel.get("key", "")) for panel in panels if isinstance(panel, dict)}
+
+
+def _keep_panel_refs(config: dict[str, Any], keep: Callable[[str], bool]) -> None:
+    """Drop every home and idle reference to a panel key ``keep`` refuses.
+
+    ``home_panel``, ``idle_panel`` and ``idle_panel_extra`` name panels of the
+    device these settings belong to; a dangling reference warns on every load.
+    """
+    home = config.get("home_panel")
+    if isinstance(home, str) and home and not keep(home):
+        config["home_panel"] = ""
+    idle = config.get("idle_panel")
+    if isinstance(idle, list):
+        config["idle_panel"] = [key for key in idle if keep(key)]
+    elif isinstance(idle, str) and idle and not keep(idle):
+        config["idle_panel"] = ""
+    extra = config.get("idle_panel_extra")
+    if isinstance(extra, str) and extra:
+        config["idle_panel_extra"] = ", ".join(
+            key for key in (part.strip() for part in extra.split(",")) if keep(key)
+        )
+
+
+def _device_yaml_data(dev_data: dict[str, Any], store_data: dict[str, Any]) -> dict[str, Any]:
+    """Return a device's config and panels, with the custom themes they use."""
     result = _strip_empty_configs(dev_data)
     config = result.get("config", {})
     themes = store_data.get("themes", {})
-    result["theme_definitions"] = [
-        {"id": theme_id, **themes[theme_id]}
-        for theme_id in sorted(
-            {
-                config.get("theme_id", "dark"),
-                *(
-                    panel.get("theme_id")
-                    for panel in result["panels"]
-                    if isinstance(panel, dict) and panel.get("theme_id")
-                ),
-            }
-        )
-        if theme_id in themes
+    active_id = config.get("theme_id", "dark")
+    used = {
+        active_id,
+        *(
+            panel.get("theme_id")
+            for panel in result["panels"]
+            if isinstance(panel, dict) and panel.get("theme_id")
+        ),
+    }
+    definitions = [
+        {"id": theme_id, **themes[theme_id]} for theme_id in sorted(used) if theme_id in themes
     ]
-    if not result["theme_definitions"]:
-        result.pop("theme_definitions")
-    theme_id = config.get("theme_id", "dark")
-    if theme_id in themes:
-        result["theme_definition"] = {"id": theme_id, **themes[theme_id]}
+    if definitions:
+        result["theme_definitions"] = definitions
+    if active_id in themes:
+        result["theme_definition"] = {"id": active_id, **themes[active_id]}
     return result
 
 
 class PanelConfigView(HomeAssistantView):
-    """Read the complete panel store for one config entry."""
+    """Read the complete panel store of one config entry."""
 
     url = "/api/nspanel_haui/panels/{entry_id}"
     name = "api:nspanel_haui:panels"
     requires_auth = True
 
     @require_admin
-    async def get(self, request, entry_id: str):
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
         """Return the panel store data for a config entry.
 
-        Query param ``language`` (optional, defaults to ``"en"``) controls the
-        locale for pre-translating system panel string fields.
+        Query param ``language`` (optional, defaults to ``"en"``) selects the
+        locale of the translated system panel fields.
         """
+        from ..haui.mapping.panel import get_system_panel_entries
+
         hass = request.app["hass"]
         lang = request.query.get("language", "en")
         store = panel_store(hass, entry_id)
@@ -220,116 +181,95 @@ class PanelConfigView(HomeAssistantView):
         result = data or empty_store()
         result.setdefault("themes", {})
         normalize_device_order(result)
-        from ..haui.mapping.panel import get_system_panel_entries
-
         result["system_panels"] = await hass.async_add_executor_job(get_system_panel_entries, lang)
 
-        # Enrich each device with friendly_name from HA device registry.
-        # Always refresh — the stored value (if any) may be stale since users
-        # can change a device's name via HA Settings → Devices & Services.
+        # Read the name from the device registry: it changes there, not in the store.
         for dev_key, dev_data in result.get("devices", {}).items():
-            friendly_name = lookup_device_registry_name(hass, dev_key)
-            dev_data["friendly_name"] = friendly_name
+            dev_data["friendly_name"] = lookup_device_registry_name(hass, dev_key)
 
         return self.json(result)
 
 
 class DeviceConfigView(HomeAssistantView):
-    """REST API view for adding/removing devices per config entry."""
+    """Add, list and remove the devices of one config entry."""
 
     url = "/api/nspanel_haui/devices/{entry_id}"
     name = "api:nspanel_haui:devices"
     requires_auth = True
 
     @require_admin
-    async def get(self, request, entry_id: str):
-        """Return discovered ESPHome HAUI devices available for adding.
-
-        Returns a list of discovered devices with ``name``, ``friendly_name``,
-        and ``esphome_device_id`` keys.
-        """
-        hass = request.app["hass"]
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
+        """Return the discovered ESPHome HAUI devices available for adding."""
         from ..hub.esphome_helpers import discover_esphome_devices
 
+        hass = request.app["hass"]
         discovered = await discover_esphome_devices(hass)
         return self.json({"devices": discovered})
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Add one or more devices to the config entry and panel store.
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Add the devices a batch body ``{devices: [{name, enabled, ...}, ...]}`` names.
 
-        Accepts a batch body ``{devices: [{name, enabled, esphome_device_id}, ...]}``.
-
-        After adding, reloads the config entry so app instances start for
-        newly-enabled devices.
+        A newly enabled device starts once the entry's update listener reloads
+        it.
         """
         hass = request.app["hass"]
-        body = await request.json()
+        body = await json_object(request)
 
-        devices_to_add = body.get("devices") if isinstance(body, dict) else None
+        devices_to_add = body.get("devices")
         if not isinstance(devices_to_add, list):
             raise ApiError("Body must be {'devices': [...]}", 400)
-
-        entry = hass.config_entries.async_get_entry(entry_id)
-        if not entry:
-            raise ApiError("Config entry not found", 404)
 
         from ..haui.device_config import find_store_device
         from ..hub.esphome_helpers import hub_device_entry
 
-        existing_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
-        new_devices: list[dict] = []
-        enabled_by_name: dict[str, bool] = {}
+        async with edit_panels(hass, entry_id) as edit:
+            entry = edit.entry
+            existing_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
+            new_devices: list[dict[str, Any]] = []
+            enabled_by_name: dict[str, bool] = {}
 
-        for dev_spec in devices_to_add:
-            name = (dev_spec.get("name") or "").strip()
-            if not name or name in existing_names:
-                continue
-            new_devices.append(hub_device_entry({**dev_spec, "name": name}))
-            # Default to enabled — the user explicitly opted in by clicking Add.
-            enabled_by_name[name] = dev_spec.get("enabled", True)
-            existing_names.add(name)
+            for dev_spec in devices_to_add:
+                name = (dev_spec.get("name") or "").strip()
+                if not name or name in existing_names:
+                    continue
+                new_devices.append(hub_device_entry({**dev_spec, "name": name}))
+                # Default to enabled — the user explicitly opted in by clicking Add.
+                enabled_by_name[name] = dev_spec.get("enabled", True)
+                existing_names.add(name)
 
-        if not new_devices:
-            return self.json(
-                {"status": "ok", "devices_added": [], "message": "No new devices to add"}
-            )
-        names_added = list(enabled_by_name)
+            if not new_devices:
+                return self.json(
+                    {"status": "ok", "devices_added": [], "message": "No new devices to add"}
+                )
+            names_added = list(enabled_by_name)
 
-        # The entry holds only identity; settings, including ``enabled``, live
-        # in the panel store. A device whose settings are still stored (a
-        # store-only device) keeps them.
-        store = panel_store(hass, entry_id)
-        panels_data = await store.async_load() or empty_store()
-        store_devices = panels_data.setdefault("devices", {})
-        for name, enabled in enabled_by_name.items():
-            store_dev = find_store_device(store_devices, name)
-            if store_dev is None:
-                store_dev = store_devices[name] = empty_device()
-            store_dev.setdefault("config", {})["enabled"] = enabled
-        normalize_device_order(panels_data)
-        await store.async_save(panels_data)
-
-        # The entry's update listener reloads it, starting apps for the new device(s).
-        new_data = {
-            **entry.data,
-            "devices": [*entry.data.get("devices", []), *new_devices],
-            "removed_devices": [
-                n for n in entry.data.get("removed_devices", []) if n not in names_added
-            ],
-        }
-        hass.config_entries.async_update_entry(entry, data=new_data)
+            # Settings, ``enabled`` included, live in the store; a store-only
+            # device keeps the ones it still has.
+            panels_data = await edit.load()
+            store_devices = panels_data.setdefault("devices", {})
+            for name, enabled in enabled_by_name.items():
+                store_dev = find_store_device(store_devices, name)
+                if store_dev is None:
+                    store_dev = store_devices[name] = empty_device()
+                store_dev.setdefault("config", {})["enabled"] = enabled
+            normalize_device_order(panels_data)
+            new_data = {
+                **entry.data,
+                "devices": [*entry.data.get("devices", []), *new_devices],
+                "removed_devices": [
+                    n for n in entry.data.get("removed_devices", []) if n not in names_added
+                ],
+            }
+            await edit.save(panels_data, apply=False, entry_data=new_data)
 
         return self.json({"status": "ok", "devices_added": names_added})
 
     @require_admin
     @api_errors
-    async def delete(self, request, entry_id: str):
-        """Remove a device from the hub together with its settings and panels.
-
-        Query param ``name`` identifies the device.
-        """
+    async def delete(self, request: web.Request, entry_id: str) -> web.Response:
+        """Remove the device the ``name`` query param names, with its store entry."""
         hass = request.app["hass"]
         name = (request.query.get("name") or "").strip()
         if not name:
@@ -339,17 +279,14 @@ class DeviceConfigView(HomeAssistantView):
         if not entry:
             raise ApiError("Config entry not found", 404)
 
-        existing_in_ce = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
-        if name not in existing_in_ce:
+        if not await async_remove_device(hass, entry, name):
             raise ApiError(f'Device "{name}" not found', 404)
-
-        await async_remove_device(hass, entry, name)
 
         return self.json({"status": "ok"})
 
 
 class DeviceSettingsView(HomeAssistantView):
-    """Read or replace one device's stored settings."""
+    """Read or replace the stored settings of one device."""
 
     url = "/api/nspanel_haui/devices/{entry_id}/{device}"
     name = "api:nspanel_haui:device_settings"
@@ -357,7 +294,7 @@ class DeviceSettingsView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def get(self, request, entry_id: str, device: str):
+    async def get(self, request: web.Request, entry_id: str, device: str) -> web.Response:
         """Return one device's stored settings."""
         hass = request.app["hass"]
         data = await panel_store(hass, entry_id).async_load() or empty_store()
@@ -367,8 +304,8 @@ class DeviceSettingsView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def put(self, request, entry_id: str, device: str):
-        """Replace one device's settings without changing its panels or other devices."""
+    async def put(self, request: web.Request, entry_id: str, device: str) -> web.Response:
+        """Replace one device's settings; its panels and the other devices stay."""
         hass = request.app["hass"]
         body = await json_object(request)
         config = body.get("config")
@@ -376,32 +313,30 @@ class DeviceSettingsView(HomeAssistantView):
             raise ApiError("Body must be {'config': {...}}", 400)
 
         known = _known_device_config(config)
-        await _validate_device_config(hass, known)
-        store = panel_store(hass, entry_id)
-        data = await store.async_load() or empty_store()
-        store_dev = _store_device(data, device)
-        _keep_skipped_firmware_version(known, store_dev.get("config") or {})
+        await _validate(hass, "Device config", validate_device_config, known)
+        async with edit_panels(hass, entry_id) as edit:
+            data = await edit.load()
+            store_dev = _store_device(data, device)
+            _keep_skipped_firmware_version(known, store_dev.get("config") or {})
 
-        from ..haui.mapping.color import BUILTIN_THEMES
+            theme_id = known.get("theme_id", "dark")
+            if theme_id not in {**data.get("themes", {}), **BUILTIN_THEMES}:
+                raise ApiError(f"Unknown color theme {theme_id!r}", 400)
 
-        theme_id = known.get("theme_id", "dark")
-        if theme_id not in {**data.get("themes", {}), **BUILTIN_THEMES}:
-            raise ApiError(f"Unknown color theme {theme_id!r}", 400)
-
-        store_dev["config"] = known
-        await store.async_save(data)
+            store_dev["config"] = known
+            pushed = await edit.save(data, devices=(device,))
         return self.json(
             {
                 "status": "ok",
                 "device": device,
                 "config": known,
-                **await push_panels(hass, entry_id, data, device_name=device),
+                **pushed,
             }
         )
 
 
 class DevicePanelsView(HomeAssistantView):
-    """Replace one device's panels; the store GET returns every device's panels."""
+    """Replace the panels of one device; the store GET returns every device's."""
 
     url = "/api/nspanel_haui/panels/{entry_id}/{device}"
     name = "api:nspanel_haui:device_panels"
@@ -409,42 +344,51 @@ class DevicePanelsView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def put(self, request, entry_id: str, device: str):
-        """Replace one device's panels without changing settings or other devices."""
+    async def put(self, request: web.Request, entry_id: str, device: str) -> web.Response:
+        """Replace one device's panels; its settings and the other devices stay."""
         hass = request.app["hass"]
         body = await json_object(request)
         panels = body.get("panels")
         if not isinstance(panels, list):
             raise ApiError("Body must be {'panels': [...]}", 400)
 
-        store = panel_store(hass, entry_id)
-        data = await store.async_load() or empty_store()
-        store_dev = _store_device(data, device)
-        await _validate_panels(
-            hass, {"devices": {device: {"panels": panels}}}, f"Panels of {device}", previous=data
-        )
-        candidate = {
-            **data,
-            "devices": {
-                **data.get("devices", {}),
-                device: {**store_dev, "panels": panels},
-            },
-        }
-        ensure_known_theme_ids(candidate, data.get("themes", {}))
-        store_dev["panels"] = panels
-        store_dev["last_panel_update"] = now_iso()
-        await store.async_save(data)
+        async with edit_panels(hass, entry_id) as edit:
+            data = await edit.load()
+            store_dev = _store_device(data, device)
+            await _validate(
+                hass,
+                f"Panels of {device}",
+                validate_panels,
+                {"devices": {device: {"panels": panels}}},
+                data,
+            )
+            candidate = {
+                **data,
+                "devices": {
+                    **data.get("devices", {}),
+                    device: {**store_dev, "panels": panels},
+                },
+            }
+            ensure_known_theme_ids(candidate, data.get("themes", {}))
+            # A removed panel leaves no home or idle reference behind, so the
+            # returned config is what the editor shows.
+            removed = _panel_keys(store_dev.get("panels") or []) - _panel_keys(panels)
+            _keep_panel_refs(store_dev.setdefault("config", {}), lambda key: key not in removed)
+            store_dev["panels"] = panels
+            store_dev["last_panel_update"] = now_iso()
+            pushed = await edit.save(data, devices=(device,))
         return self.json(
             {
                 "status": "ok",
                 "device": device,
-                **await push_panels(hass, entry_id, data, device_name=device),
+                "config": store_dev.get("config") or {},
+                **pushed,
             }
         )
 
 
-def _free_panel_key(panels: list, key: str, panel_type: str) -> str:
-    """Return ``key`` when no panel in ``panels`` uses it, else ``{type}_{n}`` that is free.
+def _free_panel_key(panels: list[Any], key: str, panel_type: str) -> str:
+    """Return ``key`` when no panel in ``panels`` uses it, else a free ``{type}_{n}``.
 
     Keys are compared without case, as the editor does.
     """
@@ -466,14 +410,13 @@ class DevicePanelMoveView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str, device: str):
+    async def post(self, request: web.Request, entry_id: str, device: str) -> web.Response:
         """Move the panel ``key`` to the device ``to``, in one save of both devices.
 
-        The panel keeps its key unless the target device already uses it; then
-        it gets a free ``{type}_{n}`` key, which the response names. It joins
-        the end of the target's panels. A popup a device extends stays with
-        that device. Settings that name the panel on the source device (home,
-        idle, gestures) are left as they are, as a delete leaves them.
+        The panel keeps its key unless the target already uses it; it then gets
+        a free ``{type}_{n}`` key, which the response names. A popup a device
+        extends stays with that device. The source device's home and idle
+        settings drop the moved key, but its gestures keep the user's entries.
         """
         from ..haui.mapping.panel import POPUP_PANEL_MAPPING
 
@@ -486,65 +429,67 @@ class DevicePanelMoveView(HomeAssistantView):
         if target == device:
             raise ApiError("The panel is already on this device", 400)
 
-        store = panel_store(hass, entry_id)
-        data = await store.async_load() or empty_store()
-        source_dev = _store_device(data, device)
-        target_dev = _store_device(data, target)
-        source_panels = list(source_dev.get("panels") or [])
-        panel = next(
-            (
-                entry
-                for entry in source_panels
-                if isinstance(entry, dict) and entry.get("key") == key
-            ),
-            None,
-        )
-        if panel is None:
-            raise ApiError(f'Panel "{key}" not found on "{device}"', 404)
-        if key in POPUP_PANEL_MAPPING:
-            raise ApiError("A popup a device extends cannot be moved", 400)
+        async with edit_panels(hass, entry_id) as edit:
+            data = await edit.load()
+            source_dev = _store_device(data, device)
+            target_dev = _store_device(data, target)
+            source_panels = list(source_dev.get("panels") or [])
+            panel = next(
+                (
+                    entry
+                    for entry in source_panels
+                    if isinstance(entry, dict) and entry.get("key") == key
+                ),
+                None,
+            )
+            if panel is None:
+                raise ApiError(f'Panel "{key}" not found on "{device}"', 404)
+            if key in POPUP_PANEL_MAPPING:
+                raise ApiError("A popup a device extends cannot be moved", 400)
 
-        target_panels = list(target_dev.get("panels") or [])
-        new_key = _free_panel_key(target_panels, key, str(panel.get("type") or "panel"))
-        source_panels.remove(panel)
-        target_panels.append({**panel, "key": new_key})
+            target_panels = list(target_dev.get("panels") or [])
+            new_key = _free_panel_key(target_panels, key, str(panel.get("type") or "panel"))
+            source_panels.remove(panel)
+            target_panels.append({**panel, "key": new_key})
 
-        await _validate_panels(
-            hass,
-            {"devices": {device: {"panels": source_panels}, target: {"panels": target_panels}}},
-            f"Moving {key} from {device} to {target}",
-            previous=data,
-        )
-        candidate = {
-            **data,
-            "devices": {
-                **data.get("devices", {}),
-                device: {**source_dev, "panels": source_panels},
-                target: {**target_dev, "panels": target_panels},
-            },
-        }
-        ensure_known_theme_ids(candidate, data.get("themes", {}))
-        updated = now_iso()
-        source_dev["panels"] = source_panels
-        source_dev["last_panel_update"] = updated
-        target_dev["panels"] = target_panels
-        target_dev["last_panel_update"] = updated
-        await store.async_save(data)
-        pushed = await push_panels(hass, entry_id, data, device_name=device)
-        if not pushed.get("reloaded"):
-            pushed = await push_panels(hass, entry_id, data, device_name=target)
+            await _validate(
+                hass,
+                f"Moving {key} from {device} to {target}",
+                validate_panels,
+                {"devices": {device: {"panels": source_panels}, target: {"panels": target_panels}}},
+                data,
+            )
+            candidate = {
+                **data,
+                "devices": {
+                    **data.get("devices", {}),
+                    device: {**source_dev, "panels": source_panels},
+                    target: {**target_dev, "panels": target_panels},
+                },
+            }
+            ensure_known_theme_ids(candidate, data.get("themes", {}))
+            updated = now_iso()
+            # The source device loses the panel, so its home and idle settings
+            # cannot keep naming it.
+            _keep_panel_refs(source_dev.setdefault("config", {}), lambda ref: ref != key)
+            source_dev["panels"] = source_panels
+            source_dev["last_panel_update"] = updated
+            target_dev["panels"] = target_panels
+            target_dev["last_panel_update"] = updated
+            pushed = await edit.save(data, devices=(device, target))
         return self.json(
             {
                 **pushed,
                 "status": "ok",
                 "key": new_key,
                 "panels": {device: source_panels, target: target_panels},
+                "config": source_dev.get("config") or {},
             }
         )
 
 
 class DeviceOrderView(HomeAssistantView):
-    """Store editor device order; runtime device ordering comes from the config entry."""
+    """Store the editor's device order; the entry itself orders the runtime devices."""
 
     url = "/api/nspanel_haui/device_order/{entry_id}"
     name = "api:nspanel_haui:device_order"
@@ -552,8 +497,8 @@ class DeviceOrderView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def put(self, request, entry_id: str):
-        """Replace and normalize the editor's device order."""
+    async def put(self, request: web.Request, entry_id: str) -> web.Response:
+        """Replace and normalize the order the editor lists the devices in."""
         hass = request.app["hass"]
         body = await json_object(request)
         device_order = body.get("device_order")
@@ -562,28 +507,24 @@ class DeviceOrderView(HomeAssistantView):
         ):
             raise ApiError("Body must be {'device_order': [names]}", 400)
 
-        store = panel_store(hass, entry_id)
-        data = await store.async_load() or empty_store()
-        data["device_order"] = list(device_order)
-        normalize_device_order(data)
-        await store.async_save(data)
+        async with edit_panels(hass, entry_id) as edit:
+            data = await edit.load()
+            data["device_order"] = list(device_order)
+            normalize_device_order(data)
+            await edit.save(data, apply=False)
         return self.json({"status": "ok", "device_order": data["device_order"]})
 
 
 class DeviceYamlView(HomeAssistantView):
-    """REST API view for YAML import/export of per-device configuration."""
+    """Export and import the configuration of one device as YAML."""
 
     url = "/api/nspanel_haui/yaml/{entry_id}"
     name = "api:nspanel_haui:yaml"
     requires_auth = True
 
     @require_admin
-    async def get(self, request, entry_id: str):
-        """Export device configuration as YAML.
-
-        Query param ``device`` (optional) restricts export to a single device.
-        When omitted all devices are included.
-        """
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
+        """Export one device's configuration, or every device's without ``device``."""
         hass = request.app["hass"]
         store = panel_store(hass, entry_id)
         data = await store.async_load() or empty_store()
@@ -598,40 +539,32 @@ class DeviceYamlView(HomeAssistantView):
         else:
             export = {name: _device_yaml_data(dev_data, data) for name, dev_data in devices.items()}
 
-        import yaml
-
         yaml_str = yaml.dump(export, default_flow_style=False, sort_keys=False, allow_unicode=True)
         return web.Response(text=yaml_str, content_type="application/x-yaml")
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Import device configuration from YAML.
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Import the YAML body as the configuration of the ``device`` query param.
 
-        Query param ``device`` specifies which device to update (required).
-        The YAML body should contain the device's ``config`` and ``panels``.
-
-        When devices already exist they are **replaced**; when absent they are
-        added.  Other devices in the store are left untouched.
+        The body names ``config`` and ``panels`` at its top level, plus the
+        custom themes the configuration uses. Other devices are left untouched.
         """
         hass = request.app["hass"]
         device_name = query_device(request)
         if not device_name:
             raise ApiError("Query param 'device' is required", 400)
 
-        import yaml
-
         body = await request.text()
         try:
-            parsed: dict = yaml.safe_load(body)
+            parsed: dict[str, Any] = yaml.safe_load(body)
         except yaml.YAMLError as exc:
             raise ApiError(f"Invalid YAML: {exc}", 400) from exc
 
         if not isinstance(parsed, dict):
             raise ApiError("YAML root must be a mapping", 400)
 
-        # The YAML must expose the device's ``config`` and/or ``panels``
-        # directly; wrapped-under-device-name imports are no longer accepted.
+        # The device's settings and panels sit at the top level of the file.
         if "config" not in parsed and "panels" not in parsed:
             raise ApiError(
                 "YAML must contain a 'config' and/or 'panels' mapping for the device", 400
@@ -645,20 +578,17 @@ class DeviceYamlView(HomeAssistantView):
         if not isinstance(panels, list):
             raise ApiError("'panels' must be a list", 400)
 
-        # Discard unknown settings while retaining the supported nested update block.
         known_config = _known_device_config(config)
         theme_definition = parsed.get("theme_definition")
-        theme_definitions = parsed.get("theme_definitions", [])
-        if theme_definitions is None:
-            theme_definitions = []
+        theme_definitions = parsed.get("theme_definitions") or []
         if not isinstance(theme_definitions, list):
             raise ApiError("'theme_definitions' must be a list", 400)
         if theme_definition is not None:
             if not isinstance(theme_definition, dict):
                 raise ApiError("'theme_definition' must include a theme ID", 400)
             theme_definitions = [theme_definition, *theme_definitions]
-        raw_theme_definitions: dict[str, dict] = {}
-        legacy_theme_id = None
+        raw_theme_definitions: dict[str, dict[str, Any]] = {}
+        active_theme_id = None
         for definition in theme_definitions:
             if not isinstance(definition, dict) or not isinstance(definition.get("id"), str):
                 raise ApiError("Theme definitions must include a theme ID", 400)
@@ -669,50 +599,187 @@ class DeviceYamlView(HomeAssistantView):
                 raise ApiError(f"Conflicting definitions for color theme {theme_id!r}", 400)
             raw_theme_definitions[theme_id] = theme_payload
             if definition is theme_definition:
-                legacy_theme_id = theme_id
+                active_theme_id = theme_id
 
         imported_themes = {}
         if raw_theme_definitions:
-            from ..haui.mapping.color import validate_themes
-
             try:
                 imported_themes = await hass.async_add_executor_job(
                     validate_themes, raw_theme_definitions
                 )
-            except Exception as exc:
+            except ValueError as exc:
                 raise ApiError(str(exc), 400) from exc
-        if legacy_theme_id and "theme_id" not in known_config:
-            known_config["theme_id"] = legacy_theme_id
-        await _validate_panels(
+        if active_theme_id and "theme_id" not in known_config:
+            known_config["theme_id"] = active_theme_id
+        await _validate(
             hass,
-            {"devices": {device_name: {"config": known_config, "panels": panels}}},
             "YAML import",
+            validate_panels,
+            {"devices": {device_name: {"config": known_config, "panels": panels}}},
         )
 
-        store = panel_store(hass, entry_id)
-        store_data = await store.async_load() or empty_store()
-        store_themes = store_data.setdefault("themes", {})
+        async with edit_panels(hass, entry_id) as edit:
+            store_data = await edit.load()
+            store_themes = store_data.setdefault("themes", {})
 
-        for theme_id, imported_theme in imported_themes.items():
-            existing = store_themes.get(theme_id)
-            if existing is not None and existing != imported_theme:
-                raise ApiError("Imported color theme ID conflicts with an existing theme", 409)
-        candidate_themes = {**store_themes, **imported_themes}
-        imported_device = {
-            "config": known_config,
-            "panels": panels,
-            "last_panel_update": now_iso(),
-        }
-        candidate_store = {
-            **store_data,
-            "devices": {
-                **store_data.get("devices", {}),
-                device_name: imported_device,
-            },
-        }
-        ensure_known_theme_ids(candidate_store, candidate_themes)
-        store_themes.update(imported_themes)
-        store_data.setdefault("devices", {})[device_name] = imported_device
-        await store.async_save(store_data)
+            for theme_id, imported_theme in imported_themes.items():
+                existing = store_themes.get(theme_id)
+                if existing is not None and existing != imported_theme:
+                    raise ApiError("Imported color theme ID conflicts with an existing theme", 409)
+            candidate_themes = {**store_themes, **imported_themes}
+            imported_device = {
+                "config": known_config,
+                "panels": panels,
+                "last_panel_update": now_iso(),
+            }
+            candidate_store = {
+                **store_data,
+                "devices": {
+                    **store_data.get("devices", {}),
+                    device_name: imported_device,
+                },
+            }
+            ensure_known_theme_ids(candidate_store, candidate_themes)
+            store_themes.update(imported_themes)
+            store_data.setdefault("devices", {})[device_name] = imported_device
+            pushed = await edit.save(store_data)
 
-        return self.json({**await push_panels(hass, entry_id, store_data), "device": device_name})
+        return self.json({**pushed, "device": device_name})
+
+
+# The sections a copy can take from one device: its panels, its stored settings
+# and its update settings.
+COPY_SECTIONS: frozenset[str] = frozenset({"panels", "settings", "update"})
+
+
+def _copied_config(
+    source: dict[str, Any],
+    target: dict[str, Any],
+    sections: set[str],
+    panels: list[Any],
+) -> dict[str, Any]:
+    """Return the target device's settings after copying the picked sections.
+
+    Copying the settings replaces every device setting the store holds; whether
+    the device runs belongs to the target, so ``enabled`` stays. The ``update``
+    block is a section of its own, and the target always keeps its own skipped
+    firmware version: only *Skip this version* writes that.
+    """
+    config = copy.deepcopy(target)
+    if "settings" in sections:
+        for key in DEVICE_CONFIG_FIELDS:
+            if key != "enabled":
+                config.pop(key, None)
+        config.update(
+            {
+                key: copy.deepcopy(value)
+                for key, value in source.items()
+                if key in DEVICE_CONFIG_FIELDS and key != "enabled"
+            }
+        )
+    if "update" in sections:
+        config["update"] = copy.deepcopy(source.get("update") or {})
+    known = _known_device_config(config)
+    _keep_skipped_firmware_version(known, target)
+    if "settings" in sections:
+        _keep_panel_refs(known, _panel_keys(panels).__contains__)
+    return known
+
+
+class DeviceCopyView(HomeAssistantView):
+    """Copy the picked sections of one device onto other devices of the hub."""
+
+    url = "/api/nspanel_haui/copy/{entry_id}"
+    name = "api:nspanel_haui:device_copy"
+    requires_auth = True
+
+    @require_admin
+    @api_errors
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Write the picked sections of the device ``from`` onto each device in ``to``.
+
+        Body: ``{"from": str, "to": [str], "sections": [str]}``, a section being
+        one of ``panels``, ``settings`` and ``update``. Every target is written
+        in one save, so a copy that breaks a rule changes nothing.
+        """
+        hass = request.app["hass"]
+        body = await json_object(request)
+        source = body.get("from")
+        targets = body.get("to")
+        sections = body.get("sections")
+        if not isinstance(source, str) or not source:
+            raise ApiError("Body must be {'from': str, 'to': [str], 'sections': [str]}", 400)
+        if (
+            not isinstance(targets, list)
+            or not targets
+            or any(not isinstance(name, str) or not name for name in targets)
+        ):
+            raise ApiError("'to' must be a non-empty list of device names", 400)
+        # The same device twice in one request is one copy.
+        targets = list(dict.fromkeys(targets))
+        if source in targets:
+            raise ApiError("A device cannot be copied onto itself", 400)
+        if not isinstance(sections, list) or not sections:
+            raise ApiError(f"'sections' must name one of {sorted(COPY_SECTIONS)}", 400)
+        unknown = sorted(set(sections) - COPY_SECTIONS)
+        if unknown:
+            raise ApiError(f"Unknown copy section {unknown[0]!r}", 400)
+        chosen = set(sections)
+
+        async with edit_panels(hass, entry_id) as edit:
+            data = await edit.load()
+            source_dev = _store_device(data, source)
+            source_panels = copy.deepcopy(list(source_dev.get("panels") or []))
+            source_config = copy.deepcopy(source_dev.get("config") or {})
+
+            candidates: dict[str, dict[str, Any]] = {}
+            for name in targets:
+                target_dev = _store_device(data, name)
+                panels = (
+                    copy.deepcopy(source_panels)
+                    if "panels" in chosen
+                    else list(target_dev.get("panels") or [])
+                )
+                candidates[name] = {
+                    "config": _copied_config(
+                        source_config, target_dev.get("config") or {}, chosen, panels
+                    ),
+                    "panels": panels,
+                }
+
+            what = f"Copy of {source} onto {', '.join(targets)}"
+            await _validate(
+                hass,
+                what,
+                validate_panels,
+                {
+                    "devices": {
+                        name: {"config": dev["config"], "panels": dev["panels"]}
+                        for name, dev in candidates.items()
+                    }
+                },
+                data,
+            )
+
+            candidate = {
+                **data,
+                "devices": {
+                    **data.get("devices", {}),
+                    **{
+                        name: {**_store_device(data, name), **dev}
+                        for name, dev in candidates.items()
+                    },
+                },
+            }
+            ensure_known_theme_ids(candidate, data.get("themes", {}))
+
+            updated = now_iso()
+            for name, dev in candidates.items():
+                stored = _store_device(data, name)
+                stored["config"] = dev["config"]
+                if "panels" in chosen:
+                    stored["panels"] = dev["panels"]
+                    stored["last_panel_update"] = updated
+            pushed = await edit.save(data, devices=targets)
+
+        return self.json({**pushed, "status": "ok", "devices": list(targets)})

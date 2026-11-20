@@ -2,7 +2,20 @@
 
 from types import SimpleNamespace
 
+from support.page_app import PageApp
+
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.icons import ICO_NAV_NEXT, ICO_ZOOM
 from custom_components.nspanel_haui.haui.page.qr import QRPage
+
+_PAGE_ID = 11
+
+
+class _SingleNavConfig:
+    """One navigation panel, so the header collapses its prev/next buttons."""
+
+    def get_panels(self, nav_only: bool) -> list[str]:
+        return ["wifi"]
 
 
 class _Panel:
@@ -64,6 +77,29 @@ def test_big_qr_zoom_button_uses_header_accent_color() -> None:
     page._apply_zoom_state()
 
     assert updates == [(page.FNC_BTN_R_SEC, {"visible": True, "color": colors["header_accent"]})]
+
+
+def test_zoom_loupe_moves_to_the_primary_right_slot_with_a_single_panel():
+    """The page's zoom button survives the single-panel header swap.
+
+    With one navigation panel the prev/next buttons collapse and the right
+    secondary button is drawn in the primary (outermost) position.  The page
+    still reaches its own button there, so the loupe shows and no nav arrow
+    takes the slot.
+    """
+    app = PageApp({})
+    app.device_config = _SingleNavConfig()
+    panel = HAUIPanel(app, {"type": "qr", "key": "wifi", "essid": "Guest", "password": "secret"})
+    page = QRPage(app, {"page_id": _PAGE_ID})
+    primary = page.COMPONENTS.fnc_right_pri
+    secondary = page.COMPONENTS.fnc_right_sec
+
+    page.set_panel(panel)
+
+    assert f'{primary.name}.txt="{ICO_ZOOM}"' in app.cmds
+    assert f"vis {primary.name},1" in app.cmds
+    assert f"vis {secondary.name},0" in app.cmds
+    assert f'{secondary.name}.txt="{ICO_NAV_NEXT}"' not in app.cmds
 
 
 def test_configured_items_replace_network_text():

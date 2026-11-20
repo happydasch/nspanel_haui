@@ -23,10 +23,11 @@ export const itemListStyles = css`
     border: 1px solid var(--divider-color, #e0e0e0);
     border-radius: var(--haui-radius-control);
     background: var(--card-background-color, #fff);
-    transition: border-color 150ms, box-shadow 150ms;
+    transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
   }
   .haui-item-list-row:hover {
     border-color: var(--primary-color, #03a9f4);
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, var(--card-background-color, #fff));
     box-shadow: 0 1px 4px color-mix(in srgb, var(--primary-color) 10%, transparent);
   }
   .haui-item-row-main {
@@ -44,7 +45,7 @@ export const itemListStyles = css`
     text-align: start;
     cursor: pointer;
   }
-  .haui-item-row-main:hover { background: var(--secondary-background-color, #f5f5f5); }
+  .haui-item-row-main:hover { background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, transparent); }
   .haui-item-row-edit {
     flex-shrink: 0;
     --mdc-icon-size: 16px;

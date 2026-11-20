@@ -22,7 +22,7 @@ import datetime
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, TypedDict
 
 from ..const import DOMAIN
 from ..haui.controller.update import FIRMWARE_INSTALL_TIMEOUT_SECONDS, INSTALL_TIMEOUT_SECONDS
@@ -46,6 +46,16 @@ class _InstallFailed(Exception):
     """The current device's update failed; the message says why."""
 
 
+class _RolloutEntry(TypedDict):
+    """One device of a rollout, as the editor shows it."""
+
+    name: str
+    kind: str
+    state: str
+    error: str | None
+    held: bool
+
+
 class UpdateRollout:
     """Install the offered updates of the given devices, one at a time."""
 
@@ -65,14 +75,14 @@ class UpdateRollout:
         self._clock = clock
         self._poll = _POLL_SECONDS if poll_seconds is None else poll_seconds
         self._settle = settle_seconds
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         # Set while async_start awaits the devices, so a second start is refused.
         self._starting = False
         self._id = 0
         self._state = "idle"
         self._started_at: str | None = None
         self._cancelled = False
-        self._devices: list[dict[str, Any]] = []
+        self._devices: list[_RolloutEntry] = []
 
     # public
 
@@ -102,7 +112,7 @@ class UpdateRollout:
             missing = [name for name in devices if name not in apps]
             if missing:
                 raise ValueError(f"No running device {missing[0]!r}")
-            entries = []
+            entries: list[_RolloutEntry] = []
             for name in devices:
                 snapshot = await apps[name].async_update_snapshot()
                 kind = "firmware" if snapshot["firmware"]["available"] else "tft"
@@ -203,7 +213,7 @@ class UpdateRollout:
                     await self._release(entry)
             self._state = "stopped" if stopped else "cancelled" if self._cancelled else "done"
 
-    async def _install(self, entry: dict[str, Any]) -> None:
+    async def _install(self, entry: _RolloutEntry) -> None:
         app = self._apps().get(entry["name"])
         if app is None:
             raise _InstallFailed("The device is no longer running")
@@ -300,7 +310,7 @@ class UpdateRollout:
         apps = self._hass.data.get(DOMAIN, {}).get(self._entry_id)
         return apps if isinstance(apps, dict) else {}
 
-    async def _release(self, entry: dict[str, Any]) -> None:
+    async def _release(self, entry: _RolloutEntry) -> None:
         if not entry["held"]:
             return
         entry["held"] = False

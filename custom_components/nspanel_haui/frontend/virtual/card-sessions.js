@@ -6,7 +6,7 @@
  * View-only: a card shows a device's screen to every signed-in user and
  * sends nothing back. Home shows the device's home panel as the hub runs it
  * for the cards (web/preview/home_stream.py); Live shows what the real panel
- * shows, as the editor's live preview does; Tile keeps only the panel's own
+ * shows, as the editor's live preview does; Info keeps only the panel's own
  * state. All three also report the panel itself (asleep, offline, queued
  * notifications) and its hardware buttons, which panel-session.js applies.
  *
@@ -78,17 +78,17 @@ export class CardLiveSession extends LivePanelSession {
   }
 }
 
-/** What the hub sends for a screen, which a status tile has none of. */
+/** What the hub sends for a screen, which a card showing only a device's state has none of. */
 const DISPLAY_OUTPUT = new Set(['page', 'commands', 'entities']);
 
 /**
- * The card's status tile (`mode: tile`): the panel itself, with no screen.
+ * A device's own state (`display_mode: status`): the panel itself, with no screen.
  *
  * It reads the live subscription, because the panel's own state is all it
  * shows and the hub renders nothing for it; it never builds a display, so a
- * dashboard of tiles downloads no layout.
+ * dashboard of rows downloads no layout.
  */
-export class CardStatusSession extends CardLiveSession {
+export class CardInfoSession extends CardLiveSession {
   static API = 'nspanel_haui/card/live';
 
   /** @param {any} message */

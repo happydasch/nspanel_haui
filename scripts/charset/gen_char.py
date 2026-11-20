@@ -172,7 +172,6 @@ char_res_string += " 未乾潤全線量險確危發觸異安燥已偵無連測�
 char_res_string += ""
 
 print("Out: ")
-# print(char_res_string)
 
 
 with open("scripts/charset/charout.txt", "wb") as text_file:

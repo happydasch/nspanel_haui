@@ -117,10 +117,64 @@ test('the home and idle tiles select their panel rows', () => {
   assert.deepEqual(selected, ['lights', 'clock']);
 });
 
+test('a role tile whose panel does not exist is disabled and selects nothing', () => {
+  const selected = [];
+  const card = panelSideCard({
+    kind: 'overview', navigationCount: 1, hiddenCount: 0, popupCount: 0,
+    homePanel: 'Unknown key "gone"', homePanelKey: '',
+    idlePanels: 'Unknown key "gone2"', idlePanelKey: '',
+    onSelectPanel: (key) => selected.push(key),
+  });
+  // Neither role opens a row for a key that names no panel.
+  for (const label of ['Select Home panel: Unknown key "gone"', 'Select Idle panel: Unknown key "gone2"']) {
+    const tile = templatesWith(card, label)[0];
+    const disabledIndex = tile.strings.findIndex((part) => part.includes('?disabled='));
+    assert.equal(tile.values[disabledIndex], true, label);
+    const clickIndex = tile.strings.findIndex((part) => part.includes('@click='));
+    assert.equal(tile.values[clickIndex], null, label);
+  }
+  assert.deepEqual(selected, []);
+});
+
 test('an unassigned home falls back to the first navigation panel, and an empty idle says so', () => {
   const text = flatten(panelSideCard({ kind: 'overview', navigationCount: 0, hiddenCount: 0, popupCount: 0 }));
   assert.match(text, /First navigation panel/);
   assert.match(text, /Not set/);
+});
+
+test('the roles a panel can take are toggles that say whether it holds them', () => {
+  const toggles = [];
+  const card = panelSideCard({
+    kind: 'panel',
+    iconName: 'grid',
+    title: 'Lights',
+    subtitle: 'Grid',
+    description: 'A grid of entities.',
+    facts: [['Type', 'Grid']],
+    roles: [
+      { key: 'home', label: 'Home panel', iconName: 'home', active: true, onToggle: () => toggles.push('home') },
+      { key: 'idle', label: 'Idle panel', iconName: 'sleep', active: false, onToggle: () => toggles.push('idle') },
+    ],
+    actions: [],
+    onClose: () => {},
+  });
+  const text = flatten(card);
+  assert.match(text, /haui-panel-info-roles/);
+  assert.ok(text.indexOf('haui-panel-info-roles') < text.indexOf('haui-panel-info-preview-block'));
+  assert.ok(text.indexOf('haui-panel-info-preview-block') < text.indexOf('haui-panel-info-facts'));
+  assert.match(text, /Panel roles/);
+  // The role the panel holds keeps the soft tone and is pressed; the other one is not.
+  assert.match(text, /haui-panel-info-role is-active/);
+  assert.match(text, /aria-pressed=true/);
+  assert.match(text, /aria-pressed=false/);
+  clickOf(card, 'Home panel')();
+  clickOf(card, 'Idle panel')();
+  assert.deepEqual(toggles, ['home', 'idle']);
+  // A card without roles offers none, and draws no empty button block.
+  assert.doesNotMatch(
+    flatten(panelSideCard({ kind: 'panel', iconName: 'grid', title: 'Lights', subtitle: 'Grid', facts: [], actions: [], onClose: () => {} })),
+    /haui-panel-info-roles|haui-panel-info-buttons/,
+  );
 });
 
 test('the preview folds to a thumbnail beside the description, and the card keeps its facts', () => {

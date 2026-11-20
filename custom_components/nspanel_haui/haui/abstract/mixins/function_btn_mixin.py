@@ -1,9 +1,4 @@
-"""Function button system mixin for HAUIPage.
-
-Manages the four header function buttons (left-primary, left-secondary,
-right-primary, right-secondary) including auto-assignment of navigation
-functions, icon/color updates, and touch event dispatch.
-"""
+"""Header function buttons: registration, auto-assignment, rendering and dispatch."""
 
 from __future__ import annotations
 
@@ -73,15 +68,7 @@ _DEFAULT_FNC_ICONS: dict[str, str] = {
 
 
 class FunctionButtonMixin(_FunctionButtonMixinBase):
-    """Mixin that manages function button registration, rendering, and dispatch.
-
-    Depends on the host class providing:
-    * ``self._fnc_items`` (set in :class:`~haui.page.HAUIPage.__init__`)
-    * ``self.FNC_BTN_L_PRI`` / ``L_SEC`` / ``R_PRI`` / ``R_SEC`` (ClassVar)
-    * ``self.FNC_TYPE_NAV_*`` and ``self.FNC_TYPE_UNLOCK`` (ClassVar)
-    * ``ICO_*`` icon constants (ClassVar)
-    * :class:`~haui.page.component_mixin.ComponentMixin` methods
-    """
+    """Manage the four header function buttons and their dispatch."""
 
     def get_color(self, key: str) -> int:
         """Provided by ``HAUIBase`` at runtime via MRO (mixin + base class).
@@ -315,10 +302,8 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         color = fnc_args.get("color", None)
         visible = fnc_args.get("visible", True)
 
-        # Hidden components: only send vis=0 (if not already cached) then stop.
-        # Sending color/icon/text for hidden components wastes queue slots — they
-        # get overridden by render_panel when the component is made visible, and
-        # the extra commands extend the drain delay without any visual benefit.
+        # Hidden components only send vis=0: colour/icon/text would waste queue
+        # slots and be overridden when the component is shown.
         if visible is False:
             if fnc_item.get("current_visible", None) is not False:
                 self.hide_component(fnc_component)
@@ -448,7 +433,8 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
                 # left secondary: on home panel => IDLE (idle page), otherwise => HOME
                 elif fnc_id == self.FNC_BTN_L_SEC:
-                    is_home = home_key and panel.get("key") == home_key
+                    # a keyless panel (a template, an unsaved editor draft) is never home
+                    is_home = home_key and panel.get("key", "") == home_key
                     if not is_home and panel.show_home_button():
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
                     elif is_home and panel.show_idle_button():
@@ -463,9 +449,8 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 # right secondary: locked => UNLOCK, notifications => NAV_NOTIF
                 elif fnc_id == self.FNC_BTN_R_SEC:
                     locked = panel.get_state("locked")
-                    # Only a genuinely locked panel takes the slot: an explicit
-                    # ``locked=False`` means "unlocked", so the notification
-                    # indicator must still be able to use it.
+                    # Only a genuinely locked panel takes the slot
+                    # (``locked=False`` means unlocked).
                     if locked is True:
                         fnc_item["fnc_name"] = self.FNC_TYPE_UNLOCK
                         fnc_item["fnc_args"]["locked"] = locked
@@ -481,27 +466,12 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 else:
                     fnc_item["fnc_args"]["visible"] = True
 
-        # Notification indicator: the main loop granted it right_sec only when
-        # that slot was free.  A page that claimed both right slots (grid/row
-        # pagination in navigation, ...) leaves no room for it; take over the
-        # idle button's left-secondary slot instead so unread notifications
-        # stay reachable.
+        # Notification fallback: if the page claimed both right slots, use the
+        # idle button's left-secondary slot.
         self._assign_notification_fallback(panel)
 
     def _assign_notification_fallback(self, panel: HAUIPanel) -> None:
-        """Give the notification indicator the idle button's slot as a fallback.
-
-        When notifications are enabled but no header slot carries NAV_NOTIF
-        (right_sec was claimed by the page, e.g. grid/row pagination in
-        navigation, and right_pri by prev/next), the notification button
-        overrides the **idle button** (left_sec on the home panel) so unread
-        notifications remain reachable.  The idle button is sacrificed only
-        when it is actually the occupant — an existing HOME/other function or
-        a locked panel is never overridden.
-
-        Args:
-            panel (HAUIPanel): Current panel
-        """
+        """Give the notification indicator the idle button's slot as a fallback."""
         if not panel.show_notifications_button():
             return
         for _fnc_id, _fnc_item in self._fnc_items.items():
@@ -515,17 +485,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         left_sec["fnc_args"]["visible"] = notification.has_notifications()
 
     def _swap_slots_if_single_nav(self, pri_key: str, sec_key: str) -> None:
-        """Swap secondary button slot with primary when both exist and primary is nav-unused.
-
-        When there is only a single navigation panel, the primary prev/next
-        buttons are not needed.  This method hides the primary button and
-        swaps its component slot with the secondary so the secondary's icon
-        appears in the primary position.
-
-        Args:
-            pri_key (str): Primary function button key (e.g. FNC_BTN_L_PRI)
-            sec_key (str): Secondary function button key (e.g. FNC_BTN_L_SEC)
-        """
+        """Swap a nav-unused primary slot with the secondary one's widget."""
         if pri_key not in self._fnc_items:
             return
         pri = self._fnc_items[pri_key]
@@ -540,11 +500,13 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             return
         sec = self._fnc_items[sec_key]
         pri_comp = pri["fnc_component"]
-        sec_comp = sec["fnc_component"]
-        pri["fnc_component"] = sec_comp
+        pri["fnc_component"] = sec["fnc_component"]
         sec["fnc_component"] = pri_comp
-        self._fnc_items[pri_key] = sec
-        self._fnc_items[sec_key] = pri
+        # The widgets swapped; drop the cached state so the new widget gets its
+        # arguments rendered.
+        for item in (pri, sec):
+            for key in [key for key in item if key.startswith("current_")]:
+                del item[key]
 
     # ------------------------------------------------------------------
     # Callbacks
@@ -601,9 +563,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
         elif fnc_name == self.FNC_TYPE_NAV_IDLE:
-            # This idle-page entry was touch-initiated: arm the grace window
-            # that absorbs the trigger's residual duplicate touch_start (ESP32
-            # touch poller lag) so it can't dismiss the just-opened page.
+            # touch-initiated idle entry: absorb the trigger's duplicate touch_start
             self.app.device.arm_idle_touch_grace()
             navigation.open_idle_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:

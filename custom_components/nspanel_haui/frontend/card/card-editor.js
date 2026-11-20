@@ -1,16 +1,12 @@
 // @ts-check
 /**
  * NSPanel HAUI - the dashboard card's settings in Home Assistant's card
- * editor: which device, what it shows, and how big.
- * Loaded when the card editor opens (card.js `getConfigElement`).
+ * editor: every panel of the hub or one of them, the display size, and whether
+ * to mirror the real panel. Loaded when the card editor opens (card.js `getConfigElement`).
  *
- * Four fields, and nothing that hides part of the card: a card is the panel
- * (its screen, its frame, the row under it) or, in `tile` mode, the row alone.
- *
- * The device selector stores the panel's Home Assistant `device_id` together
- * with its hub name, so a device renamed in the editor keeps every dashboard
- * working (web/card.py resolves the id). A disabled device stays selectable:
- * its card says it is disabled and starts working when it is enabled again.
+ * The card's config is read through `normalizeConfig`, so a card saved by the
+ * first implementation (`mode: overview`, `home`, `live` or `tile`) is edited
+ * as the fleet or device card it now is.
  */
 import { LitElement, html, nothing } from '../lit-import.js';
 import { createApiClient } from '../api/client.js';
@@ -18,6 +14,7 @@ import { fetchTranslations, getLanguage, t } from '../localize.js';
 import { dashboardComponentStyles } from '../styles/dashboard-component-styles.js';
 import { dashboardTokens } from '../styles/tokens.js';
 import { button } from '../ui/button.js';
+import { normalizeConfig } from './card.js';
 
 /** @typedef {import('../api/types.js').CardDevice} CardDevice */
 
@@ -75,14 +72,30 @@ export class NSPanelHauiCardEditor extends LitElement {
   }
 
   _schema() {
+    const config = normalizeConfig(this._config || {});
     const devices = [...(this._devices || [])];
     // A device that no longer exists stays selected, so the card can say why.
     const current = this._config?.device;
     if (current && !devices.some((device) => device.name === current)) {
       devices.push({ entry_id: '', name: current, device_id: null, enabled: false });
     }
-    return [
+    const schema = /** @type {any[]} */ ([
       {
+        name: 'mode',
+        required: true,
+        selector: {
+          select: {
+            mode: 'list',
+            options: [
+              { value: 'fleet', label: t('All panels of the hub') },
+              { value: 'device', label: t('One panel') },
+            ],
+          },
+        },
+      },
+    ]);
+    if (config.mode === 'device') {
+      schema.push({
         name: 'device',
         required: true,
         selector: {
@@ -96,35 +109,47 @@ export class NSPanelHauiCardEditor extends LitElement {
             })),
           },
         },
-      },
+      });
+    }
+    schema.push(
       {
-        name: 'mode',
+        name: 'display_mode',
         required: true,
         selector: {
           select: {
             mode: 'list',
             options: [
-              { value: 'home', label: t('Home panel') },
-              { value: 'live', label: t('Live screen') },
-              { value: 'tile', label: t('Status tile') },
+              { value: 'big', label: t('Big preview') },
+              { value: 'small', label: t('Small preview') },
+              { value: 'status', label: t('Status only') },
             ],
           },
         },
       },
-      { name: 'title', selector: { text: {} } },
       {
+        name: 'live',
+        selector: { boolean: {} },
+        description: t('Show what the real panel shows instead of its home panel'),
+      },
+      { name: 'title', selector: { text: {} } },
+    );
+    if (config.display_mode === 'big') {
+      schema.push({
         name: 'scale',
         selector: {
           number: { min: 20, max: 100, step: 5, mode: 'slider', unit_of_measurement: '%' },
         },
-      },
-    ];
+      });
+    }
+    return schema;
   }
 
   /** @param {{ name: string }} field */
   _label(field) {
-    if (field.name === 'device') return t('Device');
     if (field.name === 'mode') return t('Show');
+    if (field.name === 'device') return t('Panel');
+    if (field.name === 'display_mode') return t('Display mode');
+    if (field.name === 'live') return t('Live screen');
     if (field.name === 'title') return t('Title');
     return t('Screen size');
   }
@@ -133,13 +158,14 @@ export class NSPanelHauiCardEditor extends LitElement {
   _changed(event) {
     event.stopPropagation();
     const value = /** @type {Object<string, any>} */ (event.detail.value);
-    const config = { ...this._config, ...value };
+    const merged = { ...this._config, ...value };
     // The device's id travels with its name, so a rename keeps this card working.
     if (value.device !== undefined) {
       const device = (this._devices || []).find((entry) => entry.name === value.device);
-      if (device?.device_id) config.device_id = device.device_id;
-      else delete config.device_id;
+      if (device?.device_id) merged.device_id = device.device_id;
+      else delete merged.device_id;
     }
+    const config = normalizeConfig(merged);
     this._config = config;
     this.dispatchEvent(new CustomEvent('config-changed', {
       detail: { config },
@@ -150,7 +176,7 @@ export class NSPanelHauiCardEditor extends LitElement {
 
   /** The form's data. */
   _data() {
-    return { mode: 'home', scale: 100, ...this._config };
+    return { live: false, scale: 100, ...normalizeConfig(this._config || {}) };
   }
 
   // The vendored Lit's own typings are not exact; a template is what it returns.
@@ -181,4 +207,3 @@ export class NSPanelHauiCardEditor extends LitElement {
 if (!customElements.get('nspanel-haui-card-editor')) {
   customElements.define('nspanel-haui-card-editor', NSPanelHauiCardEditor);
 }
-

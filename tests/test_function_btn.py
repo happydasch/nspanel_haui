@@ -8,12 +8,15 @@ actively occupying the left-secondary slot.
 """
 
 import pytest
+from support.page_app import PageApp
 
 from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
     FncType,
     FunctionButtonMixin,
 )
+from custom_components.nspanel_haui.haui.page.cover import CoverPage
 
 
 class FakeNotif:
@@ -126,6 +129,20 @@ def _slot(page, fnc_id):
 
 
 HOME = {"home_panel": "home", "show_home_button": False}
+
+
+def test_keyless_panel_gets_the_home_button_with_a_home_panel_set():
+    """A panel without a key is never the home panel.
+
+    Regression: the home check read ``panel.get("key")``, which raises for a
+    panel whose key is ``None`` (a template, an unsaved editor draft), so
+    rendering one failed as soon as a ``home_panel`` was configured.
+    """
+    app = PageApp({}, device_settings={"home_panel": "kitchen", "show_home_button": True})
+    page = CoverPage(app, {"page_id": 18})
+    page.set_panel(HAUIPanel(app, {"type": "cover", "item": ""}))
+
+    assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_HOME, True)
 
 
 def test_sleep_button_shows_when_notifications_disabled():
@@ -264,17 +281,17 @@ def test_notification_fallback_slot_opens_notifications():
     assert page.app.controller["navigation"].opened == []
 
 
-def test_single_nav_swap_moves_sleep_to_primary():
-    """With a single nav panel, prev/next collapse and sleep surfaces in the
-    visible primary-left slot."""
+def test_single_nav_swap_draws_sleep_in_the_primary_position():
+    """With a single nav panel, prev/next collapse and sleep is drawn in the
+    primary-left position (its slot keeps its own button)."""
     page, panel = _build({**HOME, "show_idle_button": True}, in_nav=True)
     page._auto_assign_fncs(panel)
     page._swap_slots_if_single_nav(page.FNC_BTN_L_PRI, page.FNC_BTN_L_SEC)
-    name, visible = _slot(page, page.FNC_BTN_L_PRI)
-    assert name == FncType.NAV_IDLE
-    assert visible is True
-    # the displaced prev button is now hidden in the secondary slot
-    assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_PREV, False)
+    assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_IDLE, True)
+    assert page._fnc_items[page.FNC_BTN_L_SEC]["fnc_component"] == Component(3, "bFncLPri")
+    # the displaced prev button is hidden, and drawn on the former sleep widget
+    assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_PREV, False)
+    assert page._fnc_items[page.FNC_BTN_L_PRI]["fnc_component"] == Component(4, "bFncLSec")
 
 
 def _real_panel_page(panel_cfg, device_cfg):

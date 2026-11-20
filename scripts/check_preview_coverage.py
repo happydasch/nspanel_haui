@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 """Check that every panel preview resolves to a physical Nextion page.
 
-The editor's panel-card previews are all drawn by one shared Nextion simulator
-(frontend/previews/simulator-frame.js + simulator.js): it loads the generated
-virtual-panel layout, jumps to a panel type's physical HMI page and renders it.
-There are no per-type preview renderers, so this script validates that the
-preview can resolve every panel - user types, system panels and popup aliases -
-to a page that exists in the generated layouts of both orientations.
+The one shared Nextion simulator draws a panel by jumping to its type's physical
+HMI page, so every panel - user type, system panel or popup alias - needs a page
+that exists in both generated layouts.
 
 Usage:
     python -m scripts.check_preview_coverage
-
-Exit code is non-zero when any panel has no physical page, or a page is missing
-from a layout.
 """
 
 from __future__ import annotations

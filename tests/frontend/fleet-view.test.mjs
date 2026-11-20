@@ -9,6 +9,59 @@ import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app
 import * as EditorPreferences from '../../custom_components/nspanel_haui/frontend/editor-preferences.js';
 import { makeHost } from './fake-host.mjs';
 
+test('a device without panels offers its setup instead of an empty screen', () => {
+  const opened = [];
+  const setups = [];
+  const device = (name, panels, needsSetup) => ({
+    name,
+    device: { friendlyName: name, config: {}, panels },
+    status: { connected: true },
+    needsSetup,
+    preview: panels.length ? { strings: ['<nspanel-simulator-frame></nspanel-simulator-frame>'], values: [] } : null,
+  });
+  const root = render(renderFleetView({
+    devices: [device('kitchen', [], true), device('office', [{ key: 'grid_0' }], false)],
+    events: [],
+    version: '0.5.0',
+    onOpenDevice: (name) => opened.push(name),
+    onSetUpDevice: (name) => setups.push(name),
+    onReorderDevices() {},
+  }));
+  const [fresh, configured] = [...root.querySelectorAll('.haui-device-card')];
+  assert.match(fresh.textContent, /No panels yet/);
+  assert.doesNotMatch(configured.textContent, /No panels yet/);
+
+  const covers = [...root.querySelectorAll('.haui-device-card-select')];
+  assert.match(covers[0].getAttribute('aria-label'), /Set up device kitchen/);
+  assert.match(covers[1].getAttribute('aria-label'), /Open device office/);
+  covers[0].click();
+  assert.deepEqual(setups, ['kitchen']);
+  assert.deepEqual(opened, []);
+  covers[1].click();
+  assert.deepEqual(opened, ['office']);
+});
+
+test('an inventory row looks like any other device, with or without panels', () => {
+  const row = (name, needsSetup) => ({
+    name,
+    device: { friendlyName: name, config: {}, panels: [] },
+    status: { connected: true },
+    needsSetup,
+  });
+  const root = render(renderFleetView({
+    devices: [row('kitchen', true), row('office', false)],
+    events: [],
+    version: '0.5.0',
+    onOpenDevice() {},
+    onReorderDevices() {},
+  }));
+  const insist = [...root.querySelectorAll('.haui-device-row:not(.haui-device-row-head)')];
+  // The Panels view explains an empty device; the inventory stays a plain list.
+  assert.doesNotMatch(insist[0].textContent, /Not configured/);
+  assert.doesNotMatch(insist[1].textContent, /Not configured/);
+  assert.match(insist[0].textContent, /kitchen/);
+});
+
 function templateText(template) {
   return render(template).innerHTML;
 }
@@ -466,12 +519,11 @@ test('Logs opens on the device Fleet selected, and on every device without one',
   editor.renderRoot = { querySelector: () => null, activeElement: null };
   editor._fleetSelection = null;
   const now = new Date().toISOString();
-  editor.api.status.getAll = async () => ({
+  editor.api.status.getAll = async () => ({ devices: {
     kitchen: { connected: true, logs: [`[${now}] INFO kitchen says hello`, `[${now}] ERROR kitchen failed`] },
     office: { connected: true, logs: [`[${now}] WARNING office says hello`] },
-  });
-  editor.api.updates.rollout = async () => null;
-  editor.store.actions.startAllStatusPolling();
+  } });
+  editor.store.actions.setStatusPolling('all');
   await flush(3);
 
   try {
@@ -496,7 +548,7 @@ test('Logs opens on the device Fleet selected, and on every device without one',
     assert.deepEqual(overlays(), [['logs', 'office']]);
   } finally {
     // The poller's interval would keep the test process alive.
-    editor.store.actions.stopAllStatusPolling();
+    editor.store.actions.setStatusPolling(null);
   }
 });
 
@@ -585,11 +637,10 @@ test('Reset on Fleet starts the latest events at the moment it was pressed, and 
   editor._fleetSelection = null;
   editor._fleetEventsSince = null;
   const logged = new Date(Date.now() - 60_000).toISOString();
-  editor.api.status.getAll = async () => ({
+  editor.api.status.getAll = async () => ({ devices: {
     kitchen: { connected: true, logs: [`[${logged}] ERROR kitchen failed`] },
-  });
-  editor.api.updates.rollout = async () => null;
-  editor.store.actions.startAllStatusPolling();
+  } });
+  editor.store.actions.setStatusPolling('all');
   await flush(3);
 
   try {
@@ -615,7 +666,7 @@ test('Reset on Fleet starts the latest events at the moment it was pressed, and 
     assert.match(timeline(fleet()), /kitchen failed/);
   } finally {
     // The poller's interval would keep the test process alive.
-    editor.store.actions.stopAllStatusPolling();
+    editor.store.actions.setStatusPolling(null);
   }
 });
 const ROLLOUT_DEVICES = [

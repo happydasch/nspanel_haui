@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# Compile the universal firmware and copy its two images to the repository
-# root, for release.yml and dev-firmware.yml. The images are not
-# interchangeable:
-#   - firmware.factory.bin -> nspanel_haui.bin: a full flash image (bootloader
-#     + partition table + app from offset 0), for manual/serial flashing only.
-#   - firmware.ota.bin -> nspanel_haui_ota.bin: the app image the HTTP OTA
-#     platform writes into the OTA partition. Feeding the factory image to OTA
-#     would write bootloader bytes into the app slot.
+# Compile the universal firmware and copy its two images to the repository root, for
+# release.yml and dev-firmware.yml. They are not interchangeable: firmware.factory.bin
+# (nspanel_haui.bin) is a full flash image for serial flashing, firmware.ota.bin
+# (nspanel_haui_ota.bin) the app image the HTTP OTA platform writes.
 set -euo pipefail
 
 esphome compile esphome/nspanel_haui_universal.yaml

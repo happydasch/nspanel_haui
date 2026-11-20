@@ -4,6 +4,7 @@ import { GESTURE_ACTIONS, GESTURE_NAMES } from '../constants.js';
 import { renderNumberInput, renderSelect } from '../form-fields.js';
 import { panelTargetOptions } from '../haui-item.js';
 import { t } from '../localize.js';
+import { panelName } from '../panel-utils.js';
 import { entryList } from './entry-list.js';
 import { icon } from './icon.js';
 import { sortHandle } from './sort-handle.js';
@@ -28,14 +29,16 @@ export function gestureSwipesLabel(gesture) {
 
 /**
  * What a gesture does: a step through the panels, or the name of the panel it opens.
+ * An untitled panel reads by its type's label, like it does in Home & idle.
  * @param {string} action @param {any[]} panels @param {any[]} systemPanels
+ * @param {any[]} [panelTypes] - the hub's panel type descriptors
  */
-export function gestureActionLabel(action, panels = [], systemPanels = []) {
+export function gestureActionLabel(action, panels = [], systemPanels = [], panelTypes = []) {
   if (!action) return t('No action');
   if (action === 'next_panel') return t('Next panel');
   if (action === 'prev_panel') return t('Previous panel');
   const panel = panels.find((candidate) => candidate.key === action);
-  if (panel) return panel.title || panel.key;
+  if (panel) return panelName(panel, panelTypes);
   return systemPanels.find((candidate) => candidate.key === action)?.label || action;
 }
 
@@ -44,13 +47,13 @@ export function gestureActionLabel(action, panels = [], systemPanels = []) {
  * schedule: each gesture folds to its swipes and its action; only
  * `expandedEntryIndex` (the gesture just added) opens by state.
  *
- * @param {{ gestures?: any[], panels?: any[], systemPanels?: any[], idPrefix?: string,
- *   expandedEntryIndex?: number|null, onChange: (gestures: any[]) => void,
+ * @param {{ gestures?: any[], panels?: any[], systemPanels?: any[], panelTypes?: any[],
+ *   idPrefix?: string, expandedEntryIndex?: number|null, onChange: (gestures: any[]) => void,
  *   onAdd?: (gestures: any[]) => void, onEntryToggle?: (index: number, open: boolean) => void }} options
  */
 export function gestureEditor({
-  gestures = [], panels = [], systemPanels = [], idPrefix = 'panel-gesture', expandedEntryIndex = null,
-  onChange, onAdd, onEntryToggle,
+  gestures = [], panels = [], systemPanels = [], panelTypes = [], idPrefix = 'panel-gesture',
+  expandedEntryIndex = null, onChange, onAdd, onEntryToggle,
 }) {
   // A popup opens with its caller's context (an entity, a notification), so a gesture cannot open one.
   const fixedSystemPanels = systemPanels.filter((panel) => !panel.editable);
@@ -180,7 +183,7 @@ export function gestureEditor({
     onRemove: (index) => onChange(gestures.filter((_, i) => i !== index)),
     onToggle: onEntryToggle,
     summary: gestureSwipesLabel,
-    note: (gesture) => gestureActionLabel(gesture.action, panels, systemPanels),
+    note: (gesture) => gestureActionLabel(gesture.action, panels, systemPanels, panelTypes),
     body,
   });
 }

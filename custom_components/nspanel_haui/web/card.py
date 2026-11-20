@@ -1,19 +1,22 @@
 """WebSocket commands of the dashboard card (``frontend/card/``).
 
-The card shows one device's screen on a Home Assistant dashboard to every
-signed-in user, so these commands are not admin-only. They only read:
+The card shows a hub's panels on a Home Assistant dashboard to every signed-in
+user, so these commands are not admin-only. They only read:
 
 - ``nspanel_haui/card/devices`` lists the hub's devices a card can name, in
   the hub's device order, with their Home Assistant ``device_id`` and whether
-  they run. A disabled device stays in the list (its card survives being
-  switched off and back on); a card says it is disabled instead of showing it.
+  they run. A disabled device stays in the list: its card keeps drawing the
+  hub's render of its panels, and says its setting instead of a state.
 - ``nspanel_haui/card/home/subscribe`` streams the device's home panel
   (``preview/home_stream.py``), run on its virtual app with real states, the
-  panel's own state and its hardware button lights.
+  panel's own state and its hardware button lights. A disabled device has no
+  running app, so its stream reports no state - the render comes from its
+  stored settings, which is all a card needs for the screen.
 - ``nspanel_haui/card/live/subscribe`` streams what the real panel shows, as
-  the editor's live preview gets it (``preview/live_panel.LivePanel``). The
-  viewer is not one of the live preview's sessions, so no input command finds
-  it: those stay admin-only, like the editor and every other command.
+  the editor's live preview gets it (``preview/live_panel.LivePanel``). It
+  needs the running app: a disabled device has no live screen. The viewer is
+  not one of the live preview's sessions, so no input command finds it: those
+  stay admin-only, like the editor and every other command.
 
 A subscription names its device either by ``device_id`` (the Home Assistant
 device of the panel, which the card editor stores and a rename does not
@@ -30,7 +33,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.components import websocket_api
 
 from ..const import DOMAIN
@@ -60,10 +63,11 @@ async def _device_enabled(hass: Any, entry: Any, name: str) -> bool:
 async def _running_or_error(
     hass: Any, connection: Any, msg: dict[str, Any], entry: Any, device: str
 ) -> Any | None:
-    """The device's running app, or the error saying why a card cannot show it.
+    """The device's running app, or the error saying why a live card cannot mirror it.
 
-    A disabled device is told apart from one whose app is still starting: the
-    card says which, and subscribes again either way.
+    A live card shows what the panel itself shows, so it needs the device's
+    app. A disabled device is told apart from one whose app is still starting:
+    the card says which, and subscribes again either way.
     """
     running = _running_app(hass, entry.entry_id, device)
     if running is not None:
@@ -73,6 +77,27 @@ async def _running_or_error(
     else:
         connection.send_error(msg["id"], "not_found", "The device's hub app is not running")
     return None
+
+
+async def _home_target(
+    hass: Any, connection: Any, msg: dict[str, Any]
+) -> tuple[Any, str, Any | None] | None:
+    """The hub entry, the device name and its running app, if the card can draw it.
+
+    A disabled device has no running app, but the hub still renders its panels
+    from its stored settings, so its card keeps its screen; only the panel's
+    own state is missing. An enabled device whose app is still starting is
+    told apart, and the card subscribes again.
+    """
+    target = _card_device(hass, connection, msg)
+    if target is None:
+        return None
+    entry, device = target
+    running = _running_app(hass, entry.entry_id, device)
+    if running is None and await _device_enabled(hass, entry, device):
+        connection.send_error(msg["id"], "not_found", "The device's hub app is not running")
+        return None
+    return entry, device, running
 
 
 def _live_viewers(hass: Any) -> dict[str, tuple[str, Callable[[], None]]]:
@@ -147,13 +172,10 @@ async def ws_devices(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
 )
 @websocket_api.async_response
 async def ws_home_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
-    target = _card_device(hass, connection, msg)
+    target = await _home_target(hass, connection, msg)
     if target is None:
         return
-    entry, device = target
-    running = await _running_or_error(hass, connection, msg, entry, device)
-    if running is None:
-        return
+    entry, device, running = target
     msg_id = msg["id"]
     hosts = _hosts(hass)
     key = (entry.entry_id, device)
@@ -177,9 +199,10 @@ async def ws_home_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> 
     connection.send_result(msg_id)
     try:
         started = await hosts.async_get(entry, device)
-        await started.async_follow_device(running)
-        # The panel's state, its queue and the frame's button lights.
-        await started.async_follow_panel(running)
+        if running is not None:
+            await started.async_follow_device(running)
+            # The panel's state, its queue and the frame's button lights.
+            await started.async_follow_panel(running)
     except Exception:
         _LOGGER.exception("Home panel card of '%s' failed to start", device)
         sink({"type": "error", "message": "start_failed"})

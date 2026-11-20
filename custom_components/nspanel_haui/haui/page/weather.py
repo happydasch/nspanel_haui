@@ -120,7 +120,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         has_header=False,
     )
 
-    # no header: the page has no function buttons
+    # no header: no function buttons
     COMPONENTS = ComponentRegistry(
         t_time=Component(2, "tTime"),
         t_date=Component(3, "tDate"),
@@ -174,7 +174,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
 
         self._show_notifications = True
         self._previous_forecast = None
-        # identifies the forecast request whose answer may be drawn
+        # token of the forecast request whose answer may draw
         self._forecast_request: object | None = None
         self._forecast_type = ""
         self._show_weather = True
@@ -203,7 +203,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
             self.set_component_text_color(component, self.get_color("text"))
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
-        # Weather entity - role-based creation from explicit config keys
+        # weather entity from the panel's item option
         weather_entity_id = self._extract_entity_id(self.option(panel, "item"))
         if weather_entity_id:
             self._weather_item = self._make_item({"item": weather_entity_id})
@@ -240,9 +240,9 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self._forecast_type = self.option(panel, "forecast_type")
         if self._forecast_type:
             self._render_forecast()
-        # cycle cards in the time area; tTime sends no touch events, so they only cycle
+        # cycle cards in the time area; tTime sends no touch events
         self._start_cards(panel, has_weather=bool(weather_entity_id))
-        # notification (reuses t_main_icon widget — no dedicated notif component)
+        # notification shares t_main_icon
         self._show_notifications = self.option(panel, "show_notifications")
 
     def render_panel(self, panel: HAUIPanel) -> None:
@@ -257,11 +257,11 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        # A forecast still on its way belongs to this panel.
+        # drop a forecast still on its way
         self._forecast_request = None
         self._stop_cards()
         release_ticks(self)
-        # Unregister the shared blinker callback so a closed page is not refreshed.
+        # Unregister the blinker so a closed page is not refreshed.
         self.app.controller["notification"].clear_blinker_callback()
 
     # misc
@@ -404,8 +404,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
             if msg_sub:
                 pressure_unit = self._weather_item.get_item_attr("pressure_unit")
                 msg_sub = f"{format_number(msg_sub)}{pressure_unit}"
-        # Hide the text widgets only when there is nothing to show at all; the
-        # weather icon stays visible either way.
+        # Hide the text only when empty; the weather icon stays visible.
         has_text = bool(msg or msg_sub)
         self.update_function_component(
             self.COMPONENTS.t_main_icon.name,

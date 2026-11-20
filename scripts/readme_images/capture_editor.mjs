@@ -1,15 +1,13 @@
-// Capture the editor of a running Home Assistant with one headless Chrome, over
-// the DevTools protocol (Node 22+ for its built-in WebSocket; no npm packages).
+// Capture the editor of a running Home Assistant with one headless Chrome, over the
+// DevTools protocol (Node 22+ for its built-in WebSocket; no npm packages).
 //
 // Usage: node capture_editor.mjs <chrome> <jobs.json>
 //
-// jobs.json is {base, tokens, width, height, shots: [{hash, scheme, path, click?}]},
-// written by gen_editor_screenshots.py. Each scheme gets its own tab with
-// prefers-color-scheme emulated (Home Assistant's default theme follows it), the
-// login tokens in localStorage and the Home Assistant sidebar collapsed. A shot
-// opens the editor at its hash, waits until every panel preview in view shows
-// its render, clicks the button labelled `click` if it has one and saves a
-// screenshot.
+// jobs.json is {base, tokens, width, height, shots: [...]}, written by
+// gen_editor_screenshots.py. Each scheme gets its own tab with prefers-color-scheme
+// emulated, the login tokens in localStorage and the sidebar collapsed. A shot opens
+// the editor at its hash, runs its steps and saves a screenshot once every selector
+// of its `wait` is in view with nothing loading.
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,9 +15,17 @@ import { dirname, join } from 'node:path';
 import { DevTools, browserUrl } from '../preview_gallery/capture.mjs';
 
 const READY_TIMEOUT_MS = 60000;
+// A step keeps looking for its target this long: the click before it renders later.
+const TARGET_TIMEOUT_MS = 10000;
+// A step's click has to reach the DOM, and the editor has to answer it.
+const STEP_MS = 300;
 // Pictures and fonts of a render that has just arrived are still decoding.
 const SETTLE_MS = 1500;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+// What a shot without its own `wait` needs in view: the screen's panel previews, the
+// cards' simulator frames and the live preview stage. Only those in view must be ready.
+const DEFAULT_WAIT = ['nspanel-simulator-frame, .haui-preview-stage'];
 
 // The editor and Home Assistant live in nested shadow roots.
 const DEEP_QUERY = `
@@ -38,24 +44,37 @@ window.__hauiInView = (el) => {
     && box.right > 0 && box.left < innerWidth;
 };`;
 
-// The previews are the cards' simulator frames and the device's live preview
-// stage. Off-screen previews may never be drawn, so only those in view must be ready.
-const READY = `(() => {
+// The editor drew its screen, nothing in view is loading, and every selector is present
+// and in view. An empty selector list is "the screen is drawn".
+const READY = (selectors) => `(() => {
   if (typeof __hauiDeepAll !== 'function') return { ready: false, state: 'no page script' };
-  const frames = __hauiDeepAll('nspanel-simulator-frame, .haui-preview-stage').filter(__hauiInView);
-  const loading = __hauiDeepAll('.haui-preview-sim-loading, .haui-preview-stage[aria-busy="true"]')
-    .filter(__hauiInView);
-  return {
-    ready: frames.length > 0 && loading.length === 0,
-    state: location.href + ': ' + frames.length + ' previews in view, ' + loading.length + ' loading',
-  };
+  const screen = __hauiDeepAll('.haui-device-screen, .haui-fleet-carousel-region');
+  const loading = __hauiDeepAll(
+    '.haui-preview-sim-loading, .haui-empty-state-loading, .haui-preview-stage[aria-busy="true"]'
+  ).filter(__hauiInView);
+  const missing = ${JSON.stringify(selectors)}.filter((sel) => !__hauiDeepAll(sel).some(__hauiInView));
+  return { ready: screen.length > 0 && loading.length === 0 && missing.length === 0,
+           state: location.href + ': ' + missing.join(', ') + ' missing, ' + loading.length + ' loading' };
 })()`;
 
-const click = (label) => `(() => {
-  const button = __hauiDeepAll('button[aria-label=${JSON.stringify(label)}]').find(__hauiInView);
+// One step's target: a button by accessible name (exactly, then by prefix, because
+// `button()` appends its detail text) or the first element matching a CSS selector.
+const TARGET = (step) => (step.kind === 'select'
+  ? `(() => {
+  const el = __hauiDeepAll(${JSON.stringify(step.value)}).find(__hauiInView);
+  el?.click();
+  return Boolean(el);
+})()`
+  : `(() => {
+  const label = ${JSON.stringify(step.value)};
+  const nameOf = (el) =>
+    (el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\\s+/g, ' ');
+  const buttons = __hauiDeepAll('button').filter(__hauiInView);
+  const button = buttons.find((el) => nameOf(el) === label)
+    || buttons.find((el) => nameOf(el).startsWith(label));
   button?.click();
   return Boolean(button);
-})()`;
+})()`);
 
 async function evaluate(devtools, sessionId, expression) {
   const { result, exceptionDetails } = await devtools.send('Runtime.evaluate', {
@@ -65,15 +84,32 @@ async function evaluate(devtools, sessionId, expression) {
   return result.value;
 }
 
-async function waitReady(devtools, sessionId, what) {
+async function waitReady(devtools, sessionId, what, selectors) {
   const started = Date.now();
+  const expression = READY(selectors);
   for (;;) {
-    const { ready, state } = await evaluate(devtools, sessionId, READY);
-    if (ready) break;
-    if (Date.now() - started > READY_TIMEOUT_MS) throw new Error(`${what}: not ready after 60 s (${state})`);
+    const { ready, state } = await evaluate(devtools, sessionId, expression);
+    if (ready) return;
+    if (Date.now() - started > READY_TIMEOUT_MS) {
+      throw new Error(`${what}: not ready after ${READY_TIMEOUT_MS / 1000} s (${state})`);
+    }
     await sleep(250);
   }
-  await sleep(SETTLE_MS);
+}
+
+async function runStep(devtools, sessionId, what, step) {
+  const started = Date.now();
+  const expression = TARGET(step);
+  for (;;) {
+    if (await evaluate(devtools, sessionId, expression)) return;
+    if (Date.now() - started > TARGET_TIMEOUT_MS) {
+      const target = step.kind === 'select'
+        ? `an element matching ${step.value}`
+        : `a button labelled ${step.value}`;
+      throw new Error(`${what}: no ${target}`);
+    }
+    await sleep(250);
+  }
 }
 
 async function openTab(devtools, jobs, scheme) {
@@ -108,13 +144,15 @@ async function capture(devtools, sessionId, jobs, shot) {
   // A hash change alone would not reload the editor from its start state.
   await devtools.send('Page.navigate', { url: 'about:blank' }, sessionId);
   await devtools.send('Page.navigate', { url }, sessionId);
-  await waitReady(devtools, sessionId, url);
-  if (shot.click) {
-    if (!(await evaluate(devtools, sessionId, click(shot.click)))) {
-      throw new Error(`${url}: no button labelled ${shot.click}`);
-    }
-    await waitReady(devtools, sessionId, `${url} after ${shot.click}`);
+  // Nothing to wait for but the screen: a device without panels shows no preview.
+  await waitReady(devtools, sessionId, url, []);
+  for (const step of shot.steps ?? []) {
+    await runStep(devtools, sessionId, url, step);
+    await sleep(STEP_MS);
   }
+  const wait = shot.wait?.length ? shot.wait : DEFAULT_WAIT;
+  await waitReady(devtools, sessionId, `${url} after its steps`, wait);
+  await sleep(SETTLE_MS);
   // No hover state on whatever the pointer last touched.
   await devtools.send('Input.dispatchMouseEvent', {
     type: 'mouseMoved', x: jobs.width - 1, y: jobs.height - 1,

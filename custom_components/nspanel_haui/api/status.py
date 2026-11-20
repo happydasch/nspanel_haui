@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from aiohttp import web
 from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
@@ -27,65 +28,62 @@ from .common import (
 
 
 class DeviceStatusView(HomeAssistantView):
-    """REST API view returning live device status."""
+    """Return the live status of the devices of one entry."""
 
     url = "/api/nspanel_haui/status/{entry_id}"
     name = "api:nspanel_haui:status"
     requires_auth = True
 
     @require_admin
-    async def get(self, request, entry_id: str):
-        """Return live device status for a config entry.
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
+        """Return one device's status, or every device's by name.
 
-        Query param ``device`` (optional) restricts the response to a single
-        device.  When omitted an aggregate dict is returned, including both
-        enabled and disabled devices (status for disabled devices is read
-        directly from HA entities).
+        Query param ``device`` restricts the response to a single device.
+        Without it every device of the entry is included: a running device is
+        asked for its status, a disabled or not yet started one is read from
+        its Home Assistant entities.
         """
         hass = request.app["hass"]
         apps = get_apps(hass, entry_id) or {}
-
         device_name = query_device(request)
+
         if device_name:
             app = apps.get(device_name)
             if app is not None:
                 return self.json(await self._build_running_status(hass, app, device_name))
-            # Device may be disabled or pending — read from HA entities
-            status = self._build_entity_status(hass, entry_id, device_name)
-            if status is not None:
-                return self.json(status)
-            return self.json(
-                {"error": f"device {device_name!r} not found"},
-                status_code=404,
+            if device_name not in self._device_names(hass, entry_id):
+                return self.json(
+                    {"error": f"device {device_name!r} not found"},
+                    status_code=404,
+                )
+            return self.json(self._build_entity_status(hass, device_name))
+
+        devices: dict[str, dict[str, Any]] = {}
+        for name in self._device_names(hass, entry_id):
+            app = apps.get(name)
+            devices[name] = (
+                await self._build_running_status(hass, app, name)
+                if app is not None
+                else self._build_entity_status(hass, name)
             )
-
-        # Enabled devices use their NSPanelHAUI instance, disabled devices get
-        # a minimal status from HA entities.
-        entry = hass.config_entries.async_get_entry(entry_id)
-        all_devices = entry.data.get("devices", []) if entry else []
-        result: dict[str, dict] = {}
-
-        for dev in all_devices:
-            dev_name = dev.get("name", "")
-            if not dev_name:
-                continue
-            app = apps.get(dev_name)
-            if app is not None:
-                result[dev_name] = await self._build_running_status(hass, app, dev_name)
-            else:
-                status = self._build_entity_status(hass, entry_id, dev_name)
-                if status is not None:
-                    result[dev_name] = status
 
         from ..hub.rollout import rollout_snapshot
 
-        return self.json({"devices": result, "rollout": rollout_snapshot(hass, entry_id)})
+        return self.json({"devices": devices, "rollout": rollout_snapshot(hass, entry_id)})
 
     @staticmethod
-    async def _build_running_status(hass: Any, app: Any, device_name: str) -> dict:
+    def _device_names(hass: Any, entry_id: str) -> list[str]:
+        """Return the names of the devices the entry lists."""
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None:
+            return []
+        return [dev["name"] for dev in entry.data.get("devices", []) if dev.get("name")]
+
+    @staticmethod
+    async def _build_running_status(hass: Any, app: Any, device_name: str) -> dict[str, Any]:
         """Combine HA-loop entity readings with an app-worker status snapshot."""
-        # HA's registries and entity states are event-loop-owned; obtain only
-        # the app's mutable runtime snapshot on its worker.
+        # HA's registries and entity states are event-loop-owned; take only the
+        # app's mutable runtime snapshot on its worker.
         network_info = read_network_entities(hass, device_name)
         status = await app.async_run_on_worker(app.get_device_status)
         status["device_info"].update(network_info)
@@ -96,33 +94,28 @@ class DeviceStatusView(HomeAssistantView):
         return status
 
     @staticmethod
-    def _build_entity_status(hass: Any, entry_id: str, dev_name: str) -> dict | None:
-        """Build a minimal status from HA entities for a configured device without an app.
+    def _build_entity_status(hass: Any, device_name: str) -> dict[str, Any]:
+        """Build a minimal status from HA entities for a device without an app.
 
         Registry and state access is Home Assistant event-loop work; this must
         not go to the executor.
         """
-        entry = hass.config_entries.async_get_entry(entry_id)
-        if entry is None or not any(
-            device.get("name") == dev_name for device in entry.data.get("devices", [])
-        ):
-            return None
-        nw = read_network_entities(hass, dev_name)
+        network = read_network_entities(hass, device_name)
         return {
             "connected": False,
             "connection_state": "disabled",
             "current_page": "",
             "current_panel": "",
             "device_info": {
-                "name": dev_name,
+                "name": device_name,
                 "tft_version": "",
                 "tft_required_version": "",
                 "yaml_version": "",
-                "ip": nw["ip"],
-                "ssid": nw["ssid"],
-                "rssi": nw["rssi"],
-                "temperature_entity_id": resolve_temperature_entity_id(hass, dev_name),
-                **resolve_brightness_entity_ids(hass, dev_name),
+                "ip": network["ip"],
+                "ssid": network["ssid"],
+                "rssi": network["rssi"],
+                "temperature_entity_id": resolve_temperature_entity_id(hass, device_name),
+                **resolve_brightness_entity_ids(hass, device_name),
                 "last_panel_update": None,
                 "last_connection": None,
             },
@@ -130,21 +123,21 @@ class DeviceStatusView(HomeAssistantView):
 
 
 class NotificationsView(HomeAssistantView):
-    """REST API for reading and dismissing queued device notifications."""
+    """Read and dismiss the queued notifications of the devices."""
 
     url = "/api/nspanel_haui/notifications/{entry_id}"
     name = "api:nspanel_haui:notifications"
     requires_auth = True
 
     @require_admin
-    async def get(self, request, entry_id: str):
-        """Return queued notifications for one device or the whole hub entry."""
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
+        """Return the queued notifications of one device, or of every device."""
         apps = get_apps(request.app["hass"], entry_id) or {}
         device_name = query_device(request)
         if device_name:
             app = apps.get(device_name)
             if app is None:
-                return self.json([], status_code=200)
+                return self.json([])
             return self.json(await self._read_app_notifications(app))
 
         notifications = []
@@ -153,8 +146,8 @@ class NotificationsView(HomeAssistantView):
         return self.json(notifications)
 
     @require_admin
-    async def delete(self, request, entry_id: str):
-        """Dismiss one queued notification by device name and queue identifier."""
+    async def delete(self, request: web.Request, entry_id: str) -> web.Response:
+        """Dismiss one queued notification, named by ``device`` and ``id``."""
         device_name = query_device(request)
         notification_id = (request.query.get("id") or "").strip()
         if not device_name or not notification_id:
@@ -180,7 +173,7 @@ class NotificationsView(HomeAssistantView):
         return self.json({"status": "ok"})
 
     @staticmethod
-    async def _read_app_notifications(app) -> list[dict[str, Any]]:
+    async def _read_app_notifications(app: Any) -> list[dict[str, Any]]:
         """Read a device's queue on its worker thread and serialize public fields."""
 
         def read_notifications() -> list[dict[str, Any]]:
@@ -208,7 +201,7 @@ class NotificationsView(HomeAssistantView):
 
 
 class DeviceRefreshDisplayView(HomeAssistantView):
-    """REST API endpoint to trigger display refresh on one or all devices."""
+    """Refresh the display of one or of every device."""
 
     url = "/api/nspanel_haui/refresh_display/{entry_id}"
     name = "api:nspanel_haui:refresh_display"
@@ -216,11 +209,10 @@ class DeviceRefreshDisplayView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Refresh the display for the specified device (or all devices).
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Refresh the display of the device the body names, ``*`` for every device.
 
-        JSON body may carry an optional ``device`` field (device name, or ``*``
-        for all devices).  When omitted defaults to ``*``.
+        The body's ``device`` field is optional and defaults to ``*``.
         """
         device_name = body_device(await json_object(request))
         apps = running_apps(request.app["hass"], entry_id)

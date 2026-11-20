@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers import config_validation as cv
@@ -32,8 +33,8 @@ from .haui.device_config import (  # noqa: E402
 
 
 def _build_config_dict(
-    data: dict[str, Any],
-    panels: dict[str, Any] | None = None,
+    data: Mapping[str, Any],
+    panels: Mapping[str, Any] | None = None,
     *,
     device_name: str = "",
 ) -> dict[str, Any]:
@@ -154,26 +155,12 @@ def _build_config_dict(
     return cfg
 
 
-async def _link_esphome_device(
+def _link_esphome_device(
     hass: HomeAssistant,
-    entry: ConfigEntry,
     ha_device_id: str,
     dev_name: str,
 ) -> None:
-    """Link the ESPHome device to the nspanel_haui integration.
-
-    Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry.
-    The services' device selector (integration: nspanel_haui) ignores it: it
-    filters by config entry and entity platform, so it offers the integration's
-    own device, which ``services._resolve_target_apps`` accepts as well.
-
-    A device now belongs to a single config entry (the ESPHome one), so our
-    config entry is no longer attached: ``add_config_entry_id`` is deprecated
-    (breaks in HA 2027.8) and only records a pending move, and
-    ``new_config_entry_id`` would take the device away from ESPHome.
-
-    Safe to call when the device is already linked (idempotent).
-    """
+    """Add a HAUI identifier without taking the device away from ESPHome."""
     from homeassistant.helpers import device_registry as dr
 
     dev_reg = dr.async_get(hass)
@@ -190,22 +177,12 @@ async def _link_esphome_device(
 
 async def _create_app(
     hass: HomeAssistant,
-    entry: ConfigEntry,
     name: str,
     data: dict[str, Any],
     panels: dict[str, Any] | None,
     dev_name: str,
 ) -> NSPanelHAUI:
-    """Create and initialize a single NSPanelHAUI app instance for a device.
-
-    Builds the device config from the config layers (data,
-    panels), resolves the ESPHome HA device_id, adds an ``nspanel_haui``
-    identifier to the ESPHome device entry, initializes the app on the
-    executor thread, and returns the ready-to-use instance.
-
-    The caller is responsible for storing the returned app in the running
-    apps dict (hass.data[DOMAIN][entry.entry_id][dev_name]).
-    """
+    """Build the device config and initialize its app on its own worker."""
     from .hub.app import NSPanelHAUI
     from .hub.esphome_helpers import resolve_ha_device_id
 
@@ -223,10 +200,8 @@ async def _create_app(
     )
     await app.async_run_on_worker(app.initialize)
 
-    # Link the ESPHome device to our integration so it shows in the hub page
-    # and the device selector (integration: nspanel_haui) can find it.
     if ha_device_id:
-        await _link_esphome_device(hass, entry, ha_device_id, dev_name)
+        _link_esphome_device(hass, ha_device_id, dev_name)
 
     _LOGGER.info("NSPanel HAUI instance for device '%s' started", dev_name)
     return app
@@ -448,7 +423,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     for device_name in enabled_device_names(data, panels):
         try:
-            apps[device_name] = await _create_app(hass, entry, name, data, panels, device_name)
+            apps[device_name] = await _create_app(hass, name, data, panels, device_name)
         except Exception as exc:
             _LOGGER.exception(
                 "NSPanel HAUI '%s': failed to start device '%s'",
@@ -497,36 +472,39 @@ async def _auto_add_unconfigured_devices(hass: HomeAssistant, entry: ConfigEntry
 
     try:
         discovered = await discover_esphome_devices(hass)
-        configured_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
-        # Devices the user removed stay removed until they add them again.
-        removed_names = set(entry.data.get("removed_devices", []))
-        unconfigured = [
-            d
-            for d in discovered
-            if d["name"] not in configured_names and d["name"] not in removed_names
-        ]
+        async with entry.setup_lock:
+            if hass.config_entries.async_get_entry(entry.entry_id) is not entry:
+                return
+            configured_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
+            # Devices the user removed stay removed until they add them again.
+            removed_names = set(entry.data.get("removed_devices", []))
+            unconfigured = [
+                d
+                for d in discovered
+                if d["name"] not in configured_names and d["name"] not in removed_names
+            ]
 
-        if not unconfigured:
-            return
+            if not unconfigured:
+                return
 
-        new_devices = list(entry.data.get("devices", []))
-        for dev in unconfigured:
-            new_devices.append(hub_device_entry(dev))
+            new_devices = list(entry.data.get("devices", []))
+            for dev in unconfigured:
+                new_devices.append(hub_device_entry(dev))
+                _LOGGER.info(
+                    "Auto-added HAUI device '%s' to hub '%s'",
+                    dev["name"],
+                    entry.title,
+                )
+
+            hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, "devices": new_devices},
+            )
             _LOGGER.info(
-                "Auto-added HAUI device '%s' to hub '%s'",
-                dev["name"],
+                "Auto-added %d device(s) to hub '%s'; reloading",
+                len(unconfigured),
                 entry.title,
             )
-
-        hass.config_entries.async_update_entry(
-            entry,
-            data={**entry.data, "devices": new_devices},
-        )
-        _LOGGER.info(
-            "Auto-added %d device(s) to hub '%s'; reloading",
-            len(unconfigured),
-            entry.title,
-        )
     except Exception:
         _LOGGER.warning(
             "Auto-discovery scan for hub '%s' failed",
@@ -564,9 +542,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Delete the hub's panel store when the hub is removed."""
-    from .hub.storage import panel_store
+    from .hub.storage import finish_panel_write, panel_store
 
-    await panel_store(hass, entry.entry_id).async_remove()
+    await finish_panel_write(panel_store(hass, entry.entry_id).async_remove())
 
 
 async def async_remove_config_entry_device(

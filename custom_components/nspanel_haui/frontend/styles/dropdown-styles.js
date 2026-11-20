@@ -133,6 +133,7 @@ export const dropdownStyles = css`
   .haui-domain-filter-chip:hover {
     border-color: var(--primary-color, #03a9f4);
     color: var(--primary-color, #03a9f4);
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, transparent);
   }
   .haui-domain-filter-chip.is-active {
     background: var(--primary-color, #03a9f4);

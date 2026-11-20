@@ -11,13 +11,13 @@ import { html } from './lit-import.js';
 import { t } from './localize.js';
 import { isPortraitModel } from './constants.js';
 import * as Crud from './crud.js';
-import { groupPanels, panelRoleMarkers } from './panel-utils.js';
+import { groupPanels, panelName, panelRoleMarkers } from './panel-utils.js';
+import { resolveHomeKey, resolveIdleKeys, resolvePanelRoles, unknownPanelRef } from './panel-roles.js';
 import { panelHasOptionErrors } from './option-rules.js';
 import { buildPreviewContext } from './previews/context.js';
 import { previewRenderKey } from './previews/previewer.js';
 import { renderSimulatorPreview } from './previews/simulator-frame.js';
 import { overlayAnchor } from './ui/popover.js';
-import { idlePanelKeys } from './ui/panel-pills.js';
 import { writePanelPreviewFolded } from './editor-preferences.js';
 
 /* ── panel helpers ────────────────────────────────────────────────────────── */
@@ -54,11 +54,13 @@ export function panelListModel(host, device, status) {
   const systemPanels = state.hub.systemPanels || [];
   const grouped = groupPanels(panels, systemPanels);
   const portrait = isPortraitModel(config.display_model);
-  const systemKeys = new Set(systemPanels.map((entry) => entry.key).filter(Boolean));
-  // The hub opens the first navigation panel as home while none is configured
-  // (or the configured one is gone), so that panel carries the Home marker.
-  const homeKnown = panels.some((panel) => panel.key === config.home_panel) || systemKeys.has(config.home_panel);
-  const roleConfig = { ...config, home_panel: homeKnown ? config.home_panel : grouped.navigation[0]?.key };
+  // The roles the hub plays: Home falls back to the first navigation panel while
+  // none is configured (or the configured one is gone), and a key that names no
+  // panel is not part of the idle carousel.
+  const roleConfig = {
+    homePanel: resolveHomeKey(panels, config, systemPanels),
+    idleKeys: resolveIdleKeys(panels, config, systemPanels),
+  };
   const context = buildPreviewContext(
     host.entryId,
     device?.name ?? host._selectedDevice,
@@ -70,7 +72,7 @@ export function panelListModel(host, device, status) {
   // Every card shares this context: serialise it once, not once per card.
   const renderKey = previewRenderKey(context);
   const descriptorFor = (panel) => host._panelTypes.find((type) => type.type_key === panel.type);
-  const nameOf = (panel) => panel.title || descriptorFor(panel)?.label || panel.key || t('Unnamed panel');
+  const nameOf = (panel) => panelName(panel, host._panelTypes) || t('Unnamed panel');
   // A panel moves to any other device of the hub, enabled or not.
   const otherDevices = state.devices.order
     .filter((name) => name !== context.device && state.devices.byName[name])
@@ -101,6 +103,8 @@ export function panelListModel(host, device, status) {
       typeLabel: descriptor?.label || panel.type || '',
       itemCount: Array.isArray(panel.items) ? panel.items.length : 0,
       invalid: panelHasOptionErrors(descriptor, panel, { popup: false }),
+      // The rows just created — a setup's pages, or an added panel — say so for a moment.
+      isNew: (host._newPanelKeys || []).includes(panel.key),
       preview: renderSimulatorPreview(context, panel, index, renderKey),
       roles: panelRoleMarkers(panel.key, roleConfig),
       onEdit: () => host._openEdit(index),
@@ -154,6 +158,15 @@ export function panelListModel(host, device, status) {
   };
   return {
     emptyMessage: query ? t('No panels match this search.') : '',
+    // A device without panels gets one device-wide start instead of three
+    // empty groups; a search keeps listing what matches it.
+    setup: !query && panels.length === 0
+      ? {
+        title: t('This device has no panels yet'),
+        actionLabel: t('Set up this device'),
+        action: () => host._openQuickStart(host._selectedDevice),
+      }
+      : null,
     groups: narrowed([
       {
         id: 'navigation',
@@ -220,35 +233,50 @@ export function panelSideModel(host, device, status) {
   // Every listed row is either one of the device's panels or a popup it
   // replaces (stored among them), so the panel configs answer both.
   const panel = key ? panels.find((entry) => entry.key === key) : null;
-  const titleOf = (panelKey) => {
-    const entry = panelKey ? panels.find((panelEntry) => panelEntry.key === panelKey) : null;
-    const system = panelKey ? systemPanels.find((systemEntry) => systemEntry.key === panelKey) : null;
-    if (!entry && !system) return '';
-    return entry?.title || descriptorFor(entry)?.label || entry?.key || system?.label || panelKey;
+  /** The name a role's panel is shown by: its panel's name, else its system label. */
+  const labelOf = (panelKey) => {
+    const entry = panels.find((panelEntry) => panelEntry.key === panelKey);
+    if (entry) return panelName(entry, host._panelTypes) || t('Unnamed panel');
+    return systemPanels.find((systemEntry) => systemEntry.key === panelKey)?.label || '';
   };
   if (!panel) {
-    // What the device opens at both ends of its idle cycle: the configured home
-    // panel (or the hub's fallback to the first navigation panel) and the idle
-    // page, whose panel comes from the ordered idle list.
-    const idleKeys = idlePanelKeys(config.idle_panel, config.idle_panel_extra);
-    const idleTitles = idleKeys.map(titleOf).filter(Boolean);
-    const configuredHomeKey = config.home_panel || grouped.navigation[0]?.key || '';
-    const homePanelKey = panels.some((entry) => entry.key === configuredHomeKey) ? configuredHomeKey : '';
-    const idlePanelKey = idleKeys[0] && panels.some((entry) => entry.key === idleKeys[0])
-      ? idleKeys[0]
-      : '';
+    const roles = resolvePanelRoles(panels, config, systemPanels);
+    /**
+     * What a role's tile names and selects. Both roles answer alike: the panels
+     * the device plays for the role, or - while the configured keys name none -
+     * the first unknown key, so the tile says what is wrong instead of claiming
+     * the role is unset. A tile selects only a panel the device has, and Home's
+     * fallback to the first navigation panel shows only while nothing at all is
+     * configured for it.
+     *
+     * @param {import('./panel-roles.js').PanelRole} role
+     */
+    const roleTile = (role) => {
+      // While nothing is configured for a role, Home names the panel the device
+      // opens instead; once something is configured, a stale key is reported.
+      const keys = role.keys.length || role.missing.length
+        ? role.keys
+        : [role.fallback].filter(Boolean);
+      const names = keys.map(labelOf);
+      return {
+        panelKey: names.length ? keys[0] : '',
+        value: names.length > 1
+          ? t('{name} and {count} more')
+            .replace('{name}', names[0]).replace('{count}', String(names.length - 1))
+          : names[0] || (role.missing.length ? unknownPanelRef(role.missing[0]) : ''),
+      };
+    };
+    const home = roleTile(roles.home);
+    const idle = roleTile(roles.idle);
     return {
       kind: 'overview',
       navigationCount: grouped.navigation.length,
       hiddenCount: grouped.hidden.length,
       popupCount: grouped.popups.length,
-      homePanel: titleOf(configuredHomeKey),
-      homePanelKey,
-      idlePanels: idleTitles.length > 1
-        ? t('{name} and {count} more')
-          .replace('{name}', idleTitles[0]).replace('{count}', String(idleTitles.length - 1))
-        : idleTitles[0] || '',
-      idlePanelKey: idleKeys[0] || '',
+      homePanel: home.value,
+      homePanelKey: home.panelKey,
+      idlePanels: idle.value,
+      idlePanelKey: idle.panelKey,
       onSelectPanel: (panelKey) => host._togglePanelSelection(panelKey),
     };
   }
@@ -261,13 +289,26 @@ export function panelSideModel(host, device, status) {
     [t('Group'), systemEntry ? t('Popup') : panel.show_in_navigation === false ? t('Hidden') : t('Navigation')],
   ];
   if (Array.isArray(panel.items)) facts.push([t('Items'), String(panel.items.length)]);
-  // The hub opens the first navigation panel as home while none is configured.
-  const home = panel.key === (config.home_panel || grouped.navigation[0]?.key);
-  const roles = [
-    ...(home ? [t('Home panel')] : []),
-    ...(panel.key === config.idle_panel ? [t('Idle panel')] : []),
+  // A popup override is not part of the device's page cycle, so it takes no role.
+  // A role toggle says whether the panel is *configured* for it, not whether the
+  // device plays it: pressing it on the panel Home falls back to assigns the role,
+  // where a pressed state would clear an assignment the device never had.
+  const roles = systemEntry ? [] : [
+    {
+      key: 'home',
+      label: t('Home panel'),
+      iconName: 'home',
+      active: panel.key === config.home_panel,
+      onToggle: () => host._togglePanelRole(panel.key, 'home'),
+    },
+    {
+      key: 'idle',
+      label: t('Idle panel'),
+      iconName: 'sleep',
+      active: resolveIdleKeys(panels, config, systemPanels).includes(panel.key),
+      onToggle: () => host._togglePanelRole(panel.key, 'idle'),
+    },
   ];
-  if (roles.length) facts.push([t('Role'), roles.join(' · ')]);
   const context = buildPreviewContext(
     host.entryId,
     device?.name ?? host._selectedDevice,
@@ -297,6 +338,7 @@ export function panelSideModel(host, device, status) {
     preview: renderSimulatorPreview(context, panel, systemEntry ? -1 : index, previewRenderKey(context)),
     portrait: isPortraitModel(config.display_model),
     facts,
+    roles,
     actions,
     previewExpanded: !host._panelPreviewCollapsed,
     onTogglePreview: () => host._togglePanelPreview(),

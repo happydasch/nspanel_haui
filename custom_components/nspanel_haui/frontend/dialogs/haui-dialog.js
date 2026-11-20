@@ -5,7 +5,7 @@
  * styles, the closed-dialog render gate and event dispatch. The editor listens
  * on each dialog element directly, so events don't need to bubble.
  */
-import { LitElement } from '../lit-import.js';
+import { LitElement, nothing } from '../lit-import.js';
 import { haStyle, haStyleDialog, dialogStyles } from '../styles.js';
 
 export class HauiDialog extends LitElement {
@@ -29,6 +29,11 @@ export class HauiDialog extends LitElement {
    */
   shouldUpdate(changed) {
     return this.open || !(changed.size === 1 && changed.has('hass'));
+  }
+
+  /** What the dialog shows; every subclass renders its own body. @returns {unknown} */
+  render() {
+    return nothing;
   }
 
   _emit(name, detail) {

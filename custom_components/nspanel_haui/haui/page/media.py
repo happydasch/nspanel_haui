@@ -161,7 +161,7 @@ class MediaPage(HAUIPage):
         self._handle_progress: str | None = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        # debug: trace panel config for media/override debugging
+        # debug: panel config for media/override troubleshooting
         self.log(
             f"MediaPage.start_panel: key={panel.get('key', None)!r} type={panel.get_type()!r} "
             f"sonos_favorites={self.option(panel, 'sonos_favorites')!r} "
@@ -186,8 +186,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.fnc_right_pri,
             media_state_btn,
         )
-        # the volume slider is a drag control: swipes are suppressed while it
-        # is dragged and its value is read once the touch ends
+        # volume slider is a drag control: bind_slider reads it on release
         self.bind_slider(self.COMPONENTS.h_volume, self.process_volume)
         self._sonos_favorites = self._item_from_ref(self.option(panel, "sonos_favorites"))
         # sonos favorites in source popup
@@ -226,10 +225,8 @@ class MediaPage(HAUIPage):
         self._media_item = item
         if not item or not item.has_item_id():
             return
-        # Single listener on all attributes: HA batches media metadata updates
-        # (title, artist, position, ...) into one state_changed event where the
-        # primary state often stays "playing", which caused per-attribute
-        # listeners to miss song changes on streaming sources like Sonos.
+        # One listener for all attributes: metadata changes arrive with an
+        # unchanged state, so per-attribute listeners miss song changes.
         self.add_item_listener(item.get_item_id(), self.callback_media_entity, attribute="all")
         # media icon
         if item.supports(F.SELECT_SOURCE):
@@ -269,8 +266,7 @@ class MediaPage(HAUIPage):
                 (self.COMPONENTS.btn_repeat, "media_repeat", ICO_REPEAT_OFF, F.REPEAT_SET),
             ),
         )
-        # progress bar
-        # visibility will be set by timer calls when media is playing
+        # visibility is set by the progress timer while playing
         self.set_function_component(
             self.COMPONENTS.j_progress,
             self.COMPONENTS.j_progress.name,
@@ -315,11 +311,7 @@ class MediaPage(HAUIPage):
             )
 
     def _get_group_members(self) -> list[str]:
-        """Return the player's current group members.
-
-        HA reports ``group_members`` as ``None`` for a grouping-capable player
-        that isn't part of a group.
-        """
+        """The player's current group members (``None`` means not grouped)."""
         if not self.item_is_available(self._media_item):
             return []
         return self._media_item.get_item_attr("group_members") or []
@@ -378,17 +370,11 @@ class MediaPage(HAUIPage):
                     self.COMPONENTS.m3_overlay,
                 ):
                     self.hide_component(component)
-            self.update_media_controls()
-            self.update_volume()
-            self.update_progress()
-            self.update_power_button()
-            return
-        # media details
-        self.update_media_info()
+        else:
+            self.update_media_info()
         self.update_media_controls()
         self.update_volume()
         self.update_progress()
-        # power button
         self.update_power_button()
 
     def update_media_info(self) -> None:
@@ -418,7 +404,7 @@ class MediaPage(HAUIPage):
         self.set_component_text(self.COMPONENTS.t_m_title, media_title)
         self.set_component_text(self.COMPONENTS.t_m_interpret, media_interpret)
         if self._handle_scrolling is None:
-            # Start repeating scrolling timer (replaces threading.Timer)
+            # start the scrolling timer
             self._handle_scrolling = self.app.run_every(
                 self._scrolling_text, 0, self.SCROLLING_INTERVAL
             )
@@ -440,8 +426,7 @@ class MediaPage(HAUIPage):
             return
         item = self._media_item
         state = item.get_item_state()
-        # controls are enabled by supported_features alone: queue position and
-        # size are Sonos-only attributes, so other players have no queue info
+        # enable by supported_features: queue info is Sonos-only
         colors = self.button_color_args(True)
         # shuffle
         shuffle = item.get_item_attr("shuffle")
@@ -515,9 +500,7 @@ class MediaPage(HAUIPage):
             )
         else:
             self.update_function_component(self.COMPONENTS.j_progress.name, visible=False)
-        # Start the repeating progress timer (replaces threading.Timer) if not
-        # already running.  Started lazily here so the timer only ticks when
-        # there is an active media panel.
+        # start the progress timer lazily, only while a media panel is active
         if self.is_started() and self._handle_progress is None:
             self._handle_progress = self.app.run_every(
                 self.update_progress, 0, self.PROGRESS_INTERVAL
@@ -612,8 +595,7 @@ class MediaPage(HAUIPage):
             for name in items.values():
                 value = f"sonos_favorites:{name}"
                 selection.append({"value": value, "name": name})
-        # add media favorites. Entity IDs keep the legacy metadata lookup; other
-        # strings are treated as media content IDs with the default music type.
+        # entity IDs resolve their metadata; other strings are content IDs
         for favorite in self._media_favorites:
             content_id = favorite
             content_type = "music"

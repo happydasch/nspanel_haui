@@ -2,81 +2,11 @@ from __future__ import annotations
 
 import colorsys
 import logging
-import random
 import re
 
 from .value import scale
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def generate_color_palette(
-    rgb_color: tuple[int, int, int],
-    palette_type: str,
-    seed: int | None = None,
-    num_colors: int = 6,
-) -> list[tuple[int, int, int]]:
-    """Generates random color matching the provided color.
-
-    Args:
-        rgb_color (list): RGB color
-        palette_type (str): Palette type: vibrant, pastel, light
-        seed (int, optional): Seed to use for random color generation. Defaults to random.
-        num_colors (int, optional): Number of colors to generate. Defaults to 6.
-
-    Returns:
-        tuple: A list with rgb values
-    """
-    # A private generator: seeding the module-level one would reseed the RNG
-    # every other user in the HA process shares.
-    rng = random.Random(seed)
-    # Guard against empty or unknown palette_type — return unmodified base color
-    if not palette_type or palette_type not in (
-        "vibrant",
-        "pastel",
-        "light",
-        "lighten",
-        "dark",
-        "darken",
-    ):
-        return [rgb_color] * num_colors
-    hsv_background = colorsys.rgb_to_hsv(rgb_color[0] / 255, rgb_color[1] / 255, rgb_color[2] / 255)
-    colors = []
-    for _ in range(num_colors):
-        if palette_type == "vibrant":
-            # Generate vibrant colors by randomizing hue, saturation, and value
-            hue = rng.random()
-            saturation = rng.uniform(0.7, 1.0)
-            value = rng.uniform(0.7, 1.0)
-        elif palette_type == "pastel":
-            # Generate pastel colors by reducing saturation and increasing value
-            hue = rng.random()
-            saturation = rng.uniform(0.2, 0.5)
-            value = rng.uniform(0.7, 1.0)
-        elif palette_type == "light":
-            # Generate light colors by increasing random value
-            hue = hsv_background[0]
-            saturation = hsv_background[1]
-            value = rng.uniform(0.7, 0.8)
-        elif palette_type == "lighten":
-            # Generate light colors by decreasing value
-            hue = hsv_background[0]
-            saturation = hsv_background[1]
-            value = 0.8
-        elif palette_type == "dark":
-            # Generate light colors by decreasing random value
-            hue = hsv_background[0]
-            saturation = hsv_background[1]
-            value = rng.uniform(0.2, 0.3)
-        elif palette_type == "darken":
-            # Generate light colors by decreasing value
-            hue = hsv_background[0]
-            saturation = hsv_background[1]
-            value = 0.2
-        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-        rgb = int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
-        colors.append(rgb)
-    return colors
 
 
 def rgb_brightness(rgb_color: tuple[int, int, int], brightness: int | None) -> list[int]:
@@ -89,9 +19,7 @@ def rgb_brightness(rgb_color: tuple[int, int, int], brightness: int | None) -> l
     Returns:
         list[int, int, int]: Dimmed RGB color
     """
-    # brightness values are in range 0-255
-    # to make sure that the color is not completly lost we need to rescale
-    # this to 96-255
+    # rescale the 0-255 brightness so the colour is never lost
     brightness = 0 if brightness is None else int(brightness)
     brightness = int(scale(brightness, (0, 255), (96, 255)))
     red = rgb_color[0] / 255 * brightness
@@ -205,6 +133,23 @@ def rgb565_to_rgb(rgb565_color: int) -> tuple[int, int, int]:
     return (red, green, blue)
 
 
+def mix_rgb565(background: int, foreground: int, ratio: float) -> int:
+    """Mixes an RGB565 foreground into an RGB565 background.
+
+    Args:
+        background (int): rgb565 color the result sits on
+        foreground (int): rgb565 color mixed into it
+        ratio (float): how far towards the foreground, 0 keeps the background
+            and 1 returns the foreground
+
+    Returns:
+        int: the mixed rgb565 color
+    """
+    back = rgb565_to_rgb(background)
+    front = rgb565_to_rgb(foreground)
+    return rgb_to_rgb565([round(b + (f - b) * ratio) for b, f in zip(back, front, strict=True)])
+
+
 def parse_color_value(value: int | str | list | tuple) -> int:
     """Parse a color value in any supported format into an RGB565 int.
 
@@ -254,3 +199,27 @@ def parse_color_value(value: int | str | list | tuple) -> int:
 def _invalid_color(value: object) -> int:
     _LOGGER.warning("Invalid color value %r, using black", value)
     return 0
+
+
+def contrast_ratio(foreground: int, background: int) -> float:
+    """Return the WCAG contrast ratio of an RGB565 foreground on a background.
+
+    Args:
+        foreground (int): rgb565 color of the text or icon
+        background (int): rgb565 color it is drawn on
+
+    Returns:
+        float: the contrast ratio, from 1.0 (invisible) to 21.0 (black on white)
+    """
+
+    def relative_luminance(color: int) -> float:
+        red, green, blue = rgb565_to_rgb(color)
+
+        def linear(value: int) -> float:
+            channel = value / 255
+            return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
+
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+
+    low, high = sorted((relative_luminance(foreground), relative_luminance(background)))
+    return (high + 0.05) / (low + 0.05)

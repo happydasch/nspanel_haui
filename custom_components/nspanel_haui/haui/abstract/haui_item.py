@@ -241,9 +241,8 @@ class HAUIItem(HAUIConfigAccess):
         state = self.get("state", "")
         if state == "":
             return self._entity.get_entity_state()
-        # state is overridden - use config state key as an attribute lookup
-        # Support JSON array string (e.g. '["forecast", 0, "temperature"]')
-        # for nested attribute access.
+        # state override: resolve the state-keyed attribute, including JSON
+        # array paths for nested access
         if isinstance(state, str) and state.startswith("["):
             try:
                 state = json.loads(state)
@@ -296,19 +295,7 @@ class HAUIItem(HAUIConfigAccess):
         return age > max_age_seconds
 
     def _resolve_state_field(self, key: str, default: str = "") -> str:
-        """Resolve a config field that may be state-based (dict) or a template string.
-
-        1. Reads the field from config.
-        2. If the value is a dict, looks up the current entity state as a key.
-        3. If the result is a non-empty string, renders it as a template.
-
-        Args:
-            key: Config key to look up.
-            default: Value to return when nothing is found.
-
-        Returns:
-            str: Resolved value.
-        """
+        """Resolve a config field that may be state-keyed or a template string."""
         value = self.get(key, default)
         if isinstance(value, dict):
             value = value.get(self.get_item_state(), default)
@@ -363,20 +350,7 @@ class HAUIItem(HAUIConfigAccess):
     def get_color_field(
         self, key: str, default: int | str | list | tuple | None = None
     ) -> int | str | list | tuple | None:
-        """Resolve a per-item colour option that may be state-keyed or templated.
-
-        Tile options such as ``text_color`` and ``back_color`` support the same
-        state-dict and Jinja forms as the main ``color`` option.  Resolve them
-        before they reach ``parse_color_value``: a raw dict is treated as an
-        invalid colour (black) by that parser.
-
-        Args:
-            key: Config key to look up.
-            default: Value returned when the item has no override.
-
-        Returns:
-            The resolved colour value (int, string, or list) or ``default``.
-        """
+        """Resolve a tile colour option that may be state-keyed or templated."""
         value = self.get(key, None)
         if isinstance(value, dict):
             value = value.get(self.get_item_state())
@@ -406,9 +380,7 @@ class HAUIItem(HAUIConfigAccess):
                 color_getter=super().get_color,
                 icon_variant=variant,
             )
-        # Parse any remaining string/list format to RGB565 int via the
-        # canonical parse_color_value utility (handles "[r,g,b]", "#rrggbb",
-        # plain int strings, and list/tuple of 3 ints).
+        # normalize strings/lists to an RGB565 int via parse_color_value
         if not isinstance(color, int):
             color = parse_color_value(color)
         return color

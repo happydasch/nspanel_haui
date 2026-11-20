@@ -102,9 +102,10 @@ import { byLabel, byRole, byText } from './support/queries.mjs';
 import { renderItemEditFields } from '../../custom_components/nspanel_haui/frontend/item-renderers.js';
 
 /** Render a panel option into a container that re-renders on every requestUpdate. */
-function mountOption(opt, data) {
+function mountOption(opt, data, extra = {}) {
   const container = document.createElement('div');
   const h = {
+    ...extra,
     _editingPanel: { index: 0, data },
     _openColorPresets: new Set(),
     requestUpdate() { render(renderOptionField(h, opt, h._editingPanel.data[opt.key]), container); },
@@ -156,6 +157,31 @@ test('typing an RGB565 number keeps the typed text and stores the number on chan
   }
   input.dispatchEvent(new Event('change'));
   assert.equal(h._editingPanel.data.accent, 63488);
+});
+
+// The API serializes an option without choices as `choices: []`, which is no dropdown.
+const favourites = {
+  key: 'media_favorites',
+  kind: 'list_items',
+  label: 'Media favorites',
+  choices: [],
+};
+
+test('a list option whose choices are empty adds a plain entry instead of a dropdown', () => {
+  const { h, container } = mountOption(favourites, { media_favorites: [] });
+  container.querySelector('.haui-item-add-button').click();
+  assert.deepEqual(h._editingPanel.data.media_favorites, ['']);
+  assert.equal(container.querySelectorAll('.haui-item-list select').length, 0);
+});
+
+test('an entity list option whose choices are empty offers the entity picker', () => {
+  const { container } = mountOption(
+    { key: 'group_items', kind: 'list_entities', domain: 'media_player', label: 'Group', choices: [] },
+    { group_items: ['media_player.kitchen'] },
+    { hass: { states: { 'media_player.kitchen': { attributes: {} } } } },
+  );
+  assert.equal(byRole(container, 'combobox'), container.querySelector('.haui-entity-picker-input'));
+  assert.equal(container.querySelectorAll('.haui-item-list select').length, 0);
 });
 
 /** Render the inline item editor for one item of a panel with `itemOptions`. */

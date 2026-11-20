@@ -42,18 +42,14 @@ class GestureAction(StrEnum):
     PREV_PANEL = "prev_panel"
 
 
-# The firmware's automatic display switches, which the device settings own:
-# the key a popup suspends one by (``HAUIPage._save_auto_state``) and the
-# ESPHome entity name of the switch.  Automatic page switching has no firmware
-# switch: the hub owns it and enforces the page hold itself.
+# Automatic display switches the device settings own: key and ESPHome entity.
+# Automatic page switching is hub-side and has no firmware switch.
 AUTO_SWITCHES: dict[str, str] = {
     "auto_dimming": "Use Auto-Dimming",
     "auto_display_off": "Use Auto Display-Off",
 }
 
-# Page-hold key for automatic page switching. Unlike the keys of
-# ``AUTO_SWITCHES`` it has no firmware entity: navigation reads it from the
-# page on screen and skips the idle-page check while it is held.
+# Page-hold key for automatic page switching; navigation enforces it.
 AUTO_PAGE_HOLD = "auto_page"
 
 
@@ -103,10 +99,7 @@ class PopupPanelKey(StrEnum):
     POPUP_TIMER = "popup_timer"
 
 
-# Popups whose content and lifetime the hub controls: notifications, selection
-# lists and the unlock popup. An edited copy keeps neither a PIN (a PIN on Unlock
-# would re-open Unlock forever) nor an auto-close (it would close queued
-# notifications).
+# Hub-driven popups: an edited copy keeps no PIN or auto-close.
 HUB_DRIVEN_PANELS: frozenset[str] = frozenset(
     {
         PopupPanelKey.POPUP_NOTIFY,
@@ -154,9 +147,8 @@ class FirmwareUpdateChannel(StrEnum):
     DEV = "dev"
 
 
-# The stable channel's manifest: GitHub's ``releases/latest`` skips prereleases.
-# The dev channel has no fixed URL; the update controller picks the newest
-# release from the GitHub release list.
+# Stable channel: GitHub releases/latest (skips prereleases); dev: the newest
+# release in the GitHub release list.
 FIRMWARE_MANIFEST_URL = (
     "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json"
 )
@@ -231,13 +223,11 @@ PANEL_CONFIG: dict[str, Any] = {
     "title": "",  # user-facing display name
     "theme_id": "",  # empty follows the device theme
     "show_in_navigation": True,  # whether this panel appears in navigation
-    # long press anywhere goes back (pages without header buttons, see
-    # HAUIPage._check_long_press_back)
+    # long press anywhere goes back (see HAUIPage._check_long_press_back)
     "long_press_back": False,
     "key": None,  # internal identifier
-    # show_home_button, show_idle_button, show_notifications_button
-    # are not defined here - HAUIPanel.show_button() already falls back
-    # to the device-level setting when the key is absent from the panel config.
+    # show_home_button/show_idle_button/show_notifications_button fall back to
+    # the device setting when absent.
 }
 
 # default config
@@ -264,31 +254,24 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "update": {
         # Master switch for checks and every firmware/display update path.
         "enabled": True,
-        # install the TFT the firmware needs automatically when the display has an
-        # older one; when false the display asks first
+        # install the firmware's TFT automatically when stale; false asks first
         "auto_install": True,
-        # Check for updates on connect by default. Set to False to disable the
-        # automatic check when the device connects.
+        # check for updates on connect (disable with False)
         "check_on_connect": True,
-        "on_connect_delay": 60,  # Defaults to 60 sec, delay before checking for updates on connect
-        # set to 0 to disable, set to 3600 for hourly checks
+        # seconds before the first update check on connect
+        "on_connect_delay": 60,
+        # 0 disables periodic checks; 3600 = hourly
         "update_interval": 3600,
-        # Install a newer firmware automatically when the release ships one; the
-        # TFT the new firmware needs follows after the device reboots. Disabled
-        # by default; only runs when update checks are enabled (check_on_connect
-        # or update_interval).
+        # install a newer firmware automatically (TFT follows after reboot);
+        # requires update checks.
         "firmware_auto_update": False,
-        # Manifest naming the firmware the HAUI Firmware entity offers.  The
-        # channel decides which manifest is followed when ``firmware_manifest_url``
-        # is left empty (stable releases by default; ``dev`` follows the
-        # newest dev prerelease); an explicit URL always wins.
+        # Manifest URL; empty uses the channel (stable by default, dev for
+        # prereleases).
         "firmware_update_channel": FirmwareUpdateChannel.STABLE,
         "firmware_manifest_url": FIRMWARE_MANIFEST_URL,
-        # Seconds an automatic firmware install waits, scheduled, before it
-        # starts; the editor can install it now, defer it or skip its version.
+        # seconds an automatic install waits, scheduled, before starting
         "install_delay": 600,
-        # Failed automatic attempts per version before the automatic install
-        # stops, and the seconds between two attempts.
+        # failed automatic attempts per version and the retry interval
         "max_attempts": 3,
         "retry_interval": 3600,
         # Firmware version the user skipped: never installed automatically.

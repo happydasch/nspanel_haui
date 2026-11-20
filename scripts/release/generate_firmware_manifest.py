@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Generate the GitHub release firmware manifest from the built artifacts.
 
-The ``tft_version`` in ``esphome/nspanel_haui/version.yaml`` tracks the TFT
-version separately from the firmware tag. The release uploads the TFT assets,
-but the manifest must advertise the embedded TFT version when a release does
-not include a TFT update. Both TFT assets must carry that version, or the
-generator refuses to write the manifest.
+The manifest advertises the ``tft_version`` of ``esphome/nspanel_haui/version.yaml``,
+which both TFT assets must carry: the generator refuses to write it otherwise.
 """
 
 from __future__ import annotations

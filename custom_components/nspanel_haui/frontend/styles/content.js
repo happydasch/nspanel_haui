@@ -15,11 +15,17 @@ export const contentStyles = css`
 
   /* ── title header ──────────────── */
   .haui-toolbar-header {
+    /* The page scrolls as a whole (the footer stays after the screen content), so the
+       header pins to the viewport instead of scrolling away. Its z-index sits above
+       card content and below the popovers (30) and modal sidebars (40/41). */
+    position: sticky;
+    top: 0;
+    z-index: 20;
     display: flex;
     align-items: center;
     /* The Home Assistant app draws under the status bar: the header takes the
        top inset, so the strip above the title shows the header colour. */
-    height: calc(var(--header-height, 56px) + var(--safe-area-inset-top, 0px));
+    height: var(--haui-header-height);
     padding: var(--safe-area-inset-top, 0px) 12px 0;
     box-sizing: border-box;
     background: var(--app-header-background-color, var(--sidebar-background-color, #f0f0f0));
@@ -157,23 +163,6 @@ export const contentStyles = css`
     gap: 8px;
     padding: 8px 16px;
     background: var(--card-background-color, #fff);
-  }
-  .haui-dialog-header.is-extended {
-    flex-direction: column;
-    gap: 0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    padding-bottom: 12px;
-  }
-  .haui-dialog-header.is-extended .haui-dialog-header-bar {
-    margin-bottom: 8px;
-  }
-  .haui-dialog-header-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
   }
   .haui-dialog-header-title {
     flex: 1;

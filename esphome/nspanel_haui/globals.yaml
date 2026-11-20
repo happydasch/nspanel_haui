@@ -2,37 +2,33 @@
 # Globals Configuration
 globals:
 
-  # Display initialization state
+  # Whether the display's setup finished
   - id: haui_init
     type: bool
     restore_value: false
 
-  # Display state
-  # Values:
-  # - 0 Off
-  # - 1 Dim
-  # - 2 On
+  # Display state: 0 = off, 1 = dim, 2 = on
   - id: haui_display_state
     type: int
     restore_value: false
 
-  # Availability of hub server
+  # Whether a native API client (Home Assistant) is connected
   - id: hub_availability
     type: bool
     restore_value: false
 
-  # Last hub heartbeat timestamp
+  # Uptime seconds of the last hub heartbeat
   - id: hub_heartbeat
     type: int
     restore_value: false
 
-  # Last hub_connection transition; used for the reconnect/disconnect brightness grace.
+  # Last hub_connection transition; starts the brightness grace after it
   - id: hub_state_change_ms
     type: uint32_t
     restore_value: false
     initial_value: '0'
 
-  # Unsigned millis() timestamps make the elapsed-time calculation wrap-safe.
+  # Unsigned millis() timestamps keep the elapsed-time math wrap-safe
   - id: last_interaction_ms
     type: uint32_t
     restore_value: false
@@ -47,7 +43,7 @@ globals:
     restore_value: false
     initial_value: 'false'
 
-  # Connection state of the device with the hub app
+  # Whether the handshake with the hub completed
   - id: hub_connection
     type: bool
     restore_value: false

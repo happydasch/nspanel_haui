@@ -20,15 +20,13 @@ def pos_to_color(x, y, wh):
 
     r = math.sqrt(x * x + y * y)
 
-    # if (r > 1):
-    #    return None
+    # Outside the circle r > 1; the clamp is disabled, so the corners saturate.
     sat = r
     hsv = (math.degrees(math.atan2(y, x)) % 360 / 360, sat, 1)
     rgb = hsv_to_rgb(hsv[0], hsv[1], hsv[2])
     return rgb
 
 
-# draw image
 img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
 draw = ImageDraw.Draw(img)
 draw.rectangle((0, 0, width, height), fill="#1b1b1b")
@@ -38,5 +36,4 @@ for y in range(height):
         if color is not None:
             draw.point((x, y), fill=color)
 
-# Save image
 img.save(filename)

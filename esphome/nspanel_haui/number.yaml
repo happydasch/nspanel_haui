@@ -2,10 +2,8 @@
 # Number Configuration
 number:
 
-  # Display orientation / model.  The hub syncs this from the device's
-  # ``display_model`` setting (0 = landscape 450x320, 1 = portrait 320x480).
-  # The gesture script reads it to detect edge swipes on the right screen
-  # dimensions instead of hardcoding the landscape size.
+  # Display orientation, synced by the hub (0 = landscape 450x320,
+  # 1 = portrait 320x480). The gesture script reads it for edge detection.
   - platform: template
     name: Display Model
     id: display_model
@@ -18,7 +16,7 @@ number:
     restore_value: true
     optimistic: true
 
-  # Screen Full brightness
+  # Full brightness
   - platform: template
     name: Brightness Full
     id: brightness_full
@@ -31,7 +29,7 @@ number:
     restore_value: true
     optimistic: true
 
-  # Screen brightness when dimmed down
+  # Dimmed brightness
   - platform: template
     name: Brightness Dimmed
     id: brightness_dim
@@ -44,7 +42,7 @@ number:
     restore_value: true
     optimistic: true
 
-  # Screen brightness when dimmed down
+  # Dimming ramp duration
   - platform: template
     name: Duration Dimming
     id: duration_dim
@@ -57,7 +55,7 @@ number:
     restore_value: true
     optimistic: true
 
-  # Dim timeout
+  # Inactivity before dimming
   - platform: template
     name: Timeout Dimming
     id: timeout_dim
@@ -70,7 +68,7 @@ number:
     restore_value: true
     optimistic: true
 
-  # Display-off timeout
+  # Inactivity before the display turns off
   - platform: template
     name: Timeout Display-Off
     id: timeout_display_off

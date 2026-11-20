@@ -1,58 +1,30 @@
 // @ts-check
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
+import { panelName } from '../panel-utils.js';
+import { unknownPanelRef } from '../panel-roles.js';
 import { icon } from './icon.js';
 import { sortHandle } from './sort-handle.js';
-
-/**
- * The panel keys of a comma-separated setting such as `idle_panel_extra`.
- *
- * @param {unknown} value
- * @returns {string[]}
- */
-export function panelKeys(value) {
-  return String(value ?? '').split(',').map((key) => key.trim()).filter(Boolean);
-}
-
-/**
- * The ordered idle-panel sequence shared by the primary and extra settings.
- * Runtime navigation deduplicates these keys, so the editor does too.
- *
- * @param {unknown} idlePanel
- * @param {unknown} idlePanelExtra
- * @returns {string[]}
- */
-export function idlePanelKeys(idlePanel, idlePanelExtra) {
-  return [...new Set([String(idlePanel ?? '').trim(), ...panelKeys(idlePanelExtra)].filter(Boolean))];
-}
-
-/**
- * Split an ordered idle-panel sequence into the existing persisted fields.
- *
- * @param {string[]} keys
- * @returns {{ idle_panel: string, idle_panel_extra: string }}
- */
-export function idlePanelConfig(keys) {
-  const unique = [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
-  return { idle_panel: unique[0] || '', idle_panel_extra: unique.slice(1).join(', ') };
-}
 
 /**
  * An ordered panel list as pills, each with a remove button; the last pill is
  * the select that adds a panel, or replaces the selected panel in `single`
  * mode. A panel is listed once, so `exclude` and the listed panels are not
- * offered again; a key without a panel stays listed under its key, so it can
- * be removed.
+ * offered again; a key whose panel is gone stays listed as an unknown key, so
+ * it can be removed.
  *
- * @param {{ id: string, panels: any[], keys: string[], exclude?: string[], numbered?: boolean,
- *   reorderable?: boolean, single?: boolean, addLabel?: string, disabled?: boolean,
- *   onChange: (keys: string[]) => void }} data
+ * @param {{ id: string, panels: any[], panelTypes?: any[], keys: string[], exclude?: string[],
+ *   numbered?: boolean, reorderable?: boolean, single?: boolean, addLabel?: string,
+ *   disabled?: boolean, onChange: (keys: string[]) => void }} data
  */
 export function panelPills({
-  id, panels, keys, exclude = [], numbered = false, reorderable = false, single = false,
+  id, panels, panelTypes = [], keys, exclude = [], numbered = false, reorderable = false, single = false,
   addLabel = t('Add panel'), disabled = false, onChange,
 }) {
-  const titleOf = (key) => panels.find((panel) => panel.key === key)?.title || key;
+  const nameOf = (key) => {
+    const panel = panels.find((candidate) => candidate.key === key);
+    return panel ? panelName(panel, panelTypes) : unknownPanelRef(key);
+  };
   const addable = panels.filter((panel) => panel.key && !exclude.includes(panel.key) && !keys.includes(panel.key));
   const canReorder = reorderable && !disabled;
   let draggedKey = '';
@@ -69,7 +41,7 @@ export function panelPills({
   };
   return html`<ul class="haui-pill-list">
     ${keys.map((key, index) => {
-      const title = titleOf(key);
+      const title = nameOf(key);
       const startDrag = canReorder ? (event) => {
         draggedKey = key;
         event.dataTransfer?.setData('text/plain', key);
@@ -125,7 +97,7 @@ export function panelPills({
         select.value = '';
       }}>
       <option value="" selected>${addLabel}</option>
-      ${addable.map((panel) => html`<option value=${panel.key}>${panel.title || panel.key}</option>`)}
+      ${addable.map((panel) => html`<option value=${panel.key}>${panelName(panel, panelTypes)}</option>`)}
     </select></li>` : nothing}
   </ul>`;
 }

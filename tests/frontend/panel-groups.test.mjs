@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { renderPanelList } from '../../custom_components/nspanel_haui/frontend/views/panel-list.js';
-import { groupPanels } from '../../custom_components/nspanel_haui/frontend/panel-utils.js';
+import { groupPanels, needsSetup } from '../../custom_components/nspanel_haui/frontend/panel-utils.js';
 
 /** Flatten a Lit TemplateResult tree to text, with functions shown as [fn]. */
 function flat(v) {
@@ -104,6 +104,39 @@ test('an empty group shows its message', () => {
   assert.match(out, /drop into navigation/);
   assert.match(out, /drop into popups/);
 });
+test('a device-wide setup state replaces the groups while the device has no panels', () => {
+  const out = flat(renderPanelList({
+    groups: [],
+    setup: {
+      title: 'This device has no panels yet',
+      actionLabel: 'Set up this device',
+      action: () => {},
+    },
+  }));
+  assert.match(out, /This device has no panels yet/);
+  assert.match(out, /Set up this device/);
+  // The empty groups of a device with no panels are not listed at all.
+  assert.doesNotMatch(out, /drop into/);
+  assert.equal((out.match(/<button[^>]*>/g) ?? []).length, 1);
+});
+
+test('a device with panels keeps its groups and their empty messages', () => {
+  const out = flat(renderPanelList({
+    groups: [group('navigation', []), group('popups', [])],
+    setup: null,
+  }));
+  assert.match(out, /drop into navigation/);
+  assert.match(out, /drop into popups/);
+  assert.doesNotMatch(out, /This device has no panels yet/);
+});
+
+test('a device needs its setup until it has a panel', () => {
+  assert.equal(needsSetup({ panels: [] }), true);
+  assert.equal(needsSetup({}), true);
+  assert.equal(needsSetup(null), true);
+  assert.equal(needsSetup({ panels: [{ key: 'grid_0' }] }), false);
+});
+
 
 test('an open panel menu renders from the model, not a local shell flag', () => {
   const closed = flat(renderPanelList({ groups: [group('navigation', [userEntry('clock_0')])] }));

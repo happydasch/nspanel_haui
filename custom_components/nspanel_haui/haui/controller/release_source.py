@@ -22,18 +22,14 @@ from ..mapping.const import FIRMWARE_MANIFEST_URL, FirmwareUpdateChannel
 
 # hard-coded url for haui releases on github; a page holds every release
 RELEASES_URL = "https://api.github.com/repos/happydasch/nspanel_haui/releases?per_page=100"
-# A release can be flashed over the air when it ships the OTA app image and the
-# manifest holding its md5; ``nspanel_haui.bin`` is the full factory image,
-# which an over-the-air update must never write.
+# OTA needs the app image and its manifest md5; never flash the factory image.
 FIRMWARE_OTA_ASSET = "nspanel_haui_ota.bin"
 FIRMWARE_MANIFEST_ASSET = "firmware-manifest.json"
 # App partition size of the shipped partition table, and the first byte of an
 # ESP32 app image (a factory image starts with 0xFF padding instead).
 FIRMWARE_MAX_BYTES = 0x1C0000
 ESP_IMAGE_MAGIC = 0xE9
-# The release catalog is identical for every device; without a shared cache a
-# hub with N devices spends N unauthenticated requests per interval against
-# GitHub's 60 requests/hour/IP limit.  A manual check bypasses the TTL.
+# Shared release cache: one GitHub request per interval, not per device.
 RELEASE_CACHE_TTL_SECONDS = 60 * 60
 
 _release_cache: tuple[float, list[dict[str, Any]]] | None = None

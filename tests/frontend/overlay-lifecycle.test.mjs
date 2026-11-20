@@ -309,10 +309,10 @@ test('a link to the second device opens it, not the first device the hub selects
   }));
   editor._syncFromStore();
   editor.api.panels.load = async () => TWO_DEVICES;
-  editor.api.status.getAll = async () => ({});
+  editor.api.status.getAll = async () => ({ devices: {} });
 
   await editor._store.actions.loadHub('entry1');
-  editor._store.actions.stopSelectedStatusPolling();
+  editor._store.actions.setStatusPolling(null);
 
   assert.equal(editor._store.getState().ui.route.device, 'hall');
   assert.equal(editor._store.getState().devices.selected, 'hall');
@@ -323,14 +323,14 @@ test('Back to another device closes the sidebar of the device it leaves', () => 
   const editor = routedEditor(TWO_DEVICES);
   editor._store.actions.setRoute({ view: 'device', device: 'kitchen', panelView: 'preview' });
   editor._store.actions.selectDevice('kitchen');
-  editor._store.actions.stopSelectedStatusPolling();
+  editor._store.actions.setStatusPolling(null);
   editor._editingDeviceConfig = true;
   editor._deviceConfigForm = { name: 'kitchen' };
   editor._store.actions.pushOverlay({ kind: 'device-settings', anchorKey: 'device-settings', subject: 'kitchen', draft: null });
 
   // What the router does on popstate: the URL changed without the editor's own switch.
   editor._store.actions.setRoute({ view: 'device', device: 'hall', panelView: 'preview' });
-  editor._store.actions.stopSelectedStatusPolling();
+  editor._store.actions.setStatusPolling(null);
 
   assert.deepEqual(editor._store.getState().ui.overlays, []);
   assert.equal(editor._deviceConfigForm, null);
@@ -340,7 +340,7 @@ test('Back to another device closes the sidebar of the device it leaves', () => 
 test('Back to Fleet closes the open sidebar', () => {
   const editor = routedEditor(TWO_DEVICES);
   editor._store.actions.setRoute({ view: 'device', device: 'kitchen', panelView: 'preview' });
-  editor._store.actions.stopSelectedStatusPolling();
+  editor._store.actions.setStatusPolling(null);
   editor._store.actions.pushOverlay({ kind: 'updates', anchorKey: 'updates', subject: 'kitchen', draft: null });
 
   editor._store.actions.setRoute({ view: 'fleet' });
@@ -354,14 +354,15 @@ test("Forward into a device closes Fleet's Logs sidebar", () => {
   editor._store.actions.pushOverlay({ kind: 'logs', anchorKey: 'logs', subject: null, draft: null });
 
   editor._store.actions.setRoute({ view: 'device', device: 'kitchen', panelView: 'preview' });
-  editor._store.actions.stopSelectedStatusPolling();
+  editor._store.actions.setStatusPolling(null);
 
   assert.deepEqual(editor._store.getState().ui.overlays, []);
 });
 
-test('an editor that Home Assistant attaches again polls its device again', async () => {
+test('an editor stops polling when detached and resumes when reattached', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
   const editor = document.createElement('nspanel-haui-editor');
-  editor.hass = makeHass({
+  const hass = makeHass({
     connection: { subscribeEvents: async () => () => {} },
     fetchWithAuth: async (url) => url.includes('/panels/')
       ? jsonResponse({
@@ -372,40 +373,29 @@ test('an editor that Home Assistant attaches again polls its device again', asyn
       : url.includes('/status/') ? jsonResponse({ devices: { kitchen: { connected: true } } })
         : jsonResponse([]),
   });
+  const statusRequests = () => hass.calls.filter(({ url }) => url.includes('/status/')).length;
+  editor.hass = hass;
   await editor.store.actions.loadHub('entry1');
-  editor.store.actions.stopSelectedStatusPolling();
-
-  const polls = [];
-  const { startSelectedStatusPolling, stopSelectedStatusPolling } = editor.store.actions;
-  editor.store.actions.startSelectedStatusPolling = (...args) => {
-    polls.push('start');
-    return startSelectedStatusPolling(...args);
-  };
-  editor.store.actions.stopSelectedStatusPolling = (...args) => {
-    polls.push('stop');
-    return stopSelectedStatusPolling(...args);
-  };
 
   document.body.append(editor);
   await flush();
   editor.remove();
+  const before = statusRequests();
+  t.mock.timers.tick(5000);
   await flush();
-  const startsBeforeReattach = polls.filter((entry) => entry === 'start').length;
+  assert.equal(statusRequests(), before);
 
   document.body.append(editor);
   await flush();
   editor.remove();
-  await flush();
-
-  assert.ok(polls.filter((entry) => entry === 'start').length > startsBeforeReattach);
-  assert.equal(polls.at(-1), 'stop');
+  assert.ok(statusRequests() > before);
 });
 
 test('Settings opened from Fleet add a history entry, so Back returns to Fleet', async () => {
   const editor = routedEditor(TWO_DEVICES);
   editor._store.actions.setRoute({ view: 'fleet' });
   editor._store.actions.selectDevice('hall');
-  editor._store.actions.stopSelectedStatusPolling();
+  editor._store.actions.setStatusPolling(null);
 
   editor.api.devices.settings = async () => ({ config: {} });
   editor._openSettings();

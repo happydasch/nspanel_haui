@@ -4,50 +4,39 @@ display:
   - platform: nextion
     uart_id: haui_uart
     id: haui_disp
-    # The automatic display state machine never enters hardware sleep; this is
-    # only used if a custom action explicitly sleeps the panel.
+    # Only for an explicit hardware sleep; the display state machine never sleeps
     wake_up_page: 0
-    # Cap queue entries to prevent heap fragmentation from accumulated
-    # commands when Nextion serial buffer overflows orphan pending entries.
-    # 800 entries = enough to absorb a full panel config+render burst
-    # plus concurrent state updates without drops.
+    # Bound the queue: 800 entries absorb a full config+render burst plus
+    # concurrent updates without drops, and an RX overflow cannot pile up
+    # orphaned entries and fragment the heap.
     max_queue_size: 800
-    # Limit commands processed per loop iteration to spread out
-    # allocation/deallocation and reduce heap fragmentation. The command pacer
-    # below further limits output to one command per loop iteration.
+    # Spread allocations over loop iterations to reduce heap fragmentation;
+    # command_spacing below caps the actual output rate.
     max_commands_per_loop: 50
-    # Pace every Nextion command, regardless of which page generated it. This
-    # prevents bursts from overrunning the display's 1 KB RX buffer; the ESPHome
-    # loop timestamp means the effective minimum is one command per loop.
+    # One command per loop iteration keeps bursts from overrunning the display's
+    # 1 KB RX buffer.
     command_spacing: 2ms
-    # default url — override the `tft_update_url` substitution in your device
-    # YAML to install a local TFT build.  HAUI itself always passes the URL of
-    # the TFT it installs (the ``upload_tft_url`` action drives
-    # ``prepare_tft_upload``, which calls set_tft_url() before upload_tft()),
-    # so this default is only the compile-time fallback.
+    # Compile-time fallback only; the hub passes the URL of the TFT it installs
+    # (upload_tft_url → prepare_tft_upload → set_tft_url()).
     tft_url: $tft_update_url
-    # GitHub redirects release-asset downloads to a signed URL of ~870
-    # characters.  The redirected request line overflows the 512-byte ESP-IDF
-    # default TX buffer ("HTTP_CLIENT: Out of buffer"), so the hub's TFT
-    # install failed before the first byte (esphome/esphome#21435).
+    # GitHub redirects release TFTs to a signed URL of ~870 characters; the
+    # request line overflows the 512-byte default TX buffer (esphome/esphome#21435).
     tft_upload_http_buffer_size_tx: 2048
 
     on_setup:
       then:
-        # Restore brightness on display
+        # Re-publish the restored brightness values, then apply full brightness
+        # to the backlight; this clears the NaN guard in update_display.
         - number.set:
             id: brightness_full
             value: !lambda return int(id(brightness_full).state);
-        # Restore dimmed brightness on display
         - number.set:
             id: brightness_dim
             value: !lambda return int(id(brightness_dim).state);
-        # Initialize display backlight and brightness sensor to break
-        # the NAN-guard deadlock in update_display
         - script.execute:
             id: set_brightness
             intensity: !lambda return int(id(brightness_full).state);
-        # set as initialized
+        # haui_init gates the connection handshake
         - lambda: |-
               ESP_LOGI("haui", "NSPanel HAUI Init");
               id(haui_init) = true;
@@ -61,9 +50,8 @@ display:
     on_touch:
       then:
         - lambda: |-
-            // A tap shorter than the 200 ms coordinate poll (check_interaction)
-            // can fall between two polls, so the display's own report of a
-            // touched widget counts as interaction as well.
+            // A tap shorter than the 200 ms coordinate poll can fall between two
+            // polls, so the display's own touch report resets the timer too.
             id(reset_interaction_timer).execute(0);
             std::string event = std::to_string(page_id) + "," + std::to_string(component_id);
             event += "," + std::to_string(touch_event);

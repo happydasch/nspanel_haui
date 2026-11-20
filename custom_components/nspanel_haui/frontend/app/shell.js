@@ -28,6 +28,7 @@ import * as FleetScreen from '../fleet-screen.js';
 import * as DeviceScreen from '../device-screen.js';
 import * as DeviceSidebars from '../device-sidebars.js';
 import * as PanelModels from '../panel-models.js';
+import * as QuickStart from '../quick-start-flow.js';
 
 // Register dialog custom elements
 import '../views/panel-editor.js';
@@ -37,11 +38,12 @@ import '../dialogs/backup.js';
 import '../dialogs/updates.js';
 import '../dialogs/logs.js';
 import '../dialogs/theme.js';
+import '../dialogs/quick-start.js';
 import '../views/workspace.js';
 
 import { anchorElement, focusAnchor, focusMenu, overlayAnchor, placeOpenPopovers, popoverSurface } from '../ui/popover.js';
 import { isAnchoredOverlayKind, isSidebarOverlayKind } from '../store/store.js';
-import { selectDevice, importDeviceYaml, exportDeviceYaml } from '../device-yaml.js';
+import { selectDevice, importDeviceYaml, exportDeviceYaml, reportCopiedDevices } from '../device-yaml.js';
 import { notificationsView } from '../views/notifications.js';
 import { renderTitleHeader, renderFooter } from '../toolbar.js';
 import { HA_ELEMENTS_TIMEOUT_MS, undefinedHaElements, whenHaElementsDefined } from '../ha-elements.js';
@@ -51,6 +53,9 @@ import * as ThemeEditor from '../theme-editor.js';
 import { readStorage, writeStorage } from '../dom-helpers.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
+
+// How long the rows of a panel just created (a setup's pages, or an added one) keep their New badge.
+const NEW_PANEL_MARK_MS = 10_000;
 
 /** @type {import("../store/store.js").StoreStorage} */
 const STORAGE = {
@@ -96,8 +101,17 @@ class NSPanelEditor extends LitElement {
       _scanError: { type: String, state: true },
       _removeTarget: { type: String, state: true },
       _confirmBulkUpdate: { type: Boolean, state: true },
+      _quickStartTarget: { type: String, state: true },
+      _quickStartChoices: { type: Object, state: true },
+      _quickStartPresets: { type: Array, state: true },
+      _quickStartResolution: { type: Object, state: true },
+      _quickStartAreas: { type: Array, state: true },
+      _quickStartSaving: { type: Boolean, state: true },
+      _quickStartError: { type: String, state: true },
       _panelSearch: { type: String, state: true },
       _selectedPanelKey: { type: String, state: true },
+      /** The panels a setup just created, marked in the list for a moment. */
+      _newPanelKeys: { type: Array, state: true },
       _panelSubmenuKey: { type: String, state: true },
       _fleetSelection: { type: String, state: true },
       _fleetEventsSince: { type: Number, state: true },
@@ -150,6 +164,15 @@ class NSPanelEditor extends LitElement {
     this._toast = null;
     this._deleteTarget = null;
     this._tftInstallTarget = null;
+    /** The device the quick start dialog sets up, or null while it is closed. */
+    this._quickStartTarget = null;
+    /** What the user chose: a preset, its area, toggles and Wi-Fi name. */
+    this._quickStartChoices = null;
+    this._quickStartPresets = [];
+    this._quickStartResolution = null;
+    this._quickStartAreas = [];
+    this._quickStartSaving = false;
+    this._quickStartError = '';
 
     this._deviceConfig = null;
     this._editingDeviceConfig = false;
@@ -170,6 +193,8 @@ class NSPanelEditor extends LitElement {
     this._confirmBulkUpdate = false;
     this._panelSearch = '';
     this._selectedPanelKey = null;
+    this._newPanelKeys = [];
+    this.__newPanelKeysTimer = null;
     this._panelSubmenuKey = null;
     this._fleetSelection = null;
     // The moment Fleet's latest events were reset to, or null for the default 24 hours;
@@ -246,6 +271,7 @@ class NSPanelEditor extends LitElement {
     if (this.__selectedPanelFor !== state.devices.selected) {
       this.__selectedPanelFor = state.devices.selected;
       this._selectedPanelKey = null;
+      this._newPanelKeys = [];
     } else if (this._selectedPanelKey
       && !(state.devices.byName[state.devices.selected]?.panels || []).some(
         (panel) => panel.key === this._selectedPanelKey,
@@ -360,7 +386,7 @@ class NSPanelEditor extends LitElement {
     this.renderRoot?.addEventListener?.('scroll', this.__onViewportChange, true);
     // Home Assistant keeps the editor element while another panel is shown and
     // attaches it again on return: poll the device the disconnect stopped.
-    if (this._selectedDevice && !this._loading) this._store.actions.startSelectedStatusPolling();
+    this._syncStatusPolling();
   }
 
   disconnectedCallback() {
@@ -389,8 +415,7 @@ class NSPanelEditor extends LitElement {
       this.renderRoot?.removeEventListener?.('scroll', this.__onViewportChange, true);
       this.__onViewportChange = null;
     }
-    this._store.actions.stopSelectedStatusPolling();
-    this._store.actions.stopAllStatusPolling();
+    this._store.actions.setStatusPolling(null);
     this._store.actions.stopNotifications();
     this._clearHaElementsTimer();
   }
@@ -429,9 +454,6 @@ class NSPanelEditor extends LitElement {
     if (this._route?.view === 'device' && this.entryId) {
       this._loadThemeLibrary();
     }
-    if (changed.has("_selectedDevice") && this._selectedDevice && !this._loading) {
-      this._store.actions.startSelectedStatusPolling();
-    }
     const top = this._store.getState().ui.overlays.at(-1);
     if (isAnchoredOverlayKind(top?.kind)) {
       this.updateComplete.then(() => {
@@ -442,14 +464,14 @@ class NSPanelEditor extends LitElement {
     this._lockPageScroll(isSidebarOverlayKind(top?.kind));
     this._watchDeviceRail();
     this._watchCarousel();
-    // Fleet shows every device, and so do the Device screen's device chips;
-    // with a single device the selected-device poller already covers it.
-    const deviceCount = Object.keys(this._store.getState().devices.byName).length;
-    if (this.entryId && !this._loading && (this._route?.view !== 'device' || deviceCount > 1)) {
-      this._store.actions.startAllStatusPolling();
-    } else {
-      this._store.actions.stopAllStatusPolling();
-    }
+    this._syncStatusPolling();
+  }
+
+  _syncStatusPolling() {
+    const { devices, hub, ui } = this._store.getState();
+    // Fleet and the multi-device rail need every status.
+    const scope = ui.route?.view !== 'device' || devices.order.length > 1 ? 'all' : 'selected';
+    this._store.actions.setStatusPolling(this.isConnected && hub.entryId && !hub.loading ? scope : null);
   }
 
   /**
@@ -693,7 +715,7 @@ class NSPanelEditor extends LitElement {
   }
 
   /** Every user panel of the hub, as something a new panel can be copied from; the catalog groups them by device. */
-  _panelTemplates() {
+  _panelCopies() {
     const state = this._store.getState();
     const systemKeys = new Set(state.hub.systemPanels.map((entry) => entry.key));
     return state.devices.order.flatMap((deviceName) => {
@@ -744,6 +766,8 @@ class NSPanelEditor extends LitElement {
     this._restoreSidebarFocus();
   }
   _toggleNavVisibility(key) { Crud.toggleNavVisibility(this, key); }
+  /** @param {string} key @param {'home'|'idle'} role */
+  _togglePanelRole(key, role) { return Crud.togglePanelRole(this, key, role); }
 
   /**
    * Put the device on screen before a sidebar opens over it: a new history
@@ -787,6 +811,32 @@ class NSPanelEditor extends LitElement {
   }
   async _savePanels(p, m) { return Crud.savePanels(this, p, m); }
   async _saveDeviceConfig(c, m, n) { return Crud.saveDeviceConfig(this, c, m, n); }
+
+  /* ── quick start ──────────────────────────────────────────────────────── */
+
+  /** Open the quick start that sets a device without panels up from a preset. @param {string} name */
+  _openQuickStart(name) { return QuickStart.openQuickStart(this, name); }
+  _closeQuickStart() { QuickStart.closeQuickStart(this); }
+  /** @param {Object<string, any>} choices */
+  _applyQuickStartChoices(choices) { return QuickStart.setChoices(this, choices); }
+  async _createFromPreset() { return QuickStart.createFromPreset(this); }
+  _renderQuickStart() { return QuickStart.renderQuickStart(this); }
+
+  /**
+   * Mark the rows of the panels just created (a setup's pages, or a panel the
+   * user added): they carry a New badge and draw the eye for a moment, then the
+   * mark is dropped on its own.
+   * @param {string[]} keys
+   */
+  _markNewPanels(keys) {
+    if (this.__newPanelKeysTimer) clearTimeout(this.__newPanelKeysTimer);
+    this._newPanelKeys = Array.isArray(keys) ? [...keys] : [];
+    this.__newPanelKeysTimer = setTimeout(() => {
+      this._newPanelKeys = [];
+      this.__newPanelKeysTimer = null;
+    }, NEW_PANEL_MARK_MS);
+    /** @type {any} */ (this.__newPanelKeysTimer).unref?.();
+  }
 
   /* ── device actions ───────────────────────────────────────────────────── */
 
@@ -858,6 +908,9 @@ class NSPanelEditor extends LitElement {
   _importYaml() { importDeviceYaml(this); }
 
   _exportYaml() { exportDeviceYaml(this); }
+
+  /** @param {{ devices?: string[] }} detail */
+  _onBackupCopied(detail) { reportCopiedDevices(this, detail); }
 
   /* ── device discovery, enabling and removal ───────────────────────── */
 
@@ -958,8 +1011,8 @@ class NSPanelEditor extends LitElement {
   }
 
   /** @param {any} config @param {{ idle?: boolean }} previewState */
-  _onPreviewIdle(config, previewState) {
-    return DeviceScreen.onPreviewIdle(this, config, previewState);
+  _onPreviewIdle(device, previewState) {
+    return DeviceScreen.onPreviewIdle(this, device, previewState);
   }
 
   /** @param {string} method @param {...any} args */
@@ -1095,8 +1148,9 @@ class NSPanelEditor extends LitElement {
 
   /* ── backups sidebar ──────────────────────────────────────────────── */
 
-  _renderBackups() {
-    return DeviceSidebars.renderBackups(this);
+  /** @param {string} name */
+  _renderBackups(name) {
+    return DeviceSidebars.renderBackups(this, name);
   }
 
   /** @param {string} deviceName */

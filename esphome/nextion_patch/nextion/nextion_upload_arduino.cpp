@@ -13,7 +13,7 @@
 
 namespace esphome::nextion {
 
-static const char *const TAG = "nextion.upload";
+ESPHOME_LOG_TAG(TAG, "nextion.upload");
 static constexpr size_t NEXTION_MAX_RESPONSE_LOG_BYTES = 16;
 
 // Timeout for display acknowledgment during TFT upload (ms).
@@ -187,9 +187,8 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   }
 
   this->connection_state_.is_updating_ = true;
-  // Every upload starts with the 4096-byte chunk the display answers with its resume offset.
-  // A failed upload leaves the flag set; a retry in the same boot would then request the
-  // whole file as its first chunk and stop after 4 KB.
+  // A failed upload leaves this set (a successful one reboots); clear it so a
+  // retry in the same boot requests the 4 KB first chunk, not the whole file.
   this->upload_first_chunk_sent_ = false;
 
   if (exit_reparse) {

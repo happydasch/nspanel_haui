@@ -3,12 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .background import theme_background_picture_id
-
 COLORS = {
-    # default colors
-    # 0.4 dark theme: page < header < cards < pressed, each one step lighter,
-    # on 8-step greys so the 5/6/5-bit display renders them neutral.
+    # dark theme: page < header < cards < pressed, on 8-step greys.
     "header_background": 6339,  # [24, 24, 24]
     "header_text": 65535,  # [255, 255, 255]
     "header_accent": 62694,  # [246, 157, 49]
@@ -29,12 +25,10 @@ COLORS = {
 }
 
 # ──────────────────────────────────────────────────────────────────────────
-# Built-in domain colors seed the editable color themes. Each theme carries
-# both dark- and light-background variants for the three stateful domains.
+# Built-in domain colours seed the editable themes.
 # ──────────────────────────────────────────────────────────────────────────
 
-# weather conditions — used by the weather page forecast and by weather
-# entity icons (e.g. on the clock page) via the entity-color resolver.
+# weather conditions — forecast and entity icons
 WEATHER_COLORS = {
     "default": 65535,  # [255, 255, 255] white: default
     "clear_night": 38060,  # [148, 148, 98] yellow grey: clear-night
@@ -51,16 +45,14 @@ WEATHER_COLORS = {
     "snowy_rainy": 38079,  # [148, 148, 255] light-blue-grey: snowy-rainy
 }
 
-# alarm states — used by the alarm page armed indicator and by
-# alarm_control_panel entity icons via the entity-color resolver.
+# alarm states — alarm indicator and entity icons
 ALARM_COLORS = {
     "armed": 55907,  # [223, 76, 30] #df4c1e
     "disarmed": 3334,  # [8, 161, 49] #8a131
     "arming": 62880,  # [244, 180, 0] #f4b400
 }
 
-# climate/HVAC modes — used by the climate page mode buttons and by climate
-# entity icons via the entity-color resolver.
+# climate/HVAC modes — climate mode buttons and entity icons
 CLIMATE_COLORS = {
     "auto": 1024,  # [0, 129, 0] auto
     "heat_cool": 1024,  # [0, 129, 0] heat_cool
@@ -72,8 +64,7 @@ CLIMATE_COLORS = {
 }
 
 
-# Fixed icon colors on a light panel background. The original palettes above
-# remain the dark-background variants.
+# Light-background icon colours; the palettes above stay dark.
 WEATHER_COLORS_LIGHT = {
     "default": 16904,  # #424242
     "clear_night": 33698,  # #827717
@@ -120,8 +111,7 @@ _ICON_COLOR_PALETTES = {
 }
 
 
-# Built-in themes are the runtime source for both the editor's color picker
-# and the page/entity color resolvers. Values use RGB565 throughout.
+# Built-in themes feed the editor and the colour resolvers (RGB565).
 _LIGHT_COLOR_OVERRIDES = {
     "header_background": 63390,
     "header_text": 4226,
@@ -132,6 +122,13 @@ _LIGHT_COLOR_OVERRIDES = {
     "component_text": 4226,
     "component_pressed": 54970,
     "component_background": 61309,
+    # Light variants keep the state meanings readable
+    # (tests/test_color.py measures them).
+    "header_accent": 47521,  # #bf360c
+    "component_active": 4920,  # #1565c0
+    "component_active_dark": 2612,  # #0d47a1
+    "component_accent": 47521,  # #bf360c
+    "entity_on": 45697,  # #b45309
 }
 _WHITE_COLOR_OVERRIDES = {**_LIGHT_COLOR_OVERRIDES, "header_background": 65535}
 _BLACK_COLOR_OVERRIDES = {
@@ -141,12 +138,8 @@ _BLACK_COLOR_OVERRIDES = {
     "component_pressed": 8452,
 }
 
-# The colorful themes tint page, header and cards with one hue. The dark family
-# keeps page < header/cards < pressed brightening upwards like the dark theme;
-# the sky theme follows the light theme's light page, so its header stays light
-# too: ``header_text`` is also the default text colour of body widgets
-# (``FunctionButtonMixin``), and a light page needs a dark body text.
-# Foregrounds stay readable on their own background (``tests/test_color.py``).
+# Colour themes tint page/header/cards with one hue; the sky theme follows the
+# light theme's light page, so its header stays light and body text dark.
 _MIDNIGHT_COLOR_OVERRIDES = {
     "header_background": 4425,  # #152a4e
     "header_text": 61343,  # #eaf1ff
@@ -302,7 +295,7 @@ def validate_themes(themes: Any) -> dict[str, dict]:
             raise ValueError(f"Color theme {theme_id!r} needs a name")
         name = theme["name"].strip()
         if not name or len(name) > 64:
-            raise ValueError(f"Color theme {theme_id!r} needs a name of 1–64 characters")
+            raise ValueError(f"Color theme {theme_id!r} needs a name of 1-64 characters")
         colors = theme.get("colors")
         icons = theme.get("icons")
         if not isinstance(colors, dict) or set(colors) != THEME_KEYS["colors"]:
@@ -348,12 +341,9 @@ def _validate_theme_colors(values: dict, path: str) -> dict[str, int]:
     return normalized
 
 
-# Program.s globals the solid-colour pages paint themselves from in their
-# Preinitialize event, before the display draws them, keyed by ``COLORS`` key.
-# The hub sets them right before every page switch (``Theme.display_commands``)
-# so a page shows the panel's theme from its first frame. The Preinitialize code
-# is generated from the HMI by ``scripts/hmi_layout/gen_virtual_layout.py
-# --theme-code``; Program.s declares each global with its ``COLORS`` default.
+# Program.s theme globals the solid pages read in Preinitialize, keyed by
+# ``COLORS``; generated by ``scripts/hmi_layout/gen_virtual_layout.py
+# --theme-code``.
 THEME_GLOBALS = {
     "background": "thmBg",
     "header_background": "thmHdrBg",
@@ -389,10 +379,6 @@ class Theme:
         blue = (color & 0x1F) * 255 // 31
         brightness = (2126 * red + 7152 * green + 722 * blue) // 10000
         return "light" if brightness >= 128 else "dark"
-
-    def background_picture_id(self) -> int:
-        """Return the solid HMI picture matching the active palette's brightness."""
-        return theme_background_picture_id(self.background_variant())
 
     def get_background_color(self, key: str, variant: str) -> int:
         """Return the fixed contrast palette paired with a page background."""

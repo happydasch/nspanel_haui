@@ -78,6 +78,25 @@ test('an unknown group is a bug, not a blank page', () => {
   const { dlg } = settings({ config, _deviceConfigForm: config, section: 'nope' });
   assert.throws(() => dlg.render(), /Unknown device settings section: nope/);
 });
+test('an untitled panel is named by its type, not by its key', () => {
+  const clock = { key: 'clock_0', type: 'clock', items: [] };
+  const weather = { key: 'weather_0', type: 'weather', items: [] };
+  const panelTypes = [
+    { type_key: 'clock', label: 'Clock' },
+    { type_key: 'weather', label: 'Weather' },
+  ];
+  const config = { ...DEVICE_CONFIG_DEFAULTS, home_panel: 'clock_0' };
+
+  // The tile line and the pills both carry the name the hub shows.
+  assert.equal(settingsSection('home').summary(config, { panels: [clock, weather], panelTypes }), 'Clock · 0 idle panels');
+  const root = render(settings({
+    config, _deviceConfigForm: config, section: 'home',
+    panels: [clock, weather], panelTypes,
+  }).dlg.render());
+  const homePill = root.querySelector('.haui-pill');
+  assert.equal(homePill.textContent.trim(), 'Clock');
+  assert.equal(root.querySelector('#dc-idle-panels option[value="weather_0"]').textContent, 'Weather');
+});
 
 test('the General group edits the theme choice in the settings draft', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS };

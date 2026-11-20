@@ -10,6 +10,7 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
+from ..utils.value import number_state
 
 
 class SettingsPage(HAUIPage):
@@ -123,20 +124,20 @@ class SettingsPage(HAUIPage):
             self.COMPONENTS.t_brght_title, self.translate("Full and Dimmed Brightness:")
         )
         if self.brightness_full_entity is not None:
-            brightness_full_state = self.brightness_full_entity.get_state()
-            if brightness_full_state is not None and brightness_full_state != "unavailable":
-                self.set_brightness_full_slider(int(float(brightness_full_state)))
+            state = self.brightness_full_entity.get_state()
+            if (value := self._parse_brightness(state)) is not None:
+                self.set_brightness_full_slider(value)
         if self.brightness_dimmed_entity is not None:
-            brightness_dimmed_state = self.brightness_dimmed_entity.get_state()
-            if brightness_dimmed_state is not None and brightness_dimmed_state != "unavailable":
-                self.set_brightness_dim_slider(int(float(brightness_dimmed_state)))
+            state = self.brightness_dimmed_entity.get_state()
+            if (value := self._parse_brightness(state)) is not None:
+                self.set_brightness_dim_slider(value)
 
     # misc
 
     def _parse_brightness(self, state: Any) -> int | None:
-        if state is None or state == "unavailable":
-            return None
-        return int(float(state))
+        """The firmware's brightness in percent, or None while it has no value."""
+        brightness = number_state(state)
+        return None if brightness is None else int(brightness)
 
     def set_brightness_full_slider(self, value: int) -> None:
         self.set_slider_color(self.COMPONENTS.h_brght)

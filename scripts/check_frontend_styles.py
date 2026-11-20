@@ -181,8 +181,7 @@ def _catch_all_fragments(
 ) -> set[Path]:
     """Fragments that styles.js composes into one sheet with a universal reduced-motion rule.
 
-    A `*` rule in a reduced-motion block (styles/content.js) turns motion off for the
-    whole shadow root, so the fragments sharing its sheet need no overrides of their own.
+    A ``*`` rule in a reduced-motion block (styles/content.js) already covers them.
     """
     composition = frontend / "styles.js"
     if not composition.exists():

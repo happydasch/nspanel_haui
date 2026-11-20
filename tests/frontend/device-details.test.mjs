@@ -7,7 +7,6 @@ import { renderDeviceView, previewControls } from '../../custom_components/nspan
 import { render } from './support/render.mjs';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
 import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
-import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
@@ -181,10 +180,10 @@ test('A collapsed Connection card shows only its heading', () => {
   assert.doesNotMatch(text, /More details/);
   // Folding the card is about its facts: the two actions keep their own buttons below it.
   assert.equal(root.querySelector('.haui-device-details').contains(root.querySelector('.haui-details-actions')), false);
-  assert.match(root.querySelector('.haui-details-actions button').textContent, /Updates/);
+  assert.match(root.querySelector('.haui-details-actions button').textContent, /Themes/);
 });
 
-test('The side stack opens Updates, Themes and Backups below its cards', () => {
+test('The side stack opens Themes, Updates and Backups below its cards', () => {
   const opened = [];
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
@@ -196,7 +195,7 @@ test('The side stack opens Updates, Themes and Backups below its cards', () => {
   });
   const root = render(view);
   const actions = root.querySelector('.haui-details-actions');
-  const [updates, themes, backups] = [...actions.querySelectorAll('button')];
+  const [themes, updates, backups] = [...actions.querySelectorAll('button')];
 
   // Plain content at the end of the stack: no card or heading of its own, after the Connection and
   // Diagnostics cards.
@@ -206,8 +205,8 @@ test('The side stack opens Updates, Themes and Backups below its cards', () => {
   assert.equal(sideStack[1].classList.contains('haui-diagnostics-card'), true);
   assert.equal(sideStack.length, 3);
 
-  // Updates and Themes lead, each naming what its sidebar holds on its trailing edge; Backups closes the
-  // column, as the device's own export and import.
+  // Themes and Updates follow, each naming what its sidebar holds on its trailing edge; Backups
+  // closes the column, as the device's own export and import.
   assert.match(updates.textContent, /Updates/);
   assert.match(updates.textContent, /Stable · Manual/);
   assert.match(themes.textContent, /Themes/);

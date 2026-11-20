@@ -14,6 +14,13 @@ import { icon } from './icon.js';
  * @property {boolean} [danger] - drawn in the error colour (Delete)
  * @property {() => void} onClick
  *
+ * @typedef {Object} PanelInfoRole
+ * @property {string} key - the role's key (`home`, `idle`)
+ * @property {string} label
+ * @property {string} iconName
+ * @property {boolean} active - whether the panel holds the role now
+ * @property {() => void} onToggle
+ *
  * @typedef {Object} PanelInfo
  * @property {'panel'} kind
  * @property {string} iconName
@@ -23,6 +30,7 @@ import { icon } from './icon.js';
  * @property {unknown} [preview] - the hub's render of the panel
  * @property {boolean} [portrait]
  * @property {Array<[string, unknown]>} facts - label and value of one fact
+ * @property {PanelInfoRole[]} [roles] - the device roles this panel can take, each a toggle
  * @property {PanelInfoAction[]} actions
  * @property {() => void} onClose - clears the selected panel
  * @property {boolean} [previewExpanded] - false folds the render to a thumbnail
@@ -66,14 +74,54 @@ function previewBlock({ preview = nothing, portrait = false, description = '', e
 }
 
 /**
+ * The device roles the panel can take, as toggles: the one it holds is filled
+ * and pressed. Home is a single panel, so setting it takes the role from the
+ * panel that held it before; the idle panels are an ordered list, so a toggle
+ * adds the panel to that cycle or takes it out.
+ *
+ * @param {{ roles?: PanelInfoRole[] }} model
+ */
+function rolesBlock({ roles = [] }) {
+  if (!roles.length) return nothing;
+  return html`<div class="haui-panel-info-roles" role="group" aria-label=${t('Panel roles')}>
+    ${roles.map((role) => button({
+      label: role.label,
+      iconName: role.iconName,
+      className: role.active ? 'haui-panel-info-role is-active' : 'haui-panel-info-role',
+      pressed: role.active,
+      onClick: role.onToggle,
+    }))}
+  </div>`;
+}
+
+/**
+ * The actions the panel's row menu offers, as the card's buttons.
+ *
+ * @param {{ actions?: PanelInfoAction[] }} model
+ */
+function actionsBlock({ actions = [] }) {
+  if (!actions.length) return nothing;
+  return html`<div class="haui-panel-info-actions">
+    ${actions.map((action) => button({
+      label: action.label,
+      iconName: action.iconName,
+      variant: action.variant || 'outline',
+      className: action.danger ? 'haui-button-danger' : '',
+      onClick: action.onClick,
+    }))}
+  </div>`;
+}
+
+/**
  * The Panels view's card for the selected panel: the panel as the display draws
  * it, its type with the type's icon and the type's description, the facts that
- * decide how it behaves, and the actions its row's menu offers.
+ * decide how it behaves, the device roles it can take, and the actions its
+ * row's menu offers.
  *
  * @param {PanelInfo} model
  */
 function selectedPanel({
-  iconName, title, subtitle, description, preview, portrait = false, facts, actions = [],
+  iconName, title, subtitle, description, preview, portrait = false, facts, roles = [], actions = [],
   previewExpanded = true, onTogglePreview = null, onClose,
 }) {
   return surface({
@@ -83,29 +131,23 @@ function selectedPanel({
     subtitle,
     actions: iconButton({ label: t('Close'), iconName: 'close', onClick: onClose, className: 'haui-panel-info-close' }),
     body: html`
+      ${rolesBlock({ roles })}
       ${previewBlock({
         preview, portrait, description, expanded: previewExpanded, onToggle: onTogglePreview,
       })}
       <dl class="haui-panel-info-facts">
         ${facts.map(([label, value]) => html`<div><dt>${label}</dt><dd>${value}</dd></div>`)}
       </dl>
-      ${actions.length ? html`<div class="haui-card-actions">
-        ${actions.map((action) => button({
-          label: action.label,
-          iconName: action.iconName,
-          variant: action.variant || 'outline',
-          className: action.danger ? 'haui-button-danger' : '',
-          onClick: action.onClick,
-        }))}
-      </div>` : nothing}`,
+      ${actionsBlock({ actions })}`,
   });
 }
 
 /**
- * What the panel list is about while no panel is selected: how many panels each
- * group holds, which panel the device opens as home and while idle, and how the
- * rows are worked with. It sits in the side stack as plain content — no card of
- * its own and no heading — because the list beside it already is the Panels view.
+ * What the panel list is about while no panel is selected: which panel the
+ * device opens as home and while idle, how many panels each group holds, and
+ * how the rows are worked with. It sits in the side stack as plain content — no
+ * card of its own and no heading — because the list beside it already is the
+ * Panels view.
  *
  * @param {PanelsOverview} model
  */
@@ -142,11 +184,6 @@ function panelsOverview({
     },
   ];
   return html`<div class="haui-panels-overview">
-    <ul class="haui-panels-overview-groups">
-      ${groups.map((group) => html`<li data-group=${group.key}>
-        ${icon(group.iconName)}<span>${group.label}</span>${countBadge(group.count)}
-      </li>`)}
-    </ul>
     <div class="haui-panels-overview-roles">
       ${roles.map((role) => {
         const label = t('Select {role}: {name}')
@@ -164,6 +201,11 @@ function panelsOverview({
         </button>`;
       })}
     </div>
+    <ul class="haui-panels-overview-groups">
+      ${groups.map((group) => html`<li data-group=${group.key}>
+        ${icon(group.iconName)}<span>${group.label}</span>${countBadge(group.count)}
+      </li>`)}
+    </ul>
     <ul class="haui-panels-overview-hints">
       ${hints.map((hint) => html`<li data-hint=${hint.key}>${icon(hint.iconName)}<span>${hint.text}</span></li>`)}
     </ul>

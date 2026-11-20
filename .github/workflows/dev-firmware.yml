@@ -1,12 +1,9 @@
 name: Development Firmware
 
 on:
-  # Dispatched manually (Actions -> Development Firmware -> Run workflow on
-  # `dev`). A build publishes a prerelease and pushes one bot commit back to
-  # `dev` (the dev version plus the regenerated screen overview), so it runs
-  # when the device inputs (firmware or display) changed or on the documented
-  # cadence — not on every push. `screens_only` regenerates the screen overview
-  # with a single docs commit, without building or publishing firmware.
+  # Dispatched manually on `dev`. Publishes a versioned prerelease and pushes one
+  # bot commit back to `dev` (dev version plus regenerated screens). `screens_only`
+  # regenerates only the screen overview, without building firmware.
   workflow_dispatch:
     inputs:
       screens_only:
@@ -19,9 +16,7 @@ permissions:
 
 concurrency:
   group: dev-firmware
-  # A new dispatch queues behind the running one: a screens-only run must not
-  # cancel a firmware build, and a dispatch must not interrupt publication after
-  # the dev version has been pushed.
+  # A new dispatch queues behind the running one, so nothing is cancelled.
   cancel-in-progress: false
 
 jobs:
@@ -29,8 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Require the dev branch
-        # The version commit is pushed to `dev`; a build from another ref would
-        # either race that branch or ship a commit dev does not contain.
+        # The bot commit is pushed to `dev`, so a build from another ref would race it.
         run: |
           if [ "${GITHUB_REF_NAME}" != "dev" ]; then
             echo "Dispatch this workflow on the dev branch (got ${GITHUB_REF_NAME})." >&2
@@ -57,8 +51,7 @@ jobs:
       - name: Set the development firmware and display TFT versions
         id: version
         # X.Y.Z.dev<run>, one PEP 440 string for the tag, manifest.json and
-        # yaml_version, with no `+local` segment. Why each rule exists:
-        # docs/develop/release.md, "Published development firmware".
+        # version.yaml, with no `+local` segment.
         run: python -m scripts.release.dev_version "$GITHUB_RUN_NUMBER"
 
       - name: Compile the universal firmware
@@ -66,15 +59,13 @@ jobs:
         run: bash scripts/release/compile_firmware.sh
 
       - name: Generate the firmware manifest and commit notes
-        # Same manifest schema as a stable release, including the ``tft`` block
-        # that names the display TFT and its per-model assets.
+        # Same manifest schema as a stable release, its tft block included.
         run: |
           python -m scripts.release.generate_firmware_manifest --tag "$DEV_VERSION" --name "NSPanel HAUI Development"
           python -m scripts.release.dev_release_notes
 
       - name: Upload the firmware release inputs
-        # The common root is the repository root: the binaries sit at the top of
-        # the artifact and the version files keep their repository paths.
+        # The common root is the repository root, so the version files keep their paths.
         uses: actions/upload-artifact@v7
         with:
           name: firmware-release
@@ -101,14 +92,12 @@ jobs:
           node: "24"
           requirements: dev
 
-      # capture.mjs drives the runner's preinstalled Google Chrome. Renders run
-      # at a fixed time, so the output is byte-identical between runs.
+      # Renders run at a fixed time, so the output is byte-identical between runs.
       - name: Render the screen overview
         run: python -m scripts.preview_gallery.gen_preview_gallery --docs
 
       - name: Upload the screen overview
-        # The common root is docs/, so the artifact holds screens.html and
-        # assets/screens/ at its top.
+        # The common root is docs/, so the artifact holds screens.html and assets/screens/.
         uses: actions/upload-artifact@v7
         with:
           name: docs-screens
@@ -120,21 +109,22 @@ jobs:
 
   publish:
     needs: [build, screens]
-    if: ${{ !inputs.screens_only }}
+    if: >-
+      ${{ !cancelled() && needs.screens.result == 'success' &&
+          (inputs.screens_only || needs.build.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # Dispatches CI for the pushed commit (see the last step).
+      # Needed to dispatch CI for the pushed commit.
       actions: write
     steps:
-      # The dispatched commit, not the moving dev tip, so the tag, version files
-      # and screens all describe the same source tree.
+      # The dispatched commit, not the moving dev tip, so the tag and screens match.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 0
 
       - name: Download the firmware release inputs
+        if: ${{ !inputs.screens_only }}
         uses: actions/download-artifact@v8
         with:
           name: firmware-release
@@ -146,66 +136,45 @@ jobs:
           name: docs-screens
           path: .release/screens
 
-      - name: Assemble the release commit
-        # Replacing the screen directory (instead of overlaying it) stages the
-        # deletion of screens retired since the previous build. The version and
-        # the screens land in one commit, so dev never sees a version commit
-        # without its screens.
+      - name: Assemble and push the commit to dev
+        id: commit
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          cp .release/firmware/custom_components/nspanel_haui/manifest.json custom_components/nspanel_haui/manifest.json
-          cp .release/firmware/esphome/nspanel_haui/version.yaml esphome/nspanel_haui/version.yaml
-          cp .release/firmware/nspanel_haui.bin .
-          cp .release/firmware/nspanel_haui_ota.bin .
-          cp .release/firmware/firmware-manifest.json .
-          cp .release/firmware/dev-release-notes.md .
+          # Replace the directory so retired screens are deleted.
           cp .release/screens/screens.html docs/screens.html
           rm -rf docs/assets/screens
-          mkdir -p docs/assets
           cp -R .release/screens/assets/screens docs/assets/screens
+          git add -A docs/screens.html docs/assets/screens
+          if [ -n "$VERSION" ]; then
+            cp .release/firmware/custom_components/nspanel_haui/manifest.json custom_components/nspanel_haui/manifest.json
+            cp .release/firmware/esphome/nspanel_haui/version.yaml esphome/nspanel_haui/version.yaml
+            git add custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml
+            message="chore(release): development firmware ${VERSION}"
+          else
+            if git diff --cached --quiet; then
+              echo "Screens are up to date"
+              exit 0
+            fi
+            message="docs(screens): regenerate screen overview"
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml docs/screens.html docs/assets/screens
-          git commit -m "chore(release): development firmware ${VERSION}"
-
-      - name: Tag the versioned source tree and publish it to dev
-        id: tag
-        # The Marketplace downloads the *source archive of the tag* (not the
-        # release assets), and Home Assistant and the hub read the version from
-        # its manifest.json. The bumped manifest therefore has to be in a commit
-        # the tag points at; tagging the pushed commit alone would ship the
-        # unmodified stable manifest, so the dev build would call itself stable.
-        #
-        # The same versioned commit is pushed onto the ``dev`` branch, so the
-        # branch's tracked version.yaml carries the dev version instead of
-        # lagging on the last stable release (the old tag-only commit left dev
-        # stale). The next dispatched build derives the next dev version from
-        # that X.Y.Z.devN directly. A re-run of the same workflow run keeps its
-        # run number (the version) and builds the same commit, so it replaces
-        # an equivalent commit/tag.
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          # Publish to the dev branch first; a non-force push fails (rather than
-          # clobbering) if a concurrent commit raced in. The version commit's
-          # parent is the just-pushed HEAD, so when it wins dev advances exactly
-          # one release commit. Rejection is not fatal: the tagged release below
-          # still carries the versioned commit.
+          git commit -m "$message"
+          # Never overwrite commits that landed on dev while the jobs ran.
           if git push origin "HEAD:refs/heads/dev"; then
             echo "dev_pushed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "dev branch raced; the version commit ships in the tagged release only"
+            echo "::notice::dev moved while building; the branch was not updated"
           fi
+
+      - name: Push the version tag
+        if: ${{ !inputs.screens_only }}
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Marketplace installs the tagged source; a rerun re-tags the same version.
           git tag "${VERSION}"
-          # --force keeps a re-run of the same build idempotent: a re-run keeps
-          # the run number and commit, so the tag can only be replaced by an
-          # equivalent one.
-          #
-          # Retried because GitHub Git Operations incidents reject ref updates
-          # intermittently ("remote: fatal error in commit_refs", 0.4.5.dev18):
-          # by now the build is done and dev already carries the version, so a
-          # single rejection would leave dev on a version that has no release.
           attempt=1
           until git push --force origin "refs/tags/${VERSION}"; do
             if [ "$attempt" -ge 5 ]; then
@@ -218,29 +187,26 @@ jobs:
           done
 
       - name: Publish versioned development prerelease
+        if: ${{ !inputs.screens_only }}
         uses: softprops/action-gh-release@v2
         with:
-          # The tag *is* the PEP 440 dev version, so the Marketplace (which
-          # reads release tags as versions) can order dev releases and compare
-          # them with the installed dev build.
+          # The tag is the PEP 440 dev version, so the Marketplace can order dev releases.
           tag_name: ${{ needs.build.outputs.version }}
           name: NSPanel HAUI ${{ needs.build.outputs.version }} (${{ needs.build.outputs.sha }})
-          body_path: dev-release-notes.md
+          body_path: .release/firmware/dev-release-notes.md
           prerelease: true
           make_latest: false
           files: |
-            nspanel_haui.bin
-            nspanel_haui_ota.bin
+            .release/firmware/nspanel_haui.bin
+            .release/firmware/nspanel_haui_ota.bin
             nextion/nspanel_haui.tft
             nextion/nspanel_haui_portrait.tft
-            firmware-manifest.json
+            .release/firmware/firmware-manifest.json
 
       - name: Prune old development prereleases
-        # The Marketplace reads only the newest 30 releases, the hub's release
-        # check the newest 100 (RELEASES_URL). One prerelease per push would push
-        # the latest stable release out of both: the Marketplace then finds no
-        # stable version and a fresh install falls back to the default branch.
-        # Keep the newest dev builds only; stable releases never match.
+        if: ${{ !inputs.screens_only }}
+        # Keeps only the newest dev prereleases: too many would push the latest
+        # stable release out of the Marketplace's and the hub's release lists.
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP: 10
@@ -257,60 +223,8 @@ jobs:
               done
 
       - name: Run CI on the new dev commit
-        # A push with the workflow's GITHUB_TOKEN starts no workflow, so CI is
-        # dispatched: it tests the version commit and deploys the docs with the
-        # new screen overview (a dispatched run always deploys).
-        if: ${{ !cancelled() && steps.tag.outputs.dev_pushed == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref dev
-
-  publish-screens:
-    needs: [screens]
-    if: ${{ inputs.screens_only }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      # Dispatches CI for the pushed commit (see the last step).
-      actions: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Download the screen overview
-        uses: actions/download-artifact@v8
-        with:
-          name: docs-screens
-          path: .release/screens
-
-      - name: Commit the changed screens
-        id: commit
-        # Screens-only mode never derives a version, tags or publishes a
-        # release. A non-force push fails when dev moved on while rendering,
-        # and the next run commits the screens then.
-        run: |
-          cp .release/screens/screens.html docs/screens.html
-          rm -rf docs/assets/screens
-          mkdir -p docs/assets
-          cp -R .release/screens/assets/screens docs/assets/screens
-          git add -A docs/screens.html docs/assets/screens
-          if git diff --cached --quiet; then
-            echo "Screens are up to date"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs(screens): regenerate screen overview"
-          if git push origin "HEAD:refs/heads/dev"; then
-            echo "dev_pushed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::dev moved on while rendering; the next run commits the screens"
-          fi
-
-      - name: Run CI on the new dev commit
-        # See the publish job: deploys the docs with the new screens.
-        if: steps.commit.outputs.dev_pushed == 'true'
+        # A push with GITHUB_TOKEN starts no workflow, so CI is dispatched.
+        if: ${{ !cancelled() && steps.commit.outputs.dev_pushed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref dev

@@ -4,15 +4,21 @@ Lives outside ``frontend/`` because that whole directory is served as
 static files without authentication; it should hold only browser assets.
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from homeassistant.components import panel_custom
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 
 from ..haui.version import get_integration_version
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -33,7 +39,7 @@ def _frontend_asset_version() -> str:
     return f"{get_integration_version()}-{digest.hexdigest()[:12]}"
 
 
-async def async_register_frontend(hass) -> None:
+async def async_register_frontend(hass: HomeAssistant) -> None:
     """Register the HAUI Editor frontend and sidebar panel."""
     if hass.data.get("nspanel_haui_frontend_registered"):
         return

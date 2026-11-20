@@ -6,6 +6,8 @@ import { button, iconButton, backButton } from '../../custom_components/nspanel_
 import { badge, countBadge, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
 import { surface, sectionHeading } from '../../custom_components/nspanel_haui/frontend/ui/surface.js';
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
+import { choiceList } from '../../custom_components/nspanel_haui/frontend/ui/choice-list.js';
+import { searchField } from '../../custom_components/nspanel_haui/frontend/ui/search-field.js';
 import { stateValues } from '../../custom_components/nspanel_haui/frontend/ui/state-values.js';
 import { sortHandle } from '../../custom_components/nspanel_haui/frontend/ui/sort-handle.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
@@ -19,6 +21,8 @@ import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info
 import { settingsTile } from '../../custom_components/nspanel_haui/frontend/ui/settings-tile.js';
 import { updateProgress } from '../../custom_components/nspanel_haui/frontend/ui/update-progress.js';
 import { rolloutCard } from '../../custom_components/nspanel_haui/frontend/ui/rollout-card.js';
+import { panelSideCard } from '../../custom_components/nspanel_haui/frontend/ui/panel-info.js';
+import { panelRoleMarker } from '../../custom_components/nspanel_haui/frontend/ui/panel-role.js';
 
 const noop = () => {};
 const DIAGNOSTICS_DEMO = {
@@ -107,11 +111,40 @@ class UiPrimitivesPreview extends LitElement {
         <section class="gallery-card"><h2>Icons and buttons</h2>
           <div class="gallery-row">${icon('home')}${button({ label: 'Primary', iconName: 'check', variant: 'primary' })}${button({ label: 'Quiet', variant: 'quiet' })}${backButton({ label: 'Back', onClick: () => {} })}${iconButton({ label: 'Close', iconName: 'close' })}${iconButton({ label: 'Disabled', iconName: 'more', disabled: true })}</div>
           <div class="gallery-row">${button({ label: 'Saving', busy: true })}${button({ label: 'Unavailable', disabled: true })}${button({ label: 'Schedule', iconName: 'clock', detail: '2 entries' })}</div>
+          <div class="gallery-row">${button({ label: 'Pressed', iconName: 'home', pressed: true, className: 'is-active' })}${button({ label: 'Not pressed', iconName: 'sleep', pressed: false })}</div>
+        </section>
+        <section class="gallery-card"><h2>Panel details: the roles as toggles</h2>
+          ${panelSideCard({
+            kind: 'panel', iconName: 'grid', title: 'Lights', subtitle: 'Grid',
+            description: 'A grid of entities.',
+            facts: [
+              ['Type', 'Grid'], ['Key', html`<code class="haui-panel-info-key">lights</code>`],
+              ['Group', 'Navigation'], ['Items', '4'],
+            ],
+            roles: [
+              { key: 'home', label: 'Home panel', iconName: 'home', active: true, onToggle: noop },
+              { key: 'idle', label: 'Idle panel', iconName: 'sleep', active: false, onToggle: noop },
+            ],
+            actions: [
+              { label: 'Edit', iconName: 'edit', variant: 'primary', onClick: noop },
+              { label: 'Duplicate', iconName: 'content-copy', onClick: noop },
+              { label: 'Delete', iconName: 'delete', danger: true, onClick: noop },
+            ],
+            onClose: noop,
+          })}
         </section>
         <section class="gallery-card"><h2>Badges and connection</h2>
           <div class="gallery-row">${['neutral', 'primary', 'success', 'warning', 'danger'].map((tone) => badge(tone, tone))}</div>
           <div class="gallery-row">${countBadge(12)}${countBadge(3, { tone: 'warning' })}${countBadge(1, { tone: 'danger' })}${countBadge(4, { title: '4 items' })}</div>
           <div class="gallery-row">${statusDot('online', 'Online')}${statusDot('offline', 'Offline')}${statusDot('stale', 'Stale')}${statusDot('unknown', 'Unknown')}</div>
+        </section>
+        <section class="gallery-card"><h2>Panel role markers</h2>
+          <p>Where a page sits on the device: the icon the panel list marks a row with, and the quick start a gallery page.</p>
+          <div class="gallery-row">
+            ${panelRoleMarker({ role: 'home' })}${panelRoleMarker({ role: 'idle' })}
+            ${panelRoleMarker({ role: 'idle', label: 'Idle panel 2', extra: true })}
+            ${panelRoleMarker({ role: 'navigation' })}${panelRoleMarker({ role: 'hidden' })}
+          </div>
         </section>
         <section class="gallery-card"><h2>Surfaces</h2>
           <div class="gallery-stack">${surface({ title: 'Plain surface', subtitle: 'Header, subtitle and body', body: 'Example content' })}${surface({ title: 'Gradient', variant: 'gradient', body: 'Summary surface' })}${surface({ title: 'Flush', variant: 'flush', body: 'Table content' })}</div>
@@ -119,6 +152,32 @@ class UiPrimitivesPreview extends LitElement {
         </section>
         <section class="gallery-card"><h2>Segmented control</h2>
           ${segmented({ label: 'Workspace view', value: 'preview', options: [{ label: 'Preview', value: 'preview' }, { label: 'Panels', value: 'panels', count: 3 }, { label: 'Errors', value: 'errors', count: 2, tone: 'danger' }, { label: 'Disabled', value: 'disabled', disabled: true }], onSelect() {} })}
+          ${searchField({ label: 'Search panels', value: '', className: 'haui-panel-search' })}
+        </section>
+        <section class="gallery-card"><h2>Choice rows</h2>
+          ${choiceList({
+            id: 'preview-parts',
+            label: 'What to copy',
+            badge: countBadge(2, { title: '2 parts picked' }),
+            choices: [
+              { key: 'settings', label: 'Device settings', hint: 'Language, screen, sounds, buttons, gestures and the theme', iconName: 'settings', checked: true },
+              { key: 'panels', label: 'Panels', hint: 'Every panel of this device, in its order', iconName: 'panels', checked: true },
+              { key: 'update', label: 'Update settings', hint: 'The update channel and its automatic installs', iconName: 'refresh', checked: false },
+            ],
+            onToggle() {},
+          })}
+          ${choiceList({
+            id: 'preview-targets',
+            label: 'To devices',
+            badge: countBadge(1, { title: '1 device picked' }),
+            actions: button({ label: 'Select all', variant: 'quiet' }),
+            choices: [
+              { key: 'office', label: 'Office', checked: true },
+              { key: 'bedroom', label: 'Bedroom', checked: false },
+              { key: 'attic', label: 'Attic', checked: false, disabled: true },
+            ],
+            onToggle() {},
+          })}
         </section>
         <section class="gallery-card"><h2>Values per state</h2>
           ${stateValues({

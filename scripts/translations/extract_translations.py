@@ -1,15 +1,10 @@
 """Extract translatable strings from Python and frontend JS sources.
 
-Scans:
-  - Python `.translate("...")` calls in the haui core package
-  - Python `_("...")` calls in descriptor definitions (page label/description/section/choice)
-  - Frontend `host._t("...")` / `t("...")` calls in the editor JS
-Outputs:
-  - ``scripts/translations/translate.json`` — flat text template for merge pipeline
-  - ``custom_components/nspanel_haui/haui/locale/*.json`` — HA
-    custom_components translation format (component + text sections only)
-    All language files are updated with missing keys; non-en files use an
-    empty placeholder for new keys.
+Scans Python ``.translate("...")`` calls in the haui core and ``_("...")`` calls in
+descriptors, plus ``t("...")`` calls in the editor JS. Writes
+``scripts/translations/translate.json`` (the merge pipeline's template) and the
+``custom_components/nspanel_haui/haui/locale/*.json`` files, adding the missing keys to
+every language and an empty placeholder in the non-en ones.
 """
 
 from __future__ import annotations
@@ -18,23 +13,23 @@ import argparse
 import json
 import os
 import re
+from pathlib import Path
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 PYTHON_DIR = os.path.join(REPO_ROOT, "custom_components", "nspanel_haui")
 FRONTEND_DIR = os.path.join(PYTHON_DIR, "frontend")
 TRANSLATIONS_DIR = os.path.join(PYTHON_DIR, "haui", "locale")
-EN_JSON = os.path.join(TRANSLATIONS_DIR, "en.json")
 OUTPUT_TRANSLATE = os.path.join(SCRIPT_DIR, "translate.json")
 
-# Match self.translate("...") or self.translate('...') in Python; a string too long for one
-# line is wrapped by ruff onto its own line, with its line-length waiver comment after it.
+# Match self.translate("...") in Python; ruff may wrap a long string onto its own line,
+# with its line-length waiver comment after it.
 PY_PATTERN = re.compile(r"\.translate\(\s*(['\"])(.*?)\1\s*(?:#[^\n]*\s*)?\)")
 
 # Match _("...") or _('...') — descriptor string marker
 PY_DESCRIPTOR_PATTERN = re.compile(r"(?<![.\w])_\((['\"])(.*?)\1\)")
 
-# Match bare t("...") calls in JS (host._t / this._t have been removed)
+# Match bare t("...") calls in JS
 JS_PATTERN = re.compile(r"(?<![.\w])t\((['\"])(.*?)\1\)")
 
 
@@ -85,80 +80,47 @@ def read_json_or_empty(path: str) -> dict:
         return {}
 
 
-def update_lang_file(path: str, text_keys: list[str]) -> tuple[int, int]:
-    """Sync text keys in a language file: add missing, remove unused.
-
-    Returns (added, removed).
-    """
-    existing = read_json_or_empty(path)
-    existing_text = existing.get("text", {})
-    key_set = set(text_keys)
-    added = 0
-    removed = len([k for k in existing_text if k not in key_set])
-    new_text: dict[str, str] = {}
-    for key in text_keys:
-        if key in existing_text:
-            new_text[key] = existing_text[key]
-        else:
-            new_text[key] = ""
-            added += 1
-    output = {
-        "component": existing.get("component", {}),
-        "text": new_text,
-    }
-    with open(path, "w") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    return added, removed
+def sync_json(path: str, data: dict, *, check: bool) -> bool:
+    """Check or write the canonical JSON without touching a fresh file."""
+    output = Path(path)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    if output.exists() and output.read_text(encoding="utf-8") == text:
+        return True
+    if check:
+        print(f"{output.relative_to(REPO_ROOT)} is out of date; run the extractor without --check")
+        return False
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(text, encoding="utf-8")
+    print(f"Updated {output.relative_to(REPO_ROOT)}")
+    return True
 
 
-def main() -> None:
-    # No options yet; parsing still gives --help instead of rewriting the locale files.
-    argparse.ArgumentParser(
+def main() -> int:
+    parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    ).parse_args()
-    text_keys = extract_python_strings() | extract_frontend_strings()
-    text_keys.discard("")
-    text_keys = sorted(text_keys)
+    )
+    parser.add_argument("--check", action="store_true", help="check files without writing them")
+    args = parser.parse_args()
+    text_keys = sorted((extract_python_strings() | extract_frontend_strings()) - {""})
 
-    existing_en = read_json_or_empty(EN_JSON)
-
-    # --- Build en text section ---
-    existing_en_text = existing_en.get("text", {})
-    new_en_text: dict[str, str] = {}
-    for key in text_keys:
-        existing_value = existing_en_text.get(key, "")
-        new_en_text[key] = existing_value if existing_value else key
-
-    # --- Write legacy translate.json (flat template for merge pipeline) ---
-    os.makedirs(os.path.dirname(OUTPUT_TRANSLATE), exist_ok=True)
-    with open(OUTPUT_TRANSLATE, "w") as f:
-        json.dump({"text": {k: "" for k in text_keys}}, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-
-    # --- Write en.json ---
-    en_output = {
-        "component": existing_en.get("component", {}),
-        "text": new_en_text,
-    }
-    with open(EN_JSON, "w") as f:
-        json.dump(en_output, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-
-    # --- Update all other language files ---
-    for fname in os.listdir(TRANSLATIONS_DIR):
-        if not fname.endswith(".json") or fname == "en.json":
-            continue
-        lang_path = os.path.join(TRANSLATIONS_DIR, fname)
-        added, removed = update_lang_file(lang_path, text_keys)
-        parts = []
-        if added:
-            parts.append(f"added {added}")
-        if removed:
-            parts.append(f"removed {removed}")
-        if parts:
-            print(f"{fname}: {', '.join(parts)} key(s)")
+    current = [
+        sync_json(OUTPUT_TRANSLATE, {"text": dict.fromkeys(text_keys, "")}, check=args.check)
+    ]
+    paths = set(Path(TRANSLATIONS_DIR).glob("*.json")) | {Path(TRANSLATIONS_DIR) / "en.json"}
+    for path in sorted(paths):
+        existing = read_json_or_empty(str(path))
+        translations = existing.get("text", {})
+        english = path.name == "en.json"
+        data = {
+            "component": existing.get("component", {}),
+            "text": {
+                key: (translations.get(key) or key) if english else translations.get(key, "")
+                for key in text_keys
+            },
+        }
+        current.append(sync_json(str(path), data, check=args.check))
+    return 0 if all(current) else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

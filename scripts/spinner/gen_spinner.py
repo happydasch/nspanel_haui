@@ -1,21 +1,14 @@
 """Render the spinner sprite sheets the system page animates.
 
-The system page shows a Material-style indeterminate circular progress
-indicator (``hSpinner``, 140 x 140) over the ``system`` background. The
-display cannot blend, so every frame is drawn onto the crop of the system
-background tile at the spinner's position, per orientation:
+The system page shows a Material indeterminate circular progress indicator
+(``hSpinner``, 140 x 140) over the ``system`` background. The display cannot blend, so
+every frame is drawn onto the crop of the system background tile at the spinner's
+position: (155, 80) in landscape and (90, 160) in portrait.
 
-* landscape: ``nextion/images/bkg/landscape/system.png`` at (155, 80)
-* portrait:  ``nextion/images/bkg/portrait/system.png`` at (90, 160)
-
-The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 11
-and 12 in the HMI; the page's timer shows frames 0..29 from the first sheet
-and 30..59 from the second), written to ``nextion/images/spinner_<orientation>_1.png``
-and ``_2.png``. Re-run after changing the ``system`` background tile or the
-spinner position.
-
-Based on
-https://github.com/material-components/material-components-android/tree/master/lib/java/com/google/android/material/progressindicator
+The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 11 and 12 in the
+HMI), written to ``nextion/images/spinner_<orientation>_1.png`` and ``_2.png``. Re-run
+after changing the ``system`` tile or the spinner position. Based on the Material
+Components progress indicator.
 
 Usage::
 

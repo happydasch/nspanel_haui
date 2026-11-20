@@ -19,9 +19,8 @@ The sandbox preview (``virtual_panel.py``) shares nothing with it.
   waking the panel back to the panel it covered or home) or resets the
   inactivity timer.
 
-A save (``api.config.push_panels``) reaches the viewers through
-``async_reload_viewers``: the button settings decide which entity each
-hardware button shows.
+A save reaches the viewers through ``async_reload_viewers`` after applying
+the new button settings to the physical apps.
 
 Admin only, like the editor itself: a live viewer controls real entities.
 """
@@ -34,7 +33,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.components import websocket_api
 
 from ...const import DOMAIN

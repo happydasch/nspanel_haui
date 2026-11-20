@@ -15,21 +15,19 @@ def test_light_background_uses_light_text_colors_even_with_dark_active_theme():
     page = ClockPage.__new__(ClockPage)
     page.app = SimpleNamespace(theme=Theme("dark"))
     page.panel = None
-    page._use_theme_background = False
     page._background_variant = "light"
 
     assert page.get_color("text") == 4226
     assert page.get_color("component_text") == 4226
 
 
-def test_theme_background_uses_selected_theme_text_colors():
+def test_the_background_picture_decides_the_colors_not_the_selected_theme():
     page = ClockPage.__new__(ClockPage)
-    page.app = SimpleNamespace(theme=Theme("dark"))
+    page.app = SimpleNamespace(theme=Theme("light"))
     page.panel = None
-    page._use_theme_background = True
     page._background_variant = "dark"
 
-    assert page.get_color("text") == 59164
+    assert page.get_color("text") == Theme("dark").get("text")
 
 
 class _Device:

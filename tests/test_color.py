@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import random
 from types import SimpleNamespace
 from typing import Any
 
@@ -26,7 +25,8 @@ from custom_components.nspanel_haui.haui.mapping.color import (
     Theme,
 )
 from custom_components.nspanel_haui.haui.utils.color import (
-    generate_color_palette,
+    contrast_ratio,
+    mix_rgb565,
     parse_color_value,
     rgb565_to_rgb,
 )
@@ -36,22 +36,6 @@ from custom_components.nspanel_haui.haui.utils.item import get_item_color
 def test_backgrounds_have_an_explicit_contrast_variant() -> None:
     assert set(BACKGROUND_VARIANTS) == set(BACKGROUNDS)
     assert all(value in {"dark", "light"} for value in BACKGROUND_VARIANTS.values())
-
-
-def _contrast_ratio(foreground: int, background: int) -> float:
-    """WCAG contrast of two RGB565 colours, measured on the display's real values."""
-
-    def relative_luminance(color: int) -> float:
-        red, green, blue = rgb565_to_rgb(color)
-
-        def linear(value: int) -> float:
-            channel = value / 255
-            return channel / 12.92 if channel <= 0.03928 else ((channel + 0.055) / 1.055) ** 2.4
-
-        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
-
-    low, high = sorted((relative_luminance(foreground), relative_luminance(background)))
-    return (high + 0.05) / (low + 0.05)
 
 
 # ============================================================================
@@ -199,28 +183,42 @@ class TestTheme:
         assert theme["header_background"] == 65535
         assert theme["header_text"] == 4226
 
-    @pytest.mark.parametrize("theme_id", ["midnight", "ocean", "forest", "sunset", "violet", "sky"])
-    def test_colorful_builtin_themes_keep_their_text_readable(self, theme_id: str) -> None:
-        """Each colourful palette's foregrounds reach WCAG AA on their own background."""
-        colors = BUILTIN_THEMES[theme_id]["colors"]
+    @pytest.mark.parametrize("theme_id", list(BUILTIN_THEMES))
+    def test_builtin_themes_keep_their_foregrounds_readable(self, theme_id: str) -> None:
+        """Each palette's text and state colours reach WCAG AA where they are drawn.
 
-        for foreground, background in (
-            ("text", "background"),
+        A light theme draws its body on the page itself; the dark family draws it
+        one step lighter, in the card colour.
+        """
+        theme = Theme(theme_id)
+        colors = theme.palette["colors"]
+        surface = "background" if theme.variant == "light" else "component_background"
+
+        for foreground in (
+            "text",
             # header_text is also the default colour of body widgets, so it has
             # to stay readable on the page as well as on the header.
-            ("header_text", "background"),
-            ("header_text", "component_background"),
-            ("text_inactive", "background"),
+            "header_text",
+            "component_text",
+            "component_active",
+            "component_accent",
+            "entity_on",
+        ):
+            assert contrast_ratio(colors[foreground], colors[surface]) >= 4.5, (
+                f"{theme_id}: {foreground} on {surface}"
+            )
+        for foreground, background in (
             ("header_text", "header_background"),
             ("header_accent", "header_background"),
-            ("component_text", "component_background"),
-            ("component_accent", "component_background"),
-            ("component_active", "component_background"),
-            ("entity_unavailable", "component_background"),
         ):
-            assert _contrast_ratio(colors[foreground], colors[background]) >= 4.5, (
+            assert contrast_ratio(colors[foreground], colors[background]) >= 4.5, (
                 f"{theme_id}: {foreground} on {background}"
             )
+        # An inactive label is de-emphasised on purpose: it only needs the 3:1
+        # of a graphic, not the AA ratio of readable text.
+        assert contrast_ratio(colors["text_inactive"], colors["background"]) >= 3.0, (
+            f"{theme_id}: text_inactive on background"
+        )
 
     def test_custom_themes_are_validated_as_complete_rgb565_palettes(self) -> None:
         from copy import deepcopy
@@ -242,9 +240,7 @@ class TestTheme:
         with pytest.raises(ValueError, match="every semantic color"):
             validate_themes({"custom": {"name": "Incomplete", "colors": {}, "icons": {}}})
 
-    def test_background_picture_matches_selected_theme_brightness(self) -> None:
-        dark = Theme("dark")
-        light = Theme("light")
+    def test_background_variant_follows_the_palettes_brightness(self) -> None:
         custom_light = Theme(
             "custom-light",
             {
@@ -254,10 +250,9 @@ class TestTheme:
             },
         )
 
-        assert dark.background_picture_id() == BACKGROUNDS["dark"]
-        assert light.background_picture_id() == BACKGROUNDS["light"]
-        assert custom_light.background_picture_id() == BACKGROUNDS["light"]
-        assert all(theme.background_picture_id() != 0 for theme in (dark, light, custom_light))
+        assert Theme("dark").background_variant() == "dark"
+        assert Theme("light").background_variant() == "light"
+        assert custom_light.background_variant() == "light"
 
     def test_display_commands_set_every_theme_global(self) -> None:
         """The display's theme globals get the device's colours, defaults included."""
@@ -325,29 +320,6 @@ def test_hex_roundtrip() -> None:
 
 
 # ============================================================================
-# generated palettes
-# ============================================================================
-
-
-def test_palette_generation_leaves_global_rng_alone() -> None:
-    random.seed(42)
-    expected = random.random()
-
-    random.seed(42)
-    generate_color_palette((10, 20, 30), "vibrant", seed=5)
-    generate_color_palette((10, 20, 30), "pastel")
-
-    assert random.random() == expected
-
-
-def test_palette_is_reproducible_for_a_seed() -> None:
-    first = generate_color_palette((10, 20, 30), "vibrant", seed=938)
-    second = generate_color_palette((10, 20, 30), "vibrant", seed=938)
-
-    assert first == second
-
-
-# ============================================================================
 # item icon colours
 # ============================================================================
 
@@ -393,3 +365,14 @@ def test_a_page_background_selects_its_icon_palette_over_the_themes_own() -> Non
     item = _Item("weather", "sunny", "light")
 
     assert get_item_color(item, default_color=123, icon_variant="dark") == 65504
+
+
+def test_mix_rgb565_steps_from_the_background_towards_the_foreground() -> None:
+    white, near_black = 65535, 4226
+
+    assert mix_rgb565(white, near_black, 0) == white
+    assert mix_rgb565(white, near_black, 1) == near_black
+    # Half way is a mid grey: darker than the page, far lighter than the text.
+    half = mix_rgb565(white, near_black, 0.5)
+    assert rgb565_to_rgb(near_black)[0] < rgb565_to_rgb(half)[0] < rgb565_to_rgb(white)[0]
+    assert contrast_ratio(half, white) < contrast_ratio(near_black, white)

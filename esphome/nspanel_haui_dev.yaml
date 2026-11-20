@@ -1,7 +1,5 @@
-#
-# Configuration for NSPanel HomeAssistant UI
-#
-# useable for local development
+# Local development build: hardcoded substitutions, credentials from
+# secrets.yaml, ESPHome web server enabled.
 #
 
 substitutions:
@@ -10,11 +8,11 @@ substitutions:
   heartbeat_interval: '5'
   # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
-  # Name of the device
-  name: nspanel-haui  # this name is also used for hostname
+  # Device name; also the hostname and entity-ID prefix
+  name: nspanel-haui
 
   # Accounts and Passwords
-  # The api key also encrypts native OTA uploads (base.yaml)
+  # The API key also encrypts native OTA uploads (base.yaml)
   api_encryption_key: !secret api_encryption_key
   web_username: !secret web_username
   web_password: !secret web_password
@@ -22,27 +20,23 @@ substitutions:
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
 
-  # Custom build identity (see nspanel_haui.yaml): the hub refuses to install
-  # the universal release image on it.
+  # Custom build; the hub never offers it the universal release image.
   firmware_variant: 'custom'
 
-  # Default TFT URL of the display component.  Installing a local TFT build
-  # (nspanel_haui.update_tft with its url field) relies on overriding this
-  # substitution; the hub otherwise sends the URL of the TFT it installs.
+  # Display default only; the hub sends the URL of the TFT it installs
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
-# Temporary: stock `nextion` in released ESPHome lacks the numeric-response
-# delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with
-# the patched component vendored next to this file (see nextion_patch/README).
+# Vendored nextion override (local source, so CI and the release build validate
+# this checkout); remove it once every fix in nextion_patch/README.md ships in a
+# released ESPHome.
 external_components:
   - source:
       type: local
       path: nextion_patch
     components: [nextion]
 
-# Local development build: keep the ESPHome web server for diagnostics.
-# The production and universal builds drop it (base.yaml) so HTTP OTA has
-# flash headroom.
+# Dev builds keep the web server for diagnostics; release builds drop it
+# (base.yaml) so HTTP OTA has flash and RAM headroom.
 web_server:
   port: 80
   auth:
@@ -50,20 +44,5 @@ web_server:
     password: $web_password
 
 packages:
-  version: !include nspanel_haui/version.yaml
-  globals: !include nspanel_haui/globals.yaml
-  base: !include nspanel_haui/base.yaml
-  hardware: !include nspanel_haui/hardware.yaml
-  display: !include nspanel_haui/display.yaml
-  interval: !include nspanel_haui/interval.yaml
-  scripts_common: !include nspanel_haui/scripts_common.yaml
-  scripts_connection: !include nspanel_haui/scripts_connection.yaml
-  scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
-  scripts_display: !include nspanel_haui/scripts_display.yaml
-  scripts_event: !include nspanel_haui/scripts_event.yaml
-  api: !include nspanel_haui/api.yaml
-  button: !include nspanel_haui/button.yaml
-  number: !include nspanel_haui/number.yaml
-  switch: !include nspanel_haui/switch.yaml
-  sensor: !include nspanel_haui/sensor.yaml
+  haui: !include nspanel_haui/packages.yaml
   debug: !include nspanel_haui/debug.yaml

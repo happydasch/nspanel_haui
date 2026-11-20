@@ -10,15 +10,14 @@ on:
 permissions:
   contents: read
 
-# A newer run on the same ref supersedes the previous one, its docs deploy
-# included: every push to master or dev deploys the docs.
+# A newer run on the same ref cancels the previous one, its docs deploy included.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   tests:
-    # The name is the required check on master.
+    # Required status check on master.
     name: tests (3.14)
     runs-on: ubuntu-latest
     steps:
@@ -26,8 +25,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Node replays the hub's card renders in tests/test_card_renders.py, so
-      # it belongs to the pytest job.
+      # Node replays the card renders in tests/test_card_renders.py.
       - uses: ./.github/actions/setup
         with:
           python: "3.14"
@@ -35,41 +33,23 @@ jobs:
           npm: "true"
           requirements: dev
 
-      - name: Check icon cheatsheet is up to date
-        run: |
-          python -m scripts.font_tools.gen_cheatsheet
-          git diff --exit-code -- docs/cheatsheet.html
-
-      - name: Check translations are up to date
-        # extract_translations.py rebuilds en.json and the other locale files
-        # from the Python/frontend strings.  A stale locale file means a new
-        # string shipped without a translation slot; regenerate and commit.
-        run: |
-          python -m scripts.translations.extract_translations
-          git diff --exit-code -- custom_components/nspanel_haui/haui/locale scripts/translations/translate.json
+      - name: Check generated cheatsheet and translations
+        run: make generated-check
 
       - name: Check version sources agree
-        # manifest.json is the source of truth for firmware versions. Check its
-        # mirrors without --tft-update: the TFT version is independent, and
-        # pytest checks it against both HMIs and both TFTs.
-        run: |
-          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
-          python -m scripts.bump_version "$VERSION" --check
+        # manifest.json is the version source of truth; pytest checks tft_version.
+        run: make version-check
 
       - name: Enforce a display TFT version bump when a Nextion HMI or TFT changed
-        # A display change committed under an unchanged tft_version never
-        # reaches a panel that already reports that version. Compare against the
-        # PR merge base (base.sha) or the commit a push came from (before). A
-        # manual dispatch has no change set to compare.
+        # Fails when an HMI or TFT changed without a tft_version bump. A manual
+        # dispatch has no change set to compare.
         if: github.event_name != 'workflow_dispatch'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python -m scripts.verify_nextion.check_hmi_bump --base "$BASE_SHA"
 
-      # Also runs the frontend style guard (tests/test_frontend_styles.py), both
-      # HMI layout spec checks with the touch settings and landscape/portrait
-      # parity (test_gen_layout.py), and the display version check: both HMIs
-      # and both TFTs carry version.yaml's tft_version (test_bump_version.py).
+      # Also runs the frontend style guard, both HMI layout checks and the
+      # display version check.
       - name: Run tests
         run: pytest tests/
 
@@ -99,8 +79,7 @@ jobs:
         run: node --test 'tests/frontend/*.test.mjs'
 
   esphome:
-    # A separate job keeps ESPHome's cryptography pin out of the pytest
-    # environment (see requirements-esphome.txt).
+    # Separate job: ESPHome's cryptography pin conflicts with the test toolchain.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -114,8 +93,7 @@ jobs:
         run: esphome config esphome/nspanel_haui_universal.yaml
 
   docs:
-    # Builds once per run. Runs on master and dev upload the site for
-    # deploy-docs; a PR run only proves the strict build.
+    # Strict build once per run. master and dev runs upload the site for deploy-docs.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -125,7 +103,7 @@ jobs:
           python: "3.14"
           requirements: docs
 
-      # Applied before the build, so the uploaded artifact is deployable as it is.
+      # Applied before the build, so the uploaded artifact is deployable.
       - name: Apply the dev site URLs
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
         run: bash scripts/docs/dev_site.sh
@@ -158,11 +136,8 @@ jobs:
         with:
           category: integration
 
-  # Pages hosts a single site, so every deploy publishes both branches: master
-  # at the root and dev under dev/ (the editor footer links prereleases there).
-  # The current branch comes from the docs artifact; only its sibling is built
-  # here, inside the deploy concurrency group (shared by both branches) so the
-  # last deploy always carries both branch tips.
+  # Publishes both branches to Pages: master at the root, dev under dev/. The
+  # current branch comes from the docs artifact, only its sibling is built here.
   deploy-docs:
     needs: docs
     if: >-
@@ -180,8 +155,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # Checkouts happen before the artifact download: actions/checkout cleans
-      # untracked files, which would delete the downloaded site.
+      # Checkouts come before the artifact download: checkout cleans untracked files.
       - name: Check out the dev site
         if: github.ref == 'refs/heads/master'
         uses: actions/checkout@v7
@@ -207,8 +181,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      # The sibling builds with its own branch's docs requirements and, for
-      # dev, its own copy of the dev site URLs.
+      # The sibling builds with its own branch's docs requirements and dev site URLs.
       - name: Build the dev site
         if: github.ref == 'refs/heads/master'
         working-directory: dev
@@ -241,10 +214,8 @@ jobs:
         with:
           path: site/
 
-      # deploy-pages looks the artifact up by name, and the run's artifact list
-      # can lag the upload: a lookup a fraction of a second later finds nothing
-      # (actions/deploy-pages#451). Starter workflows dodge it by uploading in an
-      # earlier job; here the wait keeps build and deploy in one concurrency slot.
+      # The run's artifact list can lag the upload, so deploy-pages would look it
+      # up and find nothing (actions/deploy-pages#451).
       - name: Wait for the artifact list
         run: sleep 10
 

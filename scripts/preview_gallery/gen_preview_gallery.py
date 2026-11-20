@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """Render every panel card with sample data and show it in a browser gallery.
 
-The hub renders a panel of every type and every system panel with the sample
-world in ``sample_world.py`` — the same render the editor's cards use — for a
-landscape (``eu``) and a portrait (``us``) device. ``gallery.html`` replays the
-renders in the editor's own card element. Output goes to the git-ignored
-``scripts/preview_gallery/out/``:
+The hub renders a panel of every type and every system panel with the sample world in
+``sample_world.py`` — the same render the editor's cards use — for a landscape (``eu``)
+and a portrait (``us``) device; ``gallery.html`` replays them in the editor's own card
+element. Output goes to the git-ignored ``scripts/preview_gallery/out/``:
+``renders.json``, the ``mdi/`` webfont and, with ``--png``, one
+``png/<orientation>/<card>.png`` per card at the display's resolution (headless Chrome
+driven by ``capture.mjs``).
 
-- ``renders.json``: ``{orientation: {card: {page, before, commands}}}``
-- ``mdi/``: the Material Design Icons webfont the gallery draws icons with
-- ``png/<orientation>/<card>.png``: with ``--png``, one screenshot per card at
-  the display's resolution, taken with headless Chrome or Chromium driven by
-  ``capture.mjs`` (Node 22+)
-
-``--docs`` writes the same screenshots to ``docs/assets/screens/`` instead and
-the screen overview ``docs/screens.html`` that shows them; the ``Screens``
-workflow runs it and commits the result. Every render runs at a fixed time, so
-the clock screens do not change from one run to the next.
+``--docs`` writes the same screenshots to ``docs/assets/screens/`` plus the overview
+``docs/screens.html``; every render runs at a fixed time, so the clock screens do not
+change between runs. ``--check`` renders into a temporary directory and names every
+screen that is missing, extra or stale. A screenshot's bytes are the browser's, so
+``--strict`` adds the byte comparison for the runner that writes the committed PNGs.
 
 Usage::
 
@@ -24,6 +21,7 @@ Usage::
     python -m scripts.preview_gallery.gen_preview_gallery --serve   # and open the gallery
     python -m scripts.preview_gallery.gen_preview_gallery --png     # and write PNGs
     python -m scripts.preview_gallery.gen_preview_gallery --docs    # and write the docs overview
+    python -m scripts.preview_gallery.gen_preview_gallery --check   # is that overview current?
 """
 
 from __future__ import annotations
@@ -54,10 +52,10 @@ DOCS = ROOT / "docs"
 SCREENS = DOCS / "assets" / "screens"
 from scripts import _ha_stubs  # noqa: E402,F401  (installs the Home Assistant import stubs)
 from scripts.preview_gallery import sample_world  # noqa: E402
+from scripts.preview_gallery.docs_overview import SCREENS_PAGE_NAME, diff_docs  # noqa: E402
 
 DEVICES = {"landscape": "eu", "portrait": "us"}
-# The sample Home Assistant runs in UTC; travelling to a UTC time also sets the
-# process's local zone, so naive ``datetime.now()`` agrees on every machine.
+# A UTC time zone makes naive ``datetime.now()`` agree on every machine.
 FROZEN_NOW = datetime.datetime(2026, 6, 12, 10, 9, tzinfo=zoneinfo.ZoneInfo("UTC"))
 MDI_ZIP = ROOT / "scripts" / "font_tools" / "MaterialDesign-Webfont.zip"
 MDI_FILES = {
@@ -77,8 +75,7 @@ def render() -> dict[str, dict[str, Any]]:
     thread.start()
     try:
         sample_world.install_runtime_stubs(loop)
-        # time-machine leaves the monotonic clock alone, so the event loop's
-        # and the debouncers' timers still run.
+        # time-machine leaves the monotonic clock alone, so timers still run.
         with time_machine.travel(FROZEN_NOW, tick=False):
             return {
                 orientation: sample_world.render_every_card(loop, display_model)
@@ -90,7 +87,7 @@ def render() -> dict[str, dict[str, Any]]:
 
 
 def unpack_icons() -> None:
-    """Outside Home Assistant the gallery draws `<ha-icon>` with the MDI webfont."""
+    """Outside Home Assistant the gallery draws ``<ha-icon>`` with the MDI webfont."""
     target = OUT / "mdi"
     target.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(MDI_ZIP) as archive:
@@ -124,14 +121,7 @@ def find_chrome(explicit: str | None) -> str:
 
 
 def write_pngs(renders: dict[str, dict[str, Any]], chrome: str, url: str, target: Path) -> None:
-    """Screenshot each card alone at the display's resolution (``capture.mjs``).
-
-    Args:
-        renders: The hub's renders, ``{orientation: {card: render}}``.
-        chrome: Chrome or Chromium executable.
-        url: The gallery page served on localhost.
-        target: Directory that receives ``<orientation>/<card>.png``.
-    """
+    """Screenshot each card alone at the display's resolution (``capture.mjs``)."""
     node = shutil.which("node")
     if node is None:
         raise SystemExit("--png and --docs need Node 22+ (capture.mjs drives Chrome over DevTools)")
@@ -255,6 +245,40 @@ def write_screens_page(renders: dict[str, dict[str, Any]], path: Path) -> None:
     path.write_text(SCREENS_PAGE.format(sections="\n".join(sections)), encoding="utf-8")
 
 
+def write_docs(renders: dict[str, dict[str, Any]], chrome: str, url: str, root: Path) -> None:
+    """Write the screen overview into a docs root: ``assets/screens/`` and ``screens.html``."""
+    # Start empty, so a card that no longer exists leaves no stale PNG.
+    shutil.rmtree(root / "assets" / "screens", ignore_errors=True)
+    write_pngs(renders, chrome, url, root / "assets" / "screens")
+    write_screens_page(renders, root / SCREENS_PAGE_NAME)
+
+
+def check_docs(
+    renders: dict[str, dict[str, Any]], chrome: str, url: str, *, pixels: bool = False
+) -> int:
+    """Compare the committed screen overview with a fresh render.
+
+    Returns 0 when the committed overview is current, 1 when it is not. ``pixels`` also
+    compares every screenshot's bytes, which only the environment that writes them
+    reproduces.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh = Path(tmp)
+        write_docs(renders, chrome, url, fresh)
+        differences = diff_docs(fresh, DOCS, pixels=pixels)
+    if not differences:
+        print("docs/screens.html and the screens it lists match a fresh render")
+        return 0
+    print("the screen overview is stale:")
+    for line in differences:
+        print(f"  {line}")
+    print("regenerate with: python -m scripts.preview_gallery.gen_preview_gallery --docs")
+    if not pixels:
+        print("(+ --strict to compare the screenshots' bytes, which only the runner that")
+        print("writes them reproduces)")
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--serve", action="store_true", help="serve the gallery until Ctrl+C")
@@ -263,6 +287,16 @@ def main(argv: list[str] | None = None) -> int:
         "--docs",
         action="store_true",
         help="write the PNGs to docs/assets/screens/ and the overview docs/screens.html",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="compare docs/assets/screens/ and docs/screens.html with a fresh render",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="with --check, also compare the screenshots' bytes (only the writing runner matches)",
     )
     parser.add_argument("--chrome", help="Chrome or Chromium executable for --png")
     parser.add_argument("--port", type=int, default=8765, help="gallery port (default 8765)")
@@ -274,8 +308,11 @@ def main(argv: list[str] | None = None) -> int:
     unpack_icons()
     cards = sum(len(orientation) for orientation in renders.values())
     print(f"rendered {cards} cards -> {(OUT / 'renders.json').relative_to(ROOT)}")
-    if not (args.serve or args.png or args.docs):
-        print("--serve opens the gallery, --png writes one PNG per card, --docs the docs overview")
+    if not (args.serve or args.png or args.docs or args.check):
+        print(
+            "--serve opens the gallery, --png writes one PNG per card, --docs the docs "
+            "overview, --check compares it with a fresh render"
+        )
         return 0
 
     server = serve(args.port)
@@ -284,11 +321,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.png:
             write_pngs(renders, find_chrome(args.chrome), url, OUT / "png")
         if args.docs:
-            # Start empty, so a card that no longer exists leaves no stale PNG.
-            shutil.rmtree(SCREENS, ignore_errors=True)
-            write_pngs(renders, find_chrome(args.chrome), url, SCREENS)
-            write_screens_page(renders, DOCS / "screens.html")
+            write_docs(renders, find_chrome(args.chrome), url, DOCS)
             print(f"screens -> {SCREENS.relative_to(ROOT)}, docs/screens.html")
+        if args.check:
+            return check_docs(renders, find_chrome(args.chrome), url, pixels=args.strict)
         if args.serve:
             print(f"gallery: {url}  (Ctrl+C to stop)")
             threading.Event().wait()

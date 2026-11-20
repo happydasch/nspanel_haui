@@ -1,22 +1,11 @@
-/**
- * NSPanel HAUI - Panel card previews: the hub's own render, replayed.
- *
- * Every panel card (user panels, system panels and popup aliases, in both
- * orientations) shows what the device shows. The integration renders the
- * panel on the device's virtual app (`nspanel_haui/virtual_panel/render`,
- * `virtual_panel.VirtualPanelHost.async_render`, the app the live preview
- * runs on), and the card replays the hub's display commands in a
- * NextionDisplay built from the real layout. There is no second renderer in
- * the browser: entity values, translations, templates, dates and forecasts
- * are the hub's. A card without a render (no device selected yet) shows a
- * placeholder, not a guess. The browser keeps every card's last render, so a
- * card opened after a reload shows it until the hub's new one arrives.
- */
+// Panel thumbnails replay the hub's virtual_panel/render commands in the
+// real display layout. A remembered render fills in until the hub responds.
 import { readStorage, writeStorage } from '../dom-helpers.js';
 import { NextionDisplay } from '../virtual/nextion-display.js';
 import { noopScheduler } from './simulator.js';
 
 const RENDERS = new Map();
+const latestCardRequest = new Map();
 // Entity states move on; a card re-mounted within this window reuses its render.
 const RENDER_MAX_AGE_MS = 30_000;
 
@@ -88,12 +77,17 @@ export function loadPanelRender(context, panel, byKey) {
   // A render with the editor's sample is not the card's: the list keeps showing its own.
   const card = context.kwargs ? null : cardId(context, panel, byKey);
   const promise = api.preview.render(context.entryId, device, target).then((render) => {
-    if (card) keepRender(card, render);
+    // The mounted frame has its own guard; a late response must not replace
+    // the thumbnail the next mount will read from the shared cache.
+    if (card && latestCardRequest.get(card) === promise) keepRender(card, render);
     return render;
   }, (err) => {
-    RENDERS.delete(key);
+    if (RENDERS.get(key)?.promise === promise) RENDERS.delete(key);
     throw new Error(err?.message || String(err));
+  }).finally(() => {
+    if (card && latestCardRequest.get(card) === promise) latestCardRequest.delete(card);
   });
+  if (card) latestCardRequest.set(card, promise);
   RENDERS.set(key, { time: now, promise });
   return promise;
 }

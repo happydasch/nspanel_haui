@@ -11,7 +11,7 @@ from collections.abc import Callable
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
@@ -143,7 +143,7 @@ def _wake_display(app: NSPanelHAUI) -> None:
 def _publish_action(
     app: NSPanelHAUI,
     action: str,
-    value: str | dict | list,
+    value: str | dict[str, Any] | list[Any],
 ) -> None:
     """Publish an ESPAction to a device via its ESPHome controller."""
     esp_ctrl = app.controller.get("esphome")
@@ -191,7 +191,7 @@ async def _device_action(
 
     for dev_name, app in targets:
 
-        def _do(app=app, dev_name=dev_name) -> None:
+        def _do(app: Any = app, dev_name: str = dev_name) -> None:
             if wake_first:
                 _wake_display(app)
             try:

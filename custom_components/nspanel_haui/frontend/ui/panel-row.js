@@ -23,12 +23,14 @@ const OWN_CLICK = 'button, a, input, select, textarea, label, [role="menu"], [ro
  *   itemCount?: number, thumbnail?: unknown, handle?: unknown, actions?: unknown,
  *   lockReason?: string, menu?: unknown, selected?: boolean, onEdit?: (() => void)|null,
  *   onSelect?: (() => void)|null, onDrop?: ((sourceKey: string, after: boolean) => void)|null,
- *   invalid?: boolean }} options - `invalid`: the saved panel breaks a rule of its type
+ *   invalid?: boolean, isNew?: boolean }} options - `invalid`: the saved panel
+ *   breaks a rule of its type; `isNew`: the list just gained it (a setup's page,
+ *   or a panel the user added)
  */
 export function panelRow({
   key = '', group, title, typeLabel = '', keyLabel = '', itemCount, thumbnail = nothing,
   handle = nothing, actions = nothing, lockReason = '', menu = nothing, selected = false,
-  onEdit = null, onSelect = null, onDrop = null, invalid = false,
+  onEdit = null, onSelect = null, onDrop = null, invalid = false, isNew = false,
 }) {
   const selectOnClick = onSelect ? (event) => {
     if (/** @type {Element} */ (event.target).closest?.(OWN_CLICK)) return;
@@ -64,7 +66,7 @@ export function panelRow({
   const leaveDrop = onDrop ? (event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) clearDrop(event.currentTarget);
   } : null;
-  return html`<div class=${`haui-panel-row${selected ? ' is-selected' : ''}`}
+  return html`<div class=${`haui-panel-row${selected ? ' is-selected' : ''}${isNew ? ' is-new' : ''}`}
     data-panel-key=${key} data-panel-group=${group}
     aria-current=${selected ? 'true' : nothing}
     tabindex=${onSelect ? '0' : nothing}
@@ -78,6 +80,7 @@ export function panelRow({
       ${typeLabel ? html`<span class="haui-panel-row-sub">${typeLabel}</span>` : nothing}
       ${lockReason ? html`<span class="haui-panel-row-lock">${lockReason}</span>` : nothing}
       ${invalid ? badge(t('Check settings'), 'warning', 'haui-panel-row-invalid') : nothing}
+      ${isNew ? badge(t('New'), 'success', 'haui-panel-row-new') : nothing}
     </div>
     <code class="haui-panel-row-key">${keyLabel || key || t('Auto key')}</code>
     <span class="haui-panel-row-count">${countLabel}</span>

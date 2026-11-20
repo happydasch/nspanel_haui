@@ -23,6 +23,7 @@ from homeassistant.helpers.http import HomeAssistantView
 
 from ..const import DOMAIN
 from ..haui.controller.release_source import ESP_IMAGE_MAGIC, FIRMWARE_MAX_BYTES
+from ..hub.storage import empty_store, panel_store
 from .common import (
     ALL_DEVICES,
     ApiError,
@@ -33,7 +34,10 @@ from .common import (
     json_object,
     query_device,
     running_apps,
+    running_device_app,
+    text_field,
 )
+from .panel_edits import edit_panels
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,21 +118,17 @@ def _artifact_base_url(hass: Any) -> str | None:
 
 
 def _validate_update_artifact(kind: str, filename: str, content: bytes) -> str | None:
-    """Validate the minimum format/signature and size needed by the device."""
-    extension = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)
-    suffix = extension[-1].lower() if len(extension) == 2 else ""
+    """Return why a local update image cannot be installed, or None when it can."""
+    name = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    suffix = name.rpartition(".")[2].lower() if "." in name else ""
     if kind == "tft":
         if suffix != "tft":
             return "The display file must have a .tft extension"
-        if len(content) > _TFT_UPLOAD_MAX_BYTES:
-            return f"The display file exceeds {_TFT_UPLOAD_MAX_BYTES // (1024 * 1024)} MiB limit"
         if len(content) < 16 or not content.startswith(b"\x00\x01DN2E"):
             return "The file is not a valid Nextion TFT image"
     else:
         if suffix != "bin":
             return "The firmware file must have a .bin extension"
-        if len(content) > FIRMWARE_MAX_BYTES:
-            return "The firmware image exceeds the device app-partition limit"
         if not content or content[0] != ESP_IMAGE_MAGIC:
             return "The firmware file is not an ESPHome OTA app image"
     return None
@@ -184,13 +184,13 @@ def _install_request(body: dict[str, Any], what: str) -> _InstallRequest:
     """Read ``device``, ``version`` and ``url`` of an install request body.
 
     Raises:
-        ApiError: When both a version and a URL are given, a URL install
+        ApiError: When a version and a URL are both given, a URL install
             addresses every device, or the URL is no http(s) URL
     """
     install = _InstallRequest(
         device=body_device(body),
-        version=(body.get("version") or "").strip() or None,
-        url=(body.get("url") or "").strip() or None,
+        version=text_field(body.get("version"), "version") or None,
+        url=text_field(body.get("url"), "url") or None,
     )
     if install.url is not None:
         if install.version is not None:
@@ -209,7 +209,7 @@ async def _install(
     action: str,
     start: _StartInstall,
     install_error: Callable[[Any], str | None],
-):
+) -> web.Response:
     """Start an install on one device or on every device and build the response.
 
     A single device answers 502 with the controller's reason when the install
@@ -243,7 +243,7 @@ class DeviceUpdateUploadView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str, kind: str):
+    async def post(self, request: web.Request, entry_id: str, kind: str) -> web.Response:
         """Stream, validate, stage, and install one local TFT or firmware image."""
         if kind not in _UPLOAD_MAX_BYTES:
             raise ApiError("Update type must be tft or firmware", 400)
@@ -251,7 +251,7 @@ class DeviceUpdateUploadView(HomeAssistantView):
         if not device_name or device_name == ALL_DEVICES:
             raise ApiError("A local file install needs a single device", 400)
         hass = request.app["hass"]
-        app = device_app(running_apps(hass, entry_id), device_name)
+        app = running_device_app(hass, entry_id, device_name)
         base_url = _artifact_base_url(hass)
         if base_url is None:
             raise ApiError(
@@ -291,7 +291,7 @@ class DeviceUpdateArtifactView(HomeAssistantView):
     name = "api:nspanel_haui:update_artifact"
     requires_auth = False
 
-    def _artifact(self, request):
+    def _artifact(self, request: web.Request) -> _StagedUpdate | None:
         hass = request.app["hass"]
         artifacts = _staged_updates(hass)
         _prune_staged_updates(artifacts)
@@ -301,7 +301,9 @@ class DeviceUpdateArtifactView(HomeAssistantView):
     def _unsatisfiable(size: int) -> web.Response:
         return web.Response(status=416, headers={"Content-Range": f"bytes */{size}"})
 
-    def _response(self, request, artifact: _StagedUpdate, *, head: bool = False):
+    def _response(
+        self, request: web.Request, artifact: _StagedUpdate, *, head: bool = False
+    ) -> web.Response:
         content = artifact.content
         size = len(content)
         headers = {
@@ -335,14 +337,14 @@ class DeviceUpdateArtifactView(HomeAssistantView):
         body = b"" if head else content[start : end + 1]
         return web.Response(status=status, headers=headers, body=body)
 
-    async def get(self, request, token: str):
+    async def get(self, request: web.Request, token: str) -> web.Response:
         """Return the complete image or the requested byte range."""
         artifact = self._artifact(request)
         if artifact is None:
             return web.Response(status=404)
         return self._response(request, artifact)
 
-    async def head(self, request, token: str):
+    async def head(self, request: web.Request, token: str) -> web.Response:
         """Return image headers for clients that probe before downloading."""
         artifact = self._artifact(request)
         if artifact is None:
@@ -351,7 +353,7 @@ class DeviceUpdateArtifactView(HomeAssistantView):
 
 
 class DeviceUpdateTftView(HomeAssistantView):
-    """REST API endpoint to trigger a TFT install on one or all devices."""
+    """Install the TFT of one device or of every device."""
 
     url = "/api/nspanel_haui/update_tft/{entry_id}"
     name = "api:nspanel_haui:update_tft"
@@ -359,16 +361,12 @@ class DeviceUpdateTftView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Install the TFT for the specified device (or all devices).
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Install the TFT of one device, or of every device, from the firmware manifest.
 
-        JSON body may carry an optional ``device`` field (device name, or ``*``
-        for all devices; default ``*``) and either an optional ``version`` (the
-        TFT version the firmware's manifest ships; when omitted the manifest's
-        TFT for the device's display model is installed) or an optional ``url``
-        (single device only).  The install result is applied on the device
-        worker; manifest downloads run on the adapter's I/O pool so the
-        display worker stays available.
+        The body's optional ``device`` defaults to ``*``. An optional
+        ``version`` names the TFT other than the manifest's default, and an
+        optional ``url`` (single device only) installs that image instead.
         """
         install = _install_request(await json_object(request), "TFT")
         apps = running_apps(request.app["hass"], entry_id)
@@ -378,7 +376,7 @@ class DeviceUpdateTftView(HomeAssistantView):
 
 
 class DeviceUpdateFirmwareView(HomeAssistantView):
-    """REST API endpoint to trigger a firmware install on one or all devices."""
+    """Install the firmware of one device or of every device."""
 
     url = "/api/nspanel_haui/update_firmware/{entry_id}"
     name = "api:nspanel_haui:update_firmware"
@@ -386,16 +384,14 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Manually install the firmware update offered to a device.
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Install the firmware offered to a device, or one ``version``/``url`` names.
 
-        Without ``version`` / ``url`` the action re-reads the device's firmware
-        manifest and installs the newer firmware it names.  It remains
-        available when automatic installs are disabled in that device's
-        settings.  An optional ``version`` (GitHub release, older ones
-        included) or ``url`` (OTA app image, single device only) installs that
-        image instead; every install runs the firmware's
-        ``install_firmware_url`` action.
+        Without a body field the device re-reads its firmware manifest and
+        installs the newer firmware it names, even when automatic installs are
+        off. An optional ``version`` (a GitHub release, older ones included) or
+        ``url`` (an OTA app image, single device only) installs that image
+        instead.
         """
         install = _install_request(await json_object(request), "firmware")
         apps = running_apps(request.app["hass"], entry_id)
@@ -410,7 +406,7 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
 
 
 class DeviceTftReleasesView(HomeAssistantView):
-    """REST API endpoint listing the TFT versions a device can install."""
+    """List the TFT versions a device can install."""
 
     url = "/api/nspanel_haui/tft_releases/{entry_id}"
     name = "api:nspanel_haui:tft_releases"
@@ -418,20 +414,18 @@ class DeviceTftReleasesView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def get(self, request, entry_id: str):
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
         """Return the TFT versions the ``device`` query param can install.
 
-        Starts the manifest request from the device worker and applies the
-        result there; the HTTP fetch runs on the adapter's I/O pool.
-        Returns ``releases`` (manifest TFT version), ``required`` (the firmware's
-        ``tft_required_version``), and ``error`` for the editor's picker.
+        ``releases`` is the manifest's TFT version, ``required`` the firmware's
+        ``tft_required_version``, and ``error`` carries a failed lookup.
         """
-        app = device_app(running_apps(request.app["hass"], entry_id), query_device(request))
+        app = running_device_app(request.app["hass"], entry_id, query_device(request))
         return self.json(await app.async_list_tft_releases())
 
 
 class DeviceFirmwareReleasesView(HomeAssistantView):
-    """REST API endpoint listing the GitHub releases whose firmware installs over the air."""
+    """List the GitHub releases whose firmware installs over the air."""
 
     url = "/api/nspanel_haui/firmware_releases/{entry_id}"
     name = "api:nspanel_haui:firmware_releases"
@@ -439,18 +433,14 @@ class DeviceFirmwareReleasesView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def get(self, request, entry_id: str):
-        """Return the releases the ``device`` query param can flash over the air.
-
-        Starts the staged release-catalog request from the device worker and
-        awaits its result while candidate manifests are fetched on the I/O pool.
-        """
-        app = device_app(running_apps(request.app["hass"], entry_id), query_device(request))
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
+        """Return the releases the ``device`` query param can flash over the air."""
+        app = running_device_app(request.app["hass"], entry_id, query_device(request))
         return self.json(await app.async_list_firmware_releases())
 
 
 class DeviceUpdateCheckView(HomeAssistantView):
-    """REST API endpoint to trigger a manual update check on one or all devices."""
+    """Run a manual update check on one device or on every device."""
 
     url = "/api/nspanel_haui/check_update/{entry_id}"
     name = "api:nspanel_haui:check_update"
@@ -458,11 +448,11 @@ class DeviceUpdateCheckView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Run a manual update check for the specified device (or all devices).
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Check the device the body names, or every device, for updates.
 
-        JSON body may carry an optional ``device`` field. Update inputs are fetched
-        off-worker and applied in order by the selected device's worker.
+        Update inputs are fetched off the worker and applied in order by each
+        device's worker.
         """
         device_name = body_device(await json_object(request))
         apps = running_apps(request.app["hass"], entry_id)
@@ -478,7 +468,7 @@ class DeviceUpdateCheckView(HomeAssistantView):
                 }
             )
 
-        results: dict[str, dict] = {}
+        results: dict[str, dict[str, Any]] = {}
 
         async def check(name: str, app: Any) -> None:
             results[name] = await app.async_check_for_update()
@@ -498,7 +488,7 @@ class UpdateControlView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
         """Body ``{device, action, seconds?}``.
 
         ``install_now`` and ``defer`` (``seconds`` 3600 or 86400) act on the
@@ -506,17 +496,14 @@ class UpdateControlView(HomeAssistantView):
         device settings, so automatic installs pass over it, even after a
         restart; a manual install or a newer version is not affected.
         """
-        from ..hub.storage import empty_store, panel_store
-        from .config import push_panels
-
         hass = request.app["hass"]
         body = await json_object(request)
-        device = (body.get("device") or "").strip()
+        device = text_field(body.get("device"), "device")
         if not device:
             raise ApiError("Body must name a device", 400)
-        app = device_app(running_apps(hass, entry_id), device)
         action = body.get("action")
         if action in ("install_now", "defer"):
+            app = running_device_app(hass, entry_id, device)
             try:
                 result = await app.async_update_control(action, body.get("seconds"))
             except ValueError as exc:
@@ -524,34 +511,35 @@ class UpdateControlView(HomeAssistantView):
             return self.json({"status": "ok", "update": result})
         if action != "skip":
             raise ApiError(f"Unknown update control action {action!r}", 400)
-        state = await app.async_update_state()
-        version = (
-            state.get("firmware_update_version") if state.get("firmware_update_available") else None
-        )
-        if not version:
-            raise ApiError("No firmware update is offered to skip", 400)
-        store = panel_store(hass, entry_id)
-        data = await store.async_load() or empty_store()
-        stored = data.get("devices", {}).get(device)
-        if stored is None:
-            raise ApiError(f'Device "{device}" not found', 404)
-        stored.setdefault("config", {}).setdefault("update", {})["skipped_firmware_version"] = (
-            version
-        )
-        await store.async_save(data)
+        async with edit_panels(hass, entry_id) as edit:
+            app = running_device_app(hass, entry_id, device)
+            state = await app.async_update_state()
+            version = (
+                state.get("firmware_update_version")
+                if state.get("firmware_update_available")
+                else None
+            )
+            if not version:
+                raise ApiError("No firmware update is offered to skip", 400)
+            data = await edit.load()
+            stored = data.get("devices", {}).get(device)
+            if stored is None:
+                raise ApiError(f'Device "{device}" not found', 404)
+            stored.setdefault("config", {}).setdefault("update", {})["skipped_firmware_version"] = (
+                version
+            )
+            pushed = await edit.save(data, devices=(device,))
         return self.json(
             {
                 "status": "ok",
                 "skipped_version": version,
-                **await push_panels(hass, entry_id, data, device_name=device),
+                **pushed,
             }
         )
 
 
 async def _offered_devices(hass: Any, entry_id: str, apps: dict[str, Any]) -> list[str]:
-    """Connected devices with an offered update, in the editor's device order."""
-    from ..hub.storage import empty_store, panel_store
-
+    """Return the connected devices with an offered update, in the editor's order."""
     data = await panel_store(hass, entry_id).async_load() or empty_store()
     order = [name for name in data.get("device_order", []) if name in apps]
     order += [name for name in apps if name not in order]
@@ -572,18 +560,22 @@ class RolloutView(HomeAssistantView):
     name = "api:nspanel_haui:rollout"
     requires_auth = True
 
+    @require_admin
     @api_errors
-    async def get(self, request, entry_id: str):
-        """Return the rollout (idle when none ran since Home Assistant started)."""
+    async def get(self, request: web.Request, entry_id: str) -> web.Response:
+        """Return the rollout, idle when none ran since Home Assistant started."""
         from ..hub.rollout import rollout_snapshot
 
         return self.json({"rollout": rollout_snapshot(request.app["hass"], entry_id)})
 
     @require_admin
     @api_errors
-    async def post(self, request, entry_id: str):
-        """Start a rollout; body ``{devices?: [...]}``, by default every connected
-        device with an offered update, in the editor's device order."""
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Start a rollout on every device that has an offered update, or on those named.
+
+        Body ``{devices?: [...]}``; without it the default is every connected
+        device with an offered update, in the editor's device order.
+        """
         from ..hub.rollout import async_get_rollout
 
         hass = request.app["hass"]
@@ -602,9 +594,8 @@ class RolloutView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def delete(self, request, entry_id: str):
-        """Cancel every device still queued (the one installing finishes), or
-        dismiss a rollout that has finished."""
+    async def delete(self, request: web.Request, entry_id: str) -> web.Response:
+        """Cancel the queued devices of a running rollout, or dismiss a finished one."""
         from ..hub.rollout import async_get_rollout
 
         rollout = async_get_rollout(request.app["hass"], entry_id)
@@ -621,9 +612,9 @@ class RolloutDeviceView(HomeAssistantView):
 
     @require_admin
     @api_errors
-    async def delete(self, request, entry_id: str, device: str):
-        """Cancel ``device`` if it is still queued."""
+    async def delete(self, request: web.Request, entry_id: str, device: str) -> web.Response:
+        """Cancel ``device`` if it is still queued; the installing device finishes."""
         from ..hub.rollout import async_get_rollout
 
-        rollout = await async_get_rollout(request.app["hass"], entry_id).async_cancel(device)
-        return self.json({"status": "ok", "rollout": rollout})
+        rollout = async_get_rollout(request.app["hass"], entry_id)
+        return self.json({"status": "ok", "rollout": await rollout.async_cancel(device)})

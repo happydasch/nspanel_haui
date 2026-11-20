@@ -1,0 +1,17 @@
+packages:
+  version: !include version.yaml
+  globals: !include globals.yaml
+  base: !include base.yaml
+  hardware: !include hardware.yaml
+  display: !include display.yaml
+  interval: !include interval.yaml
+  scripts_common: !include scripts_common.yaml
+  scripts_connection: !include scripts_connection.yaml
+  scripts_interaction: !include scripts_interaction.yaml
+  scripts_display: !include scripts_display.yaml
+  scripts_event: !include scripts_event.yaml
+  api: !include api.yaml
+  button: !include button.yaml
+  number: !include number.yaml
+  switch: !include switch.yaml
+  sensor: !include sensor.yaml

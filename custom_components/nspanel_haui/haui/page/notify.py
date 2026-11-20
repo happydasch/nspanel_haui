@@ -13,7 +13,7 @@ from ..utils.text import TextBox, fit_text, parse_notification_text
 # Custom function name for the manual next-page header button.
 _FNC_NEXT_PAGE = "notif_next_page"
 
-# The page's text widgets as the HMIs define them (w, h, borderw, txt_maxl);
+# The page's text widgets as the HMIs define them (w, h, borderw, txt_maxl).
 # tests/test_page_notify.py checks them against the exported layouts.
 _TEXT_BOXES: dict[str, dict[str, TextBox]] = {
     "landscape": {
@@ -37,8 +37,7 @@ class CommonNotifyPage(HAUIPage):
         fnc_left_sec=Component(5, "bFncLSec"),
         fnc_right_pri=Component(6, "bFncRPri"),
         fnc_right_sec=Component(7, "bFncRSec"),
-        # Message text: tText beside the icon, tTextFull across the icon's
-        # area when there is no icon.
+        # tText beside the icon; tTextFull spans the icon area without one.
         t_text_full=Component(8, "tTextFull"),
         t_text=Component(9, "tText"),
         t_icon=Component(10, "tIcon"),
@@ -117,10 +116,8 @@ class NotifyPage(CommonNotifyPage):
             self.COMPONENTS.fnc_right_sec,
         )
 
-        # The manual next-page button uses the inner-right header slot.  The
-        # outer-right slot keeps NAV_CLOSE, which is the only dismissal for
-        # buttonless notify popups (update notices, entity-unavailable, timer).
-        # It is hidden until _start_paging finds more than one page of text.
+        # The manual next-page button uses the inner-right slot, hidden until
+        # the text needs pages; the outer slot stays NAV_CLOSE.
         self.set_function_component(
             self.COMPONENTS.fnc_right_sec,
             self.FNC_BTN_R_SEC,
@@ -131,7 +128,7 @@ class NotifyPage(CommonNotifyPage):
         )
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        # notify about close
+        # run the close callback
         if self._close_callback_fnc:
             self._close_callback_fnc()
 
@@ -174,17 +171,13 @@ class NotifyPage(CommonNotifyPage):
             self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)
             self.show_component(self.COMPONENTS.btn_right)
 
-        # Show the first page immediately; _start_paging appends the page
-        # counter to the title when the text does not fit on one page, and
-        # shows the manual next-page button while more pages remain.
+        # Show page 1; paging updates the title counter and next-page button.
         self._start_paging()
 
     def _fit_text(self) -> tuple[int, list[str]]:
-        """Font size and pages of the notification text in the shown text widget.
+        """Font size and pages for the shown text widget.
 
-        ``auto`` picks the largest font that shows the whole message on one
-        page, else the smallest font, paged.  A fixed ``text_size`` is paged
-        at that size.
+        ``auto`` picks the largest font that fits one page, else the smallest.
         """
         portrait = hasattr(self.app, "device") and getattr(self.app.device, "is_portrait", False)
         box = _TEXT_BOXES["portrait" if portrait else "landscape"][self._text_box.name]
@@ -200,15 +193,9 @@ class NotifyPage(CommonNotifyPage):
     # paging
 
     def _start_paging(self) -> None:
-        """Show the first page of the fitted text (``_fit_text``).
-
-        Paging is manual: the inner-right header button advances to the
-        next page.  Long text never advances on its own and is never
-        truncated — the final page stays visible until the popup closes.
-        """
+        """Show the first page; paging is manual and the final page stays up."""
         self._total_pages = len(self._chunks)
-        # A redraw can refresh the current page without restarting the panel;
-        # keep that page unless the updated text no longer has it.
+        # a redraw keeps the current page unless the text lost it
         self._current_page = min(self._current_page, max(self._total_pages - 1, 0))
 
         if self._total_pages > 1:

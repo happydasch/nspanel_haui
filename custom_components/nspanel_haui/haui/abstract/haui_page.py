@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
 if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
     from ..mapping.color import Theme
+    from ..mapping.descriptor import PageDescriptor
 
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_base import HAUIBase
@@ -42,10 +43,14 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         fnc_right_pri=Component(5, "bFncRPri"),
         fnc_right_sec=Component(6, "bFncRSec"),
     )
+    DESCRIPTOR: ClassVar[PageDescriptor]
 
     # Pages with non-standard color palettes (about, clock, clocktwo, weather)
     # should set this to ``False`` so the page's built-in palette is used instead.
     USE_SYSTEM_COLORS: ClassVar[bool] = True
+
+    # "dark" until the page calls ``set_background_mode()`` with its panel.
+    _background_variant: str = "dark"
 
     # The header title widget (``tTitle``) as the HMIs define it, per
     # orientation.  A page whose title widget differs overrides these.
@@ -55,10 +60,8 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     }
     TITLE_FONT: ClassVar[int] = 1
 
-    # Popup opened by execute_item() for an entity domain when the item has no
-    # ``popup_key``.  popup_timer has no domain (the timer is display-local);
-    # items reach it through ``popup_key``.  mapping/panel.py derives the popup
-    # aliases of the domain pages from it.
+    # Popup opened by execute_item() for a domain without ``popup_key``;
+    # mapping/panel.py derives the popup aliases from it.
     DEFAULT_POPUPS: ClassVar[dict[str, str]] = {
         "light": PopupPanelKey.POPUP_LIGHT,
         "media_player": PopupPanelKey.POPUP_MEDIA_PLAYER,
@@ -90,37 +93,23 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         self.prepare()
 
     def prepare(self) -> None:
-        """Initialize the page's per-panel attributes.
+        """Set the page's per-panel defaults; override instead of ``__init__``.
 
-        Override this instead of ``__init__`` to set default attribute
-        values.  Called after the base class constructor runs and again
-        before every ``start_panel``, so nothing one panel set carries over
-        to the next panel shown on this page.  State that must outlive a
-        panel belongs on the panel (``panel.set_state``).  No need to call
-        ``super().prepare()`` — the base implementation is a no-op.
+        Called again before every ``start_panel``, so nothing carries over to
+        the next panel.
         """
 
     # part
 
     def stop_part(self) -> None:
-        """Stops of part.
-
-        This is called when the part is stopped.
-        """
+        """Stop the page part."""
         self._reset_touch_input()
         self.set_panel(None)
 
     # panel lifecycle
 
     def set_panel(self, panel: HAUIPanel | None) -> None:
-        """Sets a panel for the page.
-
-        This is used to set a panel for current page.
-        The panel is set to the page and the panel is then being rendered.
-
-        Args:
-            panel (HAUIPanel): The panel to set.
-        """
+        """Show ``panel`` on this page (or close it with None)."""
         from ..mapping.panel import PAGE_MAPPING
 
         # prepare panel
@@ -135,35 +124,24 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | Panel: {panel_key} ({panel_type})")
         self.prepare()
 
-        # Batch ALL commands from start_panel, config_panel, and render_panel
-        # into a single send_commands call so the ESP32 receives them as one
-        # ESPHome service call.  Multiple rapid-fire service calls can overflow
-        # the Nextion's serial buffer before the display finishes processing.
-        # rec_cmd is re-entrant, so inner rec_cmd blocks in config_panel and
-        # render_panel are absorbed into this outer batch.
+        # Batch all lifecycle writes so rapid service calls cannot overrun
+        # Nextion's serial buffer. The batch also coalesces hide/show writes.
         rendered = False
         self._fnc_items = {}
         with self.rec_cmd:
+            self._apply_theme_foregrounds()
             self.start_panel(panel)
 
-            # call config for panel
             self.config_panel(panel)
-            # call before render for panel
             if self.before_render_panel(panel):
                 self.log(
                     f"Rendering panel {panel.id}",
                     level="DEBUG",
                 )
-                # Render function components (init vis/color/text) and the
-                # panel's display content in one batch so the dedup logic
-                # collapses redundant writes — e.g. ``vis x,0`` from an
-                # ``update_function_component`` followed by ``vis x,1``
-                # from ``render_panel`` becomes a single ``vis x,1``.
                 self._render_function_components()
                 self.render_panel(panel)
                 rendered = True
 
-        # call after render for panel
         self.after_render_panel(panel, rendered)
 
     def refresh_panel(self) -> None:
@@ -190,29 +168,26 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         for fnc_id in self._fnc_items:
             self.update_function_component(fnc_id)
 
+    def _apply_theme_foregrounds(self) -> None:
+        """Send the theme foreground of every body widget the TFT compiled with one."""
+        from ..mapping.panel import PAGE_MAPPING
+        from ..mapping.theme_foregrounds import THEME_FOREGROUNDS
+
+        for name, key in THEME_FOREGROUNDS.get(PAGE_MAPPING.get(self.page_id, ""), ()):
+            self.send_cmd(f"{name}.pco={self.get_color(key)}")
+
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        """The commands the display reads while it loads this page for ``panel``.
+        """The commands the display reads while it loads this page.
 
-        The display runs a page's Preinitialize code before it draws the page:
-        the solid-colour pages paint themselves from the theme globals there.
-        A page whose load code reads more (a picture background) extends this.
-
-        Args:
-            panel (HAUIPanel): Panel the page is loaded for
+        Solid pages paint themselves from the theme globals there; a picture
+        background extends this.
         """
         # The panel's theme, not get_color(): own-palette pages read none of
         # it, and the globals outlive this page on the display.
         return panel.theme.display_commands()
 
     def prepare_page_load(self, panel: HAUIPanel) -> None:
-        """Send ``page_load_commands()``; call right before goto_page.
-
-        They must reach the display ahead of the page command, or the page
-        shows its compiled look first and changes when the hub repaints it.
-
-        Args:
-            panel (HAUIPanel): Panel the page is loaded for
-        """
+        """Send ``page_load_commands()``; call right before goto_page."""
         self._load_commands = self.page_load_commands(panel)
         with self.rec_cmd:
             for cmd in self._load_commands:
@@ -230,19 +205,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         return list(self._load_commands)
 
     def option(self, panel: HAUIPanel, key: str) -> Any:
-        """The panel's value for one of this page's options, or the option's default.
-
-        The default is the ``PageOption.default`` that the page's descriptor
-        (or the descriptor of a page it extends) declares, the one the editor
-        shows; the page keeps no second copy of it.
-
-        Args:
-            panel (HAUIPanel): Panel to read the option from
-            key (str): Option key
-
-        Raises:
-            KeyError: If ``key`` is not an option of this page.
-        """
+        """The panel's value for one of this page's options, or its descriptor default."""
         defaults: dict[str, Any] = {}
         for klass in reversed(type(self).__mro__):
             descriptor = klass.__dict__.get("DESCRIPTOR")
@@ -251,14 +214,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         return panel.get(key, deepcopy(defaults[key]))
 
     def is_loaded_for(self, panel: HAUIPanel) -> bool:
-        """Whether the display loaded this page with what ``panel`` reads while loading.
-
-        Only then can the page show ``panel`` without loading again: the load
-        code painted the theme and background ``panel`` needs.
-
-        Args:
-            panel (HAUIPanel): Panel to show on the loaded page
-        """
+        """Whether the display loaded this page with what ``panel`` reads."""
         return self._load_commands == self.page_load_commands(panel)
 
     def start_panel(self, panel: HAUIPanel) -> None:
@@ -294,12 +250,8 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         self._fnc_id_by_component.clear()
         for fnc_id, fnc_item in self._fnc_items.items():
             comp = fnc_item["fnc_component"]
-            # Function buttons act on release (callback_function_components
-            # ignores presses).  Register only when the page did not bind
-            # the component itself: ``start_panel`` may already hold the
-            # slot (e.g. the media page's volume slider is both a drag
-            # control and a ``set_volume`` fnc item), and then the page's
-            # callback owns the release.
+            # Function buttons act on release; skip components the page bound
+            # itself (e.g. a slider).
             if comp.id not in self._callback_map:
                 self.on_release(
                     comp,
@@ -377,12 +329,9 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         return self.panel.theme if self.panel is not None else self.app.theme
 
     def get_color(self, key: str) -> int:
-        """Return the selected theme or the contrast palette paired with the page background."""
+        """Return the selected theme's color, or the palette of the page's background."""
         if not self.USE_SYSTEM_COLORS:
-            if getattr(self, "_use_theme_background", False):
-                return self.theme.get(key)
-            variant = getattr(self, "_background_variant", "dark")
-            return self.theme.get_background_color(key, variant)
+            return self.theme.get_background_color(key, self._background_variant)
         return super().get_color(key)
 
     def set_title(
@@ -430,18 +379,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         return self.TITLE_BOX["portrait" if self.app.device.is_portrait else "landscape"]
 
     def set_slider_color(self, slider: Component, show_toggle: bool = True) -> None:
-        """Set the slider's handle color.
-
-        Sliders on NSPanel displays use ``.bco`` for the unfilled track, which
-        the page's theme code paints in ``component_background`` while it
-        loads, and ``.pco`` for the handle/foreground color. Sliders compiled
-        without a cursor (light, cover, row) show no handle at all.
-
-        Args:
-            slider: The slider ``Component`` to colour.
-            show_toggle: True for a primary control (dark-accent handle), False
-                for a secondary one (``component_pressed`` handle).
-        """
+        """Set the slider handle colour; the page's theme paints the track."""
         if show_toggle:
             self.set_component_text_color(slider, self.get_color("component_active_dark"))
         else:
@@ -450,19 +388,7 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     # device entities
 
     def get_inside_temp_entity_id(self, panel: HAUIPanel | None = None) -> str | None:
-        """Resolve the entity id for the inside-temperature display value.
-
-        A panel-level ``inside_temp_item`` override (clock/weather panel
-        config) replaces the device's own temperature sensor. Without an
-        override, resolve the firmware sensor by its ESPHome-authored name on
-        this device rather than guessing an HA entity ID from the hub slug.
-
-        Args:
-            panel: The panel whose ``inside_temp_item`` override to honour.
-
-        Returns:
-            The selected entity id, or None when no sensor resolves.
-        """
+        """The inside-temperature entity: the panel's override, else the firmware sensor."""
         if panel is not None:
             override = panel.get("inside_temp_item", None)
             if isinstance(override, list):

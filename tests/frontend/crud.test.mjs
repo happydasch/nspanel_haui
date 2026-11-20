@@ -69,19 +69,6 @@ test('a new panel can start as a copy of an existing one under a free key', () =
   assert.equal(host.store.getState().ui.overlays.at(-1).kind, 'panel-editor');
 });
 
-test('a new panel can start from a template, without its preview hints', () => {
-  const host = makeHost({ devices: { kitchen: { config: {}, panels: [] } } }, () => {});
-  const template = { type: 'grid', title: 'Lights', items: [{ item: '', domain: 'light', icon: 'mdi:lightbulb' }] };
-
-  Crud.openAddFromTemplate(host, template);
-
-  assert.equal(host._editingPanel.index, -1);
-  assert.equal(host._editingPanel.data.key, 'grid_0');
-  assert.deepEqual(host._editingPanel.data.items, [{ item: '', icon: 'mdi:lightbulb' }]);
-  assert.equal(template.items[0].domain, 'light');
-  assert.equal(host.store.getState().ui.overlays.at(-1).kind, 'panel-editor');
-});
-
 test('duplicating a panel copies it under a new key right after the original', () => {
   const panels = [
     { type: 'grid', key: 'grid_0', title: 'Lights', items: [{ item: 'light.a' }] },
@@ -145,6 +132,26 @@ test('a save started while another is in flight is not sent', async () => {
   assert.equal(await second, false);
   assert.deepEqual(host.calls, ['PUT /api/nspanel_haui/panels/entry1/kitchen']);
   assert.deepEqual(host._panels.devices.kitchen.panels, [clock]);
+});
+
+test('a panel save takes the home and idle settings the hub cleaned', async () => {
+  const panels = [
+    { type: 'clock', key: 'clock_0' },
+    { type: 'grid', key: 'lights' },
+  ];
+  const host = makeHost(
+    { devices: { kitchen: { config: { home_panel: 'lights' }, panels } } },
+    () => jsonResponse({
+      status: 'ok',
+      device: 'kitchen',
+      config: { home_panel: '', idle_panel: '', idle_panel_extra: '' },
+    }),
+  );
+
+  await Crud.savePanels(host, [{ type: 'clock', key: 'clock_0' }], 'Panel deleted');
+
+  assert.equal(host._deviceConfig.home_panel, '');
+  assert.deepEqual(host._panels.devices.kitchen.panels, [{ type: 'clock', key: 'clock_0' }]);
 });
 
 test('a rejected panel save keeps the dialog item list for the next attempt', async () => {

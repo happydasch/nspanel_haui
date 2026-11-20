@@ -116,7 +116,9 @@ class ItemProxy:
             raise ValueError(f"set_state is not supported for {self.entity_id}")
         self.call_service("set_value", value=state)
 
-    def listen_state(self, cb: Callable, attribute: str | None = None, **kwargs: Any) -> str:
+    def listen_state(
+        self, cb: Callable[..., None], attribute: str | None = None, **kwargs: Any
+    ) -> str:
         return self._proxy.listen_state(cb, self.entity_id, attribute=attribute, **kwargs)
 
 
@@ -146,11 +148,11 @@ class ESPHomeProxy:
         self._dispatch = dispatch  # queues a callback on the owning app's worker
         self._device_name = device_name
         self._device_id: str | None = device_id
-        self._event_listeners: list[Callable] = []
+        self._event_listeners: list[Callable[..., None]] = []
 
     def listen_event(
         self,
-        cb: Callable,
+        cb: Callable[..., None],
         event_type: str,
         topic: str | None = None,
         **kwargs: Any,
@@ -271,7 +273,7 @@ class ESPHomeProxy:
 
         return service_data
 
-    def publish(self, name: str, value: str | dict | list = "") -> bool:
+    def publish(self, name: str, value: str | dict[str, Any] | list[Any] = "") -> bool:
         """Execute a service on the ESPHome device via its native API client.
 
         Looks up the device's ``RuntimeEntryData`` (populated by the ESPHome
@@ -381,6 +383,18 @@ class ESPHomeProxy:
             _LOGGER.error("Detached ESPHome publish failed: %s", exc)
 
 
+class AppStoppedError(RuntimeError):
+    """An app was asked to do something after it stopped.
+
+    A stopped app has shut its worker down (config entry unload, Home Assistant
+    stopping), so nothing more runs on it: a caller awaiting a result fails with
+    this instead of the executor's "cannot schedule new futures after shutdown".
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name}: the app has stopped")
+
+
 class HAAdapter:
     """Adapter that bridges HA's async API to the synchronous interface expected by haui/ core.
 
@@ -393,9 +407,11 @@ class HAAdapter:
         self.hass = hass
         self.name = name
         self._loop: asyncio.AbstractEventLoop = hass.loop
-        self._state_handles: dict[str, Callable] = {}
-        self._timer_handles: dict[str, Callable] = {}
-        self._timer_meta: dict[str, dict] = {}  # handle_id -> {callback_name, type, interval}
+        self._state_handles: dict[str, Callable[[], None]] = {}
+        self._timer_handles: dict[str, Callable[[], None]] = {}
+        self._timer_meta: dict[
+            str, dict[str, Any]
+        ] = {}  # handle_id -> {callback_name, type, interval}
         # Guards _timer_handles/_timer_meta: the loop starts intervals and the
         # worker fires and cancels timers.
         self._timer_lock = threading.Lock()
@@ -444,7 +460,7 @@ class HAAdapter:
 
     # events
 
-    def fire_event(self, event_type: str, data: dict | None = None) -> None:
+    def fire_event(self, event_type: str, data: dict[str, Any] | None = None) -> None:
         """Fire an event on the HA event bus (fire-and-forget, from the worker).
 
         Runs ``hass.bus.async_fire`` on the asyncio loop without waiting, so
@@ -468,7 +484,7 @@ class HAAdapter:
 
     # worker
 
-    def dispatch(self, fn: Callable, *args: Any) -> None:
+    def dispatch(self, fn: Callable[..., Any], *args: Any) -> None:
         """Queue ``fn(*args)`` on this app's worker. Call from the event loop.
 
         Fire-and-forget: an exception is logged at error level. Once the app
@@ -483,9 +499,28 @@ class HAAdapter:
             return
         future.add_done_callback(partial(self._log_worker_error, fn))
 
-    async def async_run_on_worker(self, fn: Callable, *args: Any) -> Any:
-        """Run ``fn(*args)`` on this app's worker and return its result."""
-        return await self._loop.run_in_executor(self._worker, fn, *args)
+    @property
+    def stopped(self) -> bool:
+        """Whether the app has stopped for good: its worker runs nothing more."""
+        return self._worker_stopped
+
+    async def async_run_on_worker(self, fn: Callable[..., Any], *args: Any) -> Any:
+        """Run ``fn(*args)`` on this app's worker and return its result.
+
+        Raises:
+            AppStoppedError: When the app has stopped. A caller awaiting a
+                result cannot have it dropped as ``dispatch`` drops a queued
+                callback, so it gets an error of its own instead of the
+                executor's "cannot schedule new futures after shutdown".
+        """
+        if self._worker_stopped:
+            raise AppStoppedError(self.name)
+        try:
+            future = self._loop.run_in_executor(self._worker, fn, *args)
+        except RuntimeError as exc:
+            # The worker shut down between the check above and here (app stopping).
+            raise AppStoppedError(self.name) from exc
+        return await future
 
     def run_off_worker(self, fn: Callable[..., Any], *args: Any, timeout: float = 60.0) -> Any:
         """Run blocking work (HTTP, disk) off the worker and return its result.
@@ -548,7 +583,7 @@ class HAAdapter:
         future.add_done_callback(_deliver)
 
     @staticmethod
-    def _log_off_worker_error(fn: Callable, future: Any) -> None:
+    def _log_off_worker_error(fn: Callable[..., Any], future: asyncio.Future[Any]) -> None:
         if future.cancelled():
             return
         exc = future.exception()
@@ -558,7 +593,7 @@ class HAAdapter:
             )
 
     @staticmethod
-    def _log_worker_error(fn: Callable, future: asyncio.Future) -> None:
+    def _log_worker_error(fn: Callable[..., Any], future: asyncio.Future[Any]) -> None:
         if future.cancelled():
             return
         exc = future.exception()
@@ -814,7 +849,7 @@ class HAAdapter:
 
     def listen_state(
         self,
-        cb: Callable,
+        cb: Callable[..., None],
         entity_id: str,
         attribute: str | None = None,
         **kwargs: Any,
@@ -849,7 +884,13 @@ class HAAdapter:
         return handle_id
 
     def _fire_state(
-        self, handle_id: str, cb: Callable, entity_id: str, attribute: str, old: Any, new: Any
+        self,
+        handle_id: str,
+        cb: Callable[..., None],
+        entity_id: str,
+        attribute: str,
+        old: Any,
+        new: Any,
     ) -> None:
         # A change queued before the listener was cancelled (e.g. its page
         # closed meanwhile) must not reach the old page.
@@ -866,7 +907,7 @@ class HAAdapter:
 
     def run_every(
         self,
-        cb: Callable,
+        cb: Callable[..., None],
         start: Any,
         interval: int | float,
         on_loop: bool = False,
@@ -956,7 +997,7 @@ class HAAdapter:
         _run_on_loop(self._loop, _register())
         return handle_id
 
-    def run_in(self, cb: Callable, delay: int | float, **kwargs: Any) -> str:
+    def run_in(self, cb: Callable[..., None], delay: int | float, **kwargs: Any) -> str:
         from homeassistant.core import callback as ha_callback  # noqa: PLC0415
 
         handle_id = str(uuid.uuid4())
@@ -982,7 +1023,7 @@ class HAAdapter:
         _run_on_loop(self._loop, _register())
         return handle_id
 
-    def _fire_timer(self, handle_id: str, cb: Callable, one_shot: bool) -> None:
+    def _fire_timer(self, handle_id: str, cb: Callable[..., None], one_shot: bool) -> None:
         with self._timer_lock:
             # A fire queued before the timer was cancelled must not run.
             if handle_id not in self._timer_handles:
@@ -999,10 +1040,10 @@ class HAAdapter:
         if remove:
             self._loop.call_soon_threadsafe(remove)
 
-    def run_minutely(self, cb: Callable, start: Any = None, **kwargs: Any) -> str:
+    def run_minutely(self, cb: Callable[..., None], start: Any = None, **kwargs: Any) -> str:
         return self.run_every(cb, start, 60, **kwargs)
 
-    def run_hourly(self, cb: Callable, start: Any = None, **kwargs: Any) -> str:
+    def run_hourly(self, cb: Callable[..., None], start: Any = None, **kwargs: Any) -> str:
         return self.run_every(cb, start, 3600, **kwargs)
 
     # ESPHome

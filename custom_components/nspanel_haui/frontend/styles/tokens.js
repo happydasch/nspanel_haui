@@ -23,6 +23,9 @@ export const dashboardTokens = css`
     --haui-space-7: var(--ha-space-7, 28px);
     --haui-space-8: var(--ha-space-8, 32px);
     --haui-space-10: var(--ha-space-10, 40px);
+    /* The sticky titlebar (styles/content.js); page content that pins to the
+       viewport starts below it. */
+    --haui-header-height: calc(var(--header-height, 56px) + var(--safe-area-inset-top, 0px));
     --haui-radius-control: var(--ha-border-radius-md, 8px);
     --haui-radius-pill: var(--ha-border-radius-pill, 999px);
     --haui-radius-round: 50%;

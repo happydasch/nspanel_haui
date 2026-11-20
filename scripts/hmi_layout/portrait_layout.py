@@ -1,23 +1,17 @@
 """Portrait (320x480) widget geometry for every page of ``nspanel_haui_portrait.HMI``.
 
 The portrait TFT is a rotated sibling of the landscape project: same pages, same
-object names and ids, different geometry.  This module is the single source of
-truth for that geometry.  ``gen_layout.py --spec portrait`` applies it to a
-copy of the HMI and refuses to run when a page's visual widgets and this spec
-disagree, so a widget added to the landscape project must be added here too.
-
-Both HMIs are addressed by the same Python ``COMPONENTS`` registries: every
-change applied to the landscape HMI (widgets, attributes, the refinements in
-``landscape_layout.py``) needs its counterpart here, and the other way round.
-
-Coordinates are ``(x, y, w, h)`` in display pixels on the 320x480 canvas.
+object names and ids, different geometry. This module is the single source of truth
+for that geometry; ``gen_layout.py --spec portrait`` applies it and refuses to run
+when a page's visual widgets and this spec disagree. Both HMIs share the Python
+``COMPONENTS`` registries, so every change needs its counterpart in
+``landscape_layout.py``, and the other way round.
 
 Layout rules (see ``docs/develop/nextion-editor.md``):
 
 - 12 px side margins: content spans x 12..308.
-- Pages with a header keep ``tHeader``/``tTitle`` across the full top 50 px,
-  with the four function buttons at its ends as in landscape; content starts
-  at y 50.
+- Pages with a header keep ``tHeader``/``tTitle`` across the top 50 px, with the four
+  function buttons at its ends; content starts at y 50.
 - Picture-only pages (clock, clocktwo, weather, system) use the whole height.
 """
 
@@ -149,7 +143,7 @@ def _clock() -> dict[str, Rect]:
 
 def _clocktwo() -> dict[str, Rect]:
     layout = _header(title=False, buttons=False)
-    # 11 x 10 letter matrix, reading order unchanged
+    # 11 x 10 letter matrix, in reading order
     for k in range(110):
         layout[f"l{k + 1}"] = (17 + 26 * (k % 11), 90 + 30 * (k // 11), 24, 24)
     layout.update(
@@ -411,11 +405,9 @@ PORTRAIT_LAYOUT: dict[str, dict[str, Rect]] = {
 }
 
 
-# Attribute overrides: ``isbr`` enables word wrap and ``font`` picks a smaller
-# embedded font where the narrower portrait widget would clip its text; the
-# slider entries give every slider the same cursor as the landscape layout
-# (small knob on settings/volume, plain fill bar elsewhere; see
-# landscape_layout.py).
+# Attribute overrides: ``isbr`` enables word wrap and ``font`` picks a smaller embedded
+# font where the narrower widget would clip; the slider entries give every slider the
+# landscape layout's cursor (see landscape_layout.py).
 _H_SLIDER = {"wid": 25, "hig": 30, "pco": 15416}
 _V_SLIDER = {"wid": 0, "hig": 0, "pco": 12678}
 _ROW_SLIDER = {"wid": 0, "hig": 0, "pco": 19773}
@@ -431,12 +423,11 @@ PORTRAIT_ATTRS: dict[str, dict[str, dict[str, int]]] = {
     "light": {"hBrightness": _V_SLIDER, "hColorTemp": _V_SLIDER},
     "cover": {"hVertPos": _V_SLIDER},
     "media": {"hVolume": _H_SLIDER},
-    # The portrait weather time/date are full-width (0..320) but kept the
-    # landscape ``xcen=2`` (right-aligned) attribute, pushing the text against
-    # the screen edge.  Center them (#64).
+    # The portrait weather time/date are full-width, so the landscape ``xcen=2``
+    # (right-aligned) attribute would push them against the screen edge.
     "weather": {"tTime": {"xcen": 1}, "tDate": {"xcen": 1}},
-    # #60's clock font fix: the portrait clock time uses font 6 (larger) and
-    # must survive HMI regeneration.
+    # The portrait clock time uses font 6 (larger), which must survive HMI
+    # regeneration.
     "clock": {"tTime": {"font": 6}},
 }
 
@@ -447,7 +438,7 @@ HMI_NAME = "nspanel_haui_portrait.HMI"
 # hub addresses both TFTs by the same widget names and expects the same events.
 SIBLING_HMI = "nspanel_haui.HMI"
 LAYOUT = PORTRAIT_LAYOUT
-# the page-background colour of every solid widget is shared with the landscape HMI
+# Every solid widget's page-background colour is shared with the landscape HMI
 ATTRS = with_theme(PORTRAIT_ATTRS)
 PARTIAL = False  # every visual widget of every page must be in LAYOUT
 

@@ -6,14 +6,34 @@ import assert from 'node:assert/strict';
 import { button, iconButton } from '../../custom_components/nspanel_haui/frontend/ui/button.js';
 import { badge, countBadge, statusDot } from '../../custom_components/nspanel_haui/frontend/ui/badge.js';
 import { segmented } from '../../custom_components/nspanel_haui/frontend/ui/segmented.js';
+import { choiceList } from '../../custom_components/nspanel_haui/frontend/ui/choice-list.js';
+import { searchField } from '../../custom_components/nspanel_haui/frontend/ui/search-field.js';
 import { emptyState } from '../../custom_components/nspanel_haui/frontend/ui/empty-state.js';
 import { popover, menuItem } from '../../custom_components/nspanel_haui/frontend/ui/popover.js';
 import { valueTile } from '../../custom_components/nspanel_haui/frontend/ui/info-tile.js';
 import { settingsTile } from '../../custom_components/nspanel_haui/frontend/ui/settings-tile.js';
+import { panelRoleMarker } from '../../custom_components/nspanel_haui/frontend/ui/panel-role.js';
 import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.js';
 import { render } from './support/render.mjs';
 import { accessibleName, byRole, byText } from './support/queries.mjs';
 import { assertAccessibleName, assertRole } from './support/a11y.mjs';
+test('a search field has an accessible name and reports input and keyboard events', () => {
+  const queries = [];
+  const keys = [];
+  const root = render(searchField({
+    label: 'Search panels', value: 'light', className: 'demo',
+    onInput: (value) => queries.push(value), onKeyDown: (event) => keys.push(event.key),
+  }));
+  const input = root.querySelector('input[type="search"]');
+  assert.equal(accessibleName(input), 'Search panels');
+  assert.equal(input.value, 'light');
+  input.value = 'weather';
+  input.dispatchEvent(new Event('input'));
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  assert.deepEqual(queries, ['weather']);
+  assert.deepEqual(keys, ['Escape']);
+});
+
 
 test('button primitives expose native disabled and accessible icon-only behavior', () => {
   const root = render(button({ label: 'Save', busy: true }));
@@ -54,12 +74,32 @@ test('a button detail is shown after the label and is part of its name', () => {
   assert.equal(byRole(render(button({ label: 'Save' })), 'button', { name: 'Save' }).textContent.trim(), 'Save');
 });
 
+test('a toggling button carries its state in aria-pressed, not only in its fill', () => {
+  const pressed = byRole(render(button({ label: 'Home panel', pressed: true, variant: 'primary' })), 'button', { name: 'Home panel' });
+  assert.equal(pressed.getAttribute('aria-pressed'), 'true');
+  assert.ok(pressed.classList.contains('haui-button-primary'));
+  const released = byRole(render(button({ label: 'Idle panel', pressed: false })), 'button', { name: 'Idle panel' });
+  assert.equal(released.getAttribute('aria-pressed'), 'false');
+  // A plain action button is not a toggle.
+  assert.equal(byRole(render(button({ label: 'Save' })), 'button', { name: 'Save' }).getAttribute('aria-pressed'), null);
+});
+
 test('badges and status dots preserve visible status and accessible names', () => {
   const root = render([badge('Update available', 'warning'), statusDot('offline', 'Disconnected')]);
   assert.ok(byText(root, 'Update available'));
   const dot = byRole(root, 'img', { name: 'Disconnected' });
   assertRole(dot, 'img');
   assertAccessibleName(dot, 'Disconnected');
+});
+
+test('a panel role marker names the role it marks, and an unknown one draws nothing', () => {
+  const names = ['home', 'idle', 'navigation', 'hidden']
+    .map((role) => accessibleName(render(panelRoleMarker({ role })).firstElementChild));
+  assert.deepEqual(names, ['Home panel', 'Idle panel', 'Navigation', 'Hidden']);
+  // A further idle panel of the cycle names its place, and is the dimmed marker.
+  const extra = render(panelRoleMarker({ role: 'idle', label: 'Idle panel 2', extra: true })).firstElementChild;
+  assert.deepEqual([accessibleName(extra), extra.classList.contains('is-extra')], ['Idle panel 2', true]);
+  assert.equal(render(panelRoleMarker({ role: 'unknown' })).firstElementChild, null);
 });
 
 test('a count badge shows its number, keeps a tone and says what it counts', () => {
@@ -105,6 +145,50 @@ test('a segment count takes its option tone, neutral without one', () => {
   assert.ok(all.classList.contains('haui-badge-neutral'));
   assert.ok(errors.classList.contains('haui-badge-danger'));
   assert.equal(errors.textContent, '2');
+});
+
+test('a choice list is one labelled group of rows, and reports every toggle by key', () => {
+  const toggles = [];
+  const root = render(choiceList({
+    id: 'copy-parts',
+    label: 'What to copy',
+    badge: countBadge(1, { title: '1 part picked' }),
+    actions: html`<button type="button">Select all</button>`,
+    choices: [
+      { key: 'settings', label: 'Device settings', hint: 'Language and screen', iconName: 'settings', checked: true },
+      { key: 'panels', label: 'Panels', checked: false },
+      { key: 'update', label: 'Update settings', hint: 'Channel and installs', checked: false, disabled: true },
+    ],
+    onToggle: (key, checked) => toggles.push([key, checked]),
+  }));
+
+  // The heading names the group, so a screen reader reads it once.
+  const group = byRole(root, 'group', { name: 'What to copy' });
+  assert.ok(group);
+  assert.equal(root.querySelector('.haui-badge-count').textContent, '1');
+  assert.ok(byRole(root, 'button', { name: 'Select all' }));
+
+  // A row's hint is part of its name, so the name stays a prefix match.
+  assert.equal(byRole(group, 'checkbox', { name: 'Device settings', exact: false }).checked, true);
+  assert.equal(byRole(group, 'checkbox', { name: 'Panels', exact: false }).checked, false);
+  assert.equal(byRole(group, 'checkbox', { name: 'Update settings', exact: false }).disabled, true);
+  assert.ok(byRole(group, 'checkbox', { name: 'Panels', exact: false }).closest('.haui-choice').classList.contains('is-checked') === false);
+  assert.ok(byRole(group, 'checkbox', { name: 'Device settings', exact: false }).closest('.haui-choice').classList.contains('is-checked'));
+
+  const panels = byRole(group, 'checkbox', { name: 'Panels', exact: false });
+  panels.checked = true;
+  panels.dispatchEvent(new Event('change'));
+  assert.deepEqual(toggles, [['panels', true]]);
+});
+
+test('a choice list with nothing to pick says so instead of drawing an empty group', () => {
+  const root = render(choiceList({
+    id: 'targets', label: 'To devices', choices: [], onToggle: () => {},
+    emptyText: 'Pick at least one device to copy to.',
+  }));
+  assert.equal(byRole(root, 'group', { name: 'To devices' }), null);
+  assert.equal(root.querySelector('.haui-choice'), null);
+  assert.ok(byText(root, 'Pick at least one device to copy to.'));
 });
 
 test('empty states and menu items expose their content and semantic roles', () => {

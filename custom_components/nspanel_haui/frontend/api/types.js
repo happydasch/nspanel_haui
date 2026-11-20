@@ -45,19 +45,6 @@
  */
 
 /**
- * A starter template returned by `/api/nspanel_haui/panel_templates`: a keyless
- * panel config whose empty entity slots (`item: ''`) the user fills; an item-list
- * slot may carry a `domain` hint for the catalog's preview.
- *
- * @typedef {Object} PanelTemplate
- * @property {string} key
- * @property {string} label
- * @property {string} description
- * @property {string} icon
- * @property {PanelConfig} panel
- */
-
-/**
  * A panel type descriptor returned by `/api/nspanel_haui/panel_types`.
  *
  * @typedef {Object} PanelTypeDescriptor

@@ -12,77 +12,43 @@ from .device_config import DEVICE_CONFIG, is_portrait_model
 from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent
 from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 from .schedule import ScheduleEntry, active_entry, next_boundary
+from .utils.value import number_state
 
 if TYPE_CHECKING:
     from ..hub.app import NSPanelHAUI
 from .mapping.const import SysPanelKey
 
-# How long after a touch-initiated idle-page open the residual touch events
-# of the triggering interaction are ignored.  The ESP32 publishes touch_start
-# twice per press — instantly from the Nextion on_touch callback and again once
-# its 200 ms touch poller catches up (serial read lag can push that ~1 s behind
-# a render burst).  A quick tap on the idle button can therefore leave a
-# duplicate touch_start behind *after* open_idle_panel() already ran; the
-# display is still "on" in that flow (open_idle_panel never reported "off"),
-# so the duplicate would take the one-touch wakeup path and dismiss the
-# idle page the button had just opened.  1.5 s covers the poller lag while
-# staying far shorter than a deliberate second tap to wake the display.
+# Ignore touch events left over from the touch that opened the idle page:
+# the ESP32 can publish a duplicate touch_start ~1 s later, which would
+# otherwise dismiss the just-opened page.  1.5 s covers that lag.
 IDLE_TOUCH_GRACE_WINDOW: float = 1.5
 
-# The native Nextion callback ("1") and the 200 ms coordinate poller ("")
-# publish a touch_start for the same physical press.  The native event is the
-# authoritative wake decision; the poller event is ignored while a native event
-# for the same press is recent.  If the native event is lost (serial/API lag),
-# the poller event is used as a fallback so the touch is never ignored.
+# The native Nextion touch_start ("1") decides the wake; the poller's duplicate
+# ("") is ignored unless the native event was lost within this window.
 TOUCH_DUPLICATE_WINDOW: float = 1.5
 
-# A freshly booted device reports an uptime of a few seconds in its
-# connection request; a Wi-Fi drop-and-reconnect keeps the (much longer)
-# uptime.  The startup sound plays only while uptime stays under this
-# threshold.  A missing uptime key (older firmware) plays anyway, preserving
-# the previous every-connect behavior.
+# The startup sound plays only while uptime stays under this value; a missing
+# uptime key (older firmware) plays anyway.
 STARTUP_SOUND_MAX_UPTIME_SECONDS = 120
 
 
 class HAUIDevice(HAUIBase):
-    """
-    Represents a NSPanel device.
-
-    - Interaction with device (swipes are the gesture controller's)
-    - Device wide callbacks from entities / homeassistant
-    - Physical buttons state
-    """
+    """A NSPanel device: device callbacks, physical buttons and gesture input."""
 
     def __init__(self, app: NSPanelHAUI, config: dict | None = None) -> None:
-        """Initializes the device.
-
-        Args:
-            app (NSPanelHAUI): App
-            config (dict, optional): Config of device; a setting it leaves out
-                takes its ``DEVICE_CONFIG`` default. Defaults to None.
-        """
+        """Initialize the device; missing settings take their DEVICE_CONFIG default."""
         super().__init__(app, {**deepcopy(DEVICE_CONFIG), **(config or {})})
         self.device_info: dict = {}
-        # First-touch guard of the idle page: while the display is **off** the
-        # first touch only wakes it (see check_wakeup).  Set when the idle page
-        # opens (in case the display is off) and whenever the display reports
-        # "off"; cleared when a touch exits the idle page or is consumed as the
-        # wake touch.  A visible display ("on" or "dim") needs only one touch,
-        # so the guard is not armed there.
+        # While the display is off, the first touch only wakes it (see
+        # check_wakeup); armed on idle-page open and on display "off".
         self._first_touch_consumed = False
-        # Monotonic timestamp of the last visible ("on" or "dim") display_state
-        # event.  A touch that woke the display may reach the hub after the
-        # display-on event; the guard is consumed as the wake touch only within
-        # TOUCH_DUPLICATE_WINDOW of this timestamp.  Older = stale guard.
+        # Last visible display_state timestamp; a wake touch that reaches the
+        # hub after the display-on event is consumed within the duplicate window.
         self._display_on_ts: float = 0.0
-        # Monotonic deadline until which TOUCH_START events are treated as
-        # leftovers of the touch that opened the idle page (see
-        # arm_idle_touch_grace).  0.0 = no grace active.
+        # Deadline until residual touches of the idle-page trigger are ignored.
         self._idle_touch_grace_until = 0.0
-        # Monotonic timestamp of the last native touch_start ("1") event.
-        # The poller's empty-value duplicate is ignored within
-        # TOUCH_DUPLICATE_WINDOW of this timestamp, but used as a fallback
-        # when the native event was lost (serial/API lag).
+        # Last native touch_start; the poller duplicate is ignored within the
+        # duplicate window, but used as a fallback when the native event was lost.
         self._last_native_touch_ts: float = 0.0
         self._initial_connect_done = False
         self._btn_left_info: dict[str, Any] = {
@@ -156,12 +122,7 @@ class HAUIDevice(HAUIBase):
             item.turn_off()
 
     def _sync_changed_auto_switch_settings(self, changed_settings: set[str]) -> None:
-        """Apply only automatic-switch settings that changed in the Settings editor.
-
-        A schedule owns the display-off switch: ``_sync_behavior_config`` writes
-        it from the active entry or this setting.  A second write here would race
-        that one, since a switch write lands in its state only after the sync.
-        """
+        """Apply changed automatic-switch settings; a schedule owns display-off."""
         for setting in changed_settings:
             switch_key = setting.removeprefix("use_")
             if switch_key == "auto_display_off" and self.get("schedule"):
@@ -193,40 +154,27 @@ class HAUIDevice(HAUIBase):
             return None
         return active_entry(entries, self.app.now(), self._sun_time)
 
-    def _sync_number(self, value: float | int | None, entity_name: str) -> None:
+    def _sync_number(self, value: float | int | None, entity_name: str, reason: str = "") -> None:
         """Write a value to one of the device's ESPHome numbers when it differs."""
         entity_id = self._resolve_esp_entity("number", entity_name)
         if value is None or not entity_id or not self.app.item_exists(entity_id):
             return
         item = self.app.get_item(entity_id)
-        current = item.get_state()
-        if (
-            current is not None
-            and current not in ("unavailable", "unknown")
-            and float(current) != value
-        ):
-            self.log(f"Syncing {entity_id} to {value}")
+        current = number_state(item.get_state())
+        if current is not None and current != value:
+            detail = f" ({reason})" if reason else ""
+            self.log(f"Syncing {entity_id} to {value}{detail}")
             item.set_state(state=value)
 
     def _sync_button_interaction(self) -> None:
-        """Keep ``reset_interaction_on_button`` aligned with ESPHome.
-
-        The device handles the timer reset on the physical button press;
-        mirroring this switch keeps that behavior consistent with hub config.
-        """
+        """Keep ``reset_interaction_on_button`` aligned with its ESPHome switch."""
         self._sync_config_switch(
             "reset_interaction_on_button",
             self._resolve_esp_entity("switch", "Use Button Interaction"),
         )
 
     def _sync_relay_config(self) -> None:
-        """Sync hub config ``use_relay_left``/``use_relay_right`` with ESPHome switches.
-
-        Prevents the double-toggle / no-toggle scenario where the hub expects
-        one behaviour but the ESPHome firmware (with its own
-        ``use_relay_left``/``use_relay_right`` switches using
-        ``RESTORE_DEFAULT_ON``) acts differently.
-        """
+        """Sync ``use_relay_left``/``use_relay_right`` with the ESPHome switches."""
         self._sync_config_switch(
             "use_relay_left",
             self._resolve_esp_entity("switch", "Use Relay Left"),
@@ -238,11 +186,9 @@ class HAUIDevice(HAUIBase):
 
     # part
     def _sync_behavior_config(self) -> None:
-        """Sync display timeouts and brightness: the active schedule entry's, else the settings.
+        """Sync timeouts and brightness from the active schedule entry or the settings.
 
-        Without a schedule the Auto display off switch belongs to its live
-        ESPHome state.  A schedule turns the display-off on and off per entry,
-        so the hub then owns the switch and writes it on every sync.
+        A schedule owns the display-off switch and writes it on every sync.
         """
         entry = self._active_schedule_entry()
 
@@ -269,24 +215,12 @@ class HAUIDevice(HAUIBase):
         self._sync_display_model()
 
     def _sync_display_model(self) -> None:
-        """Sync the hub's display model with the firmware's gesture size.
-
-        The gesture script derives its touch dimensions from the model
-        (``display_model`` number: 0 = landscape, 1 = portrait). The ESPHome
-        number entity is resolved by its authored name on this linked device.
-        """
-        number_entity_id = self._resolve_esp_entity("number", "Display Model")
-        if not number_entity_id or not self.app.item_exists(number_entity_id):
-            return
-        value = 1 if self.is_portrait else 0
-        item = self.app.get_item(number_entity_id)
-        current = item.get_state()
-        if current is not None and current != "unavailable" and float(current) != value:
-            self.log(
-                f"Syncing {number_entity_id} to {value} "
-                f"(hub config display_model={self.display_model!r})"
-            )
-            item.set_state(state=value)
+        """Sync the firmware's gesture size with the display model."""
+        self._sync_number(
+            1 if self.is_portrait else 0,
+            "Display Model",
+            reason=f"display_model={self.display_model!r}",
+        )
 
     @property
     def display_model(self) -> str:
@@ -301,11 +235,9 @@ class HAUIDevice(HAUIBase):
     # part
 
     def sync_config_to_device(self, changed_auto_settings: set[str] | None = None) -> None:
-        """Apply non-automatic-switch config and explicitly changed switch settings.
+        """Apply config and explicitly changed switch settings.
 
-        Automatic switches are otherwise owned by the live ESPHome state, which
-        lets Home Assistant automations control them without lifecycle or page
-        changes writing a stale config value back.
+        Automatic switches otherwise follow their live ESPHome state.
         """
         self._sync_button_interaction()
         self._sync_relay_config()
@@ -356,40 +288,15 @@ class HAUIDevice(HAUIBase):
         return self.display_state in ("on", "dim")
 
     @property
-    def display_dark(self) -> bool:
-        """Whether the display is dark ("off")."""
-        return self.display_state == "off"
-
-    @property
     def sleeping(self) -> bool:
-        """Whether the device is sleeping: the idle page is shown.
-
-        "Sleep" is the hub-side idle page and is independent of display
-        brightness: the display may be dark without an idle page, and the
-        idle page may be shown while the display is visible.  This is the
-        single place that answers "is the device sleeping?"; consumers should
-        not read ``navigation.idle_panel_active`` directly.
-        """
+        """Whether the idle page is shown; independent of display brightness."""
         navigation = self.app.controller.get("navigation")
         return bool(navigation is not None and navigation.idle_panel_active)
-
-    @property
-    def needs_wake_touch(self) -> bool:
-        """Whether the next touch only wakes a dark display instead of exiting sleep.
-
-        True while the device sleeps with the display "off".  A visible
-        display ("on" or "dim") leaves the idle page on the first touch.
-        """
-        return self.sleeping and not self.display_visible
 
     def on_idle_page_opened(self) -> None:
         """Arm the first-touch guard when the idle page opens.
 
-        Called by the navigation controller whenever the idle page is shown.
-        Only a dark display needs a wake touch before the idle page can be
-        exited; a visible display ("on" or "dim") leaves on the first touch.
-        Touch-initiated entry while the display is visible is protected
-        separately by the idle-touch grace window.
+        Only a dark display needs a wake touch before the idle page can be left.
         """
         self._first_touch_consumed = not self.display_visible
 
@@ -399,37 +306,22 @@ class HAUIDevice(HAUIBase):
 
     @property
     def connected(self) -> bool:
-        """Return ``True`` iff the device connection is fully established.
-
-        Delegates to the connection controller so there is a single source
-        of truth for connection state.
-        """
+        """Whether the device connection is fully established."""
         conn = self.app.controller.get("connection")
         return conn.is_connected if conn else False
 
     def on_connection_changed(self, connected: bool) -> None:
-        """Handle connection state change from the connection controller.
+        """Open System on first connect, restore the panel on reconnect, reset idle state on
+        disconnect.
 
-        On first connect: opens sys_system panel.
-        On reconnect: restores the navigation panel (or falls back to home).
-        On disconnect: resets idle-session state so stale flags do not
-        trigger navigation or wake handling during reconnection.
-
-        The ``_initial_connect_done`` guard distinguishes first-connect from
-        reconnect. Without this guard, every reconnect (~30s ESPHome heartbeat
-        timeout) would trigger sys_system → home → clock, disrupting the user.
-
-        Args:
-            connected (bool): Connection state
+        The first-connect guard keeps every reconnect from navigating to System
+        and then home.
         """
         self.log(f"Device connected: {connected}")
         navigation = self.app.controller.get("navigation")
         if navigation is None:
             return
-        # Cancel any stale navigation timeouts before changing state.
-        # Timeouts set before a disconnect can fire after reconnect and
-        # interfere with the new panel navigation (stale goto_page,
-        # premature close_panel).
+        # Cancel stale navigation timeouts so they cannot fire after reconnect.
         navigation.cancel_timeouts()
         if connected:
             navigation.prepare_resume()
@@ -438,24 +330,13 @@ class HAUIDevice(HAUIBase):
                 uptime = self.device_info.get("uptime")
                 if uptime is None or uptime < STARTUP_SOUND_MAX_UPTIME_SECONDS:
                     self.play_sound("startup")
-            # Only open sys_system on initial connection, not on reconnects.
-            # Without this guard, every reconnect (~30s ESPHome heartbeat timeout)
-            # triggers sys_system → home → clock, disrupting the user.
+            # Only the first connection opens System; a reconnect restores the
+            # user's panel.  open_panel blocks on the ESPHome API, so run it
+            # through run_in to keep heartbeat events flowing.
             if not self._initial_connect_done:
                 navigation.open_panel(SysPanelKey.SYS_SYSTEM)
                 self._initial_connect_done = True
             else:
-                # Reconnect: restore the correct panel on the display.
-                # The ESP32 firmware navigates to the system page on disconnect,
-                # so we must re-navigate back to the user's panel here.
-                # If the current panel is a popup (non-nav), skip it - popups
-                # don't survive disconnects. Fall back to the current nav panel.
-                # Use run_in to schedule the panel opening asynchronously.
-                # open_panel involves blocking ESPHome native API service calls
-                # (publish → async_call(blocking=True) → .result(timeout=10)).
-                # Running it synchronously would prevent heartbeat events from
-                # being processed on this executor thread, causing the connection
-                # timeout to fire.
                 panel = navigation.get_current_panel()
                 nav_panel = navigation.get_current_nav_panel()
                 if panel is not None and nav_panel is not None and panel.id == nav_panel.id:
@@ -481,11 +362,7 @@ class HAUIDevice(HAUIBase):
             self._idle_touch_grace_until = 0.0
 
     def _sounds_muted(self) -> bool:
-        """Whether the active schedule entry mutes sounds.
-
-        A muted window suppresses every sound and keeps a notification from
-        waking the display.
-        """
+        """Whether the active schedule entry mutes sounds."""
         entry = self._active_schedule_entry()
         return entry is not None and not entry.sound
 
@@ -515,11 +392,9 @@ class HAUIDevice(HAUIBase):
     # public
 
     def wake_for_notification(self) -> None:
-        """Wake the display for a notification popup that opened on its own.
+        """Wake the display for a notification that opened on its own.
 
-        A schedule entry with sound off keeps the display dark: the popup stays
-        open, so it is what the user sees on the next touch.  The display then
-        dims and turns off on its normal timers.
+        A schedule entry with sound off keeps the display dark.
         """
         if self._sounds_muted():
             self.log("Schedule mutes sounds — not waking the display", level="DEBUG")
@@ -535,43 +410,21 @@ class HAUIDevice(HAUIBase):
         return self.get("locale")
 
     def get_time_format(self) -> str:
-        """Return the device's strftime time format, falling back to the hub default.
-
-        An empty per-device value means "inherit the hub-level default"
-        (``DEFAULT_CONFIG["time_format"]``), so a device can stay in sync
-        with the integration default or override it per panel.
-
-        Returns:
-            str: strftime format, e.g. "%H:%M" or "%I:%M %p"
-        """
+        """The device's strftime time format, falling back to the hub default."""
         value = self.get("time_format")
         if value:
             return value
         return self.app.device_config.get("time_format")
 
     def get_date_format(self) -> str:
-        """Return the device's strftime date format, falling back to the hub default.
-
-        Returns:
-            str: strftime format, e.g. "%m/%d/%Y"
-        """
+        """The device's strftime date format, falling back to the hub default."""
         value = self.get("date_format")
         if value:
             return value
         return self.app.device_config.get("date_format")
 
     def get_date_format_locale(self) -> str:
-        """Return the device's locale date pattern name, falling back to the hub default.
-
-        The pattern name (e.g. "full", "long", "medium", "short", "E", "EEEE")
-        selects a locale-aware date layout.  An empty string disables locale
-        patterns so ``get_date_format()`` (strftime) is used instead; it is
-        empty whenever the device sets a date format of its own, which the
-        layout is only the default for.
-
-        Returns:
-            str: Babel-style pattern name, e.g. "full"
-        """
+        """The device's locale date pattern, empty when a date format is set."""
         if self.get("date_format"):
             return ""
         value = self.get("date_format_locale")
@@ -580,11 +433,7 @@ class HAUIDevice(HAUIBase):
         return self.app.device_config.get("date_format_locale")
 
     def get_slug(self) -> str:
-        """Returns the device name slugified the way Home Assistant builds entity ids.
-
-        Returns:
-            str: Slug, e.g. ``nspanel_living`` for ``NSPanel-Living``
-        """
+        """The device name slugified like Home Assistant entity ids."""
         return self.app.device_slug
 
     def get_name(self) -> str:
@@ -593,9 +442,7 @@ class HAUIDevice(HAUIBase):
         Returns:
             str: Device name
         """
-        # self.get("name") returns the hub-level name from the device
-        # sub-dict config. The actual per-device name is resolved at app
-        # level in NSPanelHAUI.initialize() and stored in _runtime_device_name.
+        # the per-device name is resolved by NSPanelHAUI.initialize()
         return self.app._runtime_device_name or self.get("name")
 
     def toggle_left_button_state(self) -> None:
@@ -607,14 +454,7 @@ class HAUIDevice(HAUIBase):
         self._toggle_button_state("right")
 
     def play_sound(self, name: str) -> None:
-        """Plays a sound.
-
-        A schedule entry with sound off suppresses all sounds — the call is a
-        no-op then, so callers do not need individual checks.
-
-        Args:
-            name (str): Name of the sound
-        """
+        """Play a sound; a schedule entry with sound off suppresses it."""
         if self._sounds_muted():
             self.log(f"Schedule mutes sounds — suppressing sound '{name}'", level="DEBUG")
             return
@@ -630,9 +470,7 @@ class HAUIDevice(HAUIBase):
         Args:
             event (HAUIEvent): Event
         """
-        # update device vars values. Store under the unprefixed key so the
-        # handshake-populated keys ("display_state", "page", ...) stay in sync
-        # with live events; all readers use the unprefixed names.
+        # Live event keys share the handshake's unprefixed names.
         key = event.name.removeprefix("esphome.")
         self.device_info[key] = event.value
         # a touch is the sole driver of the idle-page exit decision
@@ -640,26 +478,18 @@ class HAUIDevice(HAUIBase):
             if self._idle_touch_grace_active():
                 self.log("Ignoring residual touch_start after idle-page open")
                 return
-            # The native Nextion callback ("1") is the authoritative wake
-            # decision per physical press; the ESPHome coordinate poller
-            # reports the same press with an empty value up to ~1 s later.
-            # Suppress the poller duplicate, but use it as a fallback when the
-            # native event was lost (serial/API lag) — otherwise a lost "1"
-            # makes the touch do nothing at all.
+            # Native touch_start ("1") decides the wake; the poller's duplicate
+            # ("") is ignored within the duplicate window unless the native
+            # event was lost.
             now = time.monotonic()
             if event.value == "1":
                 self._last_native_touch_ts = now
                 self.check_wakeup()
             elif now - self._last_native_touch_ts > TOUCH_DUPLICATE_WINDOW:
                 self.check_wakeup()
-        # The display went dark again (e.g. while the idle page stays open),
-        # so the next touch must only wake it: re-arm the two-touch guard when
-        # the display turns "off".  "on" and "dim" are both visible states
-        # where a single touch leaves the idle page.  A touch that caused a
-        # dark→visible transition can reach the hub after the display-state
-        # event, so both visible states record the transition time:
-        # check_wakeup() consumes that wake touch within TOUCH_DUPLICATE_WINDOW
-        # and treats an older guard as stale.
+        # Re-arm the wake guard when the display goes "off"; visible states
+        # record the transition so a wake touch arriving after the display-state
+        # event is consumed within the duplicate window.
         elif event.name == ESPEvent.DISPLAY_STATE:
             if event.value == "off":
                 self._first_touch_consumed = True
@@ -668,9 +498,8 @@ class HAUIDevice(HAUIBase):
         elif event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
             side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
             if event.value == "1":  # pressed
-                # ESPHome records the press as interaction; the hub handles
-                # the idle-page exit. The entity toggle stays on release so a
-                # held button does not spam toggles.
+                # Press: ESPHome records the interaction; the toggle stays on
+                # release so a held button does not spam toggles.
                 if self.get("reset_interaction_on_button"):
                     self.check_wakeup()
             elif event.value == "0":  # released
@@ -681,9 +510,8 @@ class HAUIDevice(HAUIBase):
                 raise TypeError(f"Notification event value must be a Notification: {event.value!r}")
             if self.get("sound_on_notification"):
                 if event.value.persistent:
-                    # Started even while the schedule mutes sounds: the loop
-                    # stays silent there and sounds once that entry ends,
-                    # until dismissed.
+                    # Starts even while sounds are muted; the loop goes silent
+                    # until that entry ends.
                     self._start_persistent_sound()
                 elif event.value.sound:
                     if self._sounds_muted():
@@ -700,20 +528,13 @@ class HAUIDevice(HAUIBase):
                 self._stop_persistent_sound()
 
     def arm_idle_touch_grace(self) -> None:
-        """Ignore the residual touch events of the touch that opened the idle page.
-
-        Called by the touch producer (e.g. the header idle button) right
-        before the idle page opens.  Expires after
-        ``IDLE_TOUCH_GRACE_WINDOW`` seconds; hardware-button presses and
-        touches after the window behave normally.
-        """
+        """Ignore residual touches from the touch that opened the idle page."""
         self._idle_touch_grace_until = time.monotonic() + IDLE_TOUCH_GRACE_WINDOW
 
     def _idle_touch_grace_active(self) -> bool:
-        """Whether an incoming TOUCH_START is inside the armed grace window.
+        """Whether a TOUCH_START falls inside the armed grace window.
 
-        Only while the idle page is actually open: once the idle session was
-        exited the window must not swallow the fresh interaction.
+        Only while the idle page is actually open.
         """
         if not self.sleeping:
             return False
@@ -724,20 +545,10 @@ class HAUIDevice(HAUIBase):
         self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
 
     def check_wakeup(self) -> None:
-        """Exit the idle page on any touch or hardware-button press.
+        """Exit the idle page on a touch or button press.
 
-        When the display is **on** or **dim** the user can see the screen, so a
-        single touch immediately leaves the idle page (one-touch).  When the
-        display is **off** the first touch only wakes the display; the second
-        touch performs the action (two-touch).
-
-        A hardware button calls this on both press and release, so a single
-        physical press wakes and exits (documented in docs/user/device.md).
-
-        The wake operation itself is panel-independent: with no idle page
-        open there is nothing to exit and the firmware's own display-idle
-        machine handles brightness when its interaction timer is reset by the
-        touch.
+        A visible display leaves on the first touch; a dark one wakes on the
+        first and exits on the second.  A hardware button does both in one press.
         """
         navigation = self.app.controller.get("navigation")
         if navigation is None or not self.sleeping:
@@ -746,12 +557,8 @@ class HAUIDevice(HAUIBase):
             return
 
         if self.display_visible:
-            # A visible display needs only one touch to leave the idle page.
-            # A dark→visible transition caused by a touch can reach the hub
-            # after the display-state event.  Consume that wake touch when it
-            # arrives within TOUCH_DUPLICATE_WINDOW of the transition; an older
-            # armed guard is stale (the display was woken remotely) and a
-            # single touch leaves the idle page.
+            # A visible display needs one touch; a wake touch that reaches the
+            # hub after the display-on event is consumed within the window.
             if (
                 self._first_touch_consumed
                 and time.monotonic() - self._display_on_ts <= TOUCH_DUPLICATE_WINDOW
@@ -772,13 +579,7 @@ class HAUIDevice(HAUIBase):
         navigation.exit_idle_to_prev_or_home(self.config)
 
     def _on_button_release(self, side: str) -> None:
-        """Handle a hardware button release (``side`` = "left" / "right").
-
-        With ``reset_interaction_on_button`` enabled, the firmware records the
-        press as the interaction and this handler completes the idle-page wake.
-        The toggle runs before ``check_wakeup`` so it isn't delayed by the
-        blocking goto_page navigation inside it.
-        """
+        """Handle a hardware-button release: toggle the relay, then finish the wake."""
         reset = self.get("reset_interaction_on_button")
         getattr(self, f"toggle_{side}_button_state")()
         if reset:
@@ -798,12 +599,7 @@ class HAUIDevice(HAUIBase):
             self.app.get_item(entity_id).call_service("toggle")
 
     def _persistent_sound(self) -> str:
-        """The loop sound: the first queued audible persistent notification's sound.
-
-        Silent persistent notifications neither mute the loop nor block a
-        later audible one; when the current one leaves the queue, the next
-        audible sound takes over.
-        """
+        """The first queued audible persistent notification's sound."""
         notifications = self.app.controller["notification"].get_notifications()
         return next((n.sound for n in notifications if n.persistent and n.sound), "")
 

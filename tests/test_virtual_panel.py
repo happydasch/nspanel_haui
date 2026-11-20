@@ -1041,6 +1041,33 @@ def test_a_card_render_changes_no_state(session, env):
     assert not session.app.sandbox.is_simulated("light.lamp")
 
 
+def test_a_card_render_interrupted_by_the_apps_stop_ends_with_what_was_drawn(
+    session, env, monkeypatch
+):
+    """An app stopped under a render (an unload, Home Assistant stopping) is no error."""
+    from custom_components.nspanel_haui.web.preview import virtual_panel
+
+    # The render's own page start is the signal that it is under way.
+    page_started = threading.Event()
+    start = virtual_panel._PanelRender.start
+
+    def recording_start(render):
+        start(render)
+        page_started.set()
+
+    monkeypatch.setattr(virtual_panel._PanelRender, "start", recording_start)
+    card = {"type": "light", "key": "desk", "title": "Desk", "item": {"item": "light.lamp"}}
+    # A settle no quiet period reaches: only the app's stop ends this render.
+    render = asyncio.run_coroutine_threadsafe(session.async_render(card, settle=30.0), env.loop)
+
+    assert page_started.wait(timeout=5)
+    _run(env, session.app.async_run_on_worker(session.app.stop))
+    result = render.result(timeout=5)
+
+    assert result["page"] == 13
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
 def test_a_slow_weather_forecast_does_not_block_the_virtual_app_worker(session, env):
     env._states["weather.home"] = _State("rainy", {"temperature": 14.6})
     started = threading.Event()

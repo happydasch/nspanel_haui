@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """Write the release notes of a development firmware build (dev-firmware.yml).
 
-A dispatched build has no push range, so the notes list the commits since the
-newest tag reachable from the build commit: the previous development build's
-tag, or the stable release after a master merge-back.
-
-Reads ``GITHUB_REPOSITORY``, ``GITHUB_SHA``, ``DEV_VERSION`` and ``TFT_VERSION``
-and writes ``dev-release-notes.md``.
+A dispatched build has no push range, so the notes list the commits since the newest
+tag reachable from the build commit. Reads ``GITHUB_REPOSITORY``, ``GITHUB_SHA``,
+``DEV_VERSION`` and ``TFT_VERSION`` and writes ``dev-release-notes.md``.
 """
 
 from __future__ import annotations

@@ -177,8 +177,8 @@ export class SimulatorFrameElement extends LitElement {
   _measure() {
     if (typeof this.getBoundingClientRect === 'function') {
       try {
-        // The screen fills the content box: a border on the frame (the Fleet
-        // card's bezel) is not drawable width, and scaling to it clips the screen.
+        // The screen fills the content box: a border on the frame is not drawable width, and
+        // scaling to it clips the screen.
         const width = this.clientWidth || this.getBoundingClientRect().width;
         if (width > 0) this._containerWidth = width;
       } catch (_e) { /* not mounted */ }
@@ -198,8 +198,12 @@ export class SimulatorFrameElement extends LitElement {
   render() {
     const orientation = this.portrait ? 'portrait' : 'landscape';
     if (this._error) {
-      return html`<div class="haui-preview-sim-loading ${this.portrait ? 'is-portrait' : ''}" title=${this._error}>
+      // The message is text, not a tooltip: a preview that failed says why, in
+      // the editor and on a card.
+      return html`<div class="haui-preview-sim-loading is-error ${this.portrait ? 'is-portrait' : ''}"
+        role="alert">
         <ha-icon icon="mdi:alert-outline"></ha-icon>
+        <span class="haui-preview-sim-error">${this._error}</span>
       </div>`;
     }
     if (!this._display) {

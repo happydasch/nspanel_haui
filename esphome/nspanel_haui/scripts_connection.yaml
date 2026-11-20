@@ -9,10 +9,9 @@ script:
       - lambda: |-
           ESP_LOGV("haui", "Script: set_hub_connected: %i (force=%i)", connected, force);
           bool hub_connection_state = bool(connected);
-          // Guard: when asked to disconnect, check if other API clients remain.
-          // EXCEPT when force=true: the device independently detected the hub
-          // is unresponsive (heartbeat timeout), so it must disconnect even if
-          // the raw API connection is still alive.
+          // A disconnect is skipped while other API clients remain, unless
+          // force=true: the device detected an unresponsive hub (heartbeat
+          // timeout) and must disconnect even though the API link is alive.
           if (!hub_connection_state && !bool(force) && global_api_server->is_connected()) {
             ESP_LOGV("haui", "Skipping disconnect: other API clients remain");
             return;
@@ -22,19 +21,15 @@ script:
             id(hub_state_change_ms) = millis();
           }
           id(hub_connection) = hub_connection_state;
-          // On connect: anchor hub_heartbeat to millis()/1000 so
-          // check_hub_connection can detect a silent hub (no heartbeats arriving)
-          // instead of staying "connected" forever.
-          // On disconnect: reset to 0 to prevent stale heartbeat timestamps.
+          // Anchor the heartbeat clock on connect so a silent hub times out;
+          // reset it on disconnect so no stale timestamp remains.
           id(hub_heartbeat) = hub_connection_state ? (millis() / 1000) : 0;
           if (hub_connection_state) {
             // notify display that connection is established
             id(haui_disp).send_command("system.firstRun.txt=\"0\"");
           } else {
-            // On disconnect: wake the screen immediately. Navigation to the
-            // system page (page 0) is owned by update_display, which pins the
-            // device to page 0 continuously while the hub is disconnected -
-            // so we don't duplicate the goto_page here.
+            // Wake the screen immediately; update_display keeps pinning the
+            // device to page 0 while disconnected.
             if (int(id(page).state) != 0 || id(haui_disp).is_sleeping()) {
               id(display_on).execute();
             }
@@ -53,9 +48,8 @@ script:
           uint32_t time_now = millis() / 1000;
           uint32_t time_max = id(hub_heartbeat);
           int overdue_factor = 2;
-          // millis() wraps ~every 49.7 days. After a wrap time_now resets to a
-          // small value while hub_heartbeat still holds the large pre-wrap
-          // timestamp -> re-anchor so we neither false-timeout nor stay stuck.
+          // millis() wraps every ~49.7 days: time_now drops below the stored
+          // pre-wrap timestamp, so re-anchor instead of timing out or hanging.
           if (time_max > 0 && time_now < time_max) {
             id(hub_heartbeat) = time_now;
             time_max = time_now;
@@ -82,10 +76,9 @@ script:
     then:
       - lambda: |-
           ESP_LOGVV("haui", "Script: check_connection");
-          // Static variables across script invocations:
-          // - connecting: true while waiting for handshake response (10s cooldown)
-          // - connecting_time: epoch of last connection request sent
-          // - prev_connected: previous state for change detection
+          // static: preserved between invocations
+          // - connecting: waiting for the handshake (10 s cooldown)
+          // - connecting_time: uptime of the last connection request
           static bool connecting = false;
           static uint32_t connecting_time = 0;
           uint32_t time_now = millis() / 1000;
@@ -111,9 +104,8 @@ script:
             }
           }
 
-          // all conditions must be met for state connected
-          // display initialized, conected with api, connected with hub
-          // until then the state is not connected
+          // Connected needs all four: display initialized, API client, hub
+          // available and handshake done.
           bool connected = haui_initialized and api_connected and hub_available and hub_connected;
 
           // check if connection state changed
@@ -121,9 +113,8 @@ script:
             ESP_LOGI("haui", "Connection state changed %i", connected);
             id(publish_event_native).execute("esphome.connected", "");
             if (connected) {
-              // Connection established - reset retry state so that a
-              // fast disconnect does not leave the connecting flag set
-              // and block the next reconnection attempt for up to 10 s.
+              // Reset the retry state: a fast disconnect must not leave the
+              // connecting flag set and block reconnecting for up to 10 s.
               connecting = false;
               connecting_time = 0;
             }

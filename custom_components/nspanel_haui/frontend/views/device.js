@@ -4,6 +4,7 @@ import { t } from '../localize.js';
 import { deviceRail } from '../ui/device-rail.js';
 import { segmented } from '../ui/segmented.js';
 import { icon } from '../ui/icon.js';
+import { searchField } from '../ui/search-field.js';
 import { backButton } from '../ui/button.js';
 import { modalSidebar } from '../ui/sidebar.js';
 
@@ -90,12 +91,10 @@ export function renderDeviceView({
           ${isPreview && preview
             ? previewControls({ preview, onMode, onIdle })
             : nothing}
-          ${!isPreview && panelSearch ? html`<label class="haui-search-field haui-panel-search">
-            ${icon('search')}
-            <input type="search" .value=${panelSearch.query} placeholder=${t('Search panels')}
-              aria-label=${t('Search panels')}
-              @input=${(event) => panelSearch.onQuery(event.currentTarget.value)}>
-          </label>` : nothing}
+          ${!isPreview && panelSearch ? searchField({
+            label: t('Search panels'), value: panelSearch.query, className: 'haui-panel-search',
+            onInput: panelSearch.onQuery,
+          }) : nothing}
         </header>
         <div class=${`haui-workspace-body${isPreview ? ' is-preview' : ''}`}>${workspace}</div>
       </section>

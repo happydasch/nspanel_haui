@@ -24,11 +24,10 @@ BATTERY_ICON_STEP = 10
 
 
 def _battery_icon_name(level: Any) -> str:
-    """Returns the MDI battery icon name for a level in percent.
+    """MDI battery icon name for a level in percent.
 
-    Battery sensors rarely set an ``icon`` attribute of their own — Home
-    Assistant computes the battery icon at display time — so the level is
-    mapped onto the MDI 10 % steps instead.
+    Home Assistant computes the icon at display time, so map the level onto
+    the MDI 10 % steps.
 
     Args:
         level (Any): Battery level in percent (number or numeric string)
@@ -131,8 +130,7 @@ class VacuumPage(HAUIPage):
         item = self._resolve_panel_item(panel)
         self._items = self._build_items_from_panel(panel, "items")
         self.listen_items(self._items, self.update_item_buttons)
-        # optional battery sensor: vacuum entities no longer report the
-        # battery_level / battery_icon attributes (deprecated in Home Assistant)
+        # optional battery sensor: the vacuum's battery attributes are deprecated
         battery_sensor = self.option(panel, "battery_sensor")
         if isinstance(battery_sensor, list):
             battery_sensor = battery_sensor[0] if battery_sensor else None
@@ -290,12 +288,9 @@ class VacuumPage(HAUIPage):
         )
 
     def update_battery(self) -> None:
-        """Updates the header battery icon.
+        """Header battery icon from the configured sensor.
 
-        The icon comes from the configured battery sensor; without one no
-        battery icon is shown.  The vacuum entity's ``battery_level`` /
-        ``battery_icon`` attributes are deprecated in Home Assistant and are
-        never read.
+        The vacuum's deprecated battery attributes are never read.
         """
         if self._battery_item is None or not self._battery_item.has_item_id():
             return

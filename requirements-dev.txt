@@ -10,16 +10,16 @@
 # use requirements-esphome.txt instead.
 homeassistant==2026.11.0
 
-pytest>=8.0
-pytest-asyncio>=0.25
+pytest>=9.2.0
+pytest-asyncio>=1.5.0
 # Pinned like Home Assistant: a new ruff can reformat or flag unchanged code and
 # a new mypy can report new errors, failing CI on an unrelated change.
 ruff==0.17.5
 mypy==2.4.1
-pydantic>=2.7
+pydantic>=2.14.3
 types-requests
 types-python-dateutil
 types-PyYAML
 probatio>=0.13.0
 # Freezes the clock for the screen overview (scripts/preview_gallery).
-time-machine>=2.16
+time-machine>=3.6.0

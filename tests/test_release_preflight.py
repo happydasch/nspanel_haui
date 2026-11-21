@@ -112,8 +112,16 @@ def test_a_draft_links_the_previous_release() -> None:
 
     assert body.startswith("# v0.5.3")
     assert "compare/v0.5.2...v0.5.3" in body
+    assert "compare/vv" not in body
     assert "### Added" in body
     assert "- One" in body
+
+
+def test_a_draft_takes_the_previous_tag_with_its_v() -> None:
+    body = draft_body("0.5.3", "v0.5.2", "", [])
+
+    assert "compare/v0.5.2...v0.5.3" in body
+    assert "compare/vv" not in body
 
 
 def test_a_first_release_has_no_compare_link() -> None:

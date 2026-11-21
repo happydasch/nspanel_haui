@@ -6,8 +6,8 @@
  * **Import** as a single pair of buttons with one note under them, because both
  * work on the same file; **Copy to other devices** is a card of its own, writing
  * the parts picked onto other devices of the hub. Both directions replace what
- * is there, so each card says so. The sidebar frame carries the title and the
- * close control.
+ * is there, so each card says so in a warning banner. The sidebar frame carries
+ * the title and the close control.
  */
 import { html, nothing } from '../lit-import.js';
 import { HauiDialog } from './haui-dialog.js';
@@ -17,7 +17,6 @@ import { countBadge } from '../ui/badge.js';
 import { button } from '../ui/button.js';
 import { choiceList } from '../ui/choice-list.js';
 import { emptyState } from '../ui/empty-state.js';
-import { icon } from '../ui/icon.js';
 import { surface } from '../ui/surface.js';
 
 /** The parts of a device a copy can take. */
@@ -44,6 +43,17 @@ const COPY_SECTIONS = () => [
 
 /** A copy starts with what makes a device look like this one. */
 const DEFAULT_SECTIONS = Object.freeze(['settings', 'panels']);
+
+/**
+ * The warning both directions carry: what an import or a copy replaces, as the
+ * banner Home Assistant shows its warnings in, so a destructive direction is
+ * read as a warning rather than as another line of the card.
+ * @param {string} message
+ * @param {string} [id] - the id a control points at with aria-describedby
+ */
+function warningBanner(message, id) {
+  return html`<ha-alert alert-type="warning" id=${id || nothing}>${message}</ha-alert>`;
+}
 
 class BackupSidebar extends HauiDialog {
   static styles = [...HauiDialog.styles, backupStyles];
@@ -119,7 +129,7 @@ class BackupSidebar extends HauiDialog {
     }
   }
 
-  /** The YAML file: Export and Import as one pair of buttons, one note below. */
+  /** The YAML file: Export and Import as one pair of buttons, one banner below. */
   _renderFile() {
     return surface({
       title: t('Backup file'),
@@ -134,9 +144,7 @@ class BackupSidebar extends HauiDialog {
           onClick: () => this._emit('backup-import'),
         })}
       </div>
-      <p class="haui-backup-note is-warn" id="backup-import-hint">
-        ${icon('alert')}<span>${t('Replaces what this device has now. There is no undo.')}</span>
-      </p>`,
+      ${warningBanner(t('Replaces what this device has now. There is no undo.'), 'backup-import-hint')}`,
     });
   }
 
@@ -200,9 +208,7 @@ class BackupSidebar extends HauiDialog {
       body: this.devices.length
         ? html`${this._renderSections()}${this._renderTargets()}
             <p class="haui-backup-note" role="status">${this._renderSummary()}</p>
-            <p class="haui-backup-note is-warn">
-              ${icon('alert')}<span>${t('What you pick replaces it on every device you choose; there is no undo.')}</span>
-            </p>
+            ${warningBanner(t('What you pick replaces it on every device you choose; there is no undo.'))}
             ${this._error ? html`<p class="haui-backup-error" role="alert">${this._error}</p>` : nothing}
             ${button({
               label: t('Copy'),

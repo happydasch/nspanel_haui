@@ -63,10 +63,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Panels: light themes keep body text and control icons readable ([Color Themes](docs/user/editor/themes.md)).
 - Panels: a collapsed single-navigation header button stays correct when a page updates it ([Panel QR-Code](docs/user/panels/panel_qr.md)).
 - Panels: the quick start's word clock no longer stores the muted text tone for unlit letters ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
+- Editor: the quick start's configurations and the pages they create use the editor's language ([Quick Start Guide](docs/user/get-started.md)).
+- Editor: the log level, display model and time/date format choices and the dashboard card's picker description use the editor's language, and German, French, Dutch and Polish cover every editor string ([Editor](docs/user/editor/README.md)).
 - Panels: ClockTwo's top-left dot keeps its background patch on light pages ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
 - Panels: an empty or unresolved **Background** falls back to the theme's plain fill ([Background pages](docs/user/editor/themes.md#background-pages)).
 - Panels: the Clock's entity buttons follow a light or decorative background's palette ([Panel Clock](docs/user/panels/panel_clock.md)).
 - Editor: deleted panels no longer count as **Home panel** or **Idle panel** ([Panel Configuration](docs/user/editor/panels.md)).
+- Editor: **Home & idle** says a device has no panels yet instead of two empty pickers, and its tile names it ([Panel Configuration](docs/user/editor/panels.md)).
 - Editor: deleting or moving a panel drops its stale key from the device's **Home & idle** settings ([Panel Configuration](docs/user/editor/panels.md)).
 - Panels: a keyless panel no longer breaks a device's header buttons.
 - Editor: **Themes**, **Home & idle** and **Gestures** name themes and untitled panels instead of keys.

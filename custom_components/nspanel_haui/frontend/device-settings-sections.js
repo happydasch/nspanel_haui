@@ -73,7 +73,11 @@ function soundsSummary(cfg) {
 /** @param {any} cfg @param {SectionContext} ctx */
 function homeSummary(cfg, ctx) {
   const home = String(cfg.home_panel ?? '');
-  const panel = (ctx.panels || []).find((entry) => entry.key === home);
+  const panels = ctx.panels || [];
+  // A device without panels has neither role to name: both pickers are empty,
+  // so the tile says what is missing instead of counting idle panels.
+  if (!panels.length) return t('No panels yet');
+  const panel = panels.find((entry) => entry.key === home);
   const idle = idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra).length;
   return [
     home ? panelName(panel, ctx.panelTypes) || unknownPanelRef(home) : t('No home panel'),

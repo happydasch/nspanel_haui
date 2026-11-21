@@ -98,6 +98,23 @@ test('an untitled panel is named by its type, not by its key', () => {
   assert.equal(root.querySelector('#dc-idle-panels option[value="weather_0"]').textContent, 'Weather');
 });
 
+test('a device without panels says so instead of drawing an empty picker', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS };
+  const root = render(settings({ config, _deviceConfigForm: config, section: 'home', panels: [] }).dlg.render());
+
+  // Neither role has anything to offer, and the usual hints talk about a first
+  // navigation panel and an idle cycle that do not exist: name what is missing.
+  assert.equal(root.querySelector('#dc-home-panel'), null);
+  assert.equal(root.querySelector('#dc-idle-panels'), null);
+  const notices = [...root.querySelectorAll('.haui-field-hint.is-persistent')].map((hint) => hint.textContent.trim());
+  assert.deepEqual(notices, [
+    'This device has no panels yet. Add a panel, then set the home panel here.',
+    'This device has no panels yet. Add a panel, then set the idle panels here.',
+  ]);
+  // The tile that opens the group says it too, without an idle count.
+  assert.equal(settingsSection('home').summary(config, { panels: [] }), 'No panels yet');
+});
+
 test('the General group edits the theme choice in the settings draft', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS };
   const { dlg } = settings({

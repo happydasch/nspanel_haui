@@ -83,7 +83,7 @@ function getIconColorGroups(icons, variant) {
     rainy: t("Rainy"), pouring: t("Pouring"), lightning: t("Lightning"),
     lightning_rainy: t("Lightning rainy"), hail: t("Hail"), snowy: t("Snowy"),
     snowy_rainy: t("Snowy rainy"), armed: t("Armed"), disarmed: t("Disarmed"),
-    arming: t("Arming"), auto: t("Auto"), heat_cool: t("Heat/cool"),
+    arming: t("Arming"), auto: t("Auto"), heat_cool: t("Heat/Cool"),
     heat: t("Heat"), off: t("Off"), cool: t("Cool"), dry: t("Dry"), fan_only: t("Fan only"),
   };
   const domains = {

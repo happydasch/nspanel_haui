@@ -7,7 +7,7 @@
  * footer Save applies all of it.
  */
 import { html, css, nothing } from '../lit-import.js';
-import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
+import { dateFormatOptions, displayModelOptions, LOCALE_OPTIONS, logLevelOptions, timeFormatOptions } from '../constants.js';
 import { SETTINGS_SECTIONS, settingsSection } from '../device-settings-sections.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderField, renderNumberInput, renderSelect, renderToggle, renderToggleField } from '../form-fields.js';
@@ -337,13 +337,13 @@ class DeviceSettings extends HauiDialog {
       <p class="haui-config-section-intro">
         ${t("The display model, the display language and its regional formats, and the theme this panel draws with.")}
       </p>
-      ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
+      ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), displayModelOptions(), (v) => v,
         t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. Saving a changed model asks before the matching TFT is installed."))}
       ${selectField(this, "dc-locale", "locale", cfg, t("Language"), LOCALE_OPTIONS, (v) => v,
         t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
-      ${formatSelectField(this, "dc-time_format", "time_format", cfg, t("Time format"), TIME_FORMAT_OPTIONS,
+      ${formatSelectField(this, "dc-time_format", "time_format", cfg, t("Time format"), timeFormatOptions(),
         t("US 12-hour shows e.g. 2:30 PM. Custom strftime directives: %H = hour (24h), %I = hour (12h), %M = minutes, %p = AM/PM."))}
-      ${formatSelectField(this, "dc-date_format", "date_format", cfg, t("Date format"), DATE_FORMAT_OPTIONS,
+      ${formatSelectField(this, "dc-date_format", "date_format", cfg, t("Date format"), dateFormatOptions(),
         t("US numeric shows e.g. 03/14/2026. Empty keeps the locale-based layout from the Language setting."))}
       ${selectField(this, "dc-date_format_locale", "date_format_locale", cfg, t("Locale-aware date layout"), [
         { value: "", label: t("Use hub default") },
@@ -406,6 +406,10 @@ class DeviceSettings extends HauiDialog {
     const snapValue = cfg.snapshot_max_age_seconds ?? -1;
     const snapMode = snapValue === -1 ? "-1" : snapValue === 0 ? "0" : "custom";
     const snapCustomVal = snapMode === "custom" && snapValue > 0 ? snapValue : 60;
+    // A device without panels has nothing to offer in either picker, so the
+    // hints about the first navigation panel and the idle cycle would describe
+    // pages that do not exist. Say what is missing instead.
+    const noPanels = !(this.panels || []).length;
     return html`
       <p class="haui-config-section-intro">
         ${t("The panel Home opens, the idle panels that open after inactivity, and which panel returns when you wake the device. This only changes the shown panel - use Auto display off to also turn the display off.")}
@@ -423,7 +427,9 @@ class DeviceSettings extends HauiDialog {
             },
           })}
         </div>
-        <div class="haui-field-hint">${t("If no home panel is set, the first panel in navigation is used.")}</div>
+        ${noPanels
+          ? html`<div class="haui-field-hint is-persistent">${t("This device has no panels yet. Add a panel, then set the home panel here.")}</div>`
+          : html`<div class="haui-field-hint">${t("If no home panel is set, the first panel in navigation is used.")}</div>`}
       </div>
       <div class="haui-field">
         <div class="haui-field-inline">
@@ -438,12 +444,16 @@ class DeviceSettings extends HauiDialog {
             },
           })}
         </div>
-        <div class="haui-field-hint">
-          ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
-        </div>
-        ${resolveIdleKeys(this.panels || [], cfg).length ? "" : html`
-          <div class="haui-field-hint is-persistent">${t("Nothing opens automatically until you add a panel.")}</div>
-        `}
+        ${noPanels
+          ? html`<div class="haui-field-hint is-persistent">${t("This device has no panels yet. Add a panel, then set the idle panels here.")}</div>`
+          : html`
+            <div class="haui-field-hint">
+              ${t("Panels are shown in order after the page timeout, then cycle. Reorder them by dragging.")}
+            </div>
+            ${resolveIdleKeys(this.panels || [], cfg).length ? "" : html`
+              <div class="haui-field-hint is-persistent">${t("Nothing opens automatically until you add a panel.")}</div>
+            `}
+          `}
       </div>
       ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
         t("When enabled, the hub switches to the configured idle page after the page timeout. The next touch or button press returns to the panel you were on."))}
@@ -573,7 +583,7 @@ class DeviceSettings extends HauiDialog {
       <p class="haui-config-section-intro">
         ${t("Diagnostics and fine-tuning: log verbosity, the stale-data indicator and the page settle delay.")}
       </p>
-      ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
+      ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), logLevelOptions(), (v) => v,
         t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
       ${intField(this, "dc-stale_data_seconds", "stale_data_seconds", cfg, t("Stale data threshold (seconds)"), 0, 0, 86400,
         t("When a sensor value has not updated for this many seconds, the row page shows it dimmed with a … suffix so an old value is not mistaken for current. 0 = off."))}

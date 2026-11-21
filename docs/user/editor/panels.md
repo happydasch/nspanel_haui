@@ -168,6 +168,6 @@ Home and idle are device settings, not panel settings. Set them in **Device Sett
 - **Home panel** — the panel shown when navigating home. If unset, the first navigation panel is used.
 - **Idle panels** — an ordered list shown after the automatic page-switch timeout. Each switch shows the next panel; an empty list means nothing opens automatically. The editor shows them as one ordered list.
 
-Both roles resolve against the panels the device has. A missing panel counts as unset: the idle list drops it and home falls back to the first navigation panel. Deleting or moving a panel also removes its key from the device's **Home & idle** settings. A stale key from a restored backup is shown as `Unknown key "…"` and can be removed in **Home & idle**.
+Both roles resolve against the panels the device has. A missing panel counts as unset: the idle list drops it and home falls back to the first navigation panel. Deleting or moving a panel also removes its key from the device's **Home & idle** settings. A stale key from a restored backup is shown as `Unknown key "…"` and can be removed in **Home & idle**. A device without panels has neither role to offer: **Home & idle** says so under both fields instead of showing empty pickers.
 
 In the panel list, the home panel carries a home marker. The first idle panel carries a solid idle marker and the rest dimmed markers numbered in cycle order.

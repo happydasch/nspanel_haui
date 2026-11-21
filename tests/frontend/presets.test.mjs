@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PRESETS, presetByKey, presetKeys, resolvePreset } from '../../custom_components/nspanel_haui/frontend/presets.js';
+import { presets, presetByKey, presetKeys, resolvePreset } from '../../custom_components/nspanel_haui/frontend/presets.js';
 import { registryWorld } from './support/hass.mjs';
 
 /** The option descriptors of the types the presets use, as the hub serves them. */
@@ -113,7 +113,7 @@ function resolve(key, world = {}) {
 }
 
 test('every preset resolves pages and the settings that make them work', () => {
-  for (const { key } of PRESETS) {
+  for (const { key } of presets()) {
     // The guest QR code requires a network name.
     const choices = key === 'guest' ? { essid: 'MyNet' } : {};
     const resolved = resolve(key, { areaId: 'kitchen', choices });
@@ -302,7 +302,7 @@ test('an area preset without an area is not ready', () => {
 });
 
 test('every preset offers an idle panel, and its other switches only for pages that can fill', () => {
-  for (const entry of PRESETS) {
+  for (const entry of presets()) {
     assert.ok(entry.toggles.some((toggle) => toggle.key === 'idle'), entry.key);
     assert.ok(entry.pages.some((page) => page.role === 'idle'), entry.key);
     for (const toggle of entry.toggles) {

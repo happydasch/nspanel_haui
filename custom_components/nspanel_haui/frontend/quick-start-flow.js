@@ -12,7 +12,7 @@ import { t } from './localize.js';
 import * as Crud from './crud.js';
 import { themePalette } from './preset-colors.js';
 import { areaOptions } from './preset-entities.js';
-import { PRESETS, presetByKey, resolvePreset } from './presets.js';
+import { presets, presetByKey, resolvePreset } from './presets.js';
 import { themeOptions } from './theme-library.js';
 import { buildPreviewContext } from './previews/context.js';
 import { previewRenderKey } from './previews/previewer.js';
@@ -176,7 +176,9 @@ export function quickStartPresets(host) {
   const context = previewContext(host);
   const renderKey = context ? previewRenderKey(context) : '';
   const choices = host._quickStartChoices || defaultChoices();
-  return PRESETS.map((preset) => {
+  // Built here rather than at import, so the catalog carries the language the
+  // editor loaded its translations in.
+  return presets().map((preset) => {
     const own = choices.preset === preset.key
       ? choices
       : { ...defaultChoices(choices.areaId, choices.themeId), preset: preset.key };

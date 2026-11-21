@@ -192,320 +192,327 @@ const clockTwoColors = (palette) => ({
  * The configurations the quick start offers, in the order it shows them. Their
  * labels, descriptions and titles are the editor's own text (`t()`), so a
  * created page carries the user's language.
- * @type {Preset[]}
+ *
+ * Built per call, not once at import: the editor fetches the translations after
+ * this module is loaded, so a catalog built at import time would keep its
+ * English names (and write them into the pages it creates) for the whole
+ * session.
+ * @returns {Preset[]}
  */
-export const PRESETS = [
-  {
-    key: 'room',
-    label: t('Room panel'),
-    description: t('One room: its lights, blind, thermostat and media, with a clock at night.'),
-    icon: 'mdi:sofa-outline',
-    needsArea: true,
-    pages: [
-      {
-        id: 'home',
-        role: 'home',
-        panel: {
-          type: 'grid',
-          title: '',
-          items: [
-            slot('light', true),
-            slot('cover'),
-            slot('climate'),
-            slot('media_player'),
-            slot('switch', true),
-            slot('scene'),
-          ],
+export function presets() {
+  return [
+    {
+      key: 'room',
+      label: t('Room panel'),
+      description: t('One room: its lights, blind, thermostat and media, with a clock at night.'),
+      icon: 'mdi:sofa-outline',
+      needsArea: true,
+      pages: [
+        {
+          id: 'home',
+          role: 'home',
+          panel: {
+            type: 'grid',
+            title: '',
+            items: [
+              slot('light', true),
+              slot('cover'),
+              slot('climate'),
+              slot('media_player'),
+              slot('switch', true),
+              slot('scene'),
+            ],
+          },
         },
-      },
-      {
-        id: 'light',
-        role: 'page',
-        when: 'light',
-        panel: { type: 'light', title: t('Light'), item: { item: '', domain: 'light' } },
-      },
-      {
-        id: 'cover',
-        role: 'page',
-        when: 'cover',
-        panel: { type: 'cover', title: t('Blind'), item: { item: '', domain: 'cover' } },
-      },
-      {
-        id: 'climate',
-        role: 'page',
-        when: 'climate',
-        panel: { type: 'climate', title: t('Thermostat'), item: { item: '', domain: 'climate' } },
-      },
-      {
-        id: 'media',
-        role: 'page',
-        when: 'media',
-        panel: { type: 'media', title: t('Media'), item: { item: '', domain: 'media_player' } },
-      },
-      {
-        id: 'clock',
-        role: 'idle',
-        when: 'idle',
-        panel: {
-          type: 'clock',
-          title: t('Clock'),
-          show_time_date: true,
-          show_weather: true,
-          show_home_temp: true,
-          show_notifications: true,
-          item: weatherSlot(),
-          inside_temp_item: { item: '', sensor: 'temperature', optional: true },
-          items: [
-            sensorSlot('temperature', 'mdi:thermometer', true),
-            sensorSlot('humidity', 'mdi:water-percent', true),
-            sensorSlot('power', 'mdi:flash', true),
-            sensorSlot('battery', 'mdi:battery', true),
-          ],
+        {
+          id: 'light',
+          role: 'page',
+          when: 'light',
+          panel: { type: 'light', title: t('Light'), item: { item: '', domain: 'light' } },
         },
-      },
-    ],
-    toggles: [
-      navigationToggle(false),
-      idleToggle(true),
-      {
-        key: 'light',
-        label: t('Add a light page'),
-        description: t('Brightness and colour for the room\'s light.'),
-        when: 'light',
-      },
-      {
-        key: 'cover',
-        label: t('Add a blind page'),
-        description: t('Position control for the room\'s blind.'),
-        when: 'cover',
-      },
-      {
-        key: 'climate',
-        label: t('Add a thermostat page'),
-        description: t('Climate control for its thermostat.'),
-        default: false,
-        when: 'climate',
-      },
-      {
-        key: 'media',
-        label: t('Add a media page'),
-        description: t('Playback control for its media player.'),
-        default: false,
-      },
-    ],
-  },
-  {
-    key: 'home',
-    label: t('Home overview'),
-    description: t('The whole home at a glance, with a page for lights and one for switches.'),
-    icon: 'mdi:home-outline',
-    pages: [
-      {
-        id: 'home',
-        role: 'home',
-        panel: {
-          type: 'grid',
-          title: t('Home'),
-          items: [
-            slot('scene'),
-            slot('light', true),
-            slot('cover'),
-            slot('media_player'),
-            slot('switch', true),
-            slot('alarm_control_panel'),
-          ],
+        {
+          id: 'cover',
+          role: 'page',
+          when: 'cover',
+          panel: { type: 'cover', title: t('Blind'), item: { item: '', domain: 'cover' } },
         },
-      },
-      {
-        id: 'lights',
-        role: 'page',
-        panel: {
-          type: 'row',
-          title: t('Lights'),
-          items: Array.from({ length: 5 }, () => slot('light')),
+        {
+          id: 'climate',
+          role: 'page',
+          when: 'climate',
+          panel: { type: 'climate', title: t('Thermostat'), item: { item: '', domain: 'climate' } },
         },
-      },
-      {
-        id: 'switches',
-        role: 'page',
-        panel: {
-          type: 'row',
-          title: t('Switches'),
-          items: Array.from({ length: 5 }, () => slot('switch')),
+        {
+          id: 'media',
+          role: 'page',
+          when: 'media',
+          panel: { type: 'media', title: t('Media'), item: { item: '', domain: 'media_player' } },
         },
-      },
-      {
-        id: 'vacuum',
-        role: 'page',
-        when: 'vacuum',
-        panel: { type: 'vacuum', title: t('Vacuum'), item: { item: '', domain: 'vacuum' } },
-      },
-      {
-        id: 'clock',
-        role: 'idle',
-        when: 'idle',
-        panel: {
-          type: 'clocktwo',
-          title: t('Clock'),
-          show_notifications: true,
+        {
+          id: 'clock',
+          role: 'idle',
+          when: 'idle',
+          panel: {
+            type: 'clock',
+            title: t('Clock'),
+            show_time_date: true,
+            show_weather: true,
+            show_home_temp: true,
+            show_notifications: true,
+            item: weatherSlot(),
+            inside_temp_item: { item: '', sensor: 'temperature', optional: true },
+            items: [
+              sensorSlot('temperature', 'mdi:thermometer', true),
+              sensorSlot('humidity', 'mdi:water-percent', true),
+              sensorSlot('power', 'mdi:flash', true),
+              sensorSlot('battery', 'mdi:battery', true),
+            ],
+          },
         },
-        colors: clockTwoColors,
-      },
-    ],
-    toggles: [
-      navigationToggle(true),
-      idleToggle(true),
-      {
-        key: 'vacuum',
-        label: t('Add a vacuum page'),
-        description: t('Start, pause and dock the robot.'),
-        when: 'vacuum',
-      },
-    ],
-  },
-  {
-    key: 'status',
-    label: t('Status board'),
-    description: t('Read-only rows for temperature, humidity, power and battery readings, with an optional forecast.'),
-    icon: 'mdi:pulse',
-    pages: [
-      {
-        id: 'home',
-        role: 'home',
-        panel: {
-          type: 'row',
-          title: t('Status'),
-          items: [
-            sensorSlot('temperature', 'mdi:thermometer'),
-            sensorSlot('humidity', 'mdi:water-percent'),
-            sensorSlot('power', 'mdi:flash'),
-            sensorSlot('battery', 'mdi:battery'),
-          ],
+      ],
+      toggles: [
+        navigationToggle(false),
+        idleToggle(true),
+        {
+          key: 'light',
+          label: t('Add a light page'),
+          description: t('Brightness and colour for the room\'s light.'),
+          when: 'light',
         },
-      },
-      {
-        id: 'weather',
-        role: 'idle_extra',
-        when: 'weather',
-        panel: {
-          type: 'weather',
-          title: t('Weather'),
-          forecast_type: 'daily',
-          show_time_date: true,
-          show_home_temp: true,
-          item: weatherSlot(),
-          inside_temp_item: { item: '', sensor: 'temperature', optional: true },
-          info_items: [sensorSlot('temperature', 'mdi:thermometer'), sensorSlot('humidity', 'mdi:water-percent')],
+        {
+          key: 'cover',
+          label: t('Add a blind page'),
+          description: t('Position control for the room\'s blind.'),
+          when: 'cover',
         },
-      },
-      {
-        id: 'clock',
-        role: 'idle',
-        when: 'idle',
-        panel: { type: 'clocktwo', title: t('Clock'), show_notifications: true },
-        colors: clockTwoColors,
-      },
-    ],
-    toggles: [
-      navigationToggle(true),
-      idleToggle(true),
-      {
-        key: 'weather',
-        label: t('Add a weather screen'),
-        description: t('The forecast with the temperatures you have, as a second idle panel.'),
-        default: true,
-        when: 'weather',
-      },
-    ],
-  },
-  {
-    key: 'security',
-    label: t('Entry & alarm'),
-    description: t('An alarm keypad with a separate page for doors and locks.'),
-    icon: 'mdi:shield-home-outline',
-    pages: [
-      {
-        id: 'home',
-        role: 'home',
-        panel: {
-          type: 'alarm',
-          title: t('Alarm'),
-          item: { item: '', domain: 'alarm_control_panel' },
-          action_icons: true,
+        {
+          key: 'climate',
+          label: t('Add a thermostat page'),
+          description: t('Climate control for its thermostat.'),
+          default: false,
+          when: 'climate',
         },
-      },
-      {
-        id: 'doors',
-        role: 'page',
-        panel: {
-          type: 'row',
-          title: t('Doors & locks'),
-          items: [
-            slot('cover'),
-            slot('lock'),
-            slot('lock'),
-            slot('cover'),
-            slot('cover'),
-          ],
+        {
+          key: 'media',
+          label: t('Add a media page'),
+          description: t('Playback control for its media player.'),
+          default: false,
         },
-      },
-      {
-        id: 'clock',
-        role: 'idle',
-        when: 'idle',
-        panel: { type: 'clock', title: t('Clock'), show_time_date: true },
-      },
-    ],
-    toggles: [
-      navigationToggle(true),
-      idleToggle(false),
-    ],
-  },
-  {
-    key: 'kitchen',
-    label: t('Kitchen timer'),
-    description: t('A cooking countdown with a finish notification and an optional clock. No entities needed.'),
-    icon: 'mdi:timer-outline',
-    pages: [
-      {
-        id: 'home',
-        role: 'home',
-        panel: { type: 'timer', title: t('Kitchen timer'), show_notification: true },
-      },
-      {
-        id: 'clock',
-        role: 'idle',
-        when: 'idle',
-        panel: { type: 'clocktwo', title: t('Clock'), show_notifications: true },
-        colors: clockTwoColors,
-      },
-    ],
-    toggles: [idleToggle(false)],
-  },
-  {
-    key: 'guest',
-    label: t('Guest Wi-Fi'),
-    description: t('Put a scannable code for your guest network on the home screen, without exposing any device controls.'),
-    icon: 'mdi:qrcode',
-    pages: [
-      {
-        id: 'home',
-        role: 'home',
-        panel: {
-          type: 'qr', title: t('Guest Wi-Fi'), essid: '', password: '', start_big_qr: true, show_info: false,
+      ],
+    },
+    {
+      key: 'home',
+      label: t('Home overview'),
+      description: t('The whole home at a glance, with a page for lights and one for switches.'),
+      icon: 'mdi:home-outline',
+      pages: [
+        {
+          id: 'home',
+          role: 'home',
+          panel: {
+            type: 'grid',
+            title: t('Home'),
+            items: [
+              slot('scene'),
+              slot('light', true),
+              slot('cover'),
+              slot('media_player'),
+              slot('switch', true),
+              slot('alarm_control_panel'),
+            ],
+          },
         },
-      },
-      {
-        id: 'clock',
-        role: 'idle',
-        when: 'idle',
-        panel: { type: 'clocktwo', title: t('Clock') },
-        colors: clockTwoColors,
-      },
-    ],
-    toggles: [idleToggle(false)],
-  },
-];
+        {
+          id: 'lights',
+          role: 'page',
+          panel: {
+            type: 'row',
+            title: t('Lights'),
+            items: Array.from({ length: 5 }, () => slot('light')),
+          },
+        },
+        {
+          id: 'switches',
+          role: 'page',
+          panel: {
+            type: 'row',
+            title: t('Switches'),
+            items: Array.from({ length: 5 }, () => slot('switch')),
+          },
+        },
+        {
+          id: 'vacuum',
+          role: 'page',
+          when: 'vacuum',
+          panel: { type: 'vacuum', title: t('Vacuum'), item: { item: '', domain: 'vacuum' } },
+        },
+        {
+          id: 'clock',
+          role: 'idle',
+          when: 'idle',
+          panel: {
+            type: 'clocktwo',
+            title: t('Clock'),
+            show_notifications: true,
+          },
+          colors: clockTwoColors,
+        },
+      ],
+      toggles: [
+        navigationToggle(true),
+        idleToggle(true),
+        {
+          key: 'vacuum',
+          label: t('Add a vacuum page'),
+          description: t('Start, pause and dock the robot.'),
+          when: 'vacuum',
+        },
+      ],
+    },
+    {
+      key: 'status',
+      label: t('Status board'),
+      description: t('Read-only rows for temperature, humidity, power and battery readings, with an optional forecast.'),
+      icon: 'mdi:pulse',
+      pages: [
+        {
+          id: 'home',
+          role: 'home',
+          panel: {
+            type: 'row',
+            title: t('Status'),
+            items: [
+              sensorSlot('temperature', 'mdi:thermometer'),
+              sensorSlot('humidity', 'mdi:water-percent'),
+              sensorSlot('power', 'mdi:flash'),
+              sensorSlot('battery', 'mdi:battery'),
+            ],
+          },
+        },
+        {
+          id: 'weather',
+          role: 'idle_extra',
+          when: 'weather',
+          panel: {
+            type: 'weather',
+            title: t('Weather'),
+            forecast_type: 'daily',
+            show_time_date: true,
+            show_home_temp: true,
+            item: weatherSlot(),
+            inside_temp_item: { item: '', sensor: 'temperature', optional: true },
+            info_items: [sensorSlot('temperature', 'mdi:thermometer'), sensorSlot('humidity', 'mdi:water-percent')],
+          },
+        },
+        {
+          id: 'clock',
+          role: 'idle',
+          when: 'idle',
+          panel: { type: 'clocktwo', title: t('Clock'), show_notifications: true },
+          colors: clockTwoColors,
+        },
+      ],
+      toggles: [
+        navigationToggle(true),
+        idleToggle(true),
+        {
+          key: 'weather',
+          label: t('Add a weather screen'),
+          description: t('The forecast with the temperatures you have, as a second idle panel.'),
+          default: true,
+          when: 'weather',
+        },
+      ],
+    },
+    {
+      key: 'security',
+      label: t('Entry & alarm'),
+      description: t('An alarm keypad with a separate page for doors and locks.'),
+      icon: 'mdi:shield-home-outline',
+      pages: [
+        {
+          id: 'home',
+          role: 'home',
+          panel: {
+            type: 'alarm',
+            title: t('Alarm'),
+            item: { item: '', domain: 'alarm_control_panel' },
+            action_icons: true,
+          },
+        },
+        {
+          id: 'doors',
+          role: 'page',
+          panel: {
+            type: 'row',
+            title: t('Doors & locks'),
+            items: [
+              slot('cover'),
+              slot('lock'),
+              slot('lock'),
+              slot('cover'),
+              slot('cover'),
+            ],
+          },
+        },
+        {
+          id: 'clock',
+          role: 'idle',
+          when: 'idle',
+          panel: { type: 'clock', title: t('Clock'), show_time_date: true },
+        },
+      ],
+      toggles: [
+        navigationToggle(true),
+        idleToggle(false),
+      ],
+    },
+    {
+      key: 'kitchen',
+      label: t('Kitchen timer'),
+      description: t('A cooking countdown with a finish notification and an optional clock. No entities needed.'),
+      icon: 'mdi:timer-outline',
+      pages: [
+        {
+          id: 'home',
+          role: 'home',
+          panel: { type: 'timer', title: t('Kitchen timer'), show_notification: true },
+        },
+        {
+          id: 'clock',
+          role: 'idle',
+          when: 'idle',
+          panel: { type: 'clocktwo', title: t('Clock'), show_notifications: true },
+          colors: clockTwoColors,
+        },
+      ],
+      toggles: [idleToggle(false)],
+    },
+    {
+      key: 'guest',
+      label: t('Guest Wi-Fi'),
+      description: t('Put a scannable code for your guest network on the home screen, without exposing any device controls.'),
+      icon: 'mdi:qrcode',
+      pages: [
+        {
+          id: 'home',
+          role: 'home',
+          panel: {
+            type: 'qr', title: t('Guest Wi-Fi'), essid: '', password: '', start_big_qr: true, show_info: false,
+          },
+        },
+        {
+          id: 'clock',
+          role: 'idle',
+          when: 'idle',
+          panel: { type: 'clocktwo', title: t('Clock') },
+          colors: clockTwoColors,
+        },
+      ],
+      toggles: [idleToggle(false)],
+    },
+  ];
+}
 
 /**
  * The preset with this key, or null.
@@ -513,7 +520,7 @@ export const PRESETS = [
  * @returns {Preset|null}
  */
 export function presetByKey(key) {
-  return PRESETS.find((preset) => preset.key === key) || null;
+  return presets().find((preset) => preset.key === key) || null;
 }
 
 /* ── keys ────────────────────────────────────────────────────────────────── */

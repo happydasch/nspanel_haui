@@ -682,7 +682,11 @@ if (!cardsWindow.customCards.some((/** @type {any} */ card) => card.type === CAR
   cardsWindow.customCards.push({
     type: CARD_TYPE,
     name: 'NSPanel HAUI',
-    description: t("Shows every NSPanel of a hub, or one panel's screen"),
+    // Read when the card picker draws the card, after the card loaded its
+    // translations: a string taken here would keep the import-time English.
+    get description() {
+      return t("Shows every NSPanel of a hub, or one panel's screen");
+    },
     preview: true,
   });
 }

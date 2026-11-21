@@ -13,5 +13,6 @@ packages:
   api: !include api.yaml
   button: !include button.yaml
   number: !include number.yaml
+  select: !include select.yaml
   switch: !include switch.yaml
   sensor: !include sensor.yaml

@@ -174,7 +174,7 @@ The portrait spec follows these layout rules:
 
 ### Portrait caveats
 
-- Gesture edge detection is model-aware: the ESPHome scripts read the *Display Model* number the hub syncs on connect — `0` uses the landscape 450 × 320 edge dimensions, `1` the portrait 320 × 480 ones — so no HMI change is needed.
+- Gesture edge detection is model-aware: the ESPHome scripts read the *Display Model* select the hub syncs on connect — **Landscape** uses the landscape 450 × 320 edge dimensions, **Portrait** the portrait 320 × 480 ones — so no HMI change is needed.
 - Touch coordinates differ from landscape, but the hub maps touches by page, component id and name, so matching ids and names make the controls work. Verify every button on real hardware.
 - A release that ships only the landscape TFT leaves `display_model: us` devices on an old one: the update flow finds no matching asset.
 

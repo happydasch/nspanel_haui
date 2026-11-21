@@ -21,6 +21,13 @@ esphome:
   # upload retry fix. See esphome/nextion_patch/README.md for the removal
   # condition; bump this and requirements-esphome.txt together.
   min_version: 2026.11.0
+  # Component phase every 2 ms (ESPHome's default is 16 ms). The Nextion pacer
+  # leaves at most one command per component phase, so the loop interval *is*
+  # the display's command spacing: at 16 ms opening a panel (112-156 commands)
+  # took 1.8-2.5 s and a paging step 0.4-0.5 s. Keep this at or below
+  # ``command_spacing`` in display.yaml — a faster loop alone does not raise the
+  # command rate, a slower one silently lowers it.
+  loop_interval: 2ms
   name: $name
   friendly_name: $friendly_name
   project:

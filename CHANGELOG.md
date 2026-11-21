@@ -11,10 +11,18 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.4] — unreleased
 
+### Breaking changes
+
+- Firmware: the **Display Model** config entity is a `select` with **Landscape** / **Portrait** instead of a `0`/`1` number, so the panel's device page offers a dropdown; `number.<device>_display_model` becomes `select.<device>_display_model` ([Upgrading](docs/user/update.md#display-model-is-a-dropdown)).
+
 ### Changed
 
 - Editor: **Backups** says what an **Import** and a **Copy to other devices** replace in a warning banner instead of a line under the buttons ([Backups](docs/user/editor/README.md)).
 - Release: the release workflow merges the release into `dev` and `dev` into `master` once it published, so both branches end on one commit instead of a manual merge-back ([Release process](docs/develop/release.md)).
+
+### Fixed
+
+- Firmware: the panel draws fast again — opening a panel and paging inside one. The component phase is gated on `esphome: loop_interval` (ESPHome's default is 16 ms) and the Nextion pacer sends one command per phase, so `command_spacing: 2ms` was really 16 ms per command; opening a panel (112–156 commands) took 1.8–2.5 s and a paging step 0.4–0.5 s. The firmware runs the loop every 2 ms again ([Nextion component](docs/develop/nextion.md#command-pacing-costs-one-component-phase-per-command)).
 
 ## [0.5.3] — 2026-11-21
 

@@ -70,6 +70,20 @@ def test_command_spacing_is_enabled_to_prevent_nextion_rx_overflow():
     assert re.search(r"^\s+command_spacing:\s*2ms\s*$", _read("display.yaml"), re.MULTILINE)
 
 
+def test_loop_interval_does_not_outrun_the_command_spacing():
+    """The pacer sends one command per component phase, so the phase is the pace.
+
+    ``command_spacing`` is compared against a timestamp that is constant inside
+    a component phase, and ESPHome gates the phase on ``loop_interval`` (16 ms
+    by default). A loop interval above the spacing therefore makes every render
+    slower than configured — 16 ms per command is a panel page taking seconds.
+    """
+    loop = re.search(r"^\s+loop_interval:\s*(\d+)ms\s*$", _read("base.yaml"), re.MULTILINE)
+    spacing = re.search(r"^\s+command_spacing:\s*(\d+)ms\s*$", _read("display.yaml"), re.MULTILINE)
+    assert loop is not None and spacing is not None
+    assert int(loop.group(1)) <= int(spacing.group(1))
+
+
 def test_tft_upload_tx_buffer_fits_the_github_redirect():
     """GitHub redirects release TFTs to a ~870-character signed URL.
 

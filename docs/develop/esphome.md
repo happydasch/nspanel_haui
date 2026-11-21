@@ -45,6 +45,8 @@ Once the device is in Home Assistant, install the TFT with **Install** on its **
 | `ap_password` | `!secret` | Fallback access point, SSID `$name` |
 | `tft_update_url` | release TFT URL | Compile-time fallback; the hub sends the URL of the TFT it installs |
 
+`esphome: loop_interval` is set to `2ms` instead of ESPHome's 16 ms default: the nextion pacer leaves at most one command per component phase, so the loop interval is the display's command spacing ([Nextion component](nextion.md#command-pacing-costs-one-component-phase-per-command)).
+
 ### Encrypted native OTA
 
 Wireless installs (dashboard **Install → Wirelessly**, `esphome run`, `esphome upload`) use native OTA, encrypted with the device's API key: `base.yaml` sets a bare `encryption:` block that inherits `api_encryption_key`. There is no OTA password — next to an API key ESPHome warns that one wastes significant flash and RAM. The `on_begin` hook that suspends device activities still runs before every OTA, and the separate `http_request` OTA platform behind the hub's **HAUI Firmware** entity stays; wired flashing and hub firmware updates do not use native OTA.
@@ -188,7 +190,7 @@ Every value is restored on reboot, and a timeout only acts while it is above 0.
 |--------|---------------|---------|
 | `temperature` | °C | NTC temperature sensor reading |
 | `temperature_correction` | -10.0–10.0 | Correction added to the sensor reading |
-| `display_model` | 0–1 | Display orientation, synced by the hub from the device's `display_model` setting (0 landscape, 1 portrait); the gesture script uses it for edge detection |
+| `display_model` | `Landscape` / `Portrait` select | Display orientation, synced by the hub from the device's `display_model` setting; the gesture script uses it for edge detection |
 | `Restart Display` | `restart_display` button, disabled by default | Restarts the display (`soft_reset()`) |
 | `Screen Power` | `screen_power` switch, disabled by default | Powers the display; on after every boot, and switching it off leaves the screen without power until it is switched on again or the device restarts |
 

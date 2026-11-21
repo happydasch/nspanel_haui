@@ -76,6 +76,12 @@ The hub validates the file before installing it. The panel downloads it from Hom
 
 Breaking changes since 0.4.5, newest first. The full history, the 0.3.x migration and old-firmware steps are in [Upgrading](../develop/upgrading.md#upgrading).
 
+### Display Model is a dropdown
+
+The firmware's **Display Model** config entity is now a `select` with **Landscape** and **Portrait**, so the panel's device page in Home Assistant offers a dropdown instead of the number `0` (landscape) or `1` (portrait). `number.<device>_display_model` becomes `select.<device>_display_model`.
+
+Nothing to re-enter: the hub writes the option on every connect, and the editor's **Display Model** setting under **Device Settings → General** is unchanged. Flash the firmware that ships with this version together with the integration, and point automations that referenced the old number entity at the select.
+
 ### The theme picks its own icon colors
 
 **Theme variant** and the Theme sidebar palette question are gone. A theme decides its icon palette from its background: dark themes use dark-background icons, light themes such as **Light**, **White** or **Sky** the light-background ones. A theme cannot pair its page with the opposite contrast.

@@ -73,12 +73,12 @@ script:
           int min_distance_y = 150;
           int max_angle = 20;
           int border_margin = 40;
-          // 0 = landscape, 1 = portrait (synced by the hub). The landscape
-          // digitizer spans 0..479 but only 450 px are visible (the rest sits
-          // under the bezel); portrait is rotated, so its touch space is 320x480.
-          int model = int(id(display_model).state);
-          int visible_width = model == 1 ? 320 : 450;
-          int screen_h = model == 1 ? 480 : 320;
+          // Landscape or portrait (the hub syncs it). The landscape digitizer
+          // spans 0..479 but only 450 px are visible (the rest sits under the
+          // bezel); portrait is rotated, so its touch space is 320x480.
+          bool portrait = id(display_model).current_option() == "Portrait";
+          int visible_width = portrait ? 320 : 450;
+          int screen_h = portrait ? 480 : 320;
 
           // Swipe direction
           bool is_horizontal = abs(x2 - x1) > abs(y2 - y1);

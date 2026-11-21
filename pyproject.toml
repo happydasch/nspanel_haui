@@ -39,6 +39,11 @@ follow_imports = "silent"
 [tool.ruff]
 target-version = "py314"
 line-length = 100
+# The vendored ESPHome component stays byte-identical to the upstream release
+# (see esphome/nextion_patch/README.md), so it is neither linted nor reformatted
+# here: upstream formatting is not ours to change, and a diff against the release
+# tag is the only way to see what the patch actually touches.
+extend-exclude = ["esphome/nextion_patch"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]

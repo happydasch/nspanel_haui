@@ -13,49 +13,61 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Breaking changes
 
-- Panels: the Clock, ClockTwo and Weather **Background** names a picture — **Dark Color** (default), **Light Color** or a decorative one — instead of **Use color scheme**, which those pages never drew; a stored `scheme` falls back to the theme's plain fill ([Upgrading](docs/user/update.md#background-pages-draw-a-picture-of-the-display)).
+- Panels: the Clock, ClockTwo and Weather **Background** names a picture — **Dark Color** (default), **Light Color** or a decorative one — instead of **Use color scheme**, which those pages never drew; a stored `scheme` falls back to the theme's plain fill ([Upgrading](docs/user/update.md#background-pages-draw-a-picture)).
 
 ### Added
 
 - Dashboard card: a read-only status area — connection, display state, queued notifications, firmware and TFT versions, button lights — and `fleet`/`device` modes with `big`, `small` or `status` display modes ([Dashboard Card](docs/user/dashboard-card.md)).
 - Dashboard card: the editor stores the panel's device id, so renaming the device no longer breaks cards, and offers a disabled device marked *(disabled)*.
 - Dashboard card: `scale` draws the big preview at 20–100 % of the card's space.
-- Editor: **Copy to other devices** writes device settings, panels or update settings onto other devices ([Backups](docs/user/configuration/README.md)).
+- Editor: **Copy to other devices** writes device settings, panels or update settings onto other devices ([Backups](docs/user/editor/README.md)).
 - Editor: **Quick start** builds a room, whole-home, status, entry/alarm, kitchen-timer or guest-Wi-Fi setup from an area's entities ([Quick Start Guide](docs/user/get-started.md)).
 - Editor: the quick start's second step selects the **Theme** the created pages draw in ([Quick Start Guide](docs/user/get-started.md)).
-- Editor: the panel detail card sets and unsets the **Home panel** and **Idle panel** roles ([Panel Configuration](docs/user/configuration/panels.md)).
+- Editor: the panel detail card sets and unsets the **Home panel** and **Idle panel** roles ([Panel Configuration](docs/user/editor/panels.md)).
+- Device: the firmware reports a `hub_api_version` contract version and the hub compares its major part, logging a mismatch and exposing `hub_api_compatible` in the diagnostics instead of guessing at an unknown payload; firmware that predates the field stays compatible ([Version compatibility](docs/user/version-compatibility.md)).
 
 ### Changed
 
 - Dashboard card: `mode` is `fleet` or `device` and `display_mode` is `big`, `small` or `status`; saved `overview`/`home`/`live`/`tile` cards keep their view, and `devices`/`focus_mode` are unused ([Dashboard Card](docs/user/dashboard-card.md)).
 - Dashboard card: the compact preview stacks above the status on narrow cards, and a disabled device keeps its render.
-- Editor: **Add panel** drops **Start from a template** and its endpoint; a panel starts from a type, a built-in popup or a copy ([The Panel List](docs/user/configuration/README.md)).
+- Editor: **Add panel** drops **Start from a template** and its endpoint; a panel starts from a type, a built-in popup or a copy ([The Panel List](docs/user/editor/README.md)).
 - Editor: the Add panel and Quick start catalogs share one card style.
 - Editor: the Device screen orders **Themes**, **Updates** and **Backups**.
 - Editor: the device settings order **General**, **Home & idle**, **Hardware buttons**, **Screen buttons**, **Screen**, **Sounds**, **Gestures** and **Advanced**.
 - Editor: the Panels group counts share one soft block.
 - Editor: the panel detail card uses equal-width action columns with **Delete** across the row.
-- Editor: every panel of the idle sequence carries a marker in the Panels list ([Panel Configuration](docs/user/configuration/panels.md)).
+- Editor: every panel of the idle sequence carries a marker in the Panels list ([Panel Configuration](docs/user/editor/panels.md)).
 - Editor: the quick start uses role icons, speaks of the idle panel and puts needs and warnings in one banner ([Quick Start Guide](docs/user/get-started.md)).
 - Editor: the quick start fills grid and row pages with available entities and creates them even when empty ([Quick Start Guide](docs/user/get-started.md)).
-- Editor: Backups lays **Export** and **Import** side by side, and **Copy to other devices** has select all, clear and a status line ([Backups](docs/user/configuration/README.md)).
+- Editor: Backups lays **Export** and **Import** side by side, and **Copy to other devices** has select all, clear and a status line ([Backups](docs/user/editor/README.md)).
 - Editor: the titlebar stays pinned while a screen scrolls, and device sticky panels pin below it.
 - Development: `make check` runs the frontend, version, icon and translation checks, `make screens-check` verifies the screen overview, and the git hook refuses unstaged layout inputs ([Development](docs/develop/development.md)).
+- Development: `make esphome-compile` and `make esphome-size` compile a firmware config and fail an image that fills 92 % of its app partition ([ESPHome](docs/develop/esphome.md)).
 - Release: `make release-preflight`, `scripts/release/publish_stable.py`, uv-based CI installs and a separate screen-render job ([Release process](docs/develop/release.md)).
+- CI: a pull request that touches the firmware compiles it, every action is pinned to a commit SHA with `persist-credentials: false`, and Dependabot, a shellcheck job and a Conventional Commits PR-title check guard the repository ([Release process](docs/develop/release.md)).
 - Firmware: the dev, universal and hub-managed configs share `esphome/nspanel_haui/packages.yaml` ([ESPHome](docs/develop/esphome.md)).
 - Firmware: local builds need ESPHome 2026.11; the vendored `nextion` patch is that release plus the TFT upload retry fix ([ESPHome](docs/develop/esphome.md)).
+- Docs: the developer guide is rewritten and grouped by subsystem — General, ESPHome & display, Frontend and Releases; the live preview and the dashboard card transport move to their own page, and the upgrade history to `docs/develop/upgrading.md` ([Development setup](docs/develop/development.md)).
 - Docs: feature ideas live in `FEATURE_WISHLIST.md` ([Feature wishlist](FEATURE_WISHLIST.md)).
+- Docs: the user guide is reorganised into Setup, Editor and Panel types; the editor guide lives in `docs/user/editor/` and absorbs the device description ([The Editor](docs/user/editor/README.md)).
+- Docs: **Version compatibility** lists which Home Assistant, integration, firmware and display versions work together ([Version compatibility](docs/user/version-compatibility.md)).
+- Docs: **Back up the stock firmware** keeps the Sonoff firmware and its eWeLink credentials before the first flash ([Back up the stock firmware](docs/user/backup.md)).
+- Docs: the user guide shows the editor screens, the panels' popups and the dashboard card in screenshots ([The Editor](docs/user/editor/README.md)).
+- Docs: the README's quick start, editor and panels banners are captured from HTML pages like the hero, next to the editor screenshots and the dashboard card captures, and `tests/test_docs_images.py` fails a page that points at a missing picture ([Design Guidelines](docs/develop/design.md)).
+- Docs: the generated **Screens overview** and **Icons cheatsheet** are pages of the guide, embedded in the site so the navigation stays, and still open full screen in a new tab ([Screens Overview](docs/user/screens.md), [Icons Cheatsheet](docs/user/icons.md)).
+- Repository: `CONTRIBUTING.md`, `SECURITY.md` and issue forms state how to contribute, report a vulnerability and file a bug ([Contributing](CONTRIBUTING.md)).
+- Licensing: `licenses/` carries the notices for Roboto, Material Design Icons and the bundled Nextion and ESPHome tooling ([Third-party notices](licenses/README.md)).
 
 ### Fixed
 
-- Panels: light themes keep body text and control icons readable ([Color Themes](docs/user/configuration/themes.md)).
+- Panels: light themes keep body text and control icons readable ([Color Themes](docs/user/editor/themes.md)).
 - Panels: a collapsed single-navigation header button stays correct when a page updates it ([Panel QR-Code](docs/user/panels/panel_qr.md)).
 - Panels: the quick start's word clock no longer stores the muted text tone for unlit letters ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
 - Panels: ClockTwo's top-left dot keeps its background patch on light pages ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
-- Panels: an empty or unresolved **Background** falls back to the theme's plain fill ([Background pages](docs/user/configuration/device.md#background-pages)).
+- Panels: an empty or unresolved **Background** falls back to the theme's plain fill ([Background pages](docs/user/editor/themes.md#background-pages)).
 - Panels: the Clock's entity buttons follow a light or decorative background's palette ([Panel Clock](docs/user/panels/panel_clock.md)).
-- Editor: deleted panels no longer count as **Home panel** or **Idle panel** ([Panel Configuration](docs/user/configuration/panels.md)).
-- Editor: deleting or moving a panel drops its stale key from the device's **Home & idle** settings ([Panel Configuration](docs/user/configuration/panels.md)).
+- Editor: deleted panels no longer count as **Home panel** or **Idle panel** ([Panel Configuration](docs/user/editor/panels.md)).
+- Editor: deleting or moving a panel drops its stale key from the device's **Home & idle** settings ([Panel Configuration](docs/user/editor/panels.md)).
 - Panels: a keyless panel no longer breaks a device's header buttons.
 - Editor: **Themes**, **Home & idle** and **Gestures** name themes and untitled panels instead of keys.
 - Editor: the device carousel fades an edge only when more cards follow.
@@ -76,25 +88,25 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Added
 
-- Themes: six colorful predefined themes — **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and the light **Sky** — beside Dark, Light, White and Black ([Themes](docs/user/configuration/themes.md)).
+- Themes: six colorful predefined themes — **Midnight**, **Ocean**, **Forest**, **Sunset**, **Violet** and the light **Sky** — beside Dark, Light, White and Black ([Themes](docs/user/editor/themes.md)).
 - Dashboard card (`custom:nspanel-haui-card`): a device's home panel or live screen on any dashboard, view-only, for every signed-in user ([Dashboard Card](docs/user/dashboard-card.md)).
 - Editor: a dashboard device is selected from its **Device inventory** row or the name strip under its card, with both highlighted.
-- Editor: the device settings open on a grid of tiles, one per group and naming what it holds, with the group's page behind it ([Device Settings](docs/user/configuration/device.md#device-settings)).
-- Editor: the schedule sits in the **Screen** group, **Schedule** and **Gestures** are settings groups, and the device theme choice is in **General** ([Schedule](docs/user/configuration/device.md#schedule), [Gestures](docs/user/configuration/device.md#gestures)).
-- Editor: **Move to…** moves a panel to another device and keeps its key unless that device uses it ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
-- Editor: item name, icon, color and value switch between **One value** and **Per state** rows instead of typed JSON ([Values that depend on the state](docs/user/configuration/items.md#values-that-depend-on-the-state)).
-- Editor: **Latest events** names its selected device and window, with **Reset** and **Last 24 hours** ([Logs](docs/user/configuration/README.md#logs)).
-- Editor: the **Device inventory** closes with one connection segment per device ([Managing devices](docs/user/configuration/device.md#managing-devices)).
+- Editor: the device settings open on a grid of tiles, one per group and naming what it holds, with the group's page behind it ([Device Settings](docs/user/editor/device.md#device-settings)).
+- Editor: the schedule sits in the **Screen** group, **Schedule** and **Gestures** are settings groups, and the device theme choice is in **General** ([Schedule](docs/user/editor/device.md#schedule), [Gestures](docs/user/editor/device.md#gestures)).
+- Editor: **Move to…** moves a panel to another device and keeps its key unless that device uses it ([The Panel List](docs/user/editor/panels.md#panel-list)).
+- Editor: item name, icon, color and value switch between **One value** and **Per state** rows instead of typed JSON ([Values that depend on the state](docs/user/editor/items.md#values-that-depend-on-the-state)).
+- Editor: **Latest events** names its selected device and window, with **Reset** and **Last 24 hours** ([Logs](docs/user/editor/README.md#logs)).
+- Editor: the **Device inventory** closes with one connection segment per device ([Managing devices](docs/user/editor/README.md#device-cards-and-inventory)).
 
 ### Changed
 
 - Editor: entity pickers, item lists, **Diagnostics** and preview tooltips use the entity's own name without the device prefix.
 - Editor: every switch sits at the right end of its row.
-- Editor: schedule, gestures and theme are part of the device settings draft, while **Backups**, **Updates** and **Themes** remain sidebars ([Backups](docs/user/configuration/README.md#backups)).
-- Editor: the **Backups** sidebar replaces the **Backup** card ([Backups](docs/user/configuration/README.md#backups)).
+- Editor: schedule, gestures and theme are part of the device settings draft, while **Backups**, **Updates** and **Themes** remain sidebars ([Backups](docs/user/editor/README.md#backups)).
+- Editor: the **Backups** sidebar replaces the **Backup** card ([Backups](docs/user/editor/README.md#backups)).
 - Editor: **Themes** opens below **Connection** and **Diagnostics**, **Updates** above it, and both name what they hold and span the width.
 - Editor: **Connection & device** is now **Connection**.
-- Editor: a selected device scopes **Latest events** and **Logs**, otherwise both list every device ([Logs](docs/user/configuration/README.md#logs)).
+- Editor: a selected device scopes **Latest events** and **Logs**, otherwise both list every device ([Logs](docs/user/editor/README.md#logs)).
 - Fleet: **Latest events** lists only the last 24 hours' warnings and errors; the full log is the **Logs** sidebar.
 - Editor: one type scale at Home Assistant's sizes, following its font-size setting.
 - Editor: panel group headings say **Navigation (1 panel)**.
@@ -144,41 +156,41 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Breaking changes
 
-- Themes replace the color schemes: custom palettes live in a shared theme library, per-device `color_overrides` and `theme_overrides` are not converted, and hand-written config uses `theme_id` and `theme_variant`; the **Device Colors** sidebar is now the **Theme** sidebar on Preview ([Themes](docs/user/configuration/themes.md), [Upgrading](docs/user/update.md#themes-replace-color-schemes)).
-- A **Schedule** of entries (from/to as a time, or sunrise or sunset with an offset; sound, brightness, screen off and its duration) replaces the Day/Night profiles and the quiet hours; saved settings are not converted, and **Brightness** is a new device setting ([Upgrading](docs/develop/update-process.md#21-schedule-replaces-daynight-profiles-and-quiet-hours)).
+- Themes replace the color schemes: custom palettes live in a shared theme library, per-device `color_overrides` and `theme_overrides` are not converted, and hand-written config uses `theme_id` and `theme_variant`; the **Device Colors** sidebar is now the **Theme** sidebar on Preview ([Themes](docs/user/editor/themes.md), [Upgrading](docs/user/update.md#themes-replace-color-schemes)).
+- A **Schedule** of entries (from/to as a time, or sunrise or sunset with an offset; sound, brightness, screen off and its duration) replaces the Day/Night profiles and the quiet hours; saved settings are not converted, and **Brightness** is a new device setting ([Upgrading](docs/develop/upgrading.md#050)).
 
 ### Added
 
 - Editor: a Fleet/Device dashboard with linkable routes replaces the **Device Manager** and **Device Info** dialogs and the header's ⋯ menu ([frontend](docs/develop/frontend.md#page-structure-and-navigation)).
 - Fleet: scans for new panels when it opens, enables, disables and removes devices from their inventory row, and shows a summary strip (health, updates, versions, one segment per device), the device inventory and **Latest events**, the dated hub log of every device with repeated messages counted ([frontend](docs/develop/frontend.md#fleet-screen-regions)).
-- Device screen: a card of next actions (**Add panel**, the **Settings** cog, **Install update** while one is offered), the **Connection & device** card (uptime, Wi-Fi, current page, IP; opens **Updates**) and **Diagnostics** ([The Device Screen](docs/user/configuration/README.md#the-device-screen)).
-- Diagnostics: the display state, the idle page countdown, the disconnects and late heartbeats of the last 24 hours, the current page's entities and the firmware and display versions; **Copy report** builds a bug report without entity ids or addresses ([Diagnostics](docs/user/configuration/README.md#diagnostics)).
-- Logs: a sidebar on the Device and Fleet screens, newest first and grouped by day, filtered by level or text, with warnings and errors tagged and a copy button for bug reports ([Device](docs/user/configuration/device.md)).
-- Themes: a shared library of predefined and custom palettes; the **Theme** sidebar edits their semantic and state-icon colors and imports or exports the library, and the device settings pick the device's theme from the same list, with **New theme**, **Export all** and **Import** ([Themes](docs/user/configuration/themes.md)).
-- Themes: every panel, including editable popups, can choose its own theme; an empty selection follows the device, and panel and item colors stay explicit overrides ([Panels](docs/user/configuration/panels.md), [Themes](docs/user/configuration/themes.md)).
-- Schedule: any number of time windows (a time, or sunrise or sunset with an offset, also across midnight), each with sound, brightness, dimming and display-off settings ([Schedule](docs/user/configuration/device.md#schedule)).
+- Device screen: a card of next actions (**Add panel**, the **Settings** cog, **Install update** while one is offered), the **Connection & device** card (uptime, Wi-Fi, current page, IP; opens **Updates**) and **Diagnostics** ([The Device Screen](docs/user/editor/README.md#device-view)).
+- Diagnostics: the display state, the idle page countdown, the disconnects and late heartbeats of the last 24 hours, the current page's entities and the firmware and display versions; **Copy report** builds a bug report without entity ids or addresses ([Diagnostics](docs/user/editor/README.md#diagnostics)).
+- Logs: a sidebar on the Device and Fleet screens, newest first and grouped by day, filtered by level or text, with warnings and errors tagged and a copy button for bug reports ([Device](docs/user/editor/device.md)).
+- Themes: a shared library of predefined and custom palettes; the **Theme** sidebar edits their semantic and state-icon colors and imports or exports the library, and the device settings pick the device's theme from the same list, with **New theme**, **Export all** and **Import** ([Themes](docs/user/editor/themes.md)).
+- Themes: every panel, including editable popups, can choose its own theme; an empty selection follows the device, and panel and item colors stay explicit overrides ([Panels](docs/user/editor/panels.md), [Themes](docs/user/editor/themes.md)).
+- Schedule: any number of time windows (a time, or sunrise or sunset with an offset, also across midnight), each with sound, brightness, dimming and display-off settings ([Schedule](docs/user/editor/device.md#schedule)).
 - Panels: search, inline rename, duplicate and copy from another device; a panel is reordered by dragging its grip (the row menu no longer has **Move up** and **Move down**), and the list shows only the popups the device extends.
-- Panels: a selected row is described in the side column — its render (foldable, remembered per browser), type, key, group, item count, Home/Idle role and **Edit**, **Duplicate** and **Delete**; with no selection the card explains the panel groups and names the Home and Idle panels ([Panels](docs/user/configuration/panels.md)).
-- Add panel: collapsible groups (**Backgrounds**, **Entities**, **Grouping**, **Tools**, **Extend a popup**, **Copy an existing panel**) with a search; every type is previewed with sample entities and values, an entity popup with an entity of its domain, and a thumbnail enlarges on hover or tap ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
-- Add panel: eight starter templates under **Start from a template**, which open in the editor with the entities they need marked ([The Panel List](docs/user/configuration/README.md#the-panel-list)).
-- Panel editor: each option is checked against its panel type (entity domain, required entity, number range, choices, item limit, color) in the editor and on the hub; a new or changed panel that breaks a rule cannot be saved, an unknown entity only warns, and older panels show **Check settings** ([The Panel Editor](docs/user/configuration/README.md#the-panel-editor)).
+- Panels: a selected row is described in the side column — its render (foldable, remembered per browser), type, key, group, item count, Home/Idle role and **Edit**, **Duplicate** and **Delete**; with no selection the card explains the panel groups and names the Home and Idle panels ([Panels](docs/user/editor/panels.md)).
+- Add panel: collapsible groups (**Backgrounds**, **Entities**, **Grouping**, **Tools**, **Extend a popup**, **Copy an existing panel**) with a search; every type is previewed with sample entities and values, an entity popup with an entity of its domain, and a thumbnail enlarges on hover or tap ([The Panel List](docs/user/editor/panels.md#panel-list)).
+- Add panel: eight starter templates under **Start from a template**, which open in the editor with the entities they need marked ([The Panel List](docs/user/editor/panels.md#panel-list)).
+- Panel editor: each option is checked against its panel type (entity domain, required entity, number range, choices, item limit, color) in the editor and on the hub; a new or changed panel that breaks a rule cannot be saved, an unknown entity only warns, and older panels show **Check settings** ([The Panel Editor](docs/user/editor/panels.md#the-panel-editor)).
 - Updates: an automatic firmware install waits 10 minutes first; the Updates sidebar can install it now, put it off by an hour or a day, or skip the version ([Update Process](docs/develop/update-process.md#firmware)).
 - Updates: **Install updates** on Fleet installs one device at a time on the hub, stops at the first failure and can cancel the devices still queued ([Update Process](docs/develop/update-process.md#installing-every-device-one-at-a-time)).
 - Updates: a running firmware or display install shows its step and an estimate of the time left in the Updates sidebar and on Fleet ([Update Process](docs/develop/update-process.md#progress)).
-- Slovak: the display, the editor and the integration's dialogs are translated, and **Slovenčina** (`sk_SK`) is a device language with Slovak dates ([#94](https://github.com/happydasch/nspanel_haui/pull/94), [Device Configuration](docs/user/configuration/device.md#general)).
+- Slovak: the display, the editor and the integration's dialogs are translated, and **Slovenčina** (`sk_SK`) is a device language with Slovak dates ([#94](https://github.com/happydasch/nspanel_haui/pull/94), [Device Configuration](docs/user/editor/device.md#general)).
 
 ### Changed
 
-- Device settings: seven sections instead of nine — **General**, **Screen**, **Home & idle**, **Screen buttons & gestures**, **Hardware buttons**, **Sounds** and **Advanced** — whose rows open the **Theme**, **Schedule**, **Gestures** and **Updates** sidebars and show what each holds ([Device Configuration](docs/user/configuration/device.md#device-settings)).
-- Device settings: the extra idle panels (`idle_panel_extra`) are an ordered list to add, remove and reorder in **Home & idle**, beside the home panel ([Panels](docs/user/configuration/panels.md#home-and-idle-panels)).
-- Gestures: single swipes and multi-swipe sequences are one list, the device setting `gestures`: each gesture can step to the next or previous panel or open a panel, and saved `swipe_actions` and `gesture_sequences` are converted ([Gestures](docs/user/configuration/device.md#gestures)).
-- Editor: **Manage this device** on the Preview opens **Theme**, **Schedule** and **Gestures** in the sidebar (a full-screen page on a phone); **Schedule** and **Gestures** save with an explicit **Save** and use collapsible entry rows with summaries and counts, a new entry opening for editing ([Configuration](docs/user/configuration/README.md#the-theme-sidebar)).
-- Editor: sidebars resize by dragging their edge; the panel editor pins its preview as a thumbnail once scrolled, previews unsaved edits, marks the field that cannot be saved and uses compact item rows ([The Panel Editor](docs/user/configuration/README.md#the-panel-editor)).
+- Device settings: seven sections instead of nine — **General**, **Screen**, **Home & idle**, **Screen buttons & gestures**, **Hardware buttons**, **Sounds** and **Advanced** — whose rows open the **Theme**, **Schedule**, **Gestures** and **Updates** sidebars and show what each holds ([Device Configuration](docs/user/editor/device.md#device-settings)).
+- Device settings: the extra idle panels (`idle_panel_extra`) are an ordered list to add, remove and reorder in **Home & idle**, beside the home panel ([Panels](docs/user/editor/panels.md#home-and-idle-panels)).
+- Gestures: single swipes and multi-swipe sequences are one list, the device setting `gestures`: each gesture can step to the next or previous panel or open a panel, and saved `swipe_actions` and `gesture_sequences` are converted ([Gestures](docs/user/editor/device.md#gestures)).
+- Editor: **Manage this device** on the Preview opens **Theme**, **Schedule** and **Gestures** in the sidebar (a full-screen page on a phone); **Schedule** and **Gestures** save with an explicit **Save** and use collapsible entry rows with summaries and counts, a new entry opening for editing ([Configuration](docs/user/editor/themes.md#choose-and-edit)).
+- Editor: sidebars resize by dragging their edge; the panel editor pins its preview as a thumbnail once scrolled, previews unsaved edits, marks the field that cannot be saved and uses compact item rows ([The Panel Editor](docs/user/editor/panels.md#the-panel-editor)).
 - Editor: field hints show only while the pointer rests on the field or keyboard focus is in it, floating over the form instead of taking space; touch screens keep them visible.
 - Editor: cards and the preview no longer redraw on every state change, one status poll runs and pauses in a background tab, modules are cached, and the entity picker lists at most 100 matches.
-- Preview: sounds and errors show as toasts, **Reset sandbox**, **Reset interaction** and **Redraw display** are in the expanded **Diagnostics** card, and a click on the **Current page** tile shows that page in the Simulated preview ([Controls](docs/user/configuration/README.md#controls)).
-- Preview: panel cards show their last render, kept in the browser, until the hub's new one arrives, instead of a placeholder after every reload ([The Live Preview](docs/user/configuration/README.md#the-live-preview)).
-- Display: the device's time and date formats apply to every panel: date, time, date-and-time, `input_datetime` and `event` entities and timestamp and date sensors show their state in them instead of as ISO text ([Device Configuration](docs/user/configuration/device.md#general)).
+- Preview: sounds and errors show as toasts, **Reset sandbox**, **Reset interaction** and **Redraw display** are in the expanded **Diagnostics** card, and a click on the **Current page** tile shows that page in the Simulated preview ([Controls](docs/user/editor/README.md#controls)).
+- Preview: panel cards show their last render, kept in the browser, until the hub's new one arrives, instead of a placeholder after every reload ([The Live Preview](docs/user/editor/README.md#the-live-preview)).
+- Display: the device's time and date formats apply to every panel: date, time, date-and-time, `input_datetime` and `event` entities and timestamp and date sensors show their state in them instead of as ISO text ([Device Configuration](docs/user/editor/device.md#general)).
 - Display: the About page labels its versions **Integration** and **Firmware** instead of **HAUI-Version** and **YAML-Version**.
 - Firmware: dimmed brightness is capped at the active full brightness, so a schedule entry with a low brightness cannot brighten the display when dimming begins.
 - Updates: the Updates sidebar leads with one status (up to date, update available, installing, failed, or why no update fits) above the versions; its **Update settings** card shows the channel, how often to check (15 minutes to one week, or **Never**) and whether a new version waits for you or installs automatically, with the rest under **Advanced**, and each change saves by itself ([Update Process](docs/develop/update-process.md#editor-the-updates-sidebar)).
@@ -238,7 +250,7 @@ Thanks to [@pikas1](https://github.com/pikas1) for the Slovak translation
 - The preview's idle control toggles the idle page: pressing it again wakes
   back to the panel it covered (or home) and restarts the interaction timer, in
   both Simulated and Live mode
-  ([Configuration](docs/user/configuration/README.md#the-live-preview)).
+  ([Configuration](docs/user/editor/README.md#the-live-preview)).
 
 ### Fixed
 
@@ -259,32 +271,32 @@ Thanks to [@pikas1](https://github.com/pikas1) for the Slovak translation
 
 - Home Assistant 2026.11 is required; install and update through its
   Marketplace, which migrates HACS installs
-  ([Upgrading](docs/develop/update-process.md#15-home-assistant-202611-and-the-marketplace)).
+  ([Upgrading](docs/develop/upgrading.md#045)).
 - Firmware updates moved from the firmware to the integration's **HAUI
   Firmware** entity; panels on firmware 0.4.3 or older are updated once by hand
-  ([Upgrading](docs/develop/update-process.md#11-firmware-updates-moved-to-the-integration)).
+  ([Upgrading](docs/develop/upgrading.md#045)).
 - Custom firmware builds are never offered the universal release image; the
   manifest and the device state name the build variant.
 - The display TFT follows the firmware manifest; another release's TFT installs
   only **From URL**
-  ([Upgrading](docs/develop/update-process.md#12-display-tft-updates-come-from-the-firmware-manifest)).
+  ([Upgrading](docs/develop/upgrading.md#045)).
 - Native OTA is encrypted with the API key; the `ota_password` substitution is
   gone, and panels on 0.4 firmware need no migration install
   ([#81](https://github.com/happydasch/nspanel_haui/issues/81),
   [ESPHome](docs/develop/esphome.md#encrypted-native-ota)).
 - The **Current Page** sensor moved to the firmware; delete the old integration
-  entity ([Upgrading](docs/develop/update-process.md#14-the-current-page-sensor-moved-to-the-firmware)).
+  entity ([Upgrading](docs/develop/upgrading.md#045)).
 - The firmware drops the `haui_discover`, `req_device_info` and `req_reconnect`
   actions and the `use_relay_left`/`use_relay_right` events, which the hub
-  never used ([Upgrading](docs/develop/update-process.md#16-unused-firmware-actions-and-events-removed)).
+  never used ([Upgrading](docs/develop/upgrading.md#045)).
 - The services raise an error when their `device` matches no running panel,
   instead of logging a warning and doing nothing
-  ([Upgrading](docs/develop/update-process.md#18-services-fail-on-a-device-that-is-no-panel)).
+  ([Upgrading](docs/develop/upgrading.md#045)).
 - The firmware drops the **Use Auto-Page** switch, **Timeout Page** number and `esphome.timeout` event; automatic page switching and each page's hold move to the hub. Empty Night idle keys no longer inherit Day; `use_auto_page`/`timeout_page` remain device settings.
-- The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/user/configuration/device.md#automatic-page-switching)).
+- The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/user/editor/device.md#home-idle)).
 - Update the integration first, then install matching firmware and TFT; mixed hub and firmware versions are unsupported ([Upgrade guide](docs/user/update.md#automatic-page-switching-moved-to-the-hub)).
-- Notification `type` (`info`/`warning`/`critical`) is replaced by `icon_color` and `sound` on `nspanel_haui.send_notification`; the `nspanel_haui.notification` event carries both instead of `notif_type`, and the ESPHome `send_notification` action requires the two new variables ([Upgrading](docs/develop/update-process.md#20-notification-types-replaced-by-icon-colour-and-sound)).
-- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/user/device.md#notifications)).
+- Notification `type` (`info`/`warning`/`critical`) is replaced by `icon_color` and `sound` on `nspanel_haui.send_notification`; the `nspanel_haui.notification` event carries both instead of `notif_type`, and the ESPHome `send_notification` action requires the two new variables ([Upgrading](docs/develop/upgrading.md#045)).
+- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/user/services.md#notifications)).
 
 ### Added
 
@@ -342,7 +354,7 @@ Thanks to [@pikas1](https://github.com/pikas1) for the Slovak translation
 - Cycle cards are off by default on clock and weather panels: only the time
   shows until **Show date**, **Show outside temperature** or other cards are
   enabled (clock panels cycled date and outside temperature before;
-  [Upgrading](docs/develop/update-process.md#17-cycle-cards-are-off-by-default)).
+  [Upgrading](docs/develop/upgrading.md#045)).
 - A clock panel without a weather entity skips the outside temperature card
   instead of showing `--°C`.
 - **Screen Power** is disabled by default, like **Restart Display**.
@@ -386,13 +398,13 @@ Thanks to [@pikas1](https://github.com/pikas1) for the Slovak translation
   **Simulated/Live** is a toolbar switch, and **More tools** shows **Show
   entities** and **Reset sandbox** (Simulated mode only, disabled until a
   simulated state changed).
-- A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/user/device.md#display-state-dimmed-off-and-on)).
+- A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/user/editor/device.md#screen)).
 
 ### Fixed
 
 - The Colors dialog shows the device's saved color scheme in its selector again instead of the first built-in scheme.
-- On hub disconnect, the firmware shows System at full brightness for `timeout_dim`, then dims without powering off; reconnect restores the current panel with the same grace ([Device](docs/user/device.md#display-state-dimmed-off-and-on)).
-- Repeated automation changes to HAUI-owned display switches now trigger a warning and pause corrections until the next connect or settings save, preventing on/off feedback loops ([Device Configuration](docs/user/configuration/device.md#display-dimming-off)).
+- On hub disconnect, the firmware shows System at full brightness for `timeout_dim`, then dims without powering off; reconnect restores the current panel with the same grace ([Device](docs/user/editor/device.md#screen)).
+- Repeated automation changes to HAUI-owned display switches now trigger a warning and pause corrections until the next connect or settings save, preventing on/off feedback loops ([Device Configuration](docs/user/editor/device.md#screen)).
 - The idle page opens reliably again after popups and reconnects: the hub
   checks the activity clock every second instead of relying on one-shot timers
   and firmware events.
@@ -507,7 +519,7 @@ and the entity registry fixes ([#77](https://github.com/happydasch/nspanel_haui/
 
 - TFT installs moved from the firmware to the integration; the **Update
   Display** button and the `upload_tft` action are gone
-  ([Upgrading](docs/develop/update-process.md#10-tft-install-actions-moved-to-the-integration)).
+  ([Upgrading](docs/develop/upgrading.md#045)).
 
 ### Added
 

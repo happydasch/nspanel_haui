@@ -13,7 +13,7 @@ The grid panel shows your entities as large tiles, six per page. Each tile has a
 
 ## How to configure
 
-Add the entities you want as **items**. For each item you can change the name, icon and color, see [Item Configuration](../configuration/items.md).
+Add the entities you want as **items**. For each item you can change the name, icon and color, see [Items](../editor/items.md).
 
 ### Colors
 
@@ -27,7 +27,7 @@ The tiles use the colors of the device's selected theme. Each item can set its o
 | **Power button color** | the power button while the item is on |
 | **Show power button** | shows a power button that turns the item on or off |
 
-Set only the colors you want to change; the others keep following the selected theme. Like the item's own **Color**, which changes the icon only, each tile color can be one color or one color per state, see [Values that depend on the state](../configuration/items.md#values-that-depend-on-the-state).
+Set only the colors you want to change; the others keep following the selected theme. Like the item's own **Color**, which changes the icon only, each tile color can be one color or one color per state, see [Values that depend on the state](../editor/items.md#values-that-depend-on-the-state).
 
 To remove a color again, clear its field: the tile follows the theme again.
 

@@ -37,7 +37,12 @@ ROOT = HERE.parents[1]
 TARGET = ROOT / "docs" / "assets" / "readme"
 
 # name -> CSS size of the page; exported at 2x
-IMAGES = {"hero": (1000, 380), "editor": (1000, 236), "quick-start": (1000, 236)}
+IMAGES = {
+    "hero": (1000, 380),
+    "editor": (1000, 236),
+    "quick-start": (1000, 236),
+    "panels": (1000, 236),
+}
 WHITE = "#ffffff"
 
 

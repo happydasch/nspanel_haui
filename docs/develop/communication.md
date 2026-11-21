@@ -1,11 +1,13 @@
 ---
-title: Communication Overview
-description: Architecture, handshake protocol, heartbeats, and connection state machine
+title: Communication
+description: Handshake, heartbeats, timeouts, reconnection and reading values from the display
 ---
 
-# Communication Overview
+# Communication
 
-## Architecture
+The panel and the hub app are two independent sides of one wire protocol: a three-step handshake, a heartbeat in each direction, and a timeout on each side that drops the connection on its own. The display speaks UART to the ESP32 only, so every display change is a device action. Read this when you change `HAUIConnectionController`, the ESPHome connection scripts, or a page that reads a value out of the display.
+
+## Participants
 
 ```mermaid
 flowchart LR
@@ -23,13 +25,15 @@ flowchart LR
     E <==>|ESPHome Native API| Hub
 ```
 
-The **device** (ESP32 running ESPHome) talks to the **display** (Nextion) via UART and communicates with the **hub app** (NSPanelHAUI) via ESPHome Native API events.
+| Participant | Code | Role |
+|-------------|------|------|
+| Hub app | `haui/controller/connection.py` (`HAUIConnectionController`) | Handshake, hub→device heartbeat, device→hub timeout, connection callback |
+| ESPHome component | `esphome/nspanel_haui/scripts_connection.yaml`, `api.yaml`, `interval.yaml` | Handshake scripts, `hub_availability`, device→hub heartbeat, hub timeout |
+| Display | `nextion/nspanel_haui.HMI`, `nextion/nspanel_haui_portrait.HMI` | Renders pages, reports touches and read values |
 
-## Handshake Protocol
+## The three-step handshake
 
-The handshake uses a 3-step sequence between hub (`HAUIConnectionController`) and device (ESPHome YAML scripts). Both sides maintain a 3-state machine: `DISCONNECTED → HANDSHAKING → CONNECTED`.
-
-### Step-by-step
+Both sides run the same three-state machine, `DISCONNECTED → HANDSHAKING → CONNECTED`.
 
 ```mermaid
 sequenceDiagram
@@ -45,152 +49,83 @@ sequenceDiagram
     Device-->>Hub: 7. Bidirectional heartbeats begin
 ```
 
-### From the Hub side (`HAUIConnectionController.process_event()`):
+### Messages
 
-1. **`req_connection`** (ignored while HANDSHAKING; while CONNECTED it is
-   recorded as a drop, e.g. after a device reboot, and the handshake starts over)
-   - Hub parses device info from event value
-   - Sets state → HANDSHAKING
-   - Replies with `hub_connection_response` (includes hub version)
-   - → Waits for step 3
+| # | Message | Sent by | Payload | Expected answer |
+|---|---------|---------|---------|-----------------|
+| 1 | `req_connection` | device | JSON: `yaml_version`, `hub_api_version`, `name`, `friendly_name`, `ip`, `ssid`, `rssi`, `uptime`, `firmware_variant` | `hub_connection_response` |
+| 2 | `hub_connection_response` | hub | `version` (integration version) | `res_connection` |
+| 3 | `res_connection` | device | JSON: `heartbeat_interval` | `req_device_state` |
+| 4 | `req_device_state` | hub | empty | `res_device_state` |
+| 5 | `res_device_state` | device | JSON device state, fields in [Events](esphome.md#events) | `hub_connection_initialized` |
+| 6 | `hub_connection_initialized` | hub | empty | none, the device sets `hub_connection = true` |
 
-2. **`res_connection`** (while HANDSHAKING)
-   - Hub parses connection response (heartbeat_interval from device)
-   - Adopts device's heartbeat interval if valid
-   - Requests device state via `req_device_state`
-   - → Waits for step 5
+`req_connection`, `res_connection` and `res_device_state` are the three hub-side steps; `hub_connection_initialized` completes the device side.
 
-3. **`res_device_state`** (while HANDSHAKING)
-   - Hub parses device state JSON
-   - Sets state → CONNECTED
-   - Sends `hub_connection_initialized` to device
-   - Leaves the device's inactivity timer unchanged; only touch, button presses, or explicit wake actions reset it
-   - Starts heartbeat timer (hub→device)
-   - Starts timeout monitoring (device→hub)
-   - Invokes connection callback
+### Hub side (`HAUIConnectionController.process_event()`)
 
-### From the Device side (ESPHome YAML):
+1. **`req_connection`** — parses the device info (`append=False`), logs a `WARNING` when `hub_api_compatible()` returns `False`, moves to HANDSHAKING and answers `hub_connection_response`. Ignored while HANDSHAKING (the device is retrying); while CONNECTED it is recorded as a drop and the handshake starts over.
+2. **`res_connection`** — adopts the device's `heartbeat_interval` when it is above 0.5 s, merges the payload into the device info (`append=True`) and sends `req_device_state`. A duplicate while CONNECTED only refreshes the timeout clock; one while DISCONNECTED is logged as unexpected.
+3. **`res_device_state`** — merges the device state and, from HANDSHAKING, enters CONNECTED; received while CONNECTED it is logged as a replay.
 
-1. Device starts in DISCONNECTED state
-2. `check_connection` script runs every 100ms:
-   - If DISCONNECTED, the display is initialized and the hub is available: sends
-     `req_connection` with 10s cooldown
-3. Device receives `hub_connection_response` → sends `res_connection`
-4. Device receives `req_device_state` → responds `res_device_state`
-5. Device receives `hub_connection_initialized` → sets `hub_connection = true`
-6. Device enters CONNECTED state → heartbeats begin
+`_set_state()` runs the side effects once per transition. Entering CONNECTED sends `hub_connection_initialized`, starts the heartbeat timer and the timeout check, clears `_last_heartbeat` so a reboot gap counts as a drop instead of a late heartbeat, and calls the connection callback with `True`. Entering HANDSHAKING from CONNECTED calls the callback with `False` first, so a reported reconnect always follows a reported disconnect. A handshake that does not finish within `_HANDSHAKE_TIMEOUT` (15 s) falls back to DISCONNECTED with the reason `handshake timeout`.
 
-## Bidirectional Heartbeats
+### Device side
 
-Once connected, **both sides independently** send and monitor heartbeats:
+1. `check_connection` runs every 100 ms (`interval.yaml`).
+2. When `haui_init` is true (display initialised), `hub_availability` is true and `hub_connection` is false, it publishes `req_connection` and starts a 10 s cooldown (`connecting`, `connecting_time`).
+3. `hub_connection_response` runs `publish_connection_response` (answers `res_connection` with `heartbeat_interval`); `req_device_state` runs `publish_device_state` (answers `res_device_state`).
+4. `hub_connection_initialized` runs `set_hub_connected(1, force=0)`.
+5. `check_connection` also publishes `esphome.connected` whenever `haui_init and api_connected and hub_availability and hub_connection` changes, and resets the retry state on connect so a fast disconnect cannot block the next attempt for 10 s.
 
-| Direction | Mechanism | Default interval | Timeout |
-|-----------|-----------|------------------|---------|
-| Hub → Device | `hub_heartbeat` action (resets `hub_heartbeat` timestamp on device) | `heartbeat_interval` (5s) | device: `interval × 2` (10s) |
-| Device → Hub | `esphome.heartbeat` event (updates `_last_time` on hub) | `heartbeat_interval` (5s) | hub: `max(interval × overdue_factor, 10s)` (factor default 2) |
+### API contract version
 
-### Hub→Device heartbeat
+`req_connection` and `res_device_state` carry `hub_api_version`, declared in `esphome/nspanel_haui/version.yaml` and mirrored by `HUB_API_VERSION` in `haui/version.py`. The hub compares the major part only (`hub_api_compatible()`): a different major is logged at `WARNING` and reported as `hub_api_compatible` in the device status payload, a malformed value counts as incompatible, and a firmware that does not report the field at all stays compatible. Bump the major only for an incompatible handshake or payload change, and ship firmware and integration together.
 
-- Started when state reaches CONNECTED
-- Timer fires every `heartbeat_interval` seconds (first at "now+0")
-- The timer runs on the event loop (`on_loop`), never on the app's worker
-  thread: the device force-disconnects the hub after two missed heartbeats —
-  and wakes the display when it does — so a busy worker (render burst, update
-  check) must not delay it
-- Calls the `hub_heartbeat` ESPHome action which resets `hub_heartbeat` on the device
-- Published fire-and-forget (`publish_detached`), so sending never blocks or queues
-- Also sent immediately in reply to every `esphome.heartbeat` event; the timer is a fallback
-- Stopped when state leaves CONNECTED
+## Heartbeats
 
-### Device→Hub heartbeat
+Both sides send and monitor independently once connected:
 
-- Device publishes `esphome.heartbeat` event when `hub_connection = true`
-- Hub's `process_event()` detects heartbeat event → calls `_update_last_time()`
-- The timeout check (`_check_timeout()`) runs every `heartbeat_interval` seconds,
-  first one interval after connecting, and acts only while CONNECTED
-- If `time.monotonic() > _last_time + max(interval × factor, 10.0)` → logs a
-  warning and transitions to DISCONNECTED
+| Direction | Mechanism | Interval | Timeout |
+|-----------|-----------|----------|---------|
+| Hub → device | `hub_heartbeat` action resets `hub_heartbeat` on the device | `heartbeat_interval`, default 5 s | device: `heartbeat_interval × 2` |
+| Device → hub | `esphome.heartbeat` event refreshes `_last_time` on the hub | `heartbeat_interval`, default 5 s | hub: `max(heartbeat_interval × overdue_factor, 10 s)`, factor default `2.0` |
 
-## Timeout & Reconnection
+### Hub → device
 
-### Device-side timeout detection
+- The timer starts on entering CONNECTED and fires at `now+0`. It runs on the event loop (`run_every(..., on_loop=True)`) and publishes with `publish_detached()`: the device force-disconnects the hub after two missed heartbeats and wakes the display when it does, so a busy worker thread must not delay this path.
+- Every `esphome.heartbeat` from the device is answered immediately as well; the timer is the fallback. The timer stops as soon as the state leaves CONNECTED.
 
-The `check_hub_connection` script runs every 100ms:
-- Only active when `hub_connection = true`
-- Compares `millis()/1000` against `hub_heartbeat + interval × 2`
-- On timeout, or when `hub_availability` turned false: calls
-  `set_hub_connected(false)`
+### Device → hub
 
-### Reconnection flow (Livesign detection)
+- The 100 ms interval publishes `esphome.heartbeat` every `heartbeat_interval` while `hub_connection` is true; the hub records `_last_time` and keeps a gap above `heartbeat_interval × 1.5` (`LATE_HEARTBEAT_FACTOR`) as a late heartbeat.
+- `_check_timeout` runs every `heartbeat_interval`, the first check one interval after connecting, and acts only in CONNECTED: a `_last_time` older than `max(heartbeat_interval × overdue_factor, 10.0)` moves the state to DISCONNECTED with the reason `heartbeat timeout`. `health()` reports `drops_24h`, `recent_drops`, `late_heartbeats_24h` and `longest_heartbeat_gap` for the editor's device diagnostics; the history is in memory and starts empty with the hub.
 
-Hub's `process_event()` handles any event received while DISCONNECTED:
-- If event is NOT `req_connection`, `res_connection` or `res_device_state` (i.e., not already part of a handshake):
-  - Treats it as a "livesign" - the device is still alive but connection was lost
-  - Initiates handshake immediately: → HANDSHAKING, sends `hub_connection_response`
-  - Returns early (does NOT fall through to process the same event as a normal event)
-- The next expected events (`res_connection`, `res_device_state`) continue the handshake
+## Timeout and reconnection
 
-### Device-side reconnection
+### Device side
 
-The `check_connection` script runs every 100ms:
-- Uses static variables to track retry state:
-  - `connecting`: true while waiting for handshake response (10s cooldown)
-  - `connecting_time`: epoch of last connection request sent
-- If DISCONNECTED + hub available + not currently connecting:
-  - Sends `req_connection`, sets cooldown
-- If cooldown expires without response: resets `connecting` flag to retry
+`check_hub_connection` runs every 100 ms and compares `millis() / 1000` with `hub_heartbeat + heartbeat_interval × 2`; a passed deadline, or `hub_availability` turning false, calls `set_hub_connected(false, force=1)`. A wrapped `millis()` (about 49.7 days) re-anchors `hub_heartbeat` instead of timing out.
 
-### Connection state change notification
+`set_hub_connected(connected, force)` skips a disconnect only while another Native API client is still connected and `force` is 0. A hub-initiated close (`hub_connection_closed`) and a device-detected timeout are forced; the last-client API callback is not. The script updates `hub_connection`, stamps `hub_state_change_ms`, anchors `hub_heartbeat` on connect and resets it on disconnect, writes `system.firstRun.txt="0"` on connect, wakes the display on disconnect and publishes `client_status`.
 
-Both sides publish state changes:
-- Device: `esphome.connected` event when `connected != prev_connected`
-- Hub: `callback_connection(bool)` → `HAUIDevice.on_connection_changed(bool)`
+Reconnecting is the 10 s retry loop of `check_connection` above: it keeps publishing `req_connection` until the hub answers, and each attempt is one handshake.
 
-When hub detects CONNECTED → DISCONNECTED:
-1. Sends `hub_connection_closed` action to device and calls the connection
-   callback with `False`
-2. Stops heartbeat timer
-3. Starts tracking `_disconnected_since` for extended-disconnect warnings
-   (logged at most once a minute)
+### Hub side
 
-When the device asks for a new connection while the hub is CONNECTED (it rebooted,
-or gave up on the hub's heartbeats before the hub timed out), the hub goes to
-HANDSHAKING and calls the connection callback with `False` first, so every reported
-reconnect follows a reported disconnect, and a handshake that then times out reports
-nothing more.
+Entering DISCONNECTED from CONNECTED sends `hub_connection_closed`, calls the connection callback with `False`, stops the heartbeat and handshake timers and starts `_disconnected_since`; `_log_extended_disconnect` then warns at most once a minute. `hub_connection_closed` is authoritative even while another ESPHome Native API client is connected, which matters when several Home Assistant instances talk to one panel.
 
-The transition to CONNECTED is step 3 of the hub-side handshake above.
+### Livesign detection
 
-The hub's `hub_connection_closed` action is authoritative even when another ESPHome Native API client is still connected; only the API client's last-disconnect callback is suppressed while other clients remain. This matters when multiple Home Assistant instances connect to one panel: the instance running HAUI can still tell the firmware its app is disconnected. The firmware wakes the display and pins it to System page 0, holds full brightness for `timeout_dim` plus the ramp, then dims if auto-dimming is enabled. It remains awake and never automatically turns the display off while disconnected. Reconnect restores the user's current panel at full brightness for the same grace; the inactivity timer itself is not reset.
+While DISCONNECTED, every event except `req_connection`, `res_connection` and `res_device_state` is a livesign: the device is alive but the connection was lost. `_initiate_handshake("livesign")` moves to HANDSHAKING and sends `hub_connection_response`, and the event is not processed any further. The next `res_connection` and `res_device_state` complete the handshake.
 
-## Error Scenarios
+### Connection-state callbacks
 
-### ESPHome Native API disconnect
-- `on_client_disconnected` sets `hub_availability` to whether another API client
-  is still connected, and calls `set_hub_connected(false)` without force, which
-  is skipped while other clients remain
-- `on_client_connected` sets `hub_availability = true` and sends
-  `req_connection` (`publish_connection_request`) after 500 ms
-- The hub answers that request with the normal handshake
+`callback_connection(connected)` in `hub/app.py` is the single entry point of a state change: it calls `HAUIDevice.on_connection_changed()` and the update controller, fires the `nspanel_haui.connection_changed` event (`device`, `connected`) and publishes a `connection` preview state.
 
-### HA restart
-- Hub app restarts fresh with DISCONNECTED state
-- Device detects missing hub heartbeats → timeouts → reconnects
-- Hub receives `req_connection` from device → completes handshake
+`HAUIDevice.on_connection_changed()` cancels stale navigation timeouts, syncs the device config, opens the System panel on the first connect only and restores the panel it was showing on a reconnect; a disconnect only resets the idle and touch guards.
 
-### ESP32 reboot
-- Device starts fresh with DISCONNECTED
-- Device boots, sends `req_connection`; if the hub still holds CONNECTED, the
-  request is recorded as a drop and the handshake starts over, otherwise the
-  hub has already timed out to DISCONNECTED
-
-### Network partition
-- Both sides independently timeout
-- Device detects: `check_hub_connection` → `set_hub_connected(false)`
-- Hub detects: `_check_timeout` → DISCONNECTED
-- Network restores: device sends heartbeat or livesign → handshake re-initiation
-
-## State Machine
+## State machine
 
 ```mermaid
 stateDiagram-v2
@@ -236,14 +171,20 @@ stateDiagram-v2
     end note
 ```
 
-## Reading Values from the Display
+## Error scenarios
 
-The hub can request the current value (numeric) or text of any Nextion component
-or global variable.  This is used for slider controls (brightness, volume, cover
-position, etc.) and anywhere the hub needs to know the display's state without
-maintaining a mirror.
+| Cause | Symptom | Recovery |
+|-------|---------|----------|
+| Native API client disconnects | `on_client_disconnected` sets `hub_availability` to `is_connected()` and calls `set_hub_connected(0, force=0)`, which is skipped while other clients remain | `on_client_connected` sets `hub_availability = true` and publishes `req_connection` after 500 ms; the hub answers with the normal handshake |
+| Home Assistant restart | the hub app starts in DISCONNECTED | the device misses hub heartbeats after `heartbeat_interval × 2`, drops the connection and publishes `req_connection` until the new app answers |
+| ESP32 reboot | the device starts in DISCONNECTED while the hub still holds CONNECTED | the `req_connection` is recorded as a drop and the handshake starts over |
+| Network partition | both sides time out on their own (`check_hub_connection`, `_check_timeout`) | the first event after the link returns is a livesign and re-handshakes |
+| Handshake stalls without `res_device_state` | HANDSHAKING for 15 s | the hub falls back to DISCONNECTED; the next `req_connection` retry re-handshakes |
+| Display not initialised, or `Restart Display` running | `haui_init` is false, so the device never requests a connection | it completes when the display setup finishes; otherwise press `Restart Display` |
 
-### Round-Trip Flow
+## Reading values from the display
+
+The hub reads the current numeric value or text of any Nextion component or global variable, so a slider needs no mirror in the hub. End-user controls use it for brightness, colour temperature, cover position and volume; everything else renders from hub state.
 
 ```mermaid
 sequenceDiagram
@@ -253,103 +194,42 @@ sequenceDiagram
 
     Page ->> ESP: request_component_value(comp)<br/>→ send_esphome(REQ_VAL, name)
     ESP ->> ESP: req_val action<br/>→ request_number script<br/>→ set req_val_component = name
-    ESP ->> NX: send: system.resVal=name.val
+    ESP ->> NX: send: system.resVal.val=name.val
     NX ->> NX: reads name.val → system.resVal
     NX ->> ESP: res_val sensor on_value
     ESP ->> Page: publish read_response<br/>{name, type:"number", value}
     Page ->> Page: _process_read_response(e)<br/>→ callback(value)
 ```
 
-The text path is identical but uses `REQ_TXT` → `request_text` script →
-`system.resTxt.txt=name.txt` → `res_txt` sensor → `read_response` with
-`type:"text"`.
+The text path is identical with `REQ_TXT`, the `request_text` script and `system.resTxt.txt=name`, answered by the `res_txt` sensor with `type:"text"`. Both firmware scripts wake a sleeping display first, because a read from a dark panel returns nothing.
 
 ### Python API
 
-#### Requesting reads
-
-**`request_component_value(component: Component | str)`** — Request a numeric
-value.  Used by slider pages.  Sends `REQ_VAL` to the device.
-
-**`request_component_text(component: Component | str)`** — Request a text value.
-Sends `REQ_TXT` to the device.
-
-Both also take a plain name, for a Nextion component or variable without a
-`COMPONENTS` entry:
-
-```python
-self.request_component_value("hBrightness")
-self.request_component_text("tTitle")
-```
-
-#### Registering callbacks
-
-Read responses arrive asynchronously via `esphome.read_response` events.  You
-MUST register a callback **before** sending the request so the dispatcher knows
-where to route the response:
+`request_component_value(component)` sends `REQ_VAL`, `request_component_text(component)` sends `REQ_TXT`; both take a component or a plain name. Responses arrive asynchronously as `esphome.read_response` events, so register the callback **before** sending the request. The handler receives an `int` for a number read or a `str` for a text read.
 
 ```python
 self.add_read_callback(comp, self._on_value_read)
 self.request_component_value(comp)
-```
 
-The callback receives a single argument — an `int` for number reads or a `str`
-for text reads:
-
-```python
-def _on_value_read(self, value: int) -> None:
-    self.log(f"Got brightness: {value}")
-```
-
-**By name:**
-
-```python
+# a Nextion component or variable without a COMPONENTS entry, by name
 self.add_read_callback("tTitle", self._on_title_read)
 self.request_component_text("tTitle")
-```
 
-#### Slider convenience — `bind_slider()`
+def _on_value_read(self, value: int) -> None:
+    self.log(f"Got brightness: {value}")
 
-The most common pattern is a slider component: register the drag handler, read
-the value on release, and dispatch to a handler.  `bind_slider()` does all three:
-
-```python
+# a plain slider: drag control + value callback in one call
 self.bind_slider(self.COMPONENTS.h_brightness, self._on_brightness)
 ```
 
-This is equivalent to:
+`bind_slider(component, handler)` is the slider shorthand, equivalent to `on_release(component, self._callback_slider_release, drag=True)` plus `add_read_callback(component, handler)`: on release the page reads the value and the display's final value reaches the handler.
 
-```python
-self.on_release(self.COMPONENTS.h_brightness, self._callback_slider_release, drag=True)
-self.add_read_callback(self.COMPONENTS.h_brightness, self._on_brightness)
-```
+### Constraints
 
-The release handler calls `request_component_value()` and the result goes to
-`_on_brightness`.
+- **One read in flight.** The ESP32 has a single `req_val_component` / `req_txt_component` pair, so the page keeps one `_pending_read_request`; a request made while another is unexpired is skipped with a log line, so a response can never be attributed to the wrong component. The guard expires after `READ_PENDING_TIMEOUT` (6 s) and a later response is dropped as stale, so a lost event never wedges a control. Requests go out with `force=True`, so an identical repeat is not deduplicated.
+- **Touch and page changes.** A `TOUCH_START` clears the pending request only when it has already expired, so a response that arrives just after a touch is still delivered. `_stop_panel()` clears the read callbacks and the pending read, so a response that arrives after the page switched is dropped, even when the new page binds the same slider, and the new page can read immediately.
 
-### Single In-Flight Constraint
-
-Only **one** read can be in-flight at a time because the ESP32 has a single
-`req_val_component` / `req_txt_component` global pair.  If a second read is
-requested while one is pending, it is **silently skipped** with a log message.
-
-The guard expires after `READ_PENDING_TIMEOUT` (6 seconds by default) so a lost
-`read_response` event never wedges the system.  Responses that arrive after the
-timeout are dropped as stale.
-
-### Touch interaction clearing
-
-When a new touch (`TOUCH_START`) arrives, `_pending_read_request` is cleared
-(None) only if it has already expired.  A request still in flight is kept, so a
-`read_response` arriving just after the touch is still delivered.
-
-### Panel change
-
-Stopping a panel drops its read callbacks and its pending read.  A response
-that arrives after the page switched to another panel is dropped, even when
-the new panel binds the same slider, and the new panel can read right away.
-
-### Pages using the read API
+### Pages that read
 
 | Page | File | Method |
 |------|------|--------|

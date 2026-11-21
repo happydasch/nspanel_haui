@@ -28,6 +28,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `hmi_layout/landscape_layout.py`, `hmi_layout/portrait_layout.py`, `hmi_layout/theme.py` | Geometry and attribute specs imported by the tools above |
 | `nextion2text/Nextion2Text.py` | Dump an `.HMI` project to readable text |
 | `verify_nextion/check_hmi_bump.py` | Fail when an HMI or TFT changed without a TFT version bump |
+| `verify_firmware/check_size.py` | Fail when the compiled firmware uses too much of its app partition |
 
 ### Display images, fonts and colours
 
@@ -55,7 +56,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `check_preview_coverage.py` | Verify every panel type maps to a page in both layouts |
 | `check_frontend_styles.py` | Check the frontend CSS against the design tokens and scale |
 | `readme_images/gen_readme_images.py` | Capture the README hero and step images from `readme_images/src/` |
-| `readme_images/gen_editor_screenshots.py`, `capture_editor.mjs` | Capture the README editor screenshots from a throwaway Home Assistant |
+| `readme_images/gen_editor_screenshots.py`, `capture_editor.mjs` | Capture the README editor and dashboard card screenshots from a throwaway Home Assistant |
 
 ### Translations, versions and releases
 

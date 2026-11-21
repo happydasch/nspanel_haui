@@ -5,6 +5,8 @@ description: Select popup — value selection list with multiple modes
 
 # Popup Select
 
+<img src="../../assets/screens/landscape/popup_select.png" alt="select popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_select.png" alt="select popup, portrait" width="142" height="213">
+
 ## About
 
 The select popup lets you choose a value from a list. Panels open it when there is something to choose, for example a fan speed, a mode, a preset or a light effect.
@@ -17,7 +19,7 @@ The select popup lets you choose a value from a list. Panels open it when there 
 
 ## How to configure
 
-You do not add this popup; the integration opens it. To change its title for a device, use **Add panel → Extend a popup**, see [System Panel Overrides](../configuration/panels.md#system-panel-overrides).
+You do not add this popup; the integration opens it. To change its title for a device, use **Add panel → Extend a popup**, see [System Panel Overrides](../editor/panels.md#system-panel-overrides).
 
 ## For developers
 

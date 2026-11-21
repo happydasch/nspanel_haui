@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Installation and setup
+    url: https://happydasch.github.io/nspanel_haui/user/install.html
+    about: Flash the panel, install the integration and configure the first panel.
+
+  - name: Troubleshooting
+    url: https://happydasch.github.io/nspanel_haui/user/troubleshooting.html
+    about: Connection, display and TFT upload problems, and what to try first.
+
+  - name: FAQ
+    url: https://happydasch.github.io/nspanel_haui/user/faq.html
+    about: Common questions about panels, updates, themes and notifications.
+
+  - name: Home Assistant community thread
+    url: https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570
+    about: Ask other users and share setups.

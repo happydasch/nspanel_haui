@@ -28,6 +28,16 @@ Upstream license: ESPHome is MIT/GPL-3.0 dual-licensed (see upstream
 `LICENSE`); keep the upstream copyright and license notices intact when
 modifying these files.
 
+## Style
+
+Do not reformat this tree. Upstream's own formatting (import order, wrapped
+calls, long message strings such as `NextionName`'s `cv.Invalid` text) differs
+from ours, and `[tool.ruff] extend-exclude` in `pyproject.toml` keeps both
+`ruff check` and `ruff format` off it, so a diff against the release tag shows
+only the patch. A "format on save" editor setting still rewrites the files:
+if `git status` shows them modified without a real fix, restore them instead of
+committing the churn.
+
 ## Removal condition
 
 Delete this directory **and** the `external_components` blocks that reference it

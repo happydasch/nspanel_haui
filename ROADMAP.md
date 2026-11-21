@@ -9,7 +9,7 @@ what they do, what "done" means, how expensive they are — live in
 [FEATURE_WISHLIST.md](FEATURE_WISHLIST.md); shipped work is in
 [CHANGELOG.md](CHANGELOG.md); the release runbook and its known risks are in
 [docs/develop/release.md](docs/develop/release.md). What the project is for is in
-the [documentation home](docs/README.md#what-the-project-is-for), and the
+the [documentation home](docs/README.md#how-it-works), and the
 architectural invariants it holds are in
 [Development](docs/develop/development.md#design-invariants).
 

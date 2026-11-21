@@ -39,9 +39,10 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       sha: ${{ steps.version.outputs.sha }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
         with:
@@ -66,7 +67,7 @@ jobs:
 
       - name: Upload the firmware release inputs
         # The common root is the repository root, so the version files keep their paths.
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: firmware-release
           path: |
@@ -82,9 +83,10 @@ jobs:
     needs: guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
         with:
@@ -98,7 +100,7 @@ jobs:
 
       - name: Upload the screen overview
         # The common root is docs/, so the artifact holds screens.html and assets/screens/.
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: docs-screens
           path: |
@@ -119,19 +121,19 @@ jobs:
       actions: write
     steps:
       # The dispatched commit, not the moving dev tip, so the tag and screens match.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           ref: ${{ github.sha }}
 
       - name: Download the firmware release inputs
         if: ${{ !inputs.screens_only }}
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8
         with:
           name: firmware-release
           path: .release/firmware
 
       - name: Download the screen overview
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8
         with:
           name: docs-screens
           path: .release/screens
@@ -188,7 +190,7 @@ jobs:
 
       - name: Publish versioned development prerelease
         if: ${{ !inputs.screens_only }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           # The tag is the PEP 440 dev version, so the Marketplace can order dev releases.
           tag_name: ${{ needs.build.outputs.version }}

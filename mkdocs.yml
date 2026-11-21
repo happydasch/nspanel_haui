@@ -59,6 +59,9 @@ markdown_extensions:
   - toc:
       permalink: true
 
+extra_css:
+  - assets/embed.css
+
 extra_javascript:
   - assets/dev-repo-version.js
 
@@ -68,20 +71,22 @@ extra:
       link: https://github.com/happydasch/nspanel_haui
 
 nav:
+  - Home: README.md
   - User Guide:
-    - README.md
-    - Quick Start: user/get-started.md
-    - Installation: user/install.md
-    - Updating: user/update.md
-    - Configuration:
-      - Overview: user/configuration/README.md
-      - Device Configuration: user/configuration/device.md
-      - Themes: user/configuration/themes.md
-      - Display Models: user/configuration/display-models.md
-      - Panel Configuration: user/configuration/panels.md
-      - Item Configuration: user/configuration/items.md
-    - Device Description: user/device.md
-    - Panels:
+    - Setup:
+      - Quick Start: user/get-started.md
+      - Installation: user/install.md
+      - Backup: user/backup.md
+      - Updating: user/update.md
+      - Version compatibility: user/version-compatibility.md
+    - Editor:
+      - Overview: user/editor/README.md
+      - Device Settings: user/editor/device.md
+      - Panels: user/editor/panels.md
+      - Items: user/editor/items.md
+      - Themes: user/editor/themes.md
+      - Display Models: user/editor/display-models.md
+    - Panel Types:
       - Overview: user/panels/README.md
       - Weather: user/panels/panel_weather.md
       - Clock: user/panels/panel_clock.md
@@ -103,20 +108,28 @@ nav:
       - Popup Notify: user/panels/popup_notify.md
       - Popup Select: user/panels/popup_select.md
       - Popup Unlock: user/panels/popup_unlock.md
-    - Examples: user/examples.md
+    - Reference:
+      - Screens Overview: user/screens.md
+      - Icons Cheatsheet: user/icons.md
     - Services: user/services.md
     - Dashboard Card: user/dashboard-card.md
     - FAQ: user/faq.md
     - Troubleshooting: user/troubleshooting.md
   - Developer Guide:
-    - develop/development.md
-    - Release Process & Strategy: develop/release.md
-    - Update Process: develop/update-process.md
-    - Design Guidelines: develop/design.md
-    - Frontend Architecture: develop/frontend.md
-    - Communication Overview: develop/communication.md
-    - Notification Process: develop/notifications.md
-    - ESPHome Component: develop/esphome.md
-    - Hub Component: develop/hub.md
-    - Nextion Component: develop/nextion.md
-    - Nextion Editor (Human Guide): develop/nextion-editor.md
+    - General:
+      - Development setup: develop/development.md
+      - Hub & runtime: develop/hub.md
+      - Communication: develop/communication.md
+      - Notifications: develop/notifications.md
+    - ESPHome & display:
+      - ESPHome firmware: develop/esphome.md
+      - Nextion component: develop/nextion.md
+      - Editing the HMI: develop/nextion-editor.md
+      - Design guidelines: develop/design.md
+    - Frontend:
+      - Editor architecture: develop/frontend.md
+      - Live preview and cards: develop/preview.md
+    - Releases:
+      - Update process: develop/update-process.md
+      - Upgrading: develop/upgrading.md
+      - Release process: develop/release.md

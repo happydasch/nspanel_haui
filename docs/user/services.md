@@ -63,7 +63,7 @@ data:
 
 ### `nspanel_haui.wakeup`
 
-Wakes the display. If the idle page is shown, it is left and the previous panel (or the home panel, see [Return Panel after Wakeup](device.md#return-panel-after-wakeup)) is shown again.
+Wakes the display. If the idle page is shown, it is left and the previous panel (or the home panel, see [Return Panel after Wakeup](editor/device.md#return-after-the-idle-page)) is shown again.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -106,9 +106,15 @@ data:
 
 ## Notifications
 
+| Way | Options |
+|-----|---------|
+| `nspanel_haui.send_notification` service | All options |
+| `notify.<device>` entities | Title and message only |
+| ESPHome `send_notification` action | No `force_show` and no timeout; a notification that is not persistent only shows when the indicator is tapped |
+
 ### `nspanel_haui.send_notification`
 
-Shows a notification on the panel. [Notifications](device.md#notifications) explains how they are shown and dismissed on the panel.
+Shows a notification on the panel. See [On the panel](#on-the-panel) for the queue, the indicator and dismissal.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -134,12 +140,28 @@ data:
   sound: alert
 ```
 
-Good to know:
+#### On the panel
 
-- **Sounds are off by default.** They only play when the device's `sound_on_notification` setting is on, see [Device settings → Sounds](configuration/device.md#sounds).
-- **Persistent** notifications repeat their sound every `persistent_sound_interval` seconds and also open over the idle page. A [schedule](configuration/device.md#schedule) entry with sound off still keeps the display dark. A `timeout` also ends a persistent notification.
-- **The queue** holds up to 50 notifications. When it is full, the oldest one is dropped.
-- **Sending the same title and message again** replaces the waiting notification: its sound plays again and it moves to the end of the queue.
+**Arriving**
+
+- A new notification goes into a queue. The notification indicator starts to blink: the bell on the Clock, ClockTwo and Weather panels, or the notifications button in the header of other panels.
+- A notification sent with `force_show` or `persistent` opens right away and wakes the display, except during a [schedule](editor/device.md#silent-times) entry with sound off.
+- The queue holds up to 50 notifications. When it is full, the oldest one is dropped.
+- A notification with the same title and message as a queued one replaces it. Its sound plays again and it moves to the end of the queue.
+
+**Reading**
+
+- Tap the indicator to open the notification, or a list when several are waiting. Opening them stops the blinking.
+- **Dismiss** removes the notification from the queue. Closing the popup without dismissing keeps it.
+- After a dismiss, the next waiting notification opens in its place.
+- While a notification is open, the idle page waits. The display still dims and turns off on its normal timers; the next touch wakes it with the notification still showing.
+- If you opened the notifications over the idle page, closing them returns to the idle page.
+
+**Sound and timing**
+
+- **Sounds are off by default.** They only play when the device's **Sound on notification** setting is on, see [Device settings → Sounds](editor/device.md#sounds).
+- **Persistent** notifications repeat their sound every **Persistent sound interval** seconds and also open over the idle page. A [schedule](editor/device.md#schedule) entry with sound off still keeps the display dark. A `timeout` also ends a persistent notification.
+- The [preset notification script](#preset-notification-script) has ready-made `info`, `warning`, `alert`, `critical` and `silent` notifications.
 
 #### Preset notification script
 
@@ -444,7 +466,7 @@ Good to know:
 - **A file from a URL** is checked first: a factory image or a file that is too large is refused. The panel must be able to reach the address too.
 - **The panel needs firmware 0.4.3 or later** to install firmware this way. Flash an older panel once through ESPHome, see [Updating](update.md).
 - **Automatic firmware updates pause** after you install a release or a file from a URL, so the hub does not put the latest release back. The pause ends when Home Assistant restarts or you install the offered update.
-- **Custom firmware stays custom.** A panel with firmware built from your own YAML is never offered the universal release firmware. Install your own builds with `url`. See [Device Configuration → Updates](configuration/device.md#updates).
+- **Custom firmware stays custom.** A panel with firmware built from your own YAML is never offered the universal release firmware. Install your own builds with `url`. See [Other ways to update](update.md#other-ways-to-update).
 - **Going back a release?** The display file is not downgraded on its own. Install the matching TFT with `nspanel_haui.update_tft` and `version`.
 
 ### HAUI Firmware update entity
@@ -452,7 +474,7 @@ Good to know:
 Every panel has an `update.<device>_haui_firmware` entity.
 
 - **Installed version:** the firmware on the panel.
-- **Latest version:** the firmware of the latest release, or of the [manifest you configured](configuration/device.md#updates).
+- **Latest version:** the firmware of the latest release, or of the [manifest you configured](update.md#update-settings).
 - **Install** does the same as `nspanel_haui.update_firmware`: the panel downloads the firmware, installs it and restarts. The entity shows *installing* until the panel is back.
 - An install that does not finish within ten minutes, or that ends on the old version, is shown as an error in the **Updates** sidebar and on the entity.
 
@@ -478,7 +500,7 @@ Always install a TFT through the integration: with the **HAUI Display** entity, 
 
 The firmware has an ESPHome action `esphome.<device>_upload_tft_url`. The hub uses it to pass the file's address to the panel. Do not call it yourself: the hub would not know about the install. Use `nspanel_haui.update_tft` with `url` instead.
 
-The former `esphome.<device>_upload_tft` action and the **Update Display** button no longer exist, see [Upgrading](../develop/update-process.md#10-tft-install-actions-moved-to-the-integration).
+The former `esphome.<device>_upload_tft` action and the **Update Display** button no longer exist, see [Upgrading](../develop/upgrading.md#045).
 
 ## Current Page Sensor
 

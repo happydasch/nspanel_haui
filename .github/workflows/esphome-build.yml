@@ -1,0 +1,91 @@
+name: ESPHome build
+
+# Compiles the firmware on pull requests that change it, so a broken lambda, a
+# patch conflict or an upstream API change fails before a release. There is no
+# schedule; run it manually to try ESPHome latest or its dev branch.
+
+on:
+  pull_request:
+    paths:
+      - "esphome/**"
+      - "requirements-esphome.txt"
+      - "scripts/verify_firmware/**"
+      - ".github/workflows/esphome-build.yml"
+      - ".github/actions/setup/**"
+  workflow_dispatch:
+    inputs:
+      esphome_channel:
+        description: ESPHome version to build with
+        type: choice
+        options:
+          - pinned
+          - latest
+          - dev
+        default: pinned
+      config:
+        description: Firmware config to compile
+        type: choice
+        options:
+          - universal
+          - dev
+        default: universal
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esphome-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: Compile firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "3.14"
+          requirements: esphome
+
+      - name: Select the ESPHome channel
+        env:
+          CHANNEL: ${{ inputs.esphome_channel || 'pinned' }}
+        run: |
+          case "$CHANNEL" in
+            pinned) ;;
+            latest)
+              python -m pip install --upgrade esphome
+              ;;
+            dev)
+              python -m pip install --upgrade \
+                "https://github.com/esphome/esphome/archive/dev.tar.gz"
+              ;;
+            *)
+              echo "Unknown ESPHome channel: $CHANNEL" >&2
+              exit 1
+              ;;
+          esac
+          esphome version
+
+      # PlatformIO holds the framework; the build tree is rebuilt so a stale
+      # incremental build can never hide a compile problem.
+      - name: Cache PlatformIO
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5
+        with:
+          path: ~/.platformio
+          key: esphome-${{ runner.os }}-${{ inputs.esphome_channel || 'pinned' }}-${{ hashFiles('requirements-esphome.txt', 'esphome/**/*.yaml', 'esphome/nextion_patch/**') }}
+          restore-keys: |
+            esphome-${{ runner.os }}-${{ inputs.esphome_channel || 'pinned' }}-
+
+      - name: Compile
+        env:
+          CONFIG: ${{ inputs.config == 'dev' && 'esphome/nspanel_haui_dev.yaml' || 'esphome/nspanel_haui_universal.yaml' }}
+        run: make esphome-compile CONFIG="$CONFIG"
+
+      - name: Check the firmware fits its app partition
+        run: make esphome-size

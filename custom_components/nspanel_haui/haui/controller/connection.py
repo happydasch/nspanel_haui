@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPRequest, ESPResponse, ServerRequest, ServerResponse
-from ..version import get_integration_version
+from ..version import HUB_API_VERSION, get_integration_version, hub_api_compatible
 
 # How far back the connection health looks, and when a device heartbeat counts
 # as late: more than this many heartbeat intervals after the previous one.
@@ -474,6 +474,13 @@ class HAUIConnectionController(HAUIBase):
         if isinstance(event.value, str):
             connection_request = json.loads(event.value)
             device.set_device_info(connection_request, append=False)
+            if hub_api_compatible(connection_request.get("hub_api_version")) is False:
+                self.log(
+                    "Firmware hub API "
+                    f"{connection_request.get('hub_api_version')!r} is not compatible with "
+                    f"hub API {HUB_API_VERSION}; update the panel firmware",
+                    level="WARNING",
+                )
             self.log(f"Connection request from device: {connection_request}", level="DEBUG")
         self._initiate_handshake("req_connection")
 

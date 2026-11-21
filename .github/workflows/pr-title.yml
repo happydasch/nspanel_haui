@@ -1,0 +1,49 @@
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate title
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    steps:
+      - name: Check the Conventional Commits format and length
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          title = os.environ["PR_TITLE"].strip()
+          # GitHub's own revert pull requests do not use a Conventional Commits title.
+          if title.startswith('Revert "'):
+              sys.exit(0)
+          pattern = (
+              r"^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)"
+              r"(\([A-Za-z0-9._/-]+\))?!?: \S.*$"
+          )
+          problems = []
+          if len(title) > 100:
+              problems.append(f"it is {len(title)} characters long; the limit is 100")
+          if re.fullmatch(pattern, title) is None:
+              problems.append("it does not match '<type>(<scope>): <description>'")
+          if not problems:
+              sys.exit(0)
+          print("::error title=Invalid pull request title::The title is invalid because " + " and ".join(problems))
+          print("")
+          print("Use a Conventional Commits title under 100 characters, for example:")
+          print("  fix: Keep the notification queue after a display reconnect")
+          print("  feat(climate): Add a fan-only preset")
+          print("  docs: Explain the backup of the stock firmware")
+          print("")
+          print(f"Received: {title!r}")
+          sys.exit(1)
+          PY

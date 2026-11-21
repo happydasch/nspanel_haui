@@ -105,15 +105,25 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   agenda, a todo list, house rules, guest Wi-Fi. Today text only fits in a
   notification popup or a single `text` item.
 - **Fan panel** — Off/low/medium/high as buttons when the fan has three speeds or
-  fewer, a preset-mode picker otherwise, and the current preset shown. A `fan`
-  entity is only a tile today; light, climate, cover, media and vacuum all have a
-  detail popup. A cheaper first step: render a `fan` item as a speed slider in
-  the row panel when the entity supports `set_speed`, which the row already does
-  for `number` / `input_number`.
-- **Cover tilt** — A second slider beside position so position *and* tilt are
-  visible and settable at once. `cover.py` handles `current_position` only —
+  fewer, a percentage slider when it supports `set_percentage`, and a preset-mode
+  picker otherwise; show the active preset and an oscillation toggle when
+  supported. A `fan` entity is only a tile today; light, climate, cover, media
+  and vacuum all have a detail popup. A cheaper first step: render a `fan` item
+  as a speed slider in the row panel when the entity supports `set_speed`, which
+  the row already does for `number` / `input_number`.
+- **Cover tilt and battery** — A second slider beside position so position *and*
+  tilt are visible and settable at once, plus a battery level when the cover or
+  a configured sensor reports one. `cover.py` handles `current_position` only —
   `set_cover_tilt_position` is never called, so tilt-only blinds cannot be aimed
   from the panel.
+- **Water heater / humidifier panel** — A detail page for `water_heater` and
+  `humidifier` entities: current and target temperature or humidity, a slider,
+  and the supported operation modes. Both domains get a popup like climate and
+  cover.
+- **Utilities / energy dashboard** — A home-page energy view with grid import
+  and export, home consumption and up to six configurable groups, each showing
+  two values and a direction indicator. A compact alternative to a grid of power
+  sensors.
 - **Status panel on the display** — The editor's diagnostics card already covers
   this (see *Already possible*); the gap is the on-device view for someone
   standing at the panel: uptime, Wi-Fi RSSI, free heap, connection state and
@@ -166,6 +176,8 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   to group the rows of a long page without adding a widget type.
 - **Volume step** — A configurable media volume step that the buttons move by and
   the slider snaps to, instead of the integration's own default.
+- **Media mute** — A mute/unmute control on the media panel when the player
+  supports volume mute, with the button state following `is_volume_muted`.
 - **Stop at the last page** — An option to stop paging at the last page instead of
   wrapping to the first, for panels whose page order matters.
 - **Alarm buttons that fill the card** — Hiding a mode (`hidden_arm_modes`) leaves
@@ -183,6 +195,14 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   colour; the font stays a page setting, so one long name or one big number cannot
   be tuned without touching the page. (Discussion
   [#93](https://github.com/happydasch/nspanel_haui/discussions/93).)
+- **QR content override** — Let the QR panel encode arbitrary text or a URL, not
+  only a Wi-Fi network, while keeping the SSID/password form as a shortcut.
+  Useful for guest links, support pages and login URLs.
+- **Weather forecast secondary metric** — Choose which extra value appears under
+  each day's high/low pair: precipitation probability, wind speed, UV index,
+  sunshine duration or thunderstorm probability. Reuse the existing forecast
+  sub-value slot, format it with the entity's units, and fall back to the low
+  temperature when the integration lacks the chosen field.
 
 ---
 
@@ -199,11 +219,12 @@ Every entry here needs a Nextion page, which is why they are the expensive items
 
 ### Display and idle behaviour
 
-- **Hold the display on while a sensor is active** — While any configured entity
-  is `on`, the panel stays awake (dim, but lit) instead of following the dim/off
-  timers — motion, presence, a door contact. Natural fit for a
-  `hold_display_entities` device setting checked in the existing 1 s navigation
-  tick, beside `AUTO_PAGE_HOLD`. Today it takes an automation polling
+- **Wake on sensor and hold the display** — When any configured binary sensor
+  turns `on`, wake the display and leave the idle page; while any remains `on`,
+  keep the panel awake (dim, but lit) instead of following the dim/off timers.
+  The timers start again after the last one turns `off`. Natural fit for a
+  `wakeup_entities` device setting checked in the existing 1 s navigation tick,
+  beside `AUTO_PAGE_HOLD`. Today it takes an automation polling
   `reset_last_interaction`.
 - **Page-wide disconnected state** — Per-entity staleness exists
   (`stale_data_seconds`); what is missing is a device-wide "the hub is not
@@ -226,6 +247,27 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   target, so a status icon opens its detail page instead of only leaving the idle
   page.
 
+### Hardware and sensors
+
+- **Display as a light** — Expose the screen as a dimmable light entity, so
+  automations can turn it on or off and set brightness with the same actions as
+  other lights. It follows the screen's actual state; auto-dim and display-off
+  keep working, and turning the light off leaves the panel dark until it is
+  turned on or touched.
+- **Automatic panel temperature calibration** — A reference temperature or
+  climate entity in the same room slowly adjusts the panel's **Temperature
+  Correction**, so the built-in sensor stops reading high from the panel's own
+  heat. Start after a warm-up period, move in whole correction steps with
+  hysteresis, pause when the reference is missing or stale, and keep the last
+  correction across restarts.
+- **Hardware button hold action** — A second action for a long press on each
+  physical button, separate from the short-press relay or entity toggle and
+  configurable per side.
+- **Hardware button relay fallback** — When a physical button is set to toggle a
+  Home Assistant entity, let it switch its built-in relay instead while Home
+  Assistant is unreachable, so the button keeps working during an outage.
+  Opt-in, and only on panels whose relay is safe for the connected load.
+
 ### Climate
 
 - **Forecast precision** — Stop rounding every forecast value to an integer:
@@ -237,13 +279,24 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   instead of two panels the user switches by hand.
 - **Dew-point / humidity guard** — Warn when cooling would condense; a
   display-only hint is cheap, an interlock is not.
-- **Active preset on the preset button** — Reflect the current preset in the
-  button's label or colour.
-- **Climate action and humidity** — Show what the unit is actually doing —
-  `heating`, `idle (cool)` — beside the target temperature, and an optional
-  humidity reading. Both are attributes the page already reloads on.
+- **Presets in spare mode slots** — When a climate entity has fewer HVAC modes
+  than the six mode buttons, fill the remaining slots with up to five presets and
+  highlight the active one; keep the preset picker when there are more. The
+  active preset stays visible without opening the list.
+- **Climate context values and actions** — Show what the unit is doing —
+  `heating`, `idle (cool)` — and up to four extra values such as humidity, valve
+  position and outdoor temperature, plus two configurable action buttons for the
+  controls used most. The page already reloads the underlying attributes; the
+  extra slots need HMI space.
 - **Per-entity temperature offset** — A correction applied when a climate sensor
   reads consistently high or low.
+
+### Content and localization
+
+- **More display languages** — Add locales beyond the current six, starting with
+  the most requested community languages. Runtime locale selection, date/time
+  formatting and translated state names already exist; each new locale needs a
+  translation file, font coverage and a review of the word clock.
 
 ### Updates and display models
 
@@ -290,6 +343,11 @@ capacity allows, not tied to a horizon.
 Open items from the release-process review (runbook and known risks in
 [docs/develop/release.md](docs/develop/release.md)):
 
+- **HMI as a build artifact (nxwright)** — A spike extracted `nextion/nspanel_haui.HMI` into text source
+  with nxwright 0.2.0, rebuilt the project and compiled a TFT using the shipped TFT as the firmware
+  reference. The 30,432-line TFT listing and the decompiled sources matched; only page lock flags and a
+  four-byte picture encoding detail differed. Next: choose the source layout, then verify/build TFTs in CI
+  and stop committing the compiled display binaries.
 - **Scripted HMI patching for release-only edits** — `tftVersion` scripting landed
   with the version-bump tooling; Send Component ID and other in-place edits still
   need the Nextion Editor or an extended patch spec.
@@ -315,7 +373,7 @@ These are covered today; the linked docs show how.
 
 - Per-item **name / icon / value / state / colour** overrides, including one value
   per state and template colours —
-  [Item configuration](docs/user/configuration/items.md).
+  [Item configuration](docs/user/editor/items.md).
 - **Paged lists** for pickers with more than eight options (light effects, fan
   presets, `select`).
 - **Climate presets, fan mode, swing mode**, and hvac-mode buttons trimmed to what
@@ -335,16 +393,17 @@ These are covered today; the linked docs show how.
 - **Quiet hours, and a panel that stays dark** — A schedule entry with `sound`
   off silences notifications inside its window while they still queue, and its
   `display_off`/`brightness` keep the panel dark; nothing is dropped, delayed or
-  hidden — [Device settings](docs/user/device.md).
+  hidden — [Device settings](docs/user/editor/device.md).
 - **Notification readability** — `text_size` sets the size per message, a
   per-panel theme sets the contrast (the theme library's light and dark
   palettes), and `persistent: true` keeps a message on screen until it is
   dismissed — [Notifications](docs/user/services.md).
 - **Themes** with light/dark icon palettes, a shared library and per-panel themes.
 - **Schedules**, **gestures**, the **idle page** with carousel, **snapshot
-  restore** and **auto-navigate home** — [Device settings](docs/user/device.md).
+  restore** and **auto-navigate home** — [Device settings](docs/user/editor/device.md).
 - **Local relay toggling without Home Assistant**, encrypted OTA, TFT retry on
   upload, per-device update channels and one-at-a-time fleet rollouts.
+- **Custom RTTTL melodies** through the firmware's `play_rtttl` action.
 - **One place for the versions** — the editor's device row shows the firmware
   and TFT versions side by side with a **Mismatch** badge, and the diagnostics
   card lists integration, firmware and TFT versions (plus the required TFT)
@@ -375,11 +434,17 @@ Kept for the record, so the same idea is not re-evaluated every few months.
 - **ESPectre CSI motion detection, BLE tracker, Bluetooth proxy** — Firmware-only
   features with no hub-side surface; better served by a dedicated ESPHome
   component.
-- **Chips as a general concept** — Panels are configured per entity and per item;
-  a chip abstraction would be a second way to say the same thing.
+- **Chips or a global status-icon bar as a general concept** — Panels are
+  configured per entity and per item; a chip abstraction would be a second way to
+  say the same thing, and a global bar would take header space from per-panel
+  actions.
 - **A Blueprint / automation-driven renderer** — The hub renders from Home
   Assistant state directly; the template layer in between was the alternative
   architecture and was dropped for exactly this reason.
+- **Raw canvas / arbitrary Nextion commands** — A blank page driven by Home
+  Assistant automations with raw drawing commands would bypass the page API, the
+  command replay contract and validation. The text/notes panel covers the
+  legitimate use case.
 - **Custom PCB to replace the Nextion** — Out of scope for this repository,
   though it is the ceiling behind most display limitations.
 - **Automatic dithering / fake transparency** — An HMI technique worth

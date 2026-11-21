@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture the README's editor screenshots into ``docs/assets/readme/``.
+"""Capture the editor's and the dashboard card's screenshots into ``docs/assets/readme/``.
 
 The screenshots show the real editor: the script starts a throwaway Home Assistant from
 the development virtual environment (``.venv_ha``) in a temporary directory on its own
@@ -8,10 +8,14 @@ devices have no ESPHome node, so the editor shows them offline. After onboarding
 user, ``capture_editor.mjs`` captures each screen in ``SHOTS`` with headless Chrome in
 Home Assistant's light or dark theme.
 
+The ``card-`` shots are the other way round: they open a Lovelace dashboard written by
+``write_config`` rather than the editor, at the width of a dashboard column.
+
 Usage::
 
     python -m scripts.readme_images.gen_editor_screenshots [--hass PATH] [--chrome PATH]
     python -m scripts.readme_images.gen_editor_screenshots --only editor-settings
+    python -m scripts.readme_images.gen_editor_screenshots --only card
 """
 
 from __future__ import annotations
@@ -246,8 +250,11 @@ class Step(NamedTuple):
 class Shot(NamedTuple):
     """One captured screen.
 
-    ``route`` is the editor hash it opens on, ``steps`` what reaches the surface (an
-    overlay is store state, never a route) and ``wait`` the selectors in view first.
+    ``route`` is what is appended to the page: the editor hash, or a dashboard's own path
+    for a shot whose ``page`` is empty. ``steps`` is what reaches the surface (an overlay
+    is store state, never a route) and ``wait`` the selectors in view first. ``page`` is
+    the frontend page the route belongs to and ``size`` the viewport it is captured at,
+    for a shot that is not the editor at ``WIDTH`` × ``HEIGHT``.
     """
 
     name: str
@@ -255,6 +262,8 @@ class Shot(NamedTuple):
     route: str
     steps: tuple[Step, ...] = ()
     wait: tuple[str, ...] = ()
+    page: str = "/nspanel-haui"
+    size: tuple[int, int] | None = None
 
 
 def click(label: str) -> Step:
@@ -378,6 +387,40 @@ SHOTS: list[Shot] = [
         (click("Backups"),),
         (".haui-backup-sidebar",),
     ),
+    # The dashboard card, opened on a Lovelace dashboard (see ``write_config``) at the
+    # width of a dashboard column instead of the editor's full window.
+    Shot(
+        "card-fleet-light",
+        "light",
+        "/lovelace/fleet",
+        page="",
+        size=(600, 780),
+        wait=(".haui-card-stage",),
+    ),
+    Shot(
+        "card-fleet-dark",
+        "dark",
+        "/lovelace/fleet",
+        page="",
+        size=(600, 780),
+        wait=(".haui-card-stage",),
+    ),
+    Shot(
+        "card-device-light",
+        "light",
+        "/lovelace/device",
+        page="",
+        size=(600, 560),
+        wait=(".haui-card-stage",),
+    ),
+    Shot(
+        "card-device-dark",
+        "dark",
+        "/lovelace/device",
+        page="",
+        size=(600, 560),
+        wait=(".haui-card-stage",),
+    ),
 ]
 
 
@@ -433,6 +476,41 @@ def write_config(config: Path, port: int) -> None:
     }
     (store / "core.config_entries").write_text(
         _store_file("core.config_entries", {"entries": [entry]}, minor=5)
+    )
+    # The dashboard card's two modes as a dashboard of two views, so its screenshots show
+    # what a user sees on their own dashboard rather than a bare element.
+    (store / "lovelace").write_text(
+        _store_file(
+            "lovelace",
+            {
+                "config": {
+                    "views": [
+                        {
+                            "title": "Fleet",
+                            "path": "fleet",
+                            "cards": [
+                                {
+                                    "type": "custom:nspanel-haui-card",
+                                    "mode": "fleet",
+                                    "title": "Panels",
+                                }
+                            ],
+                        },
+                        {
+                            "title": "Device",
+                            "path": "device",
+                            "cards": [
+                                {
+                                    "type": "custom:nspanel-haui-card",
+                                    "mode": "device",
+                                    "device": "Living Room",
+                                }
+                            ],
+                        },
+                    ]
+                }
+            },
+        )
     )
     panels_key = f"nspanel_haui.{HUB_ENTRY_ID}_panels"
     (store / panels_key).write_text(
@@ -531,6 +609,21 @@ def _tail(log: Path, lines: int = 30) -> str:
     return "\n".join(log.read_text(errors="replace").splitlines()[-lines:])
 
 
+def _job(shot: Shot) -> dict[str, Any]:
+    """One shot as ``capture_editor.mjs`` takes it, with the viewport it is captured at."""
+    width, height = shot.size or (WIDTH, HEIGHT)
+    return {
+        "route": shot.route,
+        "page": shot.page,
+        "width": width,
+        "height": height,
+        "scheme": shot.scheme,
+        "path": str(TARGET / f"{shot.name}.png"),
+        "steps": [{"kind": step.kind, "value": step.value} for step in shot.steps],
+        "wait": list(shot.wait),
+    }
+
+
 def capture(chrome: str, hass: HomeAssistant, tokens: dict[str, Any], shots: list[Shot]) -> None:
     """Capture ``shots`` (entries of ``SHOTS``) into ``TARGET`` with ``capture_editor.mjs``."""
     node = shutil.which("node")
@@ -539,18 +632,7 @@ def capture(chrome: str, hass: HomeAssistant, tokens: dict[str, Any], shots: lis
     jobs = {
         "base": hass.base,
         "tokens": tokens,
-        "width": WIDTH,
-        "height": HEIGHT,
-        "shots": [
-            {
-                "hash": shot.route,
-                "scheme": shot.scheme,
-                "path": str(TARGET / f"{shot.name}.png"),
-                "steps": [{"kind": step.kind, "value": step.value} for step in shot.steps],
-                "wait": list(shot.wait),
-            }
-            for shot in shots
-        ],
+        "shots": [_job(shot) for shot in shots],
     }
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
         json.dump(jobs, handle)

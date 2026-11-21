@@ -25,14 +25,14 @@ runs:
   steps:
     - name: Set up Python ${{ inputs.python }}
       if: inputs.python != ''
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
       with:
         python-version: ${{ inputs.python }}
 
     # uv installs the pinned requirements, cached per requirements file.
     - name: Set up uv
       if: inputs.requirements != ''
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
       with:
         enable-cache: true
         cache-dependency-glob: requirements-${{ inputs.requirements }}.txt
@@ -44,7 +44,7 @@ runs:
 
     - name: Set up Node ${{ inputs.node }}
       if: inputs.node != ''
-      uses: actions/setup-node@v7
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
       with:
         node-version: ${{ inputs.node }}
         cache: ${{ inputs.npm == 'true' && 'npm' || '' }}

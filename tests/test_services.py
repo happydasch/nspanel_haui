@@ -40,8 +40,8 @@ def _install_ha_stubs() -> None:
 
 _install_ha_stubs()
 
-import pytest  # noqa: E402
 import probatio as vol  # noqa: E402
+import pytest  # noqa: E402
 
 from custom_components.nspanel_haui.haui.mapping.const import SOUND_NAMES  # noqa: E402
 from custom_components.nspanel_haui.services import (  # noqa: E402

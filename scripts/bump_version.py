@@ -12,11 +12,13 @@ leaves them (it copies ``tft_version`` from the HMIs itself).
 
 Usage:
     python -m scripts.bump_version 0.5.0 [--tft-update] [--check]
+    python -m scripts.bump_version --check      # verify against manifest.json
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -58,6 +60,11 @@ def _replace_in_file(path: Path, pattern: str, replacement: str, check: bool) ->
         return False, f"{_display(path)}: would change"
     path.write_text(new_text, encoding="utf-8")
     return True, f"{_display(path)}: updated"
+
+
+def _manifest_version() -> str:
+    """The version every other source must mirror: ``manifest.json`` is the source of truth."""
+    return json.loads(MANIFEST.read_text(encoding="utf-8"))["version"]
 
 
 def bump_text_sources(version: str, check: bool, tft_update: bool = False) -> bool:
@@ -102,7 +109,11 @@ def bump_hmis(version: str, check: bool) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("version", help="version to write, e.g. 0.5.0")
+    parser.add_argument(
+        "version",
+        nargs="?",
+        help="version to write, e.g. 0.5.0 (with --check: defaults to manifest.json's version)",
+    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -115,7 +126,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    version = args.version.strip()
+    if args.version is None:
+        # A dry run without a version is the drift check: every other source must
+        # mirror the manifest. Writing needs an explicit version, because a stale
+        # --tft-update would otherwise move tft_version to the firmware version.
+        if not args.check:
+            print(
+                "error: pass the version to write (--check alone verifies manifest.json)",
+                file=sys.stderr,
+            )
+            return 2
+        version = _manifest_version()
+    else:
+        version = args.version.strip()
     kind = _version_kind(version)
     if kind is None:
         print(

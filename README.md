@@ -16,7 +16,7 @@ Requires Home Assistant 2026.11 or later.
 **[Documentation](https://happydasch.github.io/nspanel_haui/dev/)** ·
 [Installation](https://happydasch.github.io/nspanel_haui/dev/user/install.html) ·
 [Panels](https://happydasch.github.io/nspanel_haui/dev/user/panels/index.html) ·
-[Screens](https://happydasch.github.io/nspanel_haui/dev/screens.html) ·
+[Screens](https://happydasch.github.io/nspanel_haui/dev/user/screens.html) ·
 [FAQ](https://happydasch.github.io/nspanel_haui/dev/user/faq.html) ·
 [Changelog](https://github.com/happydasch/nspanel_haui/blob/dev/CHANGELOG.md)
 
@@ -69,7 +69,7 @@ Requires Home Assistant 2026.11 or later.
    `happydasch/nspanel_haui`, then restart Home Assistant. Existing HACS installs migrate automatically.
 4. **Set it up**: add **NSPanel HAUI** from **Settings → Devices & Services → Add Integration**, then
    open the sidebar editor to add panels.
-   ([Configuration guide](https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html))
+   ([Editor guide](https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html))
 
 ## Editor
 
@@ -251,10 +251,12 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
   </tr>
 </table>
 
-<p align="center"><a href="https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html"><b>Explore the editor guide →</b></a><br>
-<sub>See the full configuration walkthrough, including preview and device management.</sub></p>
+<p align="center"><a href="https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html"><b>Explore the editor guide →</b></a><br>
+<sub>See the full editor walkthrough, including preview and device management.</sub></p>
 
 ## Panels
+
+<img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/panels.png" alt="Choose a panel type, add entities, swipe sideways between panels, tap for full controls" width="100%">
 
 A panel is one screen on the display. Add as many as you like and swipe between them. There are
 13 panel types and a set of built-in popups. Select one to see what it shows and how to set it up.
@@ -355,24 +357,16 @@ A panel is one screen on the display. Add as many as you like and swipe between 
 - **Both layouts**: every panel exists for the landscape and the portrait display.
 - **Protect a panel**: give any panel a PIN.
 
-Browse [all panel types](https://happydasch.github.io/nspanel_haui/dev/user/panels/index.html), see
-[every screen in both layouts](https://happydasch.github.io/nspanel_haui/dev/screens.html), or copy an
-[example layout](https://happydasch.github.io/nspanel_haui/dev/user/examples.html) for a room.
-
-## How it works
-
-The hub runs inside Home Assistant: it reads entity states, renders the display commands and sends
-them over the ESPHome native API. The ESP32 relays them to the Nextion display over serial and
-reports touches and button presses back. See
-[Communication](https://happydasch.github.io/nspanel_haui/dev/develop/communication.html).
+Browse [all panel types](https://happydasch.github.io/nspanel_haui/dev/user/panels/index.html) or see
+[every screen in both layouts](https://happydasch.github.io/nspanel_haui/dev/user/screens.html).
 
 ## Documentation
 
 The full documentation is at **[happydasch.github.io/nspanel_haui](https://happydasch.github.io/nspanel_haui/dev/)**.
 
-- **Start**: [Installation](https://happydasch.github.io/nspanel_haui/dev/user/install.html) · [Quick start](https://happydasch.github.io/nspanel_haui/dev/user/get-started.html) · [Updating](https://happydasch.github.io/nspanel_haui/dev/user/update.html) · [FAQ](https://happydasch.github.io/nspanel_haui/dev/user/faq.html) · [Troubleshooting](https://happydasch.github.io/nspanel_haui/dev/user/troubleshooting.html)
-- **Configure**: [Overview](https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html) · [Device](https://happydasch.github.io/nspanel_haui/dev/user/configuration/device.html) · [Display models](https://happydasch.github.io/nspanel_haui/dev/user/configuration/display-models.html) · [Panels](https://happydasch.github.io/nspanel_haui/dev/user/configuration/panels.html) · [Items](https://happydasch.github.io/nspanel_haui/dev/user/configuration/items.html) · [Examples](https://happydasch.github.io/nspanel_haui/dev/user/examples.html)
-- **Use**: [Gestures and display states](https://happydasch.github.io/nspanel_haui/dev/user/device.html) · [Services](https://happydasch.github.io/nspanel_haui/dev/user/services.html) · [Dashboard card](https://happydasch.github.io/nspanel_haui/dev/user/dashboard-card.html) · [Icons](https://happydasch.github.io/nspanel_haui/dev/cheatsheet.html) · [Screens](https://happydasch.github.io/nspanel_haui/dev/screens.html)
+- **Start**: [Installation](https://happydasch.github.io/nspanel_haui/dev/user/install.html) · [Quick start](https://happydasch.github.io/nspanel_haui/dev/user/get-started.html) · [Updating](https://happydasch.github.io/nspanel_haui/dev/user/update.html) · [Version compatibility](https://happydasch.github.io/nspanel_haui/dev/user/version-compatibility.html) · [FAQ](https://happydasch.github.io/nspanel_haui/dev/user/faq.html) · [Troubleshooting](https://happydasch.github.io/nspanel_haui/dev/user/troubleshooting.html)
+- **Editor**: [Overview](https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html) · [Device settings](https://happydasch.github.io/nspanel_haui/dev/user/editor/device.html) · [Display models](https://happydasch.github.io/nspanel_haui/dev/user/editor/display-models.html) · [Panels](https://happydasch.github.io/nspanel_haui/dev/user/editor/panels.html) · [Items](https://happydasch.github.io/nspanel_haui/dev/user/editor/items.html)
+- **Use**: [Gestures and display states](https://happydasch.github.io/nspanel_haui/dev/user/editor/device.html#gestures) · [Services](https://happydasch.github.io/nspanel_haui/dev/user/services.html) · [Dashboard card](https://happydasch.github.io/nspanel_haui/dev/user/dashboard-card.html) · [Icons](https://happydasch.github.io/nspanel_haui/dev/user/icons.html) · [Screens](https://happydasch.github.io/nspanel_haui/dev/user/screens.html)
 - **Develop**: [Development](https://happydasch.github.io/nspanel_haui/dev/develop/development.html) · [Design](https://happydasch.github.io/nspanel_haui/dev/develop/design.html) · [Communication](https://happydasch.github.io/nspanel_haui/dev/develop/communication.html) · [ESPHome](https://happydasch.github.io/nspanel_haui/dev/develop/esphome.html) · [Hub](https://happydasch.github.io/nspanel_haui/dev/develop/hub.html) · [Nextion](https://happydasch.github.io/nspanel_haui/dev/develop/nextion.html)
 
 For custom firmware builds, see the
@@ -380,7 +374,7 @@ For custom firmware builds, see the
 
 > **Upgrading from 0.3.x or earlier?** Read the [upgrade guide](https://happydasch.github.io/nspanel_haui/dev/user/update.html)
 > first. Saved panels do not migrate, and settings stored in config entries by 0.3.2 or earlier are not
-> carried over. See [device configuration](https://happydasch.github.io/nspanel_haui/dev/user/configuration/device.html#how-settings-are-saved).
+> carried over. See [editor storage](https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html#saving-and-storage).
 
 ## Credits
 
@@ -389,4 +383,6 @@ Inspired by [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui)
 
 See the [GitHub contributors](https://github.com/happydasch/nspanel_haui/graphs/contributors)
 for everyone who contributed. Special thanks to @jameshiscott, who contributed the
-[live preview and the Nextion simulator](docs/user/configuration/README.md#the-live-preview).
+[live preview and the Nextion simulator](docs/user/editor/README.md#the-live-preview).
+
+Third-party licenses and notices are in [licenses/](licenses/README.md).

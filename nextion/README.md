@@ -19,7 +19,7 @@ to the [TFT update service](../docs/user/services.md).
 
 Both TFTs are attached to every GitHub release. The hub picks the one for a device
 from its `display_model` setting — see
-[Display Models](../docs/user/configuration/display-models.md) and the
+[Display Models](../docs/user/editor/display-models.md) and the
 [Nextion Editor guide](../docs/develop/nextion-editor.md).
 
 ESPHome device configuration lives in [`esphome/`](../esphome/README.md).

@@ -38,4 +38,6 @@ When the countdown ends, the alert sound plays if the device setting `sound_on_n
 
 ## Popup
 
-The timer can also open as a popup (`popup_timer`) on top of another panel. Because the timer has no entity, open it from an item: set the item's `popup_key` to `popup_timer`, or add a `navigate` item with `popup_timer`. See [Item Configuration](../configuration/items.md#override-a-default-popup).
+The timer can also open as a popup (`popup_timer`) on top of another panel. Because the timer has no entity, open it from an item: set the item's `popup_key` to `popup_timer`, or add a `navigate` item with `popup_timer`. See [Items](../editor/items.md#override-a-default-popup).
+
+<img src="../../assets/screens/landscape/popup_timer.png" alt="timer popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_timer.png" alt="timer popup, portrait" width="142" height="213">

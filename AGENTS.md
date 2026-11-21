@@ -16,18 +16,22 @@ Do not over-engineer. Keep edits minimal. Ask for permission before making an ex
 
 `docs/develop/` is the reference. Open the page before changing an area; this file only holds the rules that must not break.
 
+The developer guide is grouped as **General** (`development`, `hub`, `communication`, `notifications`), **ESPHome & display** (`esphome`, `nextion`, `nextion-editor`, `design`), **Frontend** (`frontend`, `preview`) and **Releases** (`update-process`, `upgrading`, `release`).
+
 | Area | Read |
 |------|------|
-| Hub objects, adapter/threading, panel and page lifecycle, REST API, virtual panel | `docs/develop/hub.md` |
+| Local commands, throwaway HA instances, git hooks, test conventions, code style | `docs/develop/development.md` |
+| Hub objects, adapter/threading, panel and page lifecycle, controllers, REST API, status fields | `docs/develop/hub.md` |
 | Handshake, heartbeats, reading values from the display | `docs/develop/communication.md` |
 | Notifications: queue, delivery paths, timers, presentation | `docs/develop/notifications.md` |
-| Design: fonts, icons, themes, the 8-step new-panel workflow | `docs/develop/design.md` |
-| Nextion component, HMI editing rules, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md` |
 | ESPHome firmware | `docs/develop/esphome.md` |
+| Nextion component, HMI editing rules, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md` |
+| Design: fonts, icons, themes, the new-panel workflow | `docs/develop/design.md` |
 | Editor architecture, screens, component inventory, visual foundations, testing | `docs/develop/frontend.md` |
+| Virtual panel, simulated and live preview, panel cards, dashboard card transport | `docs/develop/preview.md` |
 | Firmware/TFT updates, rollout, update settings | `docs/develop/update-process.md` |
+| Breaking changes per version, old firmware, rollback | `docs/develop/upgrading.md` |
 | Release policy, branches and tags, CI gates, runbook | `docs/develop/release.md` |
-| Local commands, throwaway HA instances, git hooks, backend test conventions | `docs/develop/development.md` |
 | Development scripts | `scripts/README.md` |
 | The behavior we promise users | `docs/user/` |
 
@@ -48,6 +52,7 @@ make help                            # every shortcut
 | `make docs` | `zensical build --strict` |
 | `make hmi-check` / `make screens-check` | both HMI specs, generated layouts and preview coverage / the docs screen PNGs |
 | `make esphome-config` | universal ESPHome config (needs `requirements-esphome.txt`; conflicts with the dev environment) |
+| `make esphome-compile` / `make esphome-size` | compile a firmware config (`CONFIG=esphome/nspanel_haui_dev.yaml` for the dev one) and check the image against its app partition |
 | `make ha-venv-setup` → `make ha-venv-start`, `make ha-docker-up` | throwaway Home Assistant instances under the git-ignored `.dev/` |
 
 Raw commands, for a single check:
@@ -170,7 +175,7 @@ Conventional Commits (`type(scope): message`); PR titles use the same format and
 ## Before you finish
 
 1. Docs in sync with the change (option, default, schema, behavior), then `make docs`.
-2. The gates you touched are green: `make format-check lint typecheck test typecheck-frontend`, or `make -j4 check` for everything.
+2. The gates you touched are green: `make format-check lint typecheck test typecheck-frontend`, or `make -j4 check` for everything. Firmware changes also need `make esphome-compile` and `make esphome-size`.
 3. HMI or TFT changed? Both HMIs updated, `tft_version` advanced, `make hmi-check` and the card-render tests green.
 4. Strings changed? `extract_translations` run and `haui/locale/*.json` committed with the code.
 5. User-visible behavior changed? One `CHANGELOG.md` line with its issue/PR link; breaking changes also in `docs/user/update.md`, long form in `.github/release-notes/<tag>.md`.

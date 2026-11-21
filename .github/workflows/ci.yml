@@ -21,9 +21,10 @@ jobs:
     name: tests (3.14)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # Node replays the card renders in tests/test_card_renders.py.
       - uses: ./.github/actions/setup
@@ -65,7 +66,9 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
         with:
@@ -82,7 +85,9 @@ jobs:
     # Separate job: ESPHome's cryptography pin conflicts with the test toolchain.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
         with:
@@ -96,7 +101,9 @@ jobs:
     # Strict build once per run. master and dev runs upload the site for deploy-docs.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup
         with:
@@ -115,7 +122,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' &&
           (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: docs-site
           path: site/
@@ -125,14 +132,18 @@ jobs:
   hassfest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+      - uses: home-assistant/actions/hassfest@07f46fd2e19967768b5fd3000f91f857452b767c  # master 2026-11-21
 
   hacs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: hacs/action@main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          persist-credentials: false
+      - uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main 2026-11-21
         with:
           category: integration
 
@@ -158,26 +169,28 @@ jobs:
       # Checkouts come before the artifact download: checkout cleans untracked files.
       - name: Check out the dev site
         if: github.ref == 'refs/heads/master'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           ref: dev
           path: dev
+          persist-credentials: false
 
       - name: Check out the stable site
         if: github.ref == 'refs/heads/dev'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           ref: master
           path: stable
+          persist-credentials: false
 
       - name: Download the built site
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8
         with:
           name: docs-site
           path: current
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: "3.14"
 
@@ -210,7 +223,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5
         with:
           path: site/
 
@@ -221,4 +234,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5

@@ -3,11 +3,12 @@
 //
 // Usage: node capture_editor.mjs <chrome> <jobs.json>
 //
-// jobs.json is {base, tokens, width, height, shots: [...]}, written by
-// gen_editor_screenshots.py. Each scheme gets its own tab with prefers-color-scheme
-// emulated, the login tokens in localStorage and the sidebar collapsed. A shot opens
-// the editor at its hash, runs its steps and saves a screenshot once every selector
-// of its `wait` is in view with nothing loading.
+// jobs.json is {base, tokens, shots: [...]}, written by gen_editor_screenshots.py. Each
+// shot carries its frontend page (`page`, empty for a dashboard), the viewport it is
+// captured at (`width` × `height`) and its route. One tab holds the login tokens in
+// localStorage and the collapsed sidebar; each shot sets its own viewport and
+// prefers-color-scheme, opens its page at its route, runs its steps and saves a
+// screenshot once every selector of its `wait` is in view with nothing loading.
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -48,7 +49,9 @@ window.__hauiInView = (el) => {
 // and in view. An empty selector list is "the screen is drawn".
 const READY = (selectors) => `(() => {
   if (typeof __hauiDeepAll !== 'function') return { ready: false, state: 'no page script' };
-  const screen = __hauiDeepAll('.haui-device-screen, .haui-fleet-carousel-region');
+  const screen = __hauiDeepAll(
+    '.haui-device-screen, .haui-fleet-carousel-region, .haui-card-fleet, .haui-card-panel'
+  );
   const loading = __hauiDeepAll(
     '.haui-preview-sim-loading, .haui-empty-state-loading, .haui-preview-stage[aria-busy="true"]'
   ).filter(__hauiInView);
@@ -112,16 +115,12 @@ async function runStep(devtools, sessionId, what, step) {
   }
 }
 
-async function openTab(devtools, jobs, scheme) {
+async function openTab(devtools, jobs) {
   const { targetId } = await devtools.send('Target.createTarget', { url: 'about:blank', newWindow: true });
   const { sessionId } = await devtools.send('Target.attachToTarget', { targetId, flatten: true });
   const send = (method, params) => devtools.send(method, params, sessionId);
   // Scripts for new documents only run while the Page domain is enabled.
   await send('Page.enable');
-  await send('Emulation.setDeviceMetricsOverride', {
-    width: jobs.width, height: jobs.height, deviceScaleFactor: 1, mobile: false,
-  });
-  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
   const hassTokens = {
     ...jobs.tokens,
     hassUrl: jobs.base,
@@ -140,8 +139,17 @@ async function openTab(devtools, jobs, scheme) {
 }
 
 async function capture(devtools, sessionId, jobs, shot) {
-  const url = `${jobs.base}/nspanel-haui${shot.hash}`;
-  // A hash change alone would not reload the editor from its start state.
+  const url = `${jobs.base}${shot.page ?? '/nspanel-haui'}${shot.route}`;
+  // The viewport and the palette belong to the shot: one tab serves every shot.
+  const width = shot.width ?? 1600;
+  const height = shot.height ?? 1000;
+  await devtools.send('Emulation.setDeviceMetricsOverride', {
+    width, height, deviceScaleFactor: 1, mobile: false,
+  }, sessionId);
+  await devtools.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-color-scheme', value: shot.scheme }],
+  }, sessionId);
+  // A hash change alone would not reload the page from its start state.
   await devtools.send('Page.navigate', { url: 'about:blank' }, sessionId);
   await devtools.send('Page.navigate', { url }, sessionId);
   // Nothing to wait for but the screen: a device without panels shows no preview.
@@ -155,7 +163,7 @@ async function capture(devtools, sessionId, jobs, shot) {
   await sleep(SETTLE_MS);
   // No hover state on whatever the pointer last touched.
   await devtools.send('Input.dispatchMouseEvent', {
-    type: 'mouseMoved', x: jobs.width - 1, y: jobs.height - 1,
+    type: 'mouseMoved', x: width - 1, y: height - 1,
   }, sessionId);
   await sleep(300);
   const { data } = await devtools.send('Page.captureScreenshot', { format: 'png' }, sessionId);
@@ -183,11 +191,8 @@ async function main() {
   try {
     const devtools = new DevTools(await browserUrl(profile, exited, () => stderr.trim(), chrome));
     await devtools.opened();
-    const tabs = new Map();
-    for (const shot of jobs.shots) {
-      if (!tabs.has(shot.scheme)) tabs.set(shot.scheme, await openTab(devtools, jobs, shot.scheme));
-      await capture(devtools, tabs.get(shot.scheme), jobs, shot);
-    }
+    const tab = await openTab(devtools, jobs);
+    for (const shot of jobs.shots) await capture(devtools, tab, jobs, shot);
     await devtools.send('Browser.close');
   } catch (err) {
     console.error(err.message);

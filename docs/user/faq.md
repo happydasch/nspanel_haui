@@ -9,7 +9,7 @@ description: Common issues, troubleshooting, and tips for NSPanel HAUI
 
 ### I don't know how to start
 
-Follow the [Quick Start Guide](get-started.md). After that, the [Panel overview](panels/README.md) shows what each panel type does and the [examples](examples.md) show layouts for common rooms.
+Follow the [Quick Start Guide](get-started.md). After that, the [Panel overview](panels/README.md) shows what each panel type does.
 
 ### My NSPanel devices are not discovered
 
@@ -52,14 +52,14 @@ The entry is harmless. See [Display-Off Errors](troubleshooting.md#display-off-e
 
 ### The display should change its brightness over the day
 
-Use the schedule in the **Screen** group of the device settings. Add an entry for each time window, from a time, sunrise or sunset (with an offset in minutes) to a time, sunrise or sunset, and set its brightness. Outside the entries, **Brightness full** and **Brightness dimmed** in the same group apply. See [Schedule](configuration/device.md#schedule).
+Use the schedule in the **Screen** group of the device settings. Add an entry for each time window, from a time, sunrise or sunset (with an offset in minutes) to a time, sunrise or sunset, and set its brightness. Outside the entries, **Brightness full** and **Brightness dimmed** in the same group apply. See [Schedule](editor/device.md#schedule).
 
 Without a schedule and without a **Brightness full** value, the brightness stays manual. An automation that sets `number.<device>_brightness_full` and `number.<device>_brightness_dimmed` works as before.
 
 ### The display should turn off completely only at night
 
-Turn **Auto display off** off in the device settings and add a **Schedule** entry for the night with **Screen off** on. See [Schedule](configuration/device.md#schedule).
+Turn **Auto display off** off in the device settings and add a **Schedule** entry for the night with **Screen off** on. See [Schedule](editor/device.md#schedule).
 
-Without a schedule, a Home Assistant automation can switch `switch.<device>_use_auto_display_off` on in the evening and off in the morning. The integration does not change this switch on its own then, so the automation stays in control. See [Screen](configuration/device.md#screen).
+Without a schedule, a Home Assistant automation can switch `switch.<device>_use_auto_display_off` on in the evening and off in the morning. The integration does not change this switch on its own then, so the automation stays in control. See [Screen](editor/device.md#screen).
 
 While the panel has no connection to Home Assistant, the display never turns off; it only dims.

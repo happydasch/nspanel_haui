@@ -89,6 +89,28 @@ def test_check_mode_reports_change_without_writing(version_files):
     assert "yaml_version: '0.4.1'" in version_yaml.read_text()
 
 
+def test_check_without_a_version_only_verifies_the_manifest(version_files):
+    """`--check` alone is CI's drift check: no version to write, so nothing changes."""
+    manifest, _pyproject, _version_yaml = version_files
+
+    assert bump_version.main(["--check"]) == 0
+    assert json.loads(manifest.read_text())["version"] == "0.4.1"
+
+
+def test_check_without_a_version_reports_drift(version_files):
+    pyproject = version_files[1]
+    pyproject.write_text('[project]\nname = "nspanel-haui"\nversion = "0.4.0"\n', encoding="utf-8")
+
+    assert bump_version.main(["--check"]) == 1
+
+
+def test_a_version_is_required_for_a_write(version_files):
+    manifest, _pyproject, _version_yaml = version_files
+
+    assert bump_version.main([]) == 2
+    assert json.loads(manifest.read_text())["version"] == "0.4.1"
+
+
 def test_dev_version_updates_manifest_and_yaml_but_not_pyproject_or_tft(
     version_files,
 ):

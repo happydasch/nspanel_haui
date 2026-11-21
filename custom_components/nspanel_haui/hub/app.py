@@ -20,7 +20,11 @@ from ..haui.device_config import DEVICE_CONFIG_FIELDS
 from ..haui.mapping.color import Theme, ThemeLibrary
 from ..haui.mapping.const import ESPEvent, NotifEvent
 from ..haui.mapping.panel import PAGE_MAPPING
-from ..haui.version import get_integration_version, integration_version_mismatch
+from ..haui.version import (
+    get_integration_version,
+    hub_api_compatible,
+    integration_version_mismatch,
+)
 from .adapter import HAAdapter
 
 
@@ -430,6 +434,8 @@ class NSPanelHAUI(HAAdapter):
             "tft_version": runtime_info.get("tft_version") or "",
             "tft_required_version": runtime_info.get("tft_required_version") or "",
             "yaml_version": runtime_info.get("yaml_version") or "",
+            "hub_api_version": runtime_info.get("hub_api_version") or "",
+            "hub_api_compatible": hub_api_compatible(runtime_info.get("hub_api_version")),
             "ip": "",
             "ssid": "",
             "rssi": None,

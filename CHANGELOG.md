@@ -50,6 +50,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Firmware: the dev, universal and hub-managed configs share `esphome/nspanel_haui/packages.yaml` ([ESPHome](docs/develop/esphome.md)).
 - Firmware: local builds need ESPHome 2026.11; the vendored `nextion` patch is that release plus the TFT upload retry fix ([ESPHome](docs/develop/esphome.md)).
 - Docs: the developer guide is rewritten and grouped by subsystem — General, ESPHome & display, Frontend and Releases; the live preview and the dashboard card transport move to their own page, and the upgrade history to `docs/develop/upgrading.md` ([Development setup](docs/develop/development.md)).
+- Docs: **Editor architecture** is split into the overview, **Screens**, **Sidebars and overlays**, **Visual foundations**, **Components** and **Tests**, one page each ([Editor architecture](docs/develop/frontend.md)).
 - Docs: feature ideas live in `FEATURE_WISHLIST.md` ([Feature wishlist](FEATURE_WISHLIST.md)).
 - Docs: the user guide is reorganised into Setup, Editor and Panel types; the editor guide lives in `docs/user/editor/` and absorbs the device description ([The Editor](docs/user/editor/README.md)).
 - Docs: **Version compatibility** lists which Home Assistant, integration, firmware and display versions work together ([Version compatibility](docs/user/version-compatibility.md)).
@@ -169,8 +170,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Added
 
-- Editor: a Fleet/Device dashboard with linkable routes replaces the **Device Manager** and **Device Info** dialogs and the header's ⋯ menu ([frontend](docs/develop/frontend.md#page-structure-and-navigation)).
-- Fleet: scans for new panels when it opens, enables, disables and removes devices from their inventory row, and shows a summary strip (health, updates, versions, one segment per device), the device inventory and **Latest events**, the dated hub log of every device with repeated messages counted ([frontend](docs/develop/frontend.md#fleet-screen-regions)).
+- Editor: a Fleet/Device dashboard with linkable routes replaces the **Device Manager** and **Device Info** dialogs and the header's ⋯ menu ([Screens](docs/develop/frontend-screens.md#page-structure-and-navigation)).
+- Fleet: scans for new panels when it opens, enables, disables and removes devices from their inventory row, and shows a summary strip (health, updates, versions, one segment per device), the device inventory and **Latest events**, the dated hub log of every device with repeated messages counted ([Screens](docs/develop/frontend-screens.md#fleet-screen-regions)).
 - Device screen: a card of next actions (**Add panel**, the **Settings** cog, **Install update** while one is offered), the **Connection & device** card (uptime, Wi-Fi, current page, IP; opens **Updates**) and **Diagnostics** ([The Device Screen](docs/user/editor/README.md#device-view)).
 - Diagnostics: the display state, the idle page countdown, the disconnects and late heartbeats of the last 24 hours, the current page's entities and the firmware and display versions; **Copy report** builds a bug report without entity ids or addresses ([Diagnostics](docs/user/editor/README.md#diagnostics)).
 - Logs: a sidebar on the Device and Fleet screens, newest first and grouped by day, filtered by level or text, with warnings and errors tagged and a copy button for bug reports ([Device](docs/user/editor/device.md)).

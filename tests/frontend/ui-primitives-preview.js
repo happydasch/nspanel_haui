@@ -71,7 +71,7 @@ const DIAGNOSTICS_DEMO = {
   onLogs: noop, onCopyReport: noop, onToggleDiagnostics: noop,
 };
 
-/** The editor's text levels, largest first (docs/develop/frontend.md → Text sizes). */
+/** The editor's text levels, largest first (docs/develop/frontend-visuals.md → Text sizes). */
 const TEXT_LEVELS = [
   ['--haui-text-headline', 500, 'page title (title bar and dialogs at 400)', 'Living Room'],
   ['--haui-text-title', 500, 'sidebar title', 'Device settings'],
@@ -102,7 +102,7 @@ class UiPrimitivesPreview extends LitElement {
       <p>Test-only page. It uses the shipped Lit renderers and editor styles; focus controls or resize the browser to inspect states.</p>
       <div class="gallery-grid">
         <section class="gallery-card"><h2>Text sizes</h2>
-          <p>Each level from <code>docs/develop/frontend.md</code> → Text sizes, at its token and weight.</p>
+          <p>Each level from <code>docs/develop/frontend-visuals.md</code> → Text sizes, at its token and weight.</p>
           <div class="gallery-stack">${TEXT_LEVELS.map(([token, weight, role, sample]) => html`<div>
             <div style=${`font-size: var(${token}); font-weight: ${weight}; text-transform: ${token === '--haui-text-eyebrow' ? 'uppercase' : 'none'}`}>${sample}</div>
             <code class="haui-text-caption">${token} · ${weight} · ${role}</code>

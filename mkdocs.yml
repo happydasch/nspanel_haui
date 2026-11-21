@@ -128,6 +128,11 @@ nav:
       - Design guidelines: develop/design.md
     - Frontend:
       - Editor architecture: develop/frontend.md
+      - Screens: develop/frontend-screens.md
+      - Sidebars and overlays: develop/frontend-overlays.md
+      - Visual foundations: develop/frontend-visuals.md
+      - Components: develop/frontend-components.md
+      - Tests: develop/frontend-testing.md
       - Live preview and cards: develop/preview.md
     - Releases:
       - Update process: develop/update-process.md

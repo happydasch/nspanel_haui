@@ -102,7 +102,12 @@ For contributors and everyone who wants to know how it works inside. It follows 
 
 ### Frontend
 
-- [Editor architecture](develop/frontend.md) — layers, screens, components, tests
+- [Editor architecture](develop/frontend.md) — constraints, boot sequence, layers, feature map
+- [Screens](develop/frontend-screens.md) — routes, the shared shell, Fleet, Device
+- [Sidebars and overlays](develop/frontend-overlays.md) — sidebars, popovers, dialogs, focus
+- [Visual foundations](develop/frontend-visuals.md) — tokens, breakpoints, text sizes
+- [Components](develop/frontend-components.md) — primitives, composites, surface map
+- [Tests](develop/frontend-testing.md) — conventions, local checks, assertions
 - [Live preview and cards](develop/preview.md) — virtual panel, simulator, dashboard card
 
 ### Releases

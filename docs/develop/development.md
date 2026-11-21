@@ -150,7 +150,7 @@ See [ESPHome firmware](esphome.md) for the configs and the build targets.
 
 `pytest tests/` needs no running Home Assistant: `tests/conftest.py` stubs the `homeassistant` and `dateutil` modules through `sys.modules`, and a test file adds its own overrides where it must. Mock with `unittest.mock` and keep stub classes for Home Assistant types minimal. The suite needs Node 22+, because `tests/test_card_renders.py` replays every panel render.
 
-- **Assert at the boundaries** — the display commands (`app.cmds`), the Home Assistant calls (`entity.calls`), the return values — never internals or copy. The frontend follows the same rule ([assertion boundaries](frontend.md#assertion-boundaries)).
+- **Assert at the boundaries** — the display commands (`app.cmds`), the Home Assistant calls (`entity.calls`), the return values — never internals or copy. The frontend follows the same rule ([assertion boundaries](frontend-testing.md#assertion-boundaries)).
 - **Build the real object on the shared fake** in `tests/support/page_app.py` (`PageApp`, `Entity`) and drive a page through `set_panel`. Extend that fake instead of copying it, and construct real objects rather than `Class.__new__` with assigned private attributes.
 - **One file per module**, named after it (`test_page_<type>.py`, `test_<module>.py`). Do not copy a constant or key list into a test, and do not add a test that something removed stays removed.
 - **`tests/test_page_commands_golden.py`** pins the exact commands, service calls and popup requests of the feature-gated pages in `tests/page_commands_golden.json`; regenerate deliberately with `PAGE_COMMANDS_REGEN=1 pytest tests/test_page_commands_golden.py`.
@@ -159,7 +159,7 @@ See [ESPHome firmware](esphome.md) for the configs and the build targets.
 
 ### Frontend tests
 
-`node --test 'tests/frontend/*.test.mjs'` runs the editor suite. Import `./support/browser.mjs` before DOM or Lit code, render through `support/render.mjs`, query through `support/queries.mjs`. A new primitive needs a semantic assertion in `ui-primitives.test.mjs` and a demo in `ui-primitives-preview.js`. Details: [Editor architecture → Testing](frontend.md#testing).
+`node --test 'tests/frontend/*.test.mjs'` runs the editor suite. Import `./support/browser.mjs` before DOM or Lit code, render through `support/render.mjs`, query through `support/queries.mjs`. A new primitive needs a semantic assertion in `ui-primitives.test.mjs` and a demo in `ui-primitives-preview.js`. Details: [Editor tests](frontend-testing.md).
 
 ### Display and preview
 
@@ -206,11 +206,14 @@ Comments explain *why*; a comment that restates the next line is noise. Fail lou
 | | [Nextion component](nextion.md) | Display configuration, rendering, refresh, display scripts |
 | | [Editing the HMI](nextion-editor.md) | Working in Nextion Editor on both projects |
 | | [Design guidelines](design.md) | Style, fonts, icons, themes, adding a panel |
-| **Frontend** | [Editor architecture](frontend.md) | The editor: layers, screens, components, tests |
+| **Frontend** | [Editor architecture](frontend.md) | The editor: constraints, boot sequence, layers, feature map |
+| | [Screens](frontend-screens.md), [sidebars and overlays](frontend-overlays.md) | Routes, the Fleet and Device regions, overlays, focus |
+| | [Visual foundations](frontend-visuals.md), [components](frontend-components.md) | Tokens, breakpoints, text sizes, primitives, composites |
+| | [Tests](frontend-testing.md) | Conventions, local checks, assertion boundaries |
 | | [Live preview and cards](preview.md) | Virtual panel, simulator, dashboard card |
 | **Releases** | [Update process](update-process.md) | Channels, checks, installs, rollouts |
 | | [Upgrading](upgrading.md) | Breaking changes per version, rollback |
 | | [Release process](release.md) | Artifacts, versioning, branches, CI, runbook |
 
-Direction and release gates live in [ROADMAP.md](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md), ideas in [FEATURE_WISHLIST.md](https://github.com/happydasch/nspanel_haui/blob/master/FEATURE_WISHLIST.md), shipped changes in [CHANGELOG.md](https://github.com/happydasch/nspanel_haui/blob/master/CHANGELOG.md).
+Direction and release gates live in [ROADMAP.md](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md), ideas in [FEATURE_WISHLIST.md](https://github.com/happydasch/nspanel_haui/blob/dev/FEATURE_WISHLIST.md), shipped changes in [CHANGELOG.md](https://github.com/happydasch/nspanel_haui/blob/master/CHANGELOG.md).
 

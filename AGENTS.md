@@ -27,7 +27,7 @@ The developer guide is grouped as **General** (`development`, `hub`, `communicat
 | ESPHome firmware | `docs/develop/esphome.md` |
 | Nextion component, HMI editing rules, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md` |
 | Design: fonts, icons, themes, the new-panel workflow | `docs/develop/design.md` |
-| Editor architecture, screens, component inventory, visual foundations, testing | `docs/develop/frontend.md` |
+| Editor architecture, screens and overlays, visual foundations, component inventory, testing | `docs/develop/frontend.md` and the five pages beside it |
 | Virtual panel, simulated and live preview, panel cards, dashboard card transport | `docs/develop/preview.md` |
 | Firmware/TFT updates, rollout, update settings | `docs/develop/update-process.md` |
 | Breaking changes per version, old firmware, rollback | `docs/develop/upgrading.md` |
@@ -121,7 +121,7 @@ Hook order — `page_load_commands` → `prepare` → `start_panel` → `config_
 
 ## Editor and dashboard card (`frontend/`)
 
-Read `docs/develop/frontend.md` before a UI change; these are the rules that change must not break.
+Read the `docs/develop/frontend*.md` pages before a UI change; these are the rules that change must not break.
 
 - **Where code goes:** `app/` wires collaborators; `store/` holds observable state its actions write, one poller per scope; `api/` is the only transport; `views/` and `ui/` are pure render functions (prepared data in, `on*` callbacks out, nothing from `store/` or `api/`); `styles/` holds the CSS fragments composed by `styles.js`.
 - **Every displayed value has a real source**; missing data shows an explicit empty/unknown state, never a fabricated fact. The hash route is the single source of truth for the screen.

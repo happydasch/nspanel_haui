@@ -11,6 +11,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.4] — unreleased
 
+### Changed
+
+- Release: the release workflow merges the release into `dev` and `dev` into `master` once it published, so both branches end on one commit instead of a manual merge-back ([Release process](docs/develop/release.md)).
+
 ## [0.5.3] — 2026-11-21
 
 ### Breaking changes

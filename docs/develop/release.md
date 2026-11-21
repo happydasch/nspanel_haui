@@ -5,7 +5,7 @@ description: Release artifacts, version and tag rules, the development firmware 
 
 # Release process
 
-A release is cut from `dev` on a `release/X.Y.Z` branch, squash-merged into `master` and tagged there; `release.yml` then publishes the firmware images, both TFTs, the firmware manifest and the release notes as one GitHub release. This page lists what each artifact is, how the version and TFT serials relate, how the development channel differs, which CI jobs guard a change, and the order a maintainer runs the release steps in.
+A release is cut from `dev` on a `release/X.Y.Z` branch, squash-merged into `master` and tagged there; `release.yml` then publishes the firmware images, both TFTs, the firmware manifest and the release notes as one GitHub release, and its `sync` job puts `master` and `dev` back on one commit. This page lists what each artifact is, how the version and TFT serials relate, how the development channel differs, which CI jobs guard a change, and the order a maintainer runs the release steps in.
 
 ## What a release ships
 
@@ -105,19 +105,51 @@ Check each published dev release for `firmware-manifest.json`, both TFT assets a
 
 | Branch | Role | Rules |
 |--------|------|-------|
-| `master` | release history and the repository's default branch; docs at the site root | receives `release/X.Y.Z` and hotfix PRs only; the "Protect master (release-only)" ruleset blocks direct and force pushes and branch deletion, needs a PR with the always-running checks green, and has no bypass actors |
+| `master` | release history and the repository's default branch; docs at the site root | receives `release/X.Y.Z`, hotfix and the post-release `sync/vX.Y.Z` PRs only; the "Protect master (release-only)" ruleset blocks direct and force pushes and branch deletion, needs a PR with the always-running checks green, and has no bypass actors |
 | `dev` | integration branch and target of all day-to-day work; docs under `dev/` | not protected; takes direct pushes and PRs; dev firmware builds commit here |
 | Feature branches | one change | cut from `dev`, PR base `dev` (`gh pr create --base dev`, because new PRs default to `master`) |
 | `release/X.Y.Z` | release prep: version bump, changelog, notes, TFTs | cut from `dev`, squash-merged into `master` so one commit lands per release; no workflow commits to it |
-| Hotfix branches | a patch that cannot wait for the next `dev` cycle | cut from `master`, PR into `master`, tag, then merge `master` back into `dev` |
+| Hotfix branches | a patch that cannot wait for the next `dev` cycle | cut from `master`, PR into `master`, tag; the post-release sync then merges the result into `dev` |
 
-The cycle: feature → PR into `dev` → `release/X.Y.Z` cut from `dev` → release prep there → squash-merge into `master` → tag → `release.yml` publishes → `master` merged back into `dev` → the next changelog section. Every tag is cut from a commit whose CI was green on its source branch.
+The cycle: feature → PR into `dev` → `release/X.Y.Z` cut from `dev` → release prep there → squash-merge into `master` → tag → `release.yml` publishes, and its `sync` job merges the release into `dev`, opens the next changelog section and merges `dev` into `master` → both branches on one commit. Every tag is cut from a commit whose CI was green on its source branch.
 
 Release prep stays on the release branch because a dispatched development build commits the next dev version to `dev`; a release PR taken straight from `dev` would no longer match the history it was reviewed on.
 
 No fixed calendar. Patch releases close regressions and gate failures; minor releases ship features and breaking changes. A breaking change ships a `docs/user/update.md` entry and a CHANGELOG *Breaking changes* section — no alias is kept, so the upgrade guide is the only migration path.
 
 Commits and PR titles use [Conventional Commits](https://www.conventionalcommits.org/) (`type(scope): message`, 100 characters at most, checked by the `Validate title` job), so the merged history reads like a changelog and the squash-merged release PR becomes the release commit. Fill in `.github/pull_request_template.md` with what changed, why, how it was tested and which device checks stayed unverified.
+
+### The post-release sync
+
+A tag carries the release commit minted on `master`, so `dev` does not carry the released
+version files and `master` does not carry `dev`'s history.
+`scripts/release/sync_branches.py` closes both gaps in one pull request, right after
+`release.yml` published the release:
+
+1. `sync/vX.Y.Z` branches off `dev` and merges `origin/master` into it. A file both
+   sides rewrote takes the release's version — the release owns the version files, the
+   changelog, the notes and anything the release branch fixed — while everything `dev`
+   changed elsewhere survives the merge untouched.
+2. It adds `## [X.Y.(Z+1)] — unreleased` and its compare link to `CHANGELOG.md`, and
+   leaves them alone when the section is already open.
+3. The branch is merged into `master` through a pull request, because the ruleset
+   takes no direct push. A pull request opened with `GITHUB_TOKEN` triggers no
+   workflow, so the script dispatches `ci.yml` on the branch and waits for the six
+   required checks on its head commit.
+4. `dev` is fast-forwarded to that merge commit and `sync/vX.Y.Z` is deleted, so both
+   branches point at one commit.
+
+It refuses when `origin/master` carries no stable version, when `vX.Y.Z` is missing or
+still a draft or prerelease, when `dev` carries neither `X.Y.Z` nor a `X.Y.Z.devN`
+build (the next cycle's development build landed on `dev` first), and after the merge
+when the two branches still differ. It previews by default and writes only with
+`--apply`; every git command runs in a throwaway worktree, so the checkout that starts
+it is never modified:
+
+```bash
+python -m scripts.release.sync_branches            # report, change nothing
+python -m scripts.release.sync_branches --apply    # do what the release workflow does
+```
 
 ## CI gates and local checks
 
@@ -131,7 +163,7 @@ Commits and PR titles use [Conventional Commits](https://www.conventionalcommits
 | `deploy-docs` | `ci.yml` | push to `master` or `dev`, manual dispatch — never a PR | publishes Pages from the `docs-site` artifact plus a fresh build of the sibling branch: `master` at the root, `dev` under `dev/` |
 | `Compile firmware` | `esphome-build.yml` | PRs touching `esphome/`, `requirements-esphome.txt`, `scripts/verify_firmware/`, the workflow or the setup action; manual, with the ESPHome channel `pinned`/`latest`/`dev` and the config universal or dev | `make esphome-compile` and `make esphome-size`, which fails at 92 % of the app partition; the build tree is not restored, so a stale incremental build cannot hide a compile error |
 | `guard`, `build`, `screens`, `publish` | `dev-firmware.yml` | manual dispatch on `dev` only | the versioned universal prerelease, the single version commit on `dev`, the screen overview and the `ci.yml` dispatch (see [Published development firmware](#published-development-firmware)) |
-| `release` | `release.yml` | `v*` tag push; manual dispatch on a `v*` ref | tag equals the `manifest.json` version, ESPHome compile, manifest generation (refuses a TFT that does not embed `tft_version`), prepared notes, asset upload; the run is never cancelled |
+| `release` | `release.yml` | `v*` tag push; manual dispatch on a `v*` ref | tag equals the `manifest.json` version, ESPHome compile, manifest generation (refuses a TFT that does not embed `tft_version`), prepared notes, asset upload; the run is never cancelled. Its `sync` job then merges the release into `dev` and `dev` into `master` ([The post-release sync](#the-post-release-sync)) |
 | `Validate title` | `pr-title.yml` | PR opened, edited, synchronized or reopened | Conventional Commits title, 100 characters at most |
 | `Shell scripts` | `shellcheck.yml` | PRs and pushes touching a `*.sh` file | shellcheck over the scripts |
 
@@ -255,15 +287,17 @@ Credit external contributors by their GitHub handle in both and keep individual 
 
 2. Flash one panel from the published `.bin` and confirm the TFT auto-update.
 3. Announce the release and link its notes.
-4. Merge `master` back into `dev`, resolving the version files to the released version, and open the next changelog section:
+4. The `sync` job of `release.yml` has merged the release into `dev`, opened the
+   `X.Y.(Z+1)` changelog section and merged `dev` into `master` by now, so both branches
+   sit on one commit. Confirm it and pull `dev`:
 
     ```bash
+    python -m scripts.release.sync_branches    # reports "branches  in step"
     git switch dev && git pull --ff-only origin dev
-    git merge origin/master   # resolve manifest.json and version.yaml to X.Y.Z
-    git push origin dev
     ```
 
-    Add `## [X.Y.(Z+1)] — unreleased` and its link reference to `CHANGELOG.md`.
+    When that job failed, the same command finishes the work by hand with `--apply`; the
+    release itself is unaffected, it is already published.
 5. Start a minor cycle with the bump script before the first dev build; a patch cycle needs no step, because the first build derives its version from the released one:
 
     ```bash
@@ -291,6 +325,8 @@ gh release edit vX.Y.Z --draft     # withdraw it from the Marketplace and the pa
 - **Release notes are a separate file.** Without `.github/release-notes/<tag>.md` the body is a pointer to the changelog, whose one-line entries carry no detail.
 - **`publish_stable.py` refuses rather than guesses.** It exits when `origin` does not push to the canonical repository, when `origin/master` carries no stable version in `manifest.json`, when the tag already exists on the remote, when there is no successful `ci.yml` push run for that commit, or when `origin/master` moved since the preview — rerun the preview instead of forcing the push.
 - **`make release-preflight` is read-only.** `dev-firmware.yml` stays the only writer of the screen overview, `release.yml` the only builder and publisher, and `publish_stable.py` the only tag push.
+- **The sync reaches `master` through a pull request, not a push.** The ruleset takes no direct push, so `sync_branches.py` opens `sync/vX.Y.Z` and merges it. A pull request opened with `GITHUB_TOKEN` starts no workflow, so the script dispatches `ci.yml` on the branch to report the six required checks on its head commit; should they never appear, push any commit to `sync/vX.Y.Z` with your own token so a `pull_request` run reports them, then merge.
+- **A failed `sync` job leaves the release published and the run red.** Rerun that job once the cause is fixed, or run `python -m scripts.release.sync_branches --apply` from a checkout; it reuses the open pull request and opens no second changelog section.
 - **The Nextion Editor is GUI-only.** TFT compilation cannot be scripted, the version bump is scripted only for same-length versions, and the gate can only verify the result.
 - **The portrait TFT derives from the landscape HMI.** Regenerate and recompile it after every landscape edit; a forgotten step ships a stale portrait or fails the gate.
 - **Asset names are frozen.** Add variants without renaming existing assets.

@@ -137,9 +137,11 @@ def display_inputs_changed(paths: list[str]) -> bool:
 
 def draft_body(version: str, previous: str | None, section: str, commits: list[str]) -> str:
     """A draft of the published release body; a person edits it before publishing."""
+    # `previous` is a tag name, so it already carries the `v` the URL spells itself.
+    previous_version = (previous or "").removeprefix("v")
     compare = (
-        f"https://github.com/{REPO}/compare/v{previous}...v{version}"
-        if previous
+        f"https://github.com/{REPO}/compare/v{previous_version}...v{version}"
+        if previous_version
         else f"https://github.com/{REPO}/releases/tag/v{version}"
     )
     lines = [f"# v{version}", "", compare, ""]

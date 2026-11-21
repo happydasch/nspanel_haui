@@ -5,6 +5,8 @@ description: Notify popup — ad-hoc notifications with action buttons
 
 # Popup Notify
 
+<img src="../../assets/screens/landscape/popup_notify.png" alt="notify popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_notify.png" alt="notify popup, portrait" width="142" height="213">
+
 ## About
 
 The notify popup shows a notification: a title, a message, an optional icon and a **Dismiss** button.
@@ -14,7 +16,7 @@ It opens:
 - right away for a notification sent with `force_show` or `persistent`, or
 - when you tap the notification indicator.
 
-See [Notifications](../device.md#notifications) for how notifications behave on the panel, and [Services](../services.md#nspanel_hauisend_notification) for how to send one.
+See [Notifications](../actions.md#notifications) for how notifications behave on the panel, and [Actions](../actions.md#nspanel_hauisend_notification) for how to send one.
 
 ## What it shows
 
@@ -32,7 +34,7 @@ See [Notifications](../device.md#notifications) for how notifications behave on 
 
 ## How to configure
 
-You do not add this popup; the integration opens it. To change its title or default icon color for a device, use **Add panel → Extend a popup**, see [System Panel Overrides](../configuration/panels.md#system-panel-overrides).
+You do not add this popup; the integration opens it. To change its title or default icon color for a device, use **Add panel → Extend a popup**, see [System Panel Overrides](../editor/panels.md#system-panel-overrides).
 
 ## For developers
 

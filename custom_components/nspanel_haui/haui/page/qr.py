@@ -102,7 +102,7 @@ class QRPage(HAUIPage):
         self._has_text = self.option(panel, "show_info") or bool(items)
         self._is_big = self.option(panel, "start_big_qr")
 
-        # Add zoom button on right secondary only — leave nav buttons alone
+        # zoom button on the right-secondary slot
         zoom_btn = {
             "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "zoom",
@@ -119,13 +119,11 @@ class QRPage(HAUIPage):
             zoom_btn,
         )
 
-        # Set text on both QR components so whichever is shown after a
-        # zoom toggle already has its content.
+        # set the code on both widgets so a zoom toggle keeps its content
         self.set_title(panel.get_title())
         self.set_component_text(self.COMPONENTS.qr_code, qr_code)
         self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
-        # Render Q1/Q2 content in the same batch as visibility so the
-        # Nextion never paints empty/stale slots between batches.
+        # render Q1/Q2 with visibility so the display never shows empty slots
         if items:
             self._render_items(items)
         elif self.option(panel, "show_info"):
@@ -153,11 +151,7 @@ class QRPage(HAUIPage):
     # Visibility
 
     def _apply_zoom_state(self) -> None:
-        """Show/hide QR and Q1/Q2 components based on current _is_big state.
-
-        Ordering: hide outgoing components first, then show incoming ones, to
-        avoid unnecessary Nextion compositing passes between transitions.
-        """
+        """Show/hide the QR and Q1/Q2 widgets for the current zoom state."""
         if self._is_big:
             # Hide Q elements first, then show the big QR
             for component in (
@@ -177,9 +171,7 @@ class QRPage(HAUIPage):
                 self.FNC_BTN_R_SEC, visible=True, color=self.get_color("header_accent")
             )
         else:
-            # Hide big QR first, then show normal QR + Q elements.
-            # No send_cmd("ref") needed — the Nextion compositor handles
-            # visibility changes without a full repaint, avoiding flicker.
+            # Hide the big QR first, then show the normal QR and its text.
             self.hide_component(self.COMPONENTS.qr_code_big)
             self.show_component(self.COMPONENTS.qr_code)
             self.update_function_component(
@@ -237,11 +229,7 @@ class QRPage(HAUIPage):
             self.set_component_text(q_text_add, value_add)
 
     def _render_text(self, panel: HAUIPanel) -> None:
-        """Fill Q1/Q2 slots with SSID and password text alongside the QR code.
-
-        Note: caller (set_panel) wraps render_panel in rec_cmd, so no need for a
-        separate rec_cmd here.
-        """
+        """Fill Q1/Q2 with SSID and password text alongside the QR code."""
         self._set_info_text_colors()
         self.set_component_text(self.COMPONENTS.q1_icon, ICO_WIFI)
         self.set_component_text(self.COMPONENTS.q1_title, "SSID")

@@ -185,6 +185,16 @@ test('an unfinished gesture says what it still lacks', () => {
   assert.equal(gestureActionLabel('gone'), 'gone');
 });
 
+test('a gesture to an untitled panel names the panel by its type', () => {
+  const panels = [{ key: 'clock_0', type: 'clock' }, { key: 'kitchen', type: 'grid', title: 'Kitchen' }];
+  const panelTypes = [{ type_key: 'clock', label: 'Clock' }, { type_key: 'grid', label: 'Grid' }];
+
+  assert.equal(gestureActionLabel('clock_0', panels, [], panelTypes), 'Clock');
+  assert.equal(gestureActionLabel('kitchen', panels, [], panelTypes), 'Kitchen');
+  // Without the type list the key is all there is.
+  assert.equal(gestureActionLabel('clock_0', panels), 'clock_0');
+});
+
 test('a new gesture opens, folding it again keeps it, and the settings save it', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS, locale: 'de_DE' };
   const { dlg, events } = dialog({ config, _deviceConfigForm: config, panels: [], section: 'gestures' });

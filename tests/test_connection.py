@@ -131,6 +131,33 @@ class TestConnectionStateMachine:
         # Callback should NOT have been called (not yet connected)
         cb.assert_not_called()
 
+    def test_req_connection_warns_about_an_incompatible_firmware_hub_api(self):
+        app, _, ctrl = make_controller()
+
+        ctrl.process_event(
+            HAUIEvent(
+                ServerRequest.REQ_CONNECTION,
+                '{"name":"test","hub_api_version":"2.0"}',
+            )
+        )
+
+        assert any(
+            "not compatible with hub API" in message and kwargs.get("level") == "WARNING"
+            for message, kwargs in app.logged
+        )
+
+    def test_req_connection_accepts_a_matching_firmware_hub_api(self):
+        app, _, ctrl = make_controller()
+
+        ctrl.process_event(
+            HAUIEvent(
+                ServerRequest.REQ_CONNECTION,
+                '{"name":"test","hub_api_version":"1.0"}',
+            )
+        )
+
+        assert not any("not compatible with hub API" in message for message, _ in app.logged)
+
     def test_res_connection_during_handshaking_sends_req_device_state(self):
         app, cb, ctrl = make_controller()
         event = HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}')

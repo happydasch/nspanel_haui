@@ -1,41 +1,24 @@
 #!/usr/bin/env python3
 """Bump the integration version in every place that must agree.
 
-The firmware version and the version of its required display TFT are independent:
-``yaml_version`` advances with every firmware release, while ``tft_version`` in
-``esphome/nspanel_haui/version.yaml`` advances only when that release includes
-a TFT update. The script always updates the integration, firmware and
-``yaml_version`` sources; pass ``--tft-update`` to also update ``tft_version``
-and both HMI ``system.tftVersion`` values.
+``yaml_version`` advances with every firmware release, ``tft_version`` only with a
+release that carries a TFT update (``--tft-update``, which also writes both HMI
+``system.tftVersion`` values). A development version (``X.Y.Z.devN``) is a
+firmware-only bump: ``manifest.json`` and ``yaml_version`` change, while
+``pyproject.toml``, ``tft_version`` and the HMIs stay as the dev-release CI
+leaves them (it copies ``tft_version`` from the HMIs itself).
 
-A development version (``X.Y.Z.devN``, the ``.dev<run>`` shape the dev-release
-CI publishes) is a firmware-only bump: it updates ``manifest.json`` and the
-firmware ``yaml_version`` but leaves ``pyproject.toml``, ``tft_version`` and the
-HMI binaries alone — the dev-release CI copies ``tft_version`` from the
-HMIs' ``system.tftVersion`` itself.
-
-``CHANGELOG.md`` is *not* edited: its heading carries the release date and its
-content comes from the commits, so the maintainer writes it by hand.
-
-A same-length TFT version change (``0.4.1`` -> ``0.4.2``) is written in place in
-the HMI binaries. A longer or shorter version would resize the attribute record
-and shift the rest of the page block, so the script refuses it — use the Nextion
-Editor for a length-changing bump.
+``CHANGELOG.md`` is not edited: its heading carries the release date.
 
 Usage:
-    python -m scripts.bump_version 0.5.0                     # firmware-only release
-    python -m scripts.bump_version 0.5.0 --tft-update        # release with a TFT update
-    python -m scripts.bump_version 0.5.0 --check --tft-update  # dry run
-    python -m scripts.bump_version 0.5.0.dev3                # dev firmware bump
-
-Exit code 0 when every selected source carries the requested version (or was
-updated), 1 when a source needs a manual edit (length-changing HMI bump, missing
-widget).
+    python -m scripts.bump_version 0.5.0 [--tft-update] [--check]
+    python -m scripts.bump_version --check      # verify against manifest.json
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -79,16 +62,15 @@ def _replace_in_file(path: Path, pattern: str, replacement: str, check: bool) ->
     return True, f"{_display(path)}: updated"
 
 
+def _manifest_version() -> str:
+    """The version every other source must mirror: ``manifest.json`` is the source of truth."""
+    return json.loads(MANIFEST.read_text(encoding="utf-8"))["version"]
+
+
 def bump_text_sources(version: str, check: bool, tft_update: bool = False) -> bool:
     """Update firmware version sources and, when requested, the TFT version.
 
-    A stable ``X.Y.Z`` version updates ``manifest.json``, ``pyproject.toml``
-    and the firmware ``yaml_version``. A development version (``X.Y.Z.devN``)
-    is a firmware-only bump in the shape the dev-release CI writes:
-    ``manifest.json`` and the firmware
-    ``yaml_version`` advance, while ``pyproject.toml``, ``tft_version`` and the
-    HMI binaries stay unchanged because the dev-release CI copies
-    ``tft_version`` from the HMIs itself.
+    A development version updates only ``manifest.json`` and ``yaml_version``.
     """
     ok = True
     dev = _version_kind(version) == "dev"
@@ -127,7 +109,11 @@ def bump_hmis(version: str, check: bool) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("version", help="version to write, e.g. 0.5.0")
+    parser.add_argument(
+        "version",
+        nargs="?",
+        help="version to write, e.g. 0.5.0 (with --check: defaults to manifest.json's version)",
+    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -140,7 +126,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    version = args.version.strip()
+    if args.version is None:
+        # A dry run without a version is the drift check: every other source must
+        # mirror the manifest. Writing needs an explicit version, because a stale
+        # --tft-update would otherwise move tft_version to the firmware version.
+        if not args.check:
+            print(
+                "error: pass the version to write (--check alone verifies manifest.json)",
+                file=sys.stderr,
+            )
+            return 2
+        version = _manifest_version()
+    else:
+        version = args.version.strip()
     kind = _version_kind(version)
     if kind is None:
         print(
@@ -150,9 +148,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     ok = bump_text_sources(version, args.check, tft_update=args.tft_update)
-    # Only a stable bump can advance the TFT sources: a dev version must never
-    # move tft_version or the HMI binaries (the dev-release CI copies tft_version
-    # from the HMIs instead).
+    # Only a stable bump advances the TFT sources; a dev version must never move
+    # tft_version or the HMIs.
     if args.tft_update and kind == "stable":
         ok = bump_hmis(version, args.check) and ok
     if args.check:

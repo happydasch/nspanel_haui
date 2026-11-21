@@ -1,47 +1,28 @@
 #!/usr/bin/env python3
 """Apply a widget layout spec to a Nextion HMI project in place.
 
-The Nextion Editor stores every widget attribute as a length-prefixed record
-(``<u32 len><16-byte name><value>``) inside the page blocks of the ``.HMI``
-file, with ints as 4-byte little-endian values.  Rewriting ``x``/``y``/``w``/
-``h`` (and the derived ``endx``/``endy``) or other int attributes in place
-therefore changes no record length and no offset, so the file stays
-structurally identical.
-
-Every page block starts with a 32-bit content stamp that the editor checks
-("Version mismatch" / "Loading Page Failed" when it is stale).  The stamp is
-``CRC32(message) ^ K(block length)`` where the message is every byte after the
-stamp widened to a big-endian u32 followed by 40 zero bytes, CRC-32 MSB-first
-with init 0 and no final XOR (see https://github.com/vladtsvetkov880-hub/
-nextion-hmi-format, ``docs/block-stamp.md``).  ``K`` is a length-dependent
-constant that is not understood, but an in-place patch keeps the block length,
-so ``new_stamp = old_stamp ^ CRC32(old message) ^ CRC32(new message)``.
+Every widget attribute is a length-prefixed record (``<u32 len><16-byte name><value>``)
+inside a page block, ints as 4-byte little-endian values, so rewriting
+``x``/``y``/``w``/``h`` (and the derived ``endx``/``endy``) or another int changes
+no offset. A page block's content stamp is checked by the editor and an in-place
+patch keeps the block length, so ``new = old ^ CRC32(old) ^ CRC32(new)`` over the
+bytes after the stamp widened to a big-endian u32 plus 40 zero bytes (CRC-32
+MSB-first, init 0, no final XOR; see the nextion-hmi-format repository).
 
 A spec is a module next to this script exposing ``WIDTH``, ``HEIGHT``,
 ``HMI_NAME``, ``LAYOUT`` (``{page: {widget: (x, y, w, h)}}``), ``ATTRS``
-(``{page: {widget: {attr: int}}}``), ``PARTIAL`` and ``check_bounds()``:
-
-- ``landscape`` (default) — partial refinements of the 480x320 layout
-  (``landscape_layout.py``); unlisted widgets keep their geometry.
-- ``portrait`` — the complete 320x480 layout (``portrait_layout.py``); every
-  visual widget of every page must be listed.
-
-A spec may also name a ``SIBLING_HMI``: the two projects must then hold the
-same widgets, and the sibling's touch settings (``sendkey`` — Send Component
-ID) are copied onto every widget, so a touch toggled in the landscape project
-reaches the portrait TFT too (the hub addresses both by the same names).
+(``{page: {widget: {attr: int}}}``), ``PARTIAL`` and ``check_bounds()``.
+``landscape_layout.py`` is partial (unlisted widgets keep their geometry),
+``portrait_layout.py`` complete (every visual widget must be listed). A spec that
+names a ``SIBLING_HMI`` must hold the same widgets and copies its ``sendkey``
+settings, so a touch toggled in one project reaches the other TFT too.
 
 Usage::
 
-    python -m scripts.hmi_layout.gen_layout --check                   # landscape report only
-    python -m scripts.hmi_layout.gen_layout                           # landscape HMI (default)
-    python -m scripts.hmi_layout.gen_layout --spec portrait           # portrait HMI
-    python -m scripts.hmi_layout.gen_layout --spec portrait --check   # portrait report
-    python -m scripts.hmi_layout.gen_layout -i IN.HMI -o OUT.HMI      # explicit files
+    python -m scripts.hmi_layout.gen_layout [--spec portrait] [--check] [-i IN.HMI -o OUT.HMI]
 
-``--check`` and the patch both fail when the HMI's widgets and the spec
-disagree (a listed widget missing in the HMI, or — for a complete spec — a
-visual widget missing in the spec), so a spec cannot silently drift.
+``--check`` and the patch both fail when the HMI's widgets and the spec disagree,
+so a spec cannot silently drift.
 """
 
 from __future__ import annotations
@@ -340,9 +321,8 @@ def main(argv: list[str] | None = None) -> int:
     with_sibling = f" and with {sibling_path.name}" if sibling_path else ""
     print(f"{source}: {len(pages)} pages, spec {spec_name} consistent with the HMI{with_sibling}")
     if args.check:
-        # Verify attribute values too (alignment, font, …), not just widget
-        # coverage: a spec-only change must not pass the release gate while
-        # the committed HMI still carries the old value (#64 alignment, #60 font).
+        # Verify attribute values too, not just widget coverage: a spec-only
+        # change must not pass while the committed HMI keeps the old value.
         problems = verify(raw, spec, sibling)
         if problems:
             print("\n".join(problems))

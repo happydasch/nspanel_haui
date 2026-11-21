@@ -1,9 +1,4 @@
-"""Icon constants for HAUIPage.
-
-Consolidates all ``ICO_*`` :func:`~haui.utils.icon.get_icon` constants
-that were previously scattered across ``HAUIPage`` and individual page
-classes into one place.  Pages import individual constants as needed.
-"""
+"""``ICO_*`` icon constants for ``HAUIPage`` and the pages."""
 
 from __future__ import annotations
 

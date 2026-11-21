@@ -7,7 +7,6 @@ import { html } from '../../custom_components/nspanel_haui/frontend/lit-import.j
 import { renderDeviceView, previewControls } from '../../custom_components/nspanel_haui/frontend/views/device.js';
 import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/device-details.js';
 import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
-import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
@@ -180,11 +179,12 @@ test('the Panels view has a search field; the Device view does not', () => {
     panelSearch: { query: 'cl', onQuery: (value) => queries.push(value) },
     onSelectDevice() {}, onSwitchView() {},
   });
-  const [search] = templatesMatching(view('panels'), 'haui-panel-search');
+  const search = render(view('panels')).querySelector('input[type="search"]');
   assert.ok(search);
-  search.values.find((value) => typeof value === 'function')({ currentTarget: { value: 'clock' } });
+  search.value = 'clock';
+  search.dispatchEvent(new Event('input'));
   assert.deepEqual(queries, ['clock']);
-  assert.equal(templatesMatching(view('preview'), 'haui-panel-search').length, 0);
+  assert.equal(render(view('preview')).querySelector('input[type="search"]'), null);
 });
 
 test('the expanded Connection & device card shows its facts as four tiles', () => {

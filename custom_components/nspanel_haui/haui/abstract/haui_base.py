@@ -157,11 +157,8 @@ class HAUIBase(HAUIConfigAccess):
 
     @staticmethod
     def _dedup_commands(commands: list[str]) -> list[str]:
-        # Collapse multiple writes to the same target within a batch so the
-        # last write wins. Non-assignment commands (vis, ref, click, cirs, ...)
-        # are preserved in place to keep their ordering relative to the writes.
-        # ``vis`` commands are also deduplicated by component name so that
-        # hide-then-show of the same component collapses to just the show.
+        # Collapse repeated writes to the same target, keeping the last one;
+        # other commands stay in place; ``vis`` dedups by component name.
         last_seen: dict[str, int] = {}
         for i, cmd in enumerate(commands):
             eq = cmd.find("=")
@@ -260,14 +257,8 @@ class HAUIBase(HAUIConfigAccess):
         """
         if not component:
             return
-        # Nextion string literals know three escapes: ``\r`` (line break),
-        # ``\"`` and ``\\``.  Multi-line texts (notification pages joined with
-        # logical newlines, translated popup bodies with ``\r\n``) must be sent
-        # as ``\r``: a raw CR/LF byte would end up inside the quoted serial
-        # command and break the framing.  A quote or a backslash in the text
-        # (user messages, entity names) would end the literal early or escape
-        # its closing quote, so both are escaped.  An already-escaped ``\r``
-        # is left untouched, so configured texts can still force a line break.
+        # Nextion strings escape \r, \" and \\; raw newlines would break the
+        # quoted serial command.
         command_text = str(text).replace("\r\n", "\n").replace("\r", "\n")
         command_text = re.sub(r"\\(?!r)", r"\\\\", command_text).replace('"', '\\"')
         command_text = command_text.replace("\n", "\\r")

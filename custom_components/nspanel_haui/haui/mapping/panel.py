@@ -28,7 +28,7 @@ from .descriptor import PANEL_CATEGORIES, PageDescriptor, PageOption, page_categ
 
 # ── Page class registry ──────────────────────────────────────────────────
 
-_page_classes: list[type] = [
+_page_classes: list[type[HAUIPage]] = [
     AboutPage,
     AlarmPage,
     BlankPage,
@@ -52,7 +52,7 @@ _page_classes: list[type] = [
 ]
 
 
-def _build_panel_mapping() -> dict[str, tuple[str, type]]:
+def _build_panel_mapping() -> dict[str, tuple[str, type[HAUIPage]]]:
     """Build PANEL_MAPPING from page class DESCRIPTORs.
 
     Each page class registers under its ``type_key``.  Popup aliases are
@@ -62,7 +62,7 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
     * ``is_system`` with ``sys_panel_default["key"]`` starting with ``popup_``
       — system popup (notify, select)
     """
-    mapping: dict[str, tuple[str, type]] = {}
+    mapping: dict[str, tuple[str, type[HAUIPage]]] = {}
     for cls in _page_classes:
         d: PageDescriptor | None = getattr(cls, "DESCRIPTOR", None)
         if d is not None:
@@ -78,8 +78,7 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
             mapping[d.type_key] = (d.popup_alias_for, cls)
         # 2) Non-system pages with can_show_popup — same class, popup_<name>
         elif d.can_show_popup and not d.is_system:
-            # pages for an entity domain are popped up by that domain's popup key;
-            # the timer has no domain and is addressed as popup_<page_name>
+            # domain popups use the domain key; timer uses popup_<page_name>
             domain = next((o.domain for o in d.options if o.key == "item"), None)
             alias_key = HAUIPage.DEFAULT_POPUPS.get(domain or "", f"popup_{d.page_name}")
             mapping[alias_key] = (d.page_name, cls)
@@ -92,7 +91,7 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
     return mapping
 
 
-PANEL_MAPPING: dict[str, tuple[str, type]] = _build_panel_mapping()
+PANEL_MAPPING: dict[str, tuple[str, type[HAUIPage]]] = _build_panel_mapping()
 
 
 # ── PAGE_MAPPING: derived from DESCRIPTOR.page_id ─────────────────────────
@@ -105,8 +104,7 @@ def _build_page_mapping() -> dict[int, str]:
         d = getattr(cls, "DESCRIPTOR", None)
         if d is None or d.page_id is None:
             continue
-        # Skip popup aliases — they share a page_id with their parent
-        # (e.g. UnlockPage shares page_id=17 with AlarmPage)
+        # skip popup aliases: they share a page_id with their parent
         if d.popup_alias_for is not None:
             continue
         # Only register the primary entry, not alias entries
@@ -140,14 +138,12 @@ def _build_sys_panel_mappings() -> tuple[dict[str, str], dict[str, str]]:
         d = getattr(cls, "DESCRIPTOR", None)
         if d is None:
             continue
-        # System pages: use sys_panel_default["key"]
-        # Only the native type_key entry (not alias entries) registers
+        # system pages register under sys_panel_default["key"]
         if d.is_system and d.sys_panel_default and type_key == d.type_key:
             sys_key = d.sys_panel_default.get("key")
             if sys_key:
                 (popups if sys_key.startswith("popup_") else sys_panels)[sys_key] = type_key
-        # Popup aliases: identity mapping (sys_key == type_key)
-        # Only for non-system entries — system pages register via the if branch above
+        # popup aliases map identity, non-system entries only
         elif type_key != d.type_key and not d.is_system:
             popups[type_key] = type_key
     return sys_panels, popups
@@ -169,13 +165,8 @@ def build_sys_panels_defaults() -> list[dict]:
     - Otherwise a minimal default with ``show_in_navigation=False`` is generated.
     """
     defaults: list[dict] = []
-    seen_keys: set[str] = set()
 
     for sys_key, type_key in (SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING).items():
-        if sys_key in seen_keys:
-            continue
-        seen_keys.add(sys_key)
-
         entry = PANEL_MAPPING.get(type_key)
         if entry is None:
             defaults.append(

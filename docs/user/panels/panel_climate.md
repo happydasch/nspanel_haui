@@ -39,3 +39,5 @@ The climate panel controls one thermostat, heating or air conditioner: the targe
 ## Popup
 
 Tapping a climate entity on another panel opens the same controls as a popup (`popup_climate`).
+
+<img src="../../assets/screens/landscape/popup_climate.png" alt="climate popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_climate.png" alt="climate popup, portrait" width="142" height="213">

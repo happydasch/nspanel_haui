@@ -11,6 +11,7 @@ import { HauiDialog } from './haui-dialog.js';
 import { logsStyles } from '../styles/logs-styles.js';
 import { currentLanguage, t } from '../localize.js';
 import { icon } from '../ui/icon.js';
+import { searchField } from '../ui/search-field.js';
 import { iconButton } from '../ui/button.js';
 import { segmented } from '../ui/segmented.js';
 import { parseEvent } from '../ui/event-list.js';
@@ -194,13 +195,10 @@ class LogsSidebar extends HauiDialog {
     return html`<div class="haui-logs-tools">
         <div class="haui-logs-search-row">
           ${this._renderDevices()}
-          <label class="haui-search-field haui-logs-search">
-            ${icon('search')}
-            <input type="search" .value=${this._query} placeholder=${t('Search logs')}
-              aria-label=${t('Search logs')}
-              @input=${(event) => { this._query = event.currentTarget.value; }}
-              @keydown=${this._onSearchKey}>
-          </label>
+          ${searchField({
+            label: t('Search logs'), value: this._query, className: 'haui-logs-search',
+            onInput: (value) => { this._query = value; }, onKeyDown: this._onSearchKey,
+          })}
           ${iconButton({
             label: t('Copy logs'), iconName: 'content-copy', disabled: !visible.length,
             onClick: () => this._copy(visible),

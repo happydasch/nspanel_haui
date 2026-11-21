@@ -24,12 +24,13 @@ export const deviceLayoutStyles = css`
   .haui-device-rail-item.active .haui-status-dot { background: currentColor; }
   .haui-device-rail-item > span:nth-of-type(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-rail-update { color: var(--haui-warn-icon); }
-  /* Both columns stick to the viewport; the taller one sets the scrolling range for the shorter one.
+  /* Both columns stick to the viewport below the sticky titlebar; the taller one sets the
+     scrolling range for the shorter one.
      In one column, the lead sits above the workspace and the side stack below. */
   .haui-device-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr); grid-template-areas: "workspace side"; align-items: start; gap: 16px 20px; }
-  .haui-device-side { position: sticky; top: 18px; display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
+  .haui-device-side { position: sticky; top: calc(var(--haui-header-height) + 18px); display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
   .haui-device-lead { min-width: 0; grid-area: lead; }
-  .haui-device-workspace { position: sticky; top: 18px; grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); transition: background 150ms ease, border-color 150ms ease; }
+  .haui-device-workspace { position: sticky; top: calc(var(--haui-header-height) + 18px); grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); transition: background 150ms ease, border-color 150ms ease; }
   .haui-device-workspace.is-live { border-color: var(--haui-live-border); background: var(--haui-live-surface); }
   .haui-device-workspace.is-live .haui-workspace-header { border-color: var(--haui-live-border); }
   .haui-device-side-stack { display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
@@ -87,9 +88,9 @@ export const deviceLayoutStyles = css`
     outline: none;
     animation: haui-sidebar-in 180ms ease-out;
   }
-  .haui-sidebar-layer > :is(nspanel-panel-editor, nspanel-device-settings, nspanel-theme-sidebar, nspanel-updates-sidebar) { display: block; overflow: hidden; }
+  .haui-sidebar-layer > :is(nspanel-panel-editor, nspanel-device-settings, nspanel-theme-sidebar, nspanel-updates-sidebar, nspanel-backup-sidebar) { display: block; overflow: hidden; }
   /* Give the shadow-root scroll area a definite-height containing block. */
-  .haui-sidebar-layer > nspanel-updates-sidebar {
+  .haui-sidebar-layer > :is(nspanel-updates-sidebar, nspanel-backup-sidebar) {
     display: flex;
     height: 100%;
     min-height: 0;

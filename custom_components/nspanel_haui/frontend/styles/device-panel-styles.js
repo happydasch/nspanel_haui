@@ -35,14 +35,29 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-panel-info-facts > div:nth-child(2n) > dt { padding-inline-start: 12px; }
   .haui-panel-info-facts dt { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-panel-info-facts dd { margin: 0; overflow-wrap: anywhere; color: var(--primary-text-color); font-size: var(--haui-text-label); font-weight: 500; }
-  .haui-panel-info-key { font-family: var(--haui-mono); font-size: var(--haui-text-caption); font-weight: 400; }
+  .haui-panel-info-key { font-family: var(--haui-mono); font-size: var(--haui-text-label); font-weight: 400; }
+  /* The role toggles lead the card above its render; actions follow the facts.
+     Keep the two controls together without a divider beneath them. */
+  .haui-panel-info-roles,
+  .haui-panel-info-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .haui-panel-info-roles .haui-button,
+  .haui-panel-info-actions .haui-button { min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
+  .haui-panel-info-roles > :last-child:nth-child(odd),
+  .haui-panel-info-actions > .haui-button:first-child:only-child,
+  .haui-panel-info-actions > .haui-button:first-child:nth-last-child(n + 3) { grid-column: 1 / -1; }
+  .haui-panel-info-roles .haui-button.is-active { border-color: var(--haui-surface-strong); background: var(--haui-surface-strong); font-weight: 500; }
+  .haui-panel-info-roles .haui-button.is-active:hover:not(:disabled) { border-color: var(--divider-color); background: var(--haui-surface-strong); }
   /* A narrow card holds one fact per row. */
   @container haui-panel-info (max-width: 360px) {
     .haui-panel-info-facts { grid-template-columns: max-content minmax(0, 1fr); }
     .haui-panel-info-facts > div:nth-child(2n) > dt { padding-inline-start: 0; }
   }
-  /* The actions mirror the row's menu; Delete reads as the destructive one. */
-  .haui-panel-info .haui-card-actions .haui-button { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
+  /* Narrower than this, a pair of buttons no longer fits: one per row. */
+  @container haui-panel-info (max-width: 320px) {
+    .haui-panel-info-roles,
+    .haui-panel-info-actions { grid-template-columns: minmax(0, 1fr); }
+  }
+  /* Delete reads as the destructive one. */
   .haui-panel-info .haui-button-danger { color: var(--haui-bad-text); }
   .haui-panel-info .haui-button-danger ha-icon { color: var(--haui-bad-icon); }
   .haui-panel-info .haui-button-danger:hover:not(:disabled) {
@@ -52,13 +67,16 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   /* The overview is plain content in the side stack, not a card: no frame, no heading,
      only the list's own facts. It is its own container for the role tiles' width. */
   .haui-panels-overview { container: haui-panels-overview / inline-size; display: grid; gap: 12px; }
-  /* The overview: one row per group with its count, then the list's tips on a soft block. */
-  .haui-panels-overview-groups { display: grid; margin: 0; padding: 0; list-style: none; }
-  .haui-panels-overview-groups > li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; border-bottom: 1px solid var(--divider-color); }
-  .haui-panels-overview-groups > li:last-child { border-bottom: 0; }
+  /* The overview: the counts and the list's tips are plain rows, not blocks of
+     their own, and sit flush with the side stack's edges. */
+  .haui-panels-overview-groups,
+  .haui-panels-overview-hints { display: grid; margin: 0; padding: 0; list-style: none; }
+  /* A count row keeps the table's height, so the three groups read as one list. */
+  .haui-panels-overview-groups > li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 34px; }
   .haui-panels-overview-groups ha-icon { color: var(--secondary-text-color); --mdc-icon-size: 16px; }
   .haui-panels-overview-groups > li > span:not(.haui-badge) { overflow: hidden; font-size: var(--haui-text-label); text-overflow: ellipsis; white-space: nowrap; }
-  .haui-panels-overview-hints { display: grid; gap: 8px; margin: 0; padding: 8px 12px; border-radius: var(--haui-radius-control); background: var(--haui-surface-soft); list-style: none; }
+  /* The tips are separate statements, so they keep a gap between them. */
+  .haui-panels-overview-hints { gap: 8px; }
   .haui-panels-overview-hints > li { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
   .haui-panels-overview-hints ha-icon { --mdc-icon-size: 15px; }
   /* Home and Idle are the two roles the device assigns to panels. */
@@ -109,27 +127,39 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-panel-catalog-search { display: flex; min-width: 0; flex: 1 1 auto; }
   /* As tall as the layout toggle beside it. */
   .haui-panel-catalog-search-field { display: flex; height: 40px; flex: 1 1 auto; }
-  .haui-panel-catalog-list { display: grid; gap: 8px; }
-  .haui-panel-catalog-option { display: grid; grid-template-columns: 28px minmax(0, 1fr) 18px; align-items: center; gap: 8px; width: 100%; padding: 12px; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-control); color: var(--primary-text-color); background: var(--card-background-color); font: inherit; text-align: start; cursor: pointer; }
+  .haui-panel-catalog-list { display: grid; gap: 12px; }
+  /* One card per choice, read like the quick start card (quick-start-styles.js):
+     the card radius and a roomier 16px inset, its title at body size with its
+     icon (20px, one step over the icon default, as it leads a 16px title) and
+     the description as the text under it. */
+  .haui-panel-catalog-option { display: grid; grid-template-columns: 28px minmax(0, 1fr) 18px; align-items: center; gap: 12px; width: 100%; padding: 16px; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); color: var(--primary-text-color); background: var(--card-background-color); font: inherit; text-align: start; cursor: pointer; }
   /* Large previews sit above their text; compact previews share the row. */
-  .haui-panel-catalog-option[data-preview] { grid-template-columns: minmax(0, 1fr) 18px; gap: 8px 12px; }
+  .haui-panel-catalog-option[data-preview] { grid-template-columns: minmax(0, 1fr) 18px; gap: 12px 16px; }
   .haui-panel-catalog-preview { display: block; grid-column: 1 / -1; width: 100%; aspect-ratio: 450 / 320; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-radius-control); background: var(--haui-screen); pointer-events: none; }
   .haui-panel-catalog-preview.is-portrait { width: 100%; max-width: 320px; aspect-ratio: 320 / 480; margin-inline: auto; }
   .haui-panel-catalog-option[data-preview] .haui-panel-catalog-preview nspanel-simulator-frame { display: block; width: 100%; height: 100%; }
-  .haui-panel-catalog.is-compact-previews .haui-panel-catalog-option[data-preview] { grid-template-columns: 64px minmax(0, 1fr) 18px; gap: 8px; }
-  .haui-panel-catalog.is-compact-previews .haui-panel-catalog-preview { grid-column: auto; grid-row: 1; width: 64px; aspect-ratio: 450 / 320; }
-  .haui-panel-catalog.is-compact-previews .haui-panel-catalog-preview.is-portrait { width: 48px; max-width: none; aspect-ratio: 320 / 480; margin-inline: 0 auto; }
+  /* A compact thumb is as wide as the quick start card's preview column
+     (quick-start-styles.js), so a layout reads the same in both lists, and the
+     row takes that card's 16px between the thumb and its text (the thumb is a
+     picture, not an icon). */
+  .haui-panel-catalog.is-compact-previews .haui-panel-catalog-option[data-preview] { grid-template-columns: 128px minmax(0, 1fr) 18px; gap: 16px; }
+  .haui-panel-catalog.is-compact-previews .haui-panel-catalog-preview { grid-column: auto; grid-row: 1; width: 128px; aspect-ratio: 450 / 320; }
+  .haui-panel-catalog.is-compact-previews .haui-panel-catalog-preview.is-portrait { max-width: none; aspect-ratio: 320 / 480; margin-inline: 0 auto; }
   .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) { display: grid; gap: 4px; }
-  .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) > span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
-  .haui-panel-catalog-option:hover { border-color: var(--primary-color); }
+  /* A card with a preview carries the panel type's icon in its title, the pair
+     the quick start card shows, because the thumbnail took the icon's column. */
+  .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) > strong { display: flex; align-items: center; gap: var(--haui-space-2); font-size: var(--haui-text-body); }
+  .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) > strong > ha-icon { flex: 0 0 auto; color: var(--primary-color); --mdc-icon-size: 20px; }
+  .haui-panel-catalog-option > span:not(.haui-panel-catalog-preview) > span { color: var(--secondary-text-color); font-size: var(--haui-text-label); line-height: var(--haui-line-height-copy); }
+  .haui-panel-catalog-option:hover { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 8%, var(--card-background-color)); }
   /* Collapsible catalog sections and the device groups inside the copy section,
      drawn like the panel editor's config sections: a heading row in the content
      (no box around it), tinted while open or hovered, the chevron at its end.
-     The row's 12px inset lines the icon up with the cards' content. */
+     The row's 16px inset lines the icon up with the cards' content. */
   .haui-panel-catalog-section,
   .haui-panel-catalog-group { display: block; }
   .haui-panel-catalog-section > summary,
-  .haui-panel-catalog-group > summary { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--haui-radius-control); color: var(--primary-text-color); font-size: var(--haui-text-body); font-weight: 500; list-style: none; cursor: pointer; user-select: none; }
+  .haui-panel-catalog-group > summary { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--haui-radius-control); color: var(--primary-text-color); font-size: var(--haui-text-body); font-weight: 500; list-style: none; cursor: pointer; user-select: none; }
   .haui-panel-catalog-section > summary::-webkit-details-marker,
   .haui-panel-catalog-group > summary::-webkit-details-marker { display: none; }
   /* The same chevron the cards end with, turned down while the section is open. */
@@ -294,7 +324,6 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-details-more > summary::after { content: ""; width: 5px; height: 5px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 150ms ease; }
   .haui-details-more[open] > summary::after { transform: rotate(45deg); }
   .haui-details-more > summary:hover { color: var(--primary-text-color); }
-  .haui-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   /* Two equal columns, so a lead card's pair of actions never wraps unevenly. */
   .haui-action-card-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   /* The lead card (ui/action-card.js): tinted and never collapsed, so the view's next actions stand apart from the side-stack cards. */

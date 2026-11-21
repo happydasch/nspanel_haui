@@ -10,14 +10,14 @@ binary_sensor:
     internal: false
     disabled_by_default: true
 
-  #  Physical hardware button below display to toggle relay
+  # Physical relay button below the display
   - platform: gpio
     name: Button Left
     id: button_left
     pin:
       number: 14
       inverted: true
-    # Debounce both edges so on_press fires exactly once per physical press.
+    # Debounce both edges so on_press fires once per physical press
     filters:
       - delayed_on_off: 10ms
     on_press:
@@ -27,10 +27,8 @@ binary_sensor:
             if (id(use_button_interaction).state) {
               id(reset_interaction_timer).execute(0);
             }
-        # Toggle the relay on the press (down) edge so the action always fires,
-        # regardless of how long the button is held. The previous on_click
-        # trigger only fired for 50-350ms presses, so a firm/long press - common
-        # when deliberately waking a dimmed/off display - was silently dropped.
+        # Toggle on the press edge: on_click only covered 50-350 ms presses, so
+        # a long press (the usual way to wake a dimmed screen) did nothing.
         - if:
             condition:
               - switch.is_on: use_relay_left
@@ -42,14 +40,14 @@ binary_sensor:
             id(publish_event_native).execute("esphome.button_left", "0");
 
 
-  # Physical hardware button below display to toggle relay
+  # Physical relay button below the display
   - platform: gpio
     name: Button Right
     id: button_right
     pin:
       number: 27
       inverted: true
-    # Debounce both edges so on_press fires exactly once per physical press.
+    # Debounce both edges so on_press fires once per physical press
     filters:
       - delayed_on_off: 10ms
     on_press:
@@ -59,10 +57,8 @@ binary_sensor:
             if (id(use_button_interaction).state) {
               id(reset_interaction_timer).execute(0);
             }
-        # Toggle the relay on the press (down) edge so the action always fires,
-        # regardless of how long the button is held. The previous on_click
-        # trigger only fired for 50-350ms presses, so a firm/long press - common
-        # when deliberately waking a dimmed/off display - was silently dropped.
+        # Toggle on the press edge: on_click only covered 50-350 ms presses, so
+        # a long press (the usual way to wake a dimmed screen) did nothing.
         - if:
             condition:
               - switch.is_on: use_relay_right
@@ -87,10 +83,8 @@ text_sensor:
     internal: true
     on_value:
       - lambda: |-
-          // The hub's boot handshake reads this sensor before the display
-          // answered (it reports ~5s after boot).  Republish the device state
-          // as soon as the version arrives, so the hub can confirm the
-          // installed TFT without waiting for its next req_device_state.
+          // The boot handshake reads this before the display answers (~5 s in);
+          // republish the device state as soon as the version arrives.
           if (id(hub_connection) && !id(tft_version).state.empty()) {
             id(publish_device_state).execute();
           }
@@ -130,7 +124,7 @@ text_sensor:
             id(publish_event_native).execute("esphome.read_response", payload_str);
           }
 
-  # Wifi informations
+  # WiFi information
   - platform: wifi_info
     ip_address:
       name: IP
@@ -143,7 +137,7 @@ text_sensor:
       disabled_by_default: true
       id: wifi_bssid
 
-  # Current page, by Nextion page name (published by the page sensor below)
+  # Page name, derived from the page id sensor below
   - platform: template
     name: Current Page
     id: current_page
@@ -151,9 +145,7 @@ text_sensor:
     update_interval: never
     disabled_by_default: true
 
-  # Client Status (ESPHome)
-  # Server status (hub_availability) is now set via native API
-  # on_client_connected / on_client_disconnected triggers
+  # Hub handshake state ("online"/"offline"), published by set_hub_connected
   - platform: template
     name: Client Status
     id: client_status
@@ -186,8 +178,7 @@ sensor:
             auto payload_str = json::build_json(payload);
             id(publish_event_native).execute("esphome.read_response", payload_str);
           }
-  # Current page, by Nextion page id
-  # this sensor will get updated when a page change event occured
+  # Current page, by Nextion page id; updates on every page change
   - platform: template
     name: Current Page Number
     id: page
@@ -224,9 +215,8 @@ sensor:
     accuracy_decimals: 0
     internal: true
     filters:
-      # Allow to pass the value only if the value changed
+      # Publish only a changed value
       - lambda: |-
-          // make sure to compare numbers
           if (id(touch_x).state != x) {
             return x;
           } else {
@@ -243,16 +233,15 @@ sensor:
     accuracy_decimals: 0
     internal: true
     filters:
-      # Allow to pass the value only if the value changed
+      # Publish only a changed value
       - lambda: |-
-          // make sure to compare numbers
           if (int(id(touch_y).state) != int(x)) {
             return x;
           } else {
             return {};
           }
 
-  # Brightness of display (tracks last-set value; avoids get-dim collision)
+  # Brightness of display (last value the firmware set, not a readback)
   - platform: template
     id: brightness
     name: Brightness
@@ -261,13 +250,13 @@ sensor:
     accuracy_decimals: 0
     update_interval: never
 
-  # WIFI Signal stregth
+  # WiFi signal strength
   - platform: wifi_signal
     name: RSSI
     id: wifi_rssi
     update_interval: 60s
 
-  # Internal temperature sensor, ADC value
+  # Internal temperature sensor: ADC value
   - platform: adc
     name: ADC
     id: ntc_source
@@ -277,8 +266,7 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: true
 
-  # Internal temperature sensor
-  # ADC reading converted to resistance (calculation)
+  # ADC reading converted to resistance
   - platform: resistance
     name: Resistance
     id: resistance_sensor
@@ -288,8 +276,7 @@ sensor:
     resistor: 11.2kOhm
     disabled_by_default: true
 
-  # Internal temperature sensor
-  # resistance to temperature (calculation)
+  # Resistance converted to temperature
   - platform: ntc
     name: Temperature
     id: temperature
@@ -299,5 +286,5 @@ sensor:
       reference_temperature: 25°C
       reference_resistance: 10kOhm
     filters:
-      # add offset to value
+      # Apply the Temperature Correction number
       - lambda: return x + id(temperature_correction).state;

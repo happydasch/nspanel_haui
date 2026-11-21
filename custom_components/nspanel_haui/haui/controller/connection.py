@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPRequest, ESPResponse, ServerRequest, ServerResponse
-from ..version import get_integration_version
+from ..version import HUB_API_VERSION, get_integration_version, hub_api_compatible
 
 # How far back the connection health looks, and when a device heartbeat counts
 # as late: more than this many heartbeat intervals after the previous one.
@@ -64,7 +64,7 @@ class HAUIConnectionController(HAUIBase):
         super().__init__(app, config)
         self.log(f"Creating Connection Controller with config: {config}", level="DEBUG")
 
-        # State - replaces the old ``self.connected`` boolean
+        # Connection state.
         self._state: ConnectionState = ConnectionState.DISCONNECTED
 
         # Heartbeat parameters (populated in start_part / handshake)
@@ -84,9 +84,7 @@ class HAUIConnectionController(HAUIBase):
         # Human-readable reason for the last disconnect (heartbeat timeout,
         # handshake timeout, app stopped, ...).  None while connected.
         self._last_disconnect_reason: str | None = None
-        # Connection health for the editor: drops of an established connection
-        # as (wall time, reason) and late device heartbeats as (wall time, gap).
-        # Bounded so a flapping device cannot grow them without limit.
+        # Editor health: connection drops and late heartbeats, bounded.
         self._drops: deque[tuple[float, str]] = deque(maxlen=200)
         self._late_heartbeats: deque[tuple[float, float]] = deque(maxlen=1000)
         self._last_heartbeat: float | None = None
@@ -159,9 +157,7 @@ class HAUIConnectionController(HAUIBase):
         """Run side-effects when transitioning to CONNECTED."""
         self._update_last_time()
         self._last_connection_time = time.time()
-        # Gaps are measured within one connection. A device that reconnects
-        # without the hub timing out first (a reboot) sends no heartbeats while
-        # it is handshaking; that outage is a drop, not a late heartbeat.
+        # A reboot handshake gap is a drop, not a late heartbeat.
         self._last_heartbeat = None
 
         self._stop_handshake_timer()
@@ -375,8 +371,7 @@ class HAUIConnectionController(HAUIBase):
     # Event handling - 3-step handshake + heartbeat
     # ------------------------------------------------------------------
 
-    # Events that are excluded from livesign detection (they are part of
-    # the handshake protocol itself, not external signs of life).
+    # Handshake messages do not count as livesigns.
     _LIVESIGN_EXCLUDED: frozenset = frozenset(
         {
             ServerRequest.REQ_CONNECTION,
@@ -402,12 +397,8 @@ class HAUIConnectionController(HAUIBase):
         """
         name = event.name
 
-        # --- Livesign detection: any event when disconnected → handshake ---
-        # Heartbeats that arrive while DISCONNECTED are NOT filtered out -
-        # they ARE legitimate livesigns from a device that still runs but
-        # lost connection sync with the hub.  Only handshake protocol
-        # messages (res_connection, res_device_state) are excluded since
-        # they are part of the handshake itself.
+        # Any event while disconnected starts the handshake; only handshake
+        # protocol messages are ignored.
         if self._state == ConnectionState.DISCONNECTED:
             if name not in self._LIVESIGN_EXCLUDED:
                 self._handle_livesign(event)
@@ -435,10 +426,8 @@ class HAUIConnectionController(HAUIBase):
         """
         self._update_last_time()
         self._record_heartbeat()
-        # Bidirectional heartbeat: respond so the device's hub_heartbeat
-        # timestamp stays fresh.  The periodic loop-side timer is the
-        # primary sender; this event-driven reply is a fallback for a lost
-        # timer (and re-anchors the device right after a jittery interval).
+        # Reply so the device's hub_heartbeat stays fresh; the loop timer is
+        # the primary sender.
         self._send_hub_heartbeat({})
 
     def _record_heartbeat(self) -> None:
@@ -485,6 +474,13 @@ class HAUIConnectionController(HAUIBase):
         if isinstance(event.value, str):
             connection_request = json.loads(event.value)
             device.set_device_info(connection_request, append=False)
+            if hub_api_compatible(connection_request.get("hub_api_version")) is False:
+                self.log(
+                    "Firmware hub API "
+                    f"{connection_request.get('hub_api_version')!r} is not compatible with "
+                    f"hub API {HUB_API_VERSION}; update the panel firmware",
+                    level="WARNING",
+                )
             self.log(f"Connection request from device: {connection_request}", level="DEBUG")
         self._initiate_handshake("req_connection")
 

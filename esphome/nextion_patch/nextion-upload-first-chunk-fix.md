@@ -1,11 +1,9 @@
 # Nextion TFT upload retry fix (`upload_first_chunk_sent_`) — plan
 
-Status 2026-11-06: patch applied in the vendored component, uncommitted (the user
-commits). Tests, lint and the docs build pass, and the firmware compiles (ESP-IDF).
-Not tested on hardware yet. Nothing filed upstream yet.
-
-The first version of this fix (earlier on 2026-11-06) disappeared from the working tree
-along with the other unstaged changes; this is a re-application of the same change.
+Status 2026-11-20: the fix is committed in the vendored component, which is now
+rebased on ESPHome 2026.11.0 with only this fix (the release carries #17744 and
+#21435). The firmware compiles against 2026.11.0 (ESP-IDF), tests, lint and the
+docs build pass. Not tested on hardware yet, and nothing is filed upstream yet.
 
 ## The bug
 
@@ -27,26 +25,26 @@ completes (it continues from the offset), so the bug only shows with offset 0.
 - **Origin:** upstream, #6576 (ESP-IDF) and #6582 (Arduino), 2024, when the flag started
   choosing the first range. Not introduced by this repo; our hub's TFT installs are what
   retry in the same boot.
-- **Upstream state (checked 2026-11-06):** ESPHome `dev` at `6bb7850ed5` still has the
-  bug in both files. No issue or PR covers it.
+- **Upstream state (checked 2026-11-20):** both the ESPHome 2026.11.0 tag and
+  current `dev` still have the bug in both files. No issue or PR covers it.
 
 ## Done
 
+- `esphome/nextion_patch/nextion/` rebased on the 2026.11.0 tag; the two other
+  fixes it used to carry (#17744, #21435) are stock there, so the patch is that
+  release plus only this fix.
 - `esphome/nextion_patch/nextion/nextion_upload_esp32.cpp`,
   `esphome/nextion_patch/nextion/nextion_upload_arduino.cpp`: `upload_tft()` sets
   `this->upload_first_chunk_sent_ = false;` right after `is_updating_ = true`.
 - `tests/test_esphome_yaml.py`: `test_every_tft_upload_starts_with_the_4k_first_chunk`
   (source-level: the reset must come before the first `upload_by_chunks_()` call in
   both files). It failed before the patch and passes now.
-- `esphome/nextion_patch/README.md`: third patch listed; removal condition now needs a
-  released ESPHome with #17744, #21435 **and** this fix.
-- The removal condition elsewhere points to the README's list instead of naming
-  #17744 + #21435: `esphome/nspanel_haui/base.yaml`, `esphome/nspanel_haui.yaml`,
-  `requirements-esphome.txt`, `AGENTS.md` (`esphome/` row), `docs/develop/esphome.md` (which
-  also gained the missing #21435).
-- `CHANGELOG.md` (0.4.5, Fixed): one line.
-- Checks: `pytest tests/` (1247 passed), `ruff check`, `zensical build --strict`,
-  `esphome compile nspanel_haui_universal.yaml` (ESPHome 2026.10.0, local
+- `esphome/nextion_patch/README.md`: only this patch is listed; the removal
+  condition needs a released ESPHome with the retry fix.
+- `min_version` (`esphome/nspanel_haui/base.yaml`) and `requirements-esphome.txt`
+  bumped to 2026.11.0, together.
+- Checks: `pytest tests/`, `ruff check`, `zensical build --strict`,
+  `esphome compile nspanel_haui_universal.yaml` (ESPHome 2026.11.0, local
   `nextion_patch`). The Arduino file is not compiled by any of our configs (ESP-IDF
   only). `nspanel_haui_dev.yaml` stops at config validation on this machine: the
   local `secrets.yaml` has an `ap_password` shorter than 8 characters.
@@ -57,10 +55,9 @@ completes (it continues from the offset), so the bug only shows with offset 0.
 2. **File the upstream issue** (bug report draft written 2026-11-06, follows ESPHome's
    issue form; it needs the log from step 5 of the retest).
 3. **Open the upstream PR** below and link the issue.
-4. **After upstream merges:** name the PR in `esphome/nextion_patch/README.md`. The
-   patch directory goes once a released ESPHome has all three fixes. If 2026.11.0
-   ships #17744 and #21435 without this fix, keep the patch: rebase it on 2026.11.0
-   with only this fix, or accept the bug and delete it.
+4. **After upstream merges:** name the PR in `esphome/nextion_patch/README.md`.
+   The patch directory goes once a released ESPHome has this fix; then bump
+   `min_version` and `requirements-esphome.txt` together.
 
 ## Hardware retest
 
@@ -134,9 +131,8 @@ failure exists yet.*
 
 ```cpp
    this->connection_state_.is_updating_ = true;
-+  // Every upload starts with the 4096-byte chunk the display answers with its resume offset.
-+  // A failed upload leaves the flag set; a retry in the same boot would then request the
-+  // whole file as its first chunk and stop after 4 KB.
++  // A failed upload leaves this set (a successful one reboots); clear it so a
++  // retry in the same boot requests the 4 KB first chunk, not the whole file.
 +  this->upload_first_chunk_sent_ = false;
 ```
 

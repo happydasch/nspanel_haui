@@ -12,7 +12,8 @@
 import { clone, defaultPanel } from './constants.js';
 import { t } from './localize.js';
 import { serializeItem } from './haui-item.js';
-import { getSystemPanelKeys } from './panel-utils.js';
+import { getSystemPanelKeys, panelName } from './panel-utils.js';
+import { idlePanelConfig, idlePanelKeys } from './panel-roles.js';
 
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
@@ -69,26 +70,6 @@ export function openAdd(host, selectedType) {
 export function openAddFrom(host, source) {
   const data = clone(source);
   data.type = data.type || "clock";
-  data.key = generateAutoKey(host._devicePanels(), data.type);
-  openPanelDialog(host, -1, data, data.type);
-}
-
-/**
- * Open the editor for a new panel that starts from a starter template, under a
- * key that is free on this device. The slots' preview-only `domain` hints are
- * dropped; their empty entities stay for the user to choose.
- *
- * @param {any} host - editor component
- * @param {any} template - the template's panel config (keyless)
- */
-export function openAddFromTemplate(host, template) {
-  const data = clone(template);
-  for (const value of Object.values(data)) {
-    if (!Array.isArray(value)) continue;
-    for (const entry of value) {
-      if (entry && typeof entry === 'object') delete entry.domain;
-    }
-  }
   data.key = generateAutoKey(host._devicePanels(), data.type);
   openPanelDialog(host, -1, data, data.type);
 }
@@ -407,7 +388,11 @@ export async function saveFromData(host, panel, index) {
   const action = index >= 0
     ? t('Saved "{name}"').replace('{name}', panel.key || t('panel'))
     : t('Added "{name}"').replace('{name}', panel.key || t('panel'));
-  await host._savePanels(newPanels, action);
+  const saved = await host._savePanels(newPanels, action);
+  // The row of a panel just added says so in the Panels view's list for a
+  // moment, the way the pages of a setup do.
+  if (saved && index < 0) host._markNewPanels?.([newPanel.key]);
+  return saved;
 }
 
 /* ── navigation visibility toggle ──────────────────────────────────────────── */
@@ -471,4 +456,34 @@ export async function saveDeviceConfig(
   });
   host._error = saved ? null : host.store.getState().hub.error;
   return saved;
+}
+
+/**
+ * Set or unset one of the device's panel roles for a panel: the home panel, or
+ * a panel of the ordered idle sequence. Both are device settings (Home & idle),
+ * so they are saved as one, without touching the device's panels.
+ *
+ * @param {any} host
+ * @param {string} key - the panel's key
+ * @param {'home'|'idle'} role
+ * @returns {Promise<boolean>} whether the save was accepted
+ */
+export async function togglePanelRole(host, key, role) {
+  const deviceName = host._selectedDevice;
+  const device = deviceName ? host.store.getState().devices.byName[deviceName] : null;
+  if (!key || !device || !host.entryId) return false;
+  const config = device.config || {};
+  const panel = (device.panels || []).find((entry) => entry.key === key);
+  const name = panelName(panel, host._panelTypes) || key;
+  const idleKeys = idlePanelKeys(config.idle_panel, config.idle_panel_extra);
+  // The panel holds the role now, so this press takes it away. Unsetting the
+  // home panel falls back to the hub's default: the first navigation panel.
+  const holds = role === 'home' ? config.home_panel === key : idleKeys.includes(key);
+  const message = role === 'home'
+    ? (holds ? t('"{name}" is no longer the home panel') : t('"{name}" is now the home panel'))
+    : (holds ? t('"{name}" is no longer an idle panel') : t('"{name}" is now an idle panel'));
+  const next = role === 'home'
+    ? { ...config, home_panel: holds ? '' : key }
+    : { ...config, ...idlePanelConfig(holds ? idleKeys.filter((entry) => entry !== key) : [...idleKeys, key]) };
+  return saveDeviceConfig(host, next, message.replace('{name}', name), deviceName);
 }

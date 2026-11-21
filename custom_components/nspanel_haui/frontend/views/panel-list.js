@@ -25,6 +25,7 @@ import { menuItem, menuSeparator, menuSubmenu, overlayAnchor, popover } from '..
  * @property {string} [typeLabel]
  * @property {number} [itemCount]
  * @property {boolean} [invalid] - the saved panel breaks a rule of its type
+ * @property {boolean} [isNew] - the list just gained this panel (a setup's page, or one the user added)
  * @property {unknown} [preview]
  * @property {unknown[]} [roles]
  * @property {string} [lockReason]
@@ -106,17 +107,38 @@ function renderEntry({ entry, open, submenuOpen, onToggleMenu, onToggleSubmenu, 
  * picked; the caller decides what a selection means (the Panels view's side card
  * describes it).
  *
+ * @typedef {Object} PanelListSetup
+ * @property {string} title
+ * @property {string} [message] - what the state explains, when it explains something
+ * @property {string} actionLabel
+ * @property {() => void} action
+ *
  * @param {{ groups: PanelListGroup[], portrait?: boolean, menuKey?: string|null, submenuKey?: string|null, emptyMessage?: string,
+ *   setup?: PanelListSetup|null,
  *   selectedKey?: string|null,
  *   onToggleMenu?: (key: string) => void, onToggleSubmenu?: (key: string) => void, onCloseMenu?: () => void,
  *   onToggleGroup?: (groupId: string) => void, onSelect?: (key: string) => void,
  *   onDrop?: (move: {sourceKey: string, group: string, beforeKey: string|null}) => void }} model
  */
 export function renderPanelList({
-  groups = [], portrait = false, menuKey = null, submenuKey = null, emptyMessage = '', selectedKey = null,
+  groups = [], portrait = false, menuKey = null, submenuKey = null, emptyMessage = '', setup = null,
+  selectedKey = null,
   onToggleMenu = () => {}, onToggleSubmenu = () => {}, onCloseMenu = () => {}, onToggleGroup = () => {},
   onSelect = () => {}, onDrop = () => {},
 }) {
+  // A device without panels has nothing to group: one start for the whole device.
+  if (setup) {
+    return html`<section class="haui-panel-groups" aria-label=${t('Panels')}>
+      ${emptyState({
+        title: setup.title,
+        message: setup.message,
+        iconName: 'panels',
+        action: setup.action,
+        actionLabel: setup.actionLabel,
+        className: 'haui-panel-setup',
+      })}
+    </section>`;
+  }
   return html`<section class="haui-panel-groups" aria-label=${t('Panels')}>
     ${groups.length || !emptyMessage ? nothing : emptyState({ message: emptyMessage, iconName: null, className: 'haui-empty-state-compact' })}
     ${groups.map((group) => html`<section class="haui-panel-group" data-panel-group=${group.id}
@@ -163,6 +185,7 @@ export function renderPanelList({
             typeLabel: entry.typeLabel,
             itemCount: entry.itemCount,
             invalid: entry.invalid === true,
+            isNew: entry.isNew === true,
             selected: selectedKey === entry.key,
             thumbnail: panelThumb({
               content: entry.preview,

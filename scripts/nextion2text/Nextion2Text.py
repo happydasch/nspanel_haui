@@ -44,14 +44,9 @@ class IndentList(list):
 
 class Component:
     """
-    How the attributes dict is organized:
-    attributes:
-        "encoded" name:
-            -1: default interpretation:
-                name: Name by which the encoded name will be replaced
-                type: int/str/strlist/bool - how to decode the content
-                mapping: optional: replace the values by a string
-            12: Optional interpretation if attribute is part of a component of type 12
+    The attributes dict, keyed by encoded name:
+        -1: default interpretation: name, type (int/str/strlist/bool), optional mapping
+        <component type>: interpretation for that component type instead
     """
 
     codeEvents = {
@@ -494,15 +489,7 @@ class Component:
                     "ignore": True,
                 },
             },
-            # "model": {
-            #    "P": {
-            #        "drag": {
-            #            1: {
-            #                "name": "Initial x coord."
-            #            },
-            #        },
-            #    },
-            # },
+            # "model": {"P": {"drag": {1: {"name": "Initial x coord."}}}},
         },
         "y": {
             "name": "y coordinate",
@@ -513,15 +500,7 @@ class Component:
                     "ignore": True,
                 },
             },
-            # "model": {
-            #    "P": {
-            #        "drag": {
-            #            1: {
-            #                "name": "Initial y coord."
-            #            },
-            #        },
-            #    },
-            # },
+            # "model": {"P": {"drag": {1: {"name": "Initial y coord."}}}},
         },
         "w": {
             "name": "Width",
@@ -1251,8 +1230,7 @@ class Component:
     ):
 
         data = dict()
-        # Model name is considered as an "attribute", too.
-        # (needed to know the right interpretation; see below)
+        # The model name counts as an "attribute": it decides how the others are read.
         self.rawData["att"]["model"] = self.modelSeries
         attributes = dict()
         # The interpretation of any attribute can depend on other attributes. (see code below)
@@ -1262,10 +1240,7 @@ class Component:
             if attName in customExclude:
                 continue
             if attName in Component.attributes.keys():
-                # Build dictionary that interpretes and ignores the right attributes.
-                # attProperties = dict()
-                # attProperties.update(self.attributes[attName])
-                # Enforce deep copy
+                # Build the dict that interprets and ignores the right attributes; deep copy.
                 attProperties = copy.deepcopy(Component.attributes[attName])
                 done = False
                 while not done:
@@ -1315,7 +1290,7 @@ class Component:
                     attData = val
                 attributes[attName] = attData
         data["Attributes"] = attributes
-        # model "attribute" is no longer needed and doesnt belong here anymore
+        # The model "attribute" has done its job; drop it.
         self.rawData["att"].pop("model")
         for attName, attData in self.rawData.items():
             if not attName.startswith("codes") or (
@@ -1346,9 +1321,7 @@ class Component:
         # Drop the last (empty) element
         if not properties[-1]:
             properties = properties[:-1]
-        # Second level parsing. Properties are grouped. The group name includes
-        # the group length as string. F.ex. a attribute group wth 29 entries is
-        # is encoded as "att-29". After those 29 entries the next group follows.
+        # Second level: properties are grouped, the name ("att-29") giving the length.
         index = 0
         self.rawData = dict()
         while index < len(properties):
@@ -1359,8 +1332,7 @@ class Component:
             index += length
         for k, v in self.rawData.items():
             if k == "att":
-                # Parse attributes. They have a 16 byte fixed length name (filled with \x00 to 16)
-                # followed by the actual value.
+                # Attributes: a 16-byte NUL-padded name, then the value.
                 rawAttributes = dict()
                 for att in v:
                     # Basic name, data separation and interpretation
@@ -1519,13 +1491,11 @@ class Page:
                 self.commonAttributes &= attributes
 
         self.components.sort(key=lambda c: c.rawData["att"]["objname"])
-        # self.components.sort(key=lambda c: c.rawData["att"]["id"])
 
     def __repr__(self):
         for c in self.components:
             if c.rawData["att"]["id"] == 0:
                 return c.__repr__()
-        # return self.components[0].__repr__()
 
     def getTextLines(self, *args, **kwargs):
         if "key" not in kwargs:
@@ -1791,7 +1761,7 @@ def _load_custom_dictionary(path: Path):
     """Import a trusted dictionary module and its adjacent helpers."""
     saved_sys_path = sys.path.copy()
     try:
-        # Custom dictionaries historically resolve bare imports beside their file.
+        # Custom dictionaries resolve bare imports beside their file.
         sys.path.insert(0, str(path.parent))
         return __import__(str(path.stem), fromlist=["attributes", "codeEvents"])
     finally:
@@ -1980,9 +1950,7 @@ if __name__ == "__main__":
                         "Something went wrong while recursively deleting all content of the "
                         "output folder. Please reduce your file system voodoo."
                     )
-    # parents=True so the output tree can be created from scratch; the default
-    # dump target lives under the git-ignored ref_src/ which is absent in a
-    # fresh CI checkout.
+    # parents=True: the default dump target sits under the git-ignored ref_src/.
     hmiTextFolder.mkdir(parents=True, exist_ok=True)
 
     if args.json:
@@ -2005,7 +1973,6 @@ if __name__ == "__main__":
         for c in page.components:
             if c.rawData["att"]["id"] == 0:
                 name = c.rawData["att"]["objname"]
-        # name = page.components[0].rawData["att"]["objname"]#str(page)
         text = page.getText(
             emptyLinesLimit=1,
             includeUnknown=includeUnknown,

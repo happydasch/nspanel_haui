@@ -34,7 +34,7 @@ class UnlockPage(AlarmPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # store panel infos
         self._unlock_panel = unlock_panel = panel.get("unlock_panel", None)
-        # The system panel's default title is "", not missing.
+        # default title is "", not missing
         self._title = panel.get("title") or self.translate("Unlock")
         self.set_function_buttons(
             AlarmPage.COMPONENTS.fnc_left_pri,
@@ -62,9 +62,8 @@ class UnlockPage(AlarmPage):
             self._unlock_code = unlock_panel.get("unlock_code")
 
     def header_panel(self, panel: HAUIPanel) -> HAUIPanel:
-        # The header is the guarded panel's own (prev/next in navigation, the
-        # lock on the right), read from that panel: the popup's own navigation
-        # state stays untouched, so navigation keeps it on the stack.
+        # The header comes from the guarded panel; the popup's own navigation
+        # state stays untouched.
         return self._unlock_panel or panel
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:

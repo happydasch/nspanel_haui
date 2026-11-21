@@ -24,6 +24,32 @@ test('a device card is minimal; the inventory row keeps overflow actions without
   assert.doesNotMatch(card, /Actions for/);
 });
 
+
+test('a device card without panels offers to set the device up; its inventory row looks like any other', async () => {
+  const { deviceCard } = await import('../../custom_components/nspanel_haui/frontend/ui/device-card.js');
+  const { deviceRow } = await import('../../custom_components/nspanel_haui/frontend/ui/device-row.js');
+  const device = { friendlyName: 'Kitchen', config: {}, panels: [] };
+  const card = templateText(deviceCard({
+    name: 'kitchen', device, status: { connected: true }, needsSetup: true, onOpen() {},
+  }));
+  assert.match(card, /No panels yet/);
+  assert.match(card, /Set up device Kitchen/);
+  assert.doesNotMatch(card, /haui-device-card-bezel/);
+
+  const configured = templateText(deviceCard({
+    name: 'kitchen', device, status: { connected: true }, needsSetup: false, onOpen() {},
+  }));
+  assert.doesNotMatch(configured, /No panels yet/);
+  assert.match(configured, /haui-device-card-bezel/);
+  assert.match(configured, /Open device Kitchen/);
+
+  const row = templateText(deviceRow({
+    name: 'kitchen', device, status: { connected: true }, onOpen() {}, onMenu() {},
+  }));
+  assert.match(row, /Kitchen/);
+  assert.doesNotMatch(row, /Not configured/);
+  assert.doesNotMatch(row, /No panels yet/);
+});
 test('a device row shows the connection icon of the device card in front of the name', async () => {
   const { deviceRow } = await import('../../custom_components/nspanel_haui/frontend/ui/device-row.js');
   const row = (status) => templateText(deviceRow({

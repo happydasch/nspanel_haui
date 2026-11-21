@@ -1,5 +1,5 @@
 debug:
-  update_interval: 30s          # logs free heap + loop time periodically
+  update_interval: 30s          # log free heap and loop time every 30 s
 
 sensor:
   - platform: uptime
@@ -8,13 +8,13 @@ sensor:
 
   - platform: debug
     free:
-      name: "Heap Free"         # watch this decline = leak confirmed
+      name: "Heap Free"         # falling trend = leak
     block:
-      name: "Heap Max Block"    # largest contiguous = fragmentation
+      name: "Heap Max Block"    # largest contiguous block = fragmentation
     loop_time:
       name: "Loop Time"
 
 text_sensor:
   - platform: debug
     reset_reason:
-      name: "Reset Reason"      # <-- decisive after a reboot
+      name: "Reset Reason"      # why the panel last rebooted

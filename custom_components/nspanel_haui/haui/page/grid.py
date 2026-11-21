@@ -8,6 +8,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
+from ..mapping.color import active_tile_color
 from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
@@ -129,18 +130,11 @@ class GridPage(PagedItemsMixin, HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
         self._items = self._build_items_from_panel(panel, "items")
-        # page position is navigation state, not a user option: it lives on
-        # the panel (persists across visits) rather than being reset to a
-        # configured initial page every time the panel opens.
+        # page position is navigation state on the panel, so it persists
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
-        # Pagination sits on fnc_right_sec (inner, beside the title) so
-        # fnc_right_pri stays free for auto-assignment: NEXT in navigation,
-        # CLOSE on a stacked panel.  Only claim the slot when there actually
-        # is more than one page; otherwise _auto_assign_fncs() can put the
-        # notification indicator there.  When pagination does claim it,
-        # auto-assign moves the notification indicator onto the idle button's
-        # left-secondary slot on the home panel.
+        # Pagination sits on the inner-right slot, so fnc_right_pri stays free
+        # for NEXT/CLOSE; only claim it when there is more than one page.
         btn_right_sec: tuple | dict = self.COMPONENTS.fnc_right_sec
         if len(self._items) > self.NUM_GRIDS:
             btn_right_sec = {
@@ -206,8 +200,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
             item = None
             if len(items) > i:
                 item = items[i]
-            # click events are captured by overlay, assign
-            # entities to button overlay
+            # click events are captured by the overlay
             idx = i + 1
             ovl = getattr(self.COMPONENTS, f"g{idx}_ovl")
             power = getattr(self.COMPONENTS, f"g{idx}_power")
@@ -238,22 +231,31 @@ class GridPage(PagedItemsMixin, HAUIPage):
             self._active_handles.append(handle)
 
     def get_grid_colors(self, item: HAUIItem | None) -> tuple:
-        # Default theme colors — no panel-level overrides.
+        # Default theme colors — no panel-level overrides. An off tile stays flat on
+        # the page, an on tile lifts towards the theme's entity-on colour and shows
+        # its power button in that colour, so both follow a theme change.
+        active = item is not None and self.is_item_active(item)
         text_color: Any = self.get_color("text")
         back_color: Any = self.get_color("background")
+        if active:
+            back_color = active_tile_color(
+                self.get_color("background"), self.get_color("entity_on")
+            )
         color_pressed: Any = self.get_color("component_text")
         back_color_pressed: Any = self.get_color("component_pressed")
-        power_color: Any = self.get_color("component_active")
+        power_color: Any = self.get_color("entity_on") if active else back_color_pressed
 
-        # Item-level overrides.  Resolve state-keyed/templated colours here:
-        # sending a dict straight to parse_color_value renders the tile black.
+        # Item-level overrides; resolve state-keyed/templated colours here
+        # (a dict would render the tile black).
         if item is not None:
             text_color = item.get_color_field("text_color", text_color)
             back_color = item.get_color_field("back_color", back_color)
             color_pressed = item.get_color_field("color_pressed", color_pressed)
             back_color_pressed = item.get_color_field("back_color_pressed", back_color_pressed)
             power_color = item.get_color_field("power_color", power_color)
-            if not self.is_item_active(item):
+            # The power button's colour is the one while the item is on; an off
+            # tile keeps its glyph flat in the pressed tone.
+            if not active:
                 power_color = back_color_pressed
 
         return text_color, color_pressed, back_color, back_color_pressed, power_color
@@ -330,8 +332,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 power = getattr(self.COMPONENTS, f"g{idx}_power")
                 _, _, _, _, power_color = self.get_grid_colors(item)
                 self.update_function_component(power.name, visible=True, color=power_color)
-                # The centered power button intentionally occupies the icon area;
-                # redraw it after the entity icon to keep the large control visible.
+                # Redraw the centered power button after the icon.
                 self.send_cmd(f"ref {power.name}")
             else:
                 self.update_function_component(
@@ -345,8 +346,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
     # callback
 
     def _update_entry(self, idx: int) -> None:
-        # Re-apply the whole tile, not just icon/name: state-keyed text and
-        # background colours must change with the entity state too.
+        # Re-apply the whole tile so state-keyed colours change too.
         self.set_grid_entry(idx, visible=True)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:

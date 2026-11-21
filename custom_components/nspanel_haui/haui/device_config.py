@@ -21,10 +21,8 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
     ("sk_SK", "Slovenčina"),
 ]
 
-# Standard logging levels offered per device.  The value is the threshold at
-# which this device's app logs are emitted (see HAAdapter.log); DEBUG adds
-# detailed diagnostics (entity state changes, display commands) on top of the
-# routine INFO lifecycle messages.
+# Log levels per device: the threshold for this device's app logs; DEBUG adds
+# state-change and display-command diagnostics.
 LOG_LEVEL_OPTIONS: list[str] = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
 # Settings that may be None: the hub leaves the value to the device.
@@ -45,33 +43,23 @@ DEVICE_CONFIG: dict[str, Any] = {
     "button_right_entity": "",
     # navigation
     "home_panel": "",  # panel key of the home panel (empty = none set)
-    # Idle page: the destination of automatic page switching
-    # (use_auto_page).  It is a *navigation* target only - the display-off
-    # state is a separate behavior (use_auto_display_off) and never requires a
-    # page switch or a hardware sleep session.
+    # Idle page: the automatic page-switch target; independent of display-off.
     "idle_panel": "",  # panel key of the idle page (empty = none set)
-    # Comma-separated panel keys cycled through on repeated entries (carousel).
-    # The first page shown is idle_panel, then each entry advances to the next.
+    # Comma-separated panel keys cycled on repeated entries (carousel).
     "idle_panel_extra": "",
     "show_home_button": False,
     "show_idle_button": False,
     "show_notifications_button": True,
     # page settle delay (seconds)
-    # After receiving the page-change confirmation (esphome.page event), wait
-    # this long before sending render commands.  This gives the Nextion display
-    # extra time to fully initialise all page components, reducing the risk of
-    # "Invalid variable name" errors when render commands arrive before the page
-    # is ready.
+    # Wait this long after the page-change event before rendering, so all
+    # widgets are initialised.
     "page_settle_delay": 0.1,
     # logging
     "log_level": "INFO",
-    # stale-data indicator: when an entity value has not updated for this many
-    # seconds, pages render it dimmed with a "…" suffix.  0 = off (default).
+    # stale-data indicator threshold in seconds (0 = off)
     "stale_data_seconds": 0,
-    # Gestures: one or more swipes in order (the last within ``timeframe``
-    # seconds of the first) run ``action``: ``next_panel``, ``prev_panel`` or
-    # the key of a panel to open; see haui/controller/gesture.py.  A swipe no
-    # gesture uses does nothing.
+    # Swipe gestures: swipes in order within ``timeframe`` run ``action``
+    # (``next_panel``, ``prev_panel`` or a panel key).
     "gestures": [
         {"swipes": ["swipe_left"], "action": "next_panel", "timeframe": 3},
         {"swipes": ["swipe_right"], "action": "prev_panel", "timeframe": 3},
@@ -82,11 +70,8 @@ DEVICE_CONFIG: dict[str, Any] = {
     "reset_interaction_on_button": True,
     # snapshot restore limit: -1 = no limit, 0 = never restore, >0 = max age in seconds
     "snapshot_max_age_seconds": -1,
-    # auto-navigate-home timeout (seconds, 0 = disabled).
-    # When >0, after this many seconds of inactivity on any non-home panel,
-    # the hub navigates back to the home panel automatically. Should be set
-    # shorter than any display-off/dim timeout to take effect before the display
-    # turns off.
+    # auto-navigate-home timeout in seconds (0 = disabled); keep it below the
+    # display-off/dim timeout.
     "auto_navigate_home_timeout": 0,
     "use_relay_left": True,
     "use_relay_right": True,
@@ -96,38 +81,31 @@ DEVICE_CONFIG: dict[str, Any] = {
     "timeout_dimming": 10,
     "timeout_page": 30,
     "timeout_display_off": 120,
-    # Fade time of the dimming transition in seconds (the firmware's
-    # "Duration Dimming" number, 0-5).
+    # Fade time of the dimming transition (firmware "Duration Dimming", 0-5).
     "duration_dimming": 2.0,
-    # Full display brightness in percent.  None = the hub never writes it and the
-    # value set on the panel stays; required once the schedule has entries.
+    # Full brightness in percent; None leaves the panel's value (required once
+    # the schedule has entries).
     "brightness": None,
-    # Dimmed display brightness in percent (the level the panel dims to).  None =
-    # the hub never writes it and the value set on the panel stays.
+    # Dimmed brightness in percent; None leaves the panel's value.
     "brightness_dim": None,
-    # Schedule: windows that override sound, brightness, dimming and display-off;
-    # see haui/schedule.py.  The first entry whose window contains now applies.
-    # Each entry: {"start": "21:00", "end": "sunrise", "end_offset": -30, "sound": False,
-    #              "brightness": 20, "brightness_dim": 5, "display_off": True,
-    #              "timeout_dimming": 10, "timeout_display_off": 30}
-    # A value left out (None) falls back to the device setting of the same name.
-    # start_offset / end_offset (minutes, -720..720) shift a sunrise/sunset boundary.
+    # Schedule windows override sound, brightness, dimming and display-off; the
+    # first entry containing now applies. Entry: {"start": "21:00", "end":
+    # "sunrise", "end_offset": -30, "sound": False, "brightness": 20,
+    # "brightness_dim": 5, "display_off": True, "timeout_dimming": 10,
+    # "timeout_display_off": 30}; a None value falls back to the device setting.
+    # Offsets are minutes, -720..720.
     "schedule": [],
     "sound_on_startup": False,
-    # Active semantic color definitions, selected from built-ins or saved themes.
+    # Active semantic colour definitions (built-ins or saved themes).
     # A theme carries both icon palettes; its page background picks the one used.
     "theme_id": "dark",
     "sound_on_notification": False,
     "persistent_sound_interval": 5,  # seconds between repeats for persistent notifications
-    # Hardware display model: the NSPanel is sold as an EU model (landscape
-    # display) and a US model whose display is mounted portrait or landscape.
-    # The update controller picks the matching TFT asset for this device.
+    # Display model: EU landscape or US portrait/landscape; selects the TFT asset.
     "display_model": "eu",
 }
 
-# GitHub-release TFT asset name for each display model.  Any landscape mount
-# (including a US panel mounted landscape) uses the default landscape layout;
-# only the US portrait mount needs the rotated asset.
+# TFT asset per display model: only the US portrait mount needs the rotated one.
 DISPLAY_MODEL_TFT_FILENAME: dict[str, str] = {
     "eu": "nspanel_haui.tft",
     "us": "nspanel_haui_portrait.tft",
@@ -154,9 +132,7 @@ def is_portrait_model(display_model: str | None) -> bool:
     return tft_filename_for_model(display_model) == DISPLAY_MODEL_TFT_FILENAME["us"]
 
 
-# Fields synced from store to device config.
-# Derived from DEVICE_CONFIG keys, excluding meta-fields that have separate
-# handling paths (name, panels, esphome_device_id).
+# Fields synced from the store, minus meta-fields handled elsewhere.
 DEVICE_CONFIG_FIELDS: list[str] = [
     k for k in DEVICE_CONFIG if k not in ("name", "panels", "esphome_device_id")
 ]
@@ -277,10 +253,7 @@ def apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
         if "config" in store_dev:
             merge_store_fields(store_dev["config"], dev, fields)
 
-    # Apply to cfg["device"] (HAUIDevice runtime config) from the runtime
-    # device only. Runtime device = first entry in cfg["devices"] (matches
-    # NSPanelHAUI.initialize); cfg["device"]["name"] mirrors the runtime
-    # device name when one is available, so it may also be used as a lookup key.
+    # Apply the runtime device's settings; it is the first entry in cfg["devices"].
     devs = cfg.get("devices", [])
     runtime_name = devs[0].get("name", "") if devs else ""
     if not runtime_name:

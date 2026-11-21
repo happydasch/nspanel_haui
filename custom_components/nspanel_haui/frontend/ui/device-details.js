@@ -15,7 +15,7 @@ import { deviceConnectionState } from '../device-status.js';
 /**
  * The Device side stack of the Preview view: the connection and device facts,
  * Diagnostics, and below them the buttons that open a sidebar of their own
- * (Backups, Updates and Themes). Device facts and diagnostics come from the
+ * (Themes, Updates and Backups). Device facts and diagnostics come from the
  * real status payload: facts the device did not report stay "Unknown", and
  * while it is offline they are marked stale.
  *
@@ -93,10 +93,10 @@ export function deviceDetails({
 
 /**
  * The buttons below the side stack's cards, as content without a card of their
- * own: each spans the whole width on a line of its own. **Updates** and
- * **Themes** also name what they open on their trailing edge — what the update
- * settings hold, the selected theme's name; **Backups** opens the device's YAML
- * export and import, **Themes** the theme library with the device's theme
+ * own: each spans the whole width on a line of its own. **Themes** and
+ * **Updates** also name what they open on their trailing edge — the selected
+ * theme's name, what the update settings hold; **Backups** opens the device's
+ * YAML export and import, **Themes** the theme library with the device's theme
  * selected.
  *
  * @param {{ onBackups?: () => void, onUpdates: () => void, updatesDetail?: string,
@@ -105,13 +105,13 @@ export function deviceDetails({
 function sideActions({
   onBackups, onUpdates, onEditTheme, updatesDetail = '', themeDetail = '',
 }) {
-  return html`<div class="haui-details-actions">${button({
-    label: t('Updates'), iconName: 'update', detail: updatesDetail,
-    onClick: onUpdates,
-  })}${onEditTheme ? button({
+  return html`<div class="haui-details-actions">${onEditTheme ? button({
     label: t('Themes'), iconName: 'color', detail: themeDetail,
     onClick: onEditTheme,
-  }) : nothing}${onBackups ? button({
+  }) : nothing}${button({
+    label: t('Updates'), iconName: 'update', detail: updatesDetail,
+    onClick: onUpdates,
+  })}${onBackups ? button({
     label: t('Backups'), iconName: 'backup-restore',
     onClick: onBackups,
   }) : nothing}</div>`;

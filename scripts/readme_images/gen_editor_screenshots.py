@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Capture the README's editor screenshots into ``docs/assets/readme/``.
+"""Capture the editor's and the dashboard card's screenshots into ``docs/assets/readme/``.
 
-The screenshots show the real editor: the script starts a throwaway Home
-Assistant from the development virtual environment (``.venv_ha``,
-``docs/develop/development.md``) in a temporary directory, on its own port so
-it never touches a development instance on 8123. Home Assistant's ``demo``
-integration provides the entities; the hub gets the six devices in ``DEVICES``
-(landscape and portrait, dark and light display themes). The devices have no
-ESPHome node, so the editor shows them offline, but every preview is the hub's
-own render. After onboarding a test user, ``capture_editor.mjs`` captures each
-screen in ``SHOTS`` with headless Chrome in Home Assistant's light or dark
-theme.
+The screenshots show the real editor: the script starts a throwaway Home Assistant from
+the development virtual environment (``.venv_ha``) in a temporary directory on its own
+port, with the ``demo`` integration's entities and the seven devices in ``DEVICES``. The
+devices have no ESPHome node, so the editor shows them offline. After onboarding a test
+user, ``capture_editor.mjs`` captures each screen in ``SHOTS`` with headless Chrome in
+Home Assistant's light or dark theme.
+
+The ``card-`` shots are the other way round: they open a Lovelace dashboard written by
+``write_config`` rather than the editor, at the width of a dashboard column.
 
 Usage::
 
     python -m scripts.readme_images.gen_editor_screenshots [--hass PATH] [--chrome PATH]
     python -m scripts.readme_images.gen_editor_screenshots --only editor-settings
+    python -m scripts.readme_images.gen_editor_screenshots --only card
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, NamedTuple
 
 from scripts.preview_gallery import gen_preview_gallery as gallery
 
@@ -82,7 +82,32 @@ def _entity_panel(panel_type: str, key: str, title: str, entity: str) -> dict[st
 # demo integration's.
 DEVICES: dict[str, dict[str, Any]] = {
     "Living Room": {
-        "config": {"home_panel": "grid_0", "idle_panel": "clock_0", "display_model": "eu"},
+        "config": {
+            "home_panel": "grid_0",
+            "idle_panel": "clock_0",
+            "display_model": "eu",
+            # A schedule needs the brightness it restores outside its entries.
+            "brightness": 80,
+            "brightness_dim": 20,
+            "schedule": [
+                {
+                    "start": "22:00",
+                    "end": "sunrise",
+                    "end_offset": -30,
+                    "sound": False,
+                    "brightness": 20,
+                    "display_off": True,
+                },
+                {
+                    "start": "sunset",
+                    "start_offset": -30,
+                    "end": "23:00",
+                    "sound": True,
+                    "brightness": 60,
+                    "display_off": False,
+                },
+            ],
+        },
         "panels": [
             {
                 "type": "grid",
@@ -125,6 +150,9 @@ DEVICES: dict[str, dict[str, Any]] = {
                 "type": "light",
                 "key": "popup_light",
                 "title": "Light",
+                # The entity the popup renders for; without one the editor samples
+                # a random light per session, so light and dark would differ.
+                "item": {"item": "light.living_room_rgbww_lights"},
                 "show_kelvin": True,
                 "items": [],
             },
@@ -200,20 +228,199 @@ DEVICES: dict[str, dict[str, Any]] = {
             _entity_panel("climate", "climate_0", "Heating", "climate.heatpump"),
         ],
     },
+    "Attic": {
+        # No panels: the device whose quick start the editor offers.
+        "config": {"home_panel": "", "display_model": "eu"},
+        "panels": [],
+    },
 }
 
-# (file name, colour scheme, editor route, label of a button to click first)
-SHOTS: list[tuple[str, str, str, str | None]] = [
-    ("editor-fleet-light", "light", "#/", None),
-    ("editor-fleet-dark", "dark", "#/", None),
-    ("editor-device-preview-light", "light", "#/device/Living%20Room", None),
-    ("editor-device-preview-dark", "dark", "#/device/Bedroom", None),
-    ("editor-panels-light", "light", "#/device/Living%20Room/panels", None),
-    ("editor-panels-dark", "dark", "#/device/Living%20Room/panels", None),
-    ("editor-edit-panel-light", "light", "#/device/Living%20Room/panel/grid_0", None),
-    ("editor-edit-panel-dark", "dark", "#/device/Hallway/panel/grid_0", None),
-    ("editor-settings-light", "light", "#/device/Living%20Room/panels", "Settings"),
-    ("editor-settings-dark", "dark", "#/device/Living%20Room/panels", "Settings"),
+
+class Step(NamedTuple):
+    """One interaction that reaches a shot's surface before its screenshot.
+
+    ``click`` matches a button by accessible name (exactly, then by prefix, because
+    ``button()`` appends its detail text); ``select`` clicks the first CSS match.
+    """
+
+    kind: Literal["click", "select"]
+    value: str
+
+
+class Shot(NamedTuple):
+    """One captured screen.
+
+    ``route`` is what is appended to the page: the editor hash, or a dashboard's own path
+    for a shot whose ``page`` is empty. ``steps`` is what reaches the surface (an overlay
+    is store state, never a route) and ``wait`` the selectors in view first. ``page`` is
+    the frontend page the route belongs to and ``size`` the viewport it is captured at,
+    for a shot that is not the editor at ``WIDTH`` × ``HEIGHT``.
+    """
+
+    name: str
+    scheme: str
+    route: str
+    steps: tuple[Step, ...] = ()
+    wait: tuple[str, ...] = ()
+    page: str = "/nspanel-haui"
+    size: tuple[int, int] | None = None
+
+
+def click(label: str) -> Step:
+    """Click the button with this accessible name, or one starting with it."""
+    return Step("click", label)
+
+
+def select(selector: str) -> Step:
+    """Click the first element matching this CSS selector."""
+    return Step("select", selector)
+
+
+SHOTS: list[Shot] = [
+    Shot("editor-fleet-light", "light", "#/"),
+    Shot("editor-fleet-dark", "dark", "#/"),
+    Shot("editor-device-preview-light", "light", "#/device/Living%20Room"),
+    Shot("editor-device-preview-dark", "dark", "#/device/Bedroom"),
+    Shot("editor-panels-light", "light", "#/device/Living%20Room/panels"),
+    Shot("editor-panels-dark", "dark", "#/device/Living%20Room/panels"),
+    Shot("editor-edit-panel-light", "light", "#/device/Living%20Room/panel/grid_0"),
+    Shot("editor-edit-panel-dark", "dark", "#/device/Hallway/panel/grid_0"),
+    Shot("editor-settings-light", "light", "#/device/Living%20Room/panels", (click("Settings"),)),
+    Shot("editor-settings-dark", "dark", "#/device/Living%20Room/panels", (click("Settings"),)),
+    # The quick start and its choices are only offered to a device without panels.
+    Shot(
+        "editor-quick-start-light",
+        "light",
+        "#/device/Attic/panels",
+        (click("Set up this device"),),
+        (".haui-quick-start-card",),
+    ),
+    Shot(
+        "editor-quick-start-dark",
+        "dark",
+        "#/device/Attic/panels",
+        (click("Set up this device"),),
+        (".haui-quick-start-card",),
+    ),
+    Shot(
+        "editor-quick-start-pages-light",
+        "light",
+        "#/device/Attic/panels",
+        (click("Set up this device"), select('[data-preset="home"]')),
+        (".haui-quick-start-heading", ".haui-quick-start-page"),
+    ),
+    Shot(
+        "editor-quick-start-pages-dark",
+        "dark",
+        "#/device/Attic/panels",
+        (click("Set up this device"), select('[data-preset="home"]')),
+        (".haui-quick-start-heading", ".haui-quick-start-page"),
+    ),
+    Shot(
+        "editor-add-panel-light",
+        "light",
+        "#/device/Living%20Room/panels",
+        (click("Add panel"),),
+        (".haui-panel-catalog [data-option]",),
+    ),
+    Shot(
+        "editor-add-panel-dark",
+        "dark",
+        "#/device/Living%20Room/panels",
+        (click("Add panel"),),
+        (".haui-panel-catalog [data-option]",),
+    ),
+    Shot(
+        "editor-edit-popup-light",
+        "light",
+        "#/device/Living%20Room/panel/popup_light",
+        (),
+        (".haui-panel-editor-sidebar",),
+    ),
+    Shot(
+        "editor-edit-popup-dark",
+        "dark",
+        "#/device/Living%20Room/panel/popup_light",
+        (),
+        (".haui-panel-editor-sidebar",),
+    ),
+    Shot(
+        "editor-settings-screen-light",
+        "light",
+        "#/device/Living%20Room/panels",
+        (click("Settings"), select('[data-settings-tile="screen"]')),
+        (".haui-settings-schedule",),
+    ),
+    Shot(
+        "editor-settings-screen-dark",
+        "dark",
+        "#/device/Living%20Room/panels",
+        (click("Settings"), select('[data-settings-tile="screen"]')),
+        (".haui-settings-schedule",),
+    ),
+    # No Updates sidebar shot: without an ESPHome node it reports unknown versions.
+    Shot(
+        "editor-theme-light",
+        "light",
+        "#/device/Living%20Room",
+        (click("Themes"),),
+        (".haui-theme-section",),
+    ),
+    Shot(
+        "editor-theme-dark",
+        "dark",
+        "#/device/Living%20Room",
+        (click("Themes"),),
+        (".haui-theme-section",),
+    ),
+    Shot(
+        "editor-backups-light",
+        "light",
+        "#/device/Living%20Room",
+        (click("Backups"),),
+        (".haui-backup-sidebar",),
+    ),
+    Shot(
+        "editor-backups-dark",
+        "dark",
+        "#/device/Living%20Room",
+        (click("Backups"),),
+        (".haui-backup-sidebar",),
+    ),
+    # The dashboard card, opened on a Lovelace dashboard (see ``write_config``) at the
+    # width of a dashboard column instead of the editor's full window.
+    Shot(
+        "card-fleet-light",
+        "light",
+        "/lovelace/fleet",
+        page="",
+        size=(600, 780),
+        wait=(".haui-card-stage",),
+    ),
+    Shot(
+        "card-fleet-dark",
+        "dark",
+        "/lovelace/fleet",
+        page="",
+        size=(600, 780),
+        wait=(".haui-card-stage",),
+    ),
+    Shot(
+        "card-device-light",
+        "light",
+        "/lovelace/device",
+        page="",
+        size=(600, 560),
+        wait=(".haui-card-stage",),
+    ),
+    Shot(
+        "card-device-dark",
+        "dark",
+        "/lovelace/device",
+        page="",
+        size=(600, 560),
+        wait=(".haui-card-stage",),
+    ),
 ]
 
 
@@ -224,9 +431,8 @@ def _store_file(key: str, data: dict[str, Any], version: int = 1, minor: int = 1
 def write_config(config: Path, port: int) -> None:
     """Write a Home Assistant config directory with the hub already set up.
 
-    The HTTP settings go to the store, not YAML: Home Assistant 2026.11 imports a
-    YAML ``http:`` block as a pending change, which asks for confirmation and
-    reverts to port 8123 when nobody confirms it.
+    The HTTP settings go to the store: Home Assistant imports a YAML ``http:`` block as a
+    pending change and reverts to port 8123 when nobody confirms it.
     """
     now = datetime.now(UTC).isoformat()
     store = config / ".storage"
@@ -270,6 +476,41 @@ def write_config(config: Path, port: int) -> None:
     }
     (store / "core.config_entries").write_text(
         _store_file("core.config_entries", {"entries": [entry]}, minor=5)
+    )
+    # The dashboard card's two modes as a dashboard of two views, so its screenshots show
+    # what a user sees on their own dashboard rather than a bare element.
+    (store / "lovelace").write_text(
+        _store_file(
+            "lovelace",
+            {
+                "config": {
+                    "views": [
+                        {
+                            "title": "Fleet",
+                            "path": "fleet",
+                            "cards": [
+                                {
+                                    "type": "custom:nspanel-haui-card",
+                                    "mode": "fleet",
+                                    "title": "Panels",
+                                }
+                            ],
+                        },
+                        {
+                            "title": "Device",
+                            "path": "device",
+                            "cards": [
+                                {
+                                    "type": "custom:nspanel-haui-card",
+                                    "mode": "device",
+                                    "device": "Living Room",
+                                }
+                            ],
+                        },
+                    ]
+                }
+            },
+        )
     )
     panels_key = f"nspanel_haui.{HUB_ENTRY_ID}_panels"
     (store / panels_key).write_text(
@@ -368,7 +609,22 @@ def _tail(log: Path, lines: int = 30) -> str:
     return "\n".join(log.read_text(errors="replace").splitlines()[-lines:])
 
 
-def capture(chrome: str, hass: HomeAssistant, tokens: dict[str, Any], shots: list[tuple]) -> None:
+def _job(shot: Shot) -> dict[str, Any]:
+    """One shot as ``capture_editor.mjs`` takes it, with the viewport it is captured at."""
+    width, height = shot.size or (WIDTH, HEIGHT)
+    return {
+        "route": shot.route,
+        "page": shot.page,
+        "width": width,
+        "height": height,
+        "scheme": shot.scheme,
+        "path": str(TARGET / f"{shot.name}.png"),
+        "steps": [{"kind": step.kind, "value": step.value} for step in shot.steps],
+        "wait": list(shot.wait),
+    }
+
+
+def capture(chrome: str, hass: HomeAssistant, tokens: dict[str, Any], shots: list[Shot]) -> None:
     """Capture ``shots`` (entries of ``SHOTS``) into ``TARGET`` with ``capture_editor.mjs``."""
     node = shutil.which("node")
     if node is None:
@@ -376,12 +632,7 @@ def capture(chrome: str, hass: HomeAssistant, tokens: dict[str, Any], shots: lis
     jobs = {
         "base": hass.base,
         "tokens": tokens,
-        "width": WIDTH,
-        "height": HEIGHT,
-        "shots": [
-            {"hash": route, "scheme": scheme, "path": str(TARGET / f"{name}.png"), "click": click}
-            for name, scheme, route, click in shots
-        ],
+        "shots": [_job(shot) for shot in shots],
     }
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
         json.dump(jobs, handle)
@@ -410,9 +661,9 @@ def main() -> None:
     args = parser.parse_args()
     if not Path(args.hass).exists():
         raise SystemExit(f"{args.hass} not found: set up .venv_ha (docs/develop/development.md)")
-    shots = [shot for shot in SHOTS if not args.only or shot[0].startswith(tuple(args.only))]
+    shots = [shot for shot in SHOTS if not args.only or shot.name.startswith(tuple(args.only))]
     if not shots:
-        raise SystemExit(f"No shot matches {args.only}: {[name for name, *_ in SHOTS]}")
+        raise SystemExit(f"No shot matches {args.only}: {[shot.name for shot in SHOTS]}")
     chrome = gallery.find_chrome(args.chrome)
     hass = HomeAssistant(args.port)
 

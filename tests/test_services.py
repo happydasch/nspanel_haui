@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 # ---------------------------------------------------------------------------
 # Stub out homeassistant before importing services so tests run without HA.
-# (voluptuous is installed as a dev dependency, so it doesn't need stubbing.)
+# (probatio ships with Home Assistant, so it doesn't need stubbing.)
 # ---------------------------------------------------------------------------
 
 
@@ -40,8 +40,8 @@ def _install_ha_stubs() -> None:
 
 _install_ha_stubs()
 
+import probatio as vol  # noqa: E402
 import pytest  # noqa: E402
-import voluptuous as vol  # noqa: E402
 
 from custom_components.nspanel_haui.haui.mapping.const import SOUND_NAMES  # noqa: E402
 from custom_components.nspanel_haui.services import (  # noqa: E402

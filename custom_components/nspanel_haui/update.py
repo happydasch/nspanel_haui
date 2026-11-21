@@ -21,6 +21,7 @@ update-state change, so no polling or worker round-trip is needed.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.update import (
@@ -66,14 +67,15 @@ async def async_setup_entry(
             continue
         device_name = lookup_device_registry_name(hass, dev_name)
         firmware = NSPanelFirmwareUpdate(app, dev_name, config_entry, device_name=device_name)
-        _reclaim_firmware_entity_id(hass, firmware._attr_unique_id)
+        if firmware._attr_unique_id is not None:
+            _reclaim_firmware_entity_id(hass, firmware._attr_unique_id)
         entities.append(firmware)
         entities.append(NSPanelDisplayUpdate(app, dev_name, config_entry, device_name=device_name))
 
     async_add_entities(entities)
 
 
-def _reclaim_firmware_entity_id(hass: HomeAssistant, unique_id: str | None) -> None:
+def _reclaim_firmware_entity_id(hass: HomeAssistant, unique_id: str) -> None:
     """Rename the HAUI Firmware entity to the id the firmware's own entity had.
 
     Firmware 0.4.2 and 0.4.3 declare an ESPHome update entity named "HAUI
@@ -166,7 +168,7 @@ class _NSPanelUpdate(UpdateEntity):
         """Ask the hub to fire this entity's event with the current state."""
         raise NotImplementedError
 
-    def _apply(self, data: dict[str, Any]) -> bool:
+    def _apply(self, data: Mapping[str, Any]) -> bool:
         """Take the install state from an event; return whether an install runs."""
         raise NotImplementedError
 
@@ -193,7 +195,7 @@ class NSPanelFirmwareUpdate(_NSPanelUpdate):
     def _request_state(self) -> None:
         self._app.dispatch(self._app.publish_firmware_update)
 
-    def _apply(self, data: dict[str, Any]) -> bool:
+    def _apply(self, data: Mapping[str, Any]) -> bool:
         self._installing = bool(data.get("installing"))
         return self._installing
 
@@ -232,7 +234,7 @@ class NSPanelDisplayUpdate(_NSPanelUpdate):
     def _request_state(self) -> None:
         self._app.dispatch(self._app.publish_display_update)
 
-    def _apply(self, data: dict[str, Any]) -> bool:
+    def _apply(self, data: Mapping[str, Any]) -> bool:
         self._update_state = data.get("state")
         return self._update_state == UPDATE_STATE_INSTALLING
 

@@ -1,23 +1,17 @@
 #!/usr/bin/env python3
 """Export the Nextion HMI layouts for the editor's virtual panel (live preview).
 
-Reads ``nextion/nspanel_haui.HMI`` (landscape) and
-``nextion/nspanel_haui_portrait.HMI`` (portrait) and writes, per orientation,
-``custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json``:
-every page (by the hub's page id) with its widgets' attributes and event code,
-the fonts and the global variables. The pictures the pages reference are
-written as WebP next to it (``pictures/<orientation>/<id>.webp``) from the
-source PNGs in ``nextion/images``: the HMI stores pictures in the Nextion's own
-compressed format. It also writes the fonts' glyph widths to
-``custom_components/nspanel_haui/haui/mapping/font_metrics.json``, which the hub
-fits text with.
+Reads both ``nextion/*.HMI`` projects and writes, per orientation,
+``frontend/virtual/layout_<orientation>.json`` (every page by the hub's id, with its
+widgets, fonts and globals) and the pages' pictures as WebP, plus the fonts' glyph
+widths to ``haui/mapping/font_metrics.json``, which the hub fits text with.
 
-It checks the theme code of the solid-colour pages, too: each such page paints
-itself in the device's theme in its Preinitialize event, from the Program.s
-globals the hub sets before every page switch (``THEME_GLOBALS``), so no colour
-changes after the page is shown. ``--theme-code`` prints the code each page
-needs, generated from the colours its widgets are compiled with; paste it into
-the page's Preinitialize event in both HMIs.
+It also generates the theme code of the solid-colour pages: each paints itself in
+the device's theme in Preinitialize, from the Program.s globals the hub sets before
+every page switch. ``--theme-code`` prints the code to paste into a page in both
+HMIs, and the run writes ``haui/mapping/theme_foregrounds.py`` for the body
+foregrounds the theme code cannot paint (the hub sends those with a panel's first
+render).
 
 Run it after every HMI change; ``--check`` (run by the test suite) fails when a
 layout file is out of date or a page's theme code is missing or stale.
@@ -69,9 +63,9 @@ HMI_FILES = {
 # visible (esphome/nspanel_haui/scripts_interaction.yaml, process_touch_gesture).
 VISIBLE_WIDTH = {"landscape": 450, "portrait": 320}
 
-# Picture id -> source PNG ({o} = orientation). Picture 0 is the pGrid design
-# grid; the backgrounds follow the ids in BACKGROUNDS, then the spinner sheets,
-# colour wheel and logos. The ids shift when backgrounds are inserted.
+# Picture id -> source PNG ({o} = orientation): the pGrid design grid, the
+# backgrounds in BACKGROUNDS order, the spinner sheets, colour wheel and logos.
+# The ids shift when backgrounds are inserted.
 _BACKGROUND_FILES = {name: "system" if name == "modern" else name for name in BACKGROUNDS}
 _FIRST_EXTRA_PICTURE = max(BACKGROUNDS.values()) + 1
 PICTURES: dict[int, str] = {
@@ -123,12 +117,7 @@ def _fonts(raw: bytes) -> list[dict[str, Any]]:
 def _font_metrics(raw: bytes) -> list[dict[str, Any]]:
     """Glyph advance widths of every font's text characters (below the icon range).
 
-    The hub wraps and pages text with them as the display draws it
-    (``haui/utils/text.py`` ``fit_text``).  Same ids as ``_fonts``.  A ZI v5
-    font is a 0x2C-byte header (height at 7, glyph count at 0x0C, the length of
-    the name + encoding strings at 0x11), those strings, then one 10-byte entry
-    per glyph: codepoint u16, width, kerning left/right, data offset u24 (from
-    the table start), data length u16.
+    The hub wraps and pages text with them (``haui/utils/text.py`` ``fit_text``).
     """
     fonts = []
     for obj in Nextion2Text.HMIHeader(raw).content:
@@ -166,12 +155,10 @@ def _render_font_metrics() -> tuple[str, list[str]]:
 def _theme_key(comp: dict[str, Any], attr: str) -> str | None:
     """The ``COLORS`` key a solid widget's colour attribute is painted with, or None.
 
-    The colour the HMI compiles names the key: the page colour fills flat
-    widgets (``bco``) and the pressed state of flat-pressed buttons (``bco2``),
-    the header colour the header's widgets, whose text is ``header_text``, and
-    buttons press in ``component_pressed``. A slider's track is always
-    ``component_background``, whatever the HMI compiles; the hub sets only the
-    handle (``HAUIPage.set_slider_color``).
+    The compiled colour names the key: the page colour for ``bco``/``bco2``, the header
+    colour for the header's widgets, ``component_pressed`` for a button press. A
+    slider's track is always ``component_background``; the hub sets only the handle
+    (``HAUIPage.set_slider_color``).
     """
     attrs = comp["attrs"]
     value = attrs.get(attr)
@@ -192,9 +179,8 @@ def _theme_key(comp: dict[str, Any], attr: str) -> str | None:
 def theme_code(page: dict[str, Any]) -> str | None:
     """The Preinitialize code that paints a solid-colour page in the theme.
 
-    One assignment per page colour and per widget colour the HMI compiles with a
-    theme colour, read from the theme globals (``THEME_GLOBALS``). None for a
-    picture-background page: it keeps its picture and palette.
+    One assignment per page colour and per widget colour the HMI compiles with a theme
+    colour, read from the theme globals; None for a picture page.
     """
     comps = page["components"]
     page_attrs = next(c for c in comps if c["type"] == TYPE_PAGE)["attrs"]
@@ -211,7 +197,79 @@ def theme_code(page: dict[str, Any]) -> str | None:
     return "\n".join(lines)
 
 
+# Foreground roles the hub paints on a solid page: the theme code paints page, header
+# and button backgrounds, but a body widget keeps the foreground colour compiled into
+# it, so the hub sends those with the panel's first render.
+THEME_FOREGROUNDS = ("component_text", "component_active", "component_active_dark", "text")
+THEME_FOREGROUNDS_FILE = ROOT / "custom_components/nspanel_haui/haui/mapping/theme_foregrounds.py"
+
+
+def _foreground_key(comp: dict[str, Any]) -> str | None:
+    """The ``COLORS`` key a solid widget's foreground (``pco``) is painted with, or None.
+
+    Only a colour one of ``THEME_FOREGROUNDS`` names uniquely counts: a value two roles
+    share says nothing about the widget's role, and the page colours those itself.
+    """
+    attrs = comp["attrs"]
+    value = attrs.get("pco")
+    if value is None or comp["type"] == TYPE_PAGE:
+        return None
+    if attrs.get("bco") == COLORS["header_background"]:
+        return None
+    keys = [key for key in THEME_FOREGROUNDS if COLORS[key] == value]
+    return keys[0] if len(keys) == 1 else None
+
+
+def theme_foregrounds(page: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    """The ``(widget, COLORS key)`` foregrounds of a solid-colour page's body."""
+    comps = page["components"]
+    page_attrs = next(c for c in comps if c["type"] == TYPE_PAGE)["attrs"]
+    if page_attrs["sta"] != STA_SOLID:
+        return ()
+    return tuple(
+        (comp["name"], key) for comp in comps if (key := _foreground_key(comp)) is not None
+    )
+
+
+def _render_theme_foregrounds(layouts: list[dict[str, Any]]) -> tuple[str, list[str]]:
+    """The hub's generated foreground table, and a problem when the HMIs disagree."""
+
+    def table(layout: dict[str, Any]) -> dict[str, tuple[tuple[str, str], ...]]:
+        return {
+            page["name"]: theme_foregrounds(page)
+            for page in layout["pages"].values()
+            if theme_foregrounds(page)
+        }
+
+    tables = [table(layout) for layout in layouts]
+    problems = [] if all(t == tables[0] for t in tables) else ["the HMIs' body colours differ"]
+    lines = [
+        '"""The body colours the hub paints on the display\'s solid-colour pages.',
+        "",
+        "A solid page paints its own page, header and button backgrounds from the theme",
+        "globals in its Preinitialize event (``gen_virtual_layout.py --theme-code``), but a",
+        "body widget keeps the foreground colour compiled into it, which is the dark",
+        "theme's. The hub sends the theme colour of those widgets with the panel's first",
+        "render.",
+        "",
+        "Generated from the HMIs by ``python -m scripts.hmi_layout.gen_virtual_layout``.",
+        "Do not edit.",
+        '"""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "THEME_FOREGROUNDS: dict[str, tuple[tuple[str, str], ...]] = {",
+    ]
+    for name, entries in tables[0].items():
+        lines.append(f'    "{name}": (')
+        lines += [f'        ("{widget}", "{key}"),' for widget, key in entries]
+        lines.append("    ),")
+    lines += ["}", ""]
+    return "\n".join(lines), problems
+
+
 def _code_lines(code: str) -> list[str]:
+
     return [line.strip() for line in code.splitlines() if line.strip()]
 
 
@@ -358,8 +416,8 @@ def check_pictures(orientation: str) -> list[str]:
 def check_spinner(layout: dict[str, Any]) -> list[str]:
     """The system page's spinner timer must draw the spinner sheets.
 
-    Its ``xpic`` calls name the sheets by picture id, and the Nextion Editor
-    does not renumber event code when a picture is inserted before them.
+    Its ``xpic`` calls name the sheets by picture id, and the editor does not renumber
+    event code when a picture is inserted before them.
     """
     sheets = [pic for pic, src in sorted(PICTURES.items()) if src.startswith("spinner_")]
     page = next(p for p in layout["pages"].values() if p["name"] == "system")
@@ -388,8 +446,7 @@ def _render(layout: dict[str, Any]) -> str:
 
 
 def _icon_map() -> dict[str, str]:
-    """Reverse the display font's name→char mapping into the char→name JSON the
-    editors render icons with."""
+    """Map the display font's name→char table into the char→name JSON the editors use."""
     chars: dict[str, str] = {}
     for icon_name, char in ICON_MAPPING.items():
         chars.setdefault(char, icon_name)
@@ -451,6 +508,19 @@ def main(argv: list[str] | None = None) -> int:
         FONT_METRICS_FILE.write_text(metrics_text, encoding="utf-8")
         print(f"wrote {FONT_METRICS_FILE.relative_to(ROOT)}")
 
+    foregrounds_text, foregrounds_problems = _render_theme_foregrounds(layouts)
+    problems += foregrounds_problems
+    if args.check:
+        if (
+            not THEME_FOREGROUNDS_FILE.exists()
+            or THEME_FOREGROUNDS_FILE.read_text(encoding="utf-8") != foregrounds_text
+        ):
+            problems.append(f"{THEME_FOREGROUNDS_FILE.relative_to(ROOT)} is out of date")
+    else:
+        THEME_FOREGROUNDS_FILE.write_text(foregrounds_text, encoding="utf-8")
+        print(f"wrote {THEME_FOREGROUNDS_FILE.relative_to(ROOT)}")
+
+    problems += check_theme_code(layouts)
     problems += check_theme_code(layouts)
     for layout in layouts:
         problems += check_spinner(layout)

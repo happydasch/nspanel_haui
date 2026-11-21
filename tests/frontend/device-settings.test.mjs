@@ -78,6 +78,42 @@ test('an unknown group is a bug, not a blank page', () => {
   const { dlg } = settings({ config, _deviceConfigForm: config, section: 'nope' });
   assert.throws(() => dlg.render(), /Unknown device settings section: nope/);
 });
+test('an untitled panel is named by its type, not by its key', () => {
+  const clock = { key: 'clock_0', type: 'clock', items: [] };
+  const weather = { key: 'weather_0', type: 'weather', items: [] };
+  const panelTypes = [
+    { type_key: 'clock', label: 'Clock' },
+    { type_key: 'weather', label: 'Weather' },
+  ];
+  const config = { ...DEVICE_CONFIG_DEFAULTS, home_panel: 'clock_0' };
+
+  // The tile line and the pills both carry the name the hub shows.
+  assert.equal(settingsSection('home').summary(config, { panels: [clock, weather], panelTypes }), 'Clock · 0 idle panels');
+  const root = render(settings({
+    config, _deviceConfigForm: config, section: 'home',
+    panels: [clock, weather], panelTypes,
+  }).dlg.render());
+  const homePill = root.querySelector('.haui-pill');
+  assert.equal(homePill.textContent.trim(), 'Clock');
+  assert.equal(root.querySelector('#dc-idle-panels option[value="weather_0"]').textContent, 'Weather');
+});
+
+test('a device without panels says so instead of drawing an empty picker', () => {
+  const config = { ...DEVICE_CONFIG_DEFAULTS };
+  const root = render(settings({ config, _deviceConfigForm: config, section: 'home', panels: [] }).dlg.render());
+
+  // Neither role has anything to offer, and the usual hints talk about a first
+  // navigation panel and an idle cycle that do not exist: name what is missing.
+  assert.equal(root.querySelector('#dc-home-panel'), null);
+  assert.equal(root.querySelector('#dc-idle-panels'), null);
+  const notices = [...root.querySelectorAll('.haui-field-hint.is-persistent')].map((hint) => hint.textContent.trim());
+  assert.deepEqual(notices, [
+    'This device has no panels yet. Add a panel, then set the home panel here.',
+    'This device has no panels yet. Add a panel, then set the idle panels here.',
+  ]);
+  // The tile that opens the group says it too, without an idle count.
+  assert.equal(settingsSection('home').summary(config, { panels: [] }), 'No panels yet');
+});
 
 test('the General group edits the theme choice in the settings draft', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS };

@@ -61,7 +61,8 @@ export const dashboardComponentStyles = css`
     outline: var(--haui-focus-ring);
     outline-offset: var(--haui-focus-offset);
   }
-  .haui-device-card-info:focus-visible, .haui-device-row:focus-visible, .haui-panel-row:focus-visible, .haui-item-row-main:focus-visible { outline-offset: -2px; }
+  /* The card's own edges clip these rings: an inset offset keeps them visible. */
+  .haui-device-card-select:focus-visible, .haui-device-card-info:focus-visible, .haui-device-row:focus-visible, .haui-panel-row:focus-visible, .haui-item-row-main:focus-visible { outline-offset: -2px; }
   .haui-pill button:focus-visible { outline-offset: 1px; }
   .haui-icon-button {
     display: inline-grid;
@@ -113,13 +114,36 @@ export const dashboardComponentStyles = css`
   .haui-segmented-option { display: inline-flex; min-height: 32px; align-items: center; gap: 4px; padding: 0 12px; border: 0; border-radius: var(--haui-radius-pill); color: var(--secondary-text-color); background: transparent; font: inherit; cursor: pointer; }
   .haui-segmented-option.active { color: var(--primary-text-color); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-card); }
   .haui-segmented-option:disabled { cursor: not-allowed; opacity: .5; }
+  /* A labelled group of checkbox rows: a boxed row per choice, tinted and
+     outlined while picked, so the box alone is not the only mark. */
+  .haui-choice-group { display: grid; gap: 8px; }
+  .haui-choice-head { display: flex; align-items: center; gap: 8px; }
+  .haui-choice-head-extra { display: flex; margin-left: auto; align-items: center; gap: 4px; }
+  /* The group action is a small control beside the heading, not a card action. */
+  .haui-choice-head-extra .haui-button { min-height: 24px; padding: 0 8px; font-size: var(--haui-text-caption); }
+  .haui-choice-list { display: grid; gap: 8px; }
+  .haui-choice { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-radius-control); cursor: pointer; }
+  .haui-choice.is-checked { border-color: var(--primary-color, #03a9f4); background: var(--haui-surface-soft); }
+  .haui-choice input { margin: 4px 0 0; accent-color: var(--primary-color, #03a9f4); }
+  /* The ring goes around the row the whole label makes clickable. */
+  .haui-choice:has(input:focus-visible) { outline: var(--haui-focus-ring); outline-offset: var(--haui-focus-offset); }
+  .haui-choice-copy { display: grid; gap: 4px; min-width: 0; }
+  .haui-choice-name { display: flex; align-items: center; gap: 8px; font-size: var(--haui-text-label); font-weight: 500; line-height: var(--haui-line-height-copy); }
+  .haui-choice-name ha-icon { --mdc-icon-size: 18px; color: var(--secondary-text-color, #666); }
+  .haui-choice-hint { color: var(--secondary-text-color, #666); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
+  .haui-choice-empty { margin: 0; color: var(--secondary-text-color, #666); font-size: var(--haui-text-caption); }
+  @media (hover: hover) {
+    .haui-choice:hover { background: var(--haui-surface-soft); }
+  }
   /* Text for screen readers only: a level, a count's unit, a column's name. */
   .haui-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .haui-field-error { display: block; margin-top: 4px; color: var(--haui-bad-text); font-size: var(--haui-text-caption); }
   .haui-field-warning { display: block; margin-top: 4px; color: var(--haui-warn-text); font-size: var(--haui-text-caption); }
-  .haui-empty-state { display: grid; justify-items: center; gap: 8px; padding: 32px 20px; color: var(--secondary-text-color, #666); text-align: center; }
+  .haui-empty-state { display: grid; justify-items: center; gap: 12px; padding: 40px 24px; color: var(--secondary-text-color, #666); text-align: center; }
   .haui-empty-state h2, .haui-empty-state p { margin: 0; }
   .haui-empty-state h2 { font-size: var(--haui-text-body); }
+  /* The call to action stands apart from the copy above it. */
+  .haui-empty-state .haui-button { margin-top: 4px; }
   .haui-empty-state-icon { display: block; --mdc-icon-size: 28px; }
   .haui-empty-state-compact { display: block; padding: 20px 16px; font-size: var(--haui-text-caption); }
   .haui-empty-state-compact p { color: var(--secondary-text-color, #666); }

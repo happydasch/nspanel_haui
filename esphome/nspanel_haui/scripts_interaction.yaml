@@ -23,12 +23,12 @@ script:
           static int start_y = 0;
           bool is_touch = false;
 
-          // x and y coordinates are not zero then touch is active
+          // Non-zero coordinates mean an active touch
           if (curr_x > 0 && curr_y > 0) {
             is_touch = true;
           }
 
-          // check if touch state needs to be updated
+          // Publish each touch edge once
           if (is_touch) {  // touch active
             if (!id(touch).state) {
               ESP_LOGD("haui", "Touch Start (%d,%d)", curr_x, curr_y);
@@ -50,11 +50,10 @@ script:
               start_y = 0;
             }
           }
-          // store current coordinates
           prev_x = curr_x;
           prev_y = curr_y;
 
-  # Script to process touch gestures
+  # Process touch gestures
   - id: process_touch_gesture
     parameters:
       x1: int
@@ -69,29 +68,24 @@ script:
           }
           ESP_LOGD("haui", "Checking gesture with provided values: (%i,%i) - (%i,%i)", x1, y1, x2, y2);
 
-          // Set thresholds for swipe recognition
+          // Swipe thresholds
           int min_distance_x = 200;
           int min_distance_y = 150;
           int max_angle = 20;
           int border_margin = 40;
-          // Display dimensions depend on the device model, synced by the hub
-          // as the `display_model` number (0 = landscape, 1 = portrait).
-          // Touch digitizer reports x in 0..479 for landscape (only the
-          // leftmost 450px are visible; the rightmost 30px sit under the
-          // bezel, still touchable).  The portrait panel is rotated 90°, so
-          // its touch space is 320 wide by 480 tall.
+          // 0 = landscape, 1 = portrait (synced by the hub). The landscape
+          // digitizer spans 0..479 but only 450 px are visible (the rest sits
+          // under the bezel); portrait is rotated, so its touch space is 320x480.
           int model = int(id(display_model).state);
           int visible_width = model == 1 ? 320 : 450;
           int screen_h = model == 1 ? 480 : 320;
 
-          // Determine the direction of the swipe
+          // Swipe direction
           bool is_horizontal = abs(x2 - x1) > abs(y2 - y1);
           bool is_swipe_right = (x2 - x1) > 0;
           bool is_swipe_down = (y2 - y1) > 0;
-          // Check if swipe starts near borders.
-          // Right edge uses visible_width so the margin is measured from the
-          // visible edge; touches in the non-visible 450..479 zone exceed that
-          // threshold and count as right-edge starts for swipe-left too.
+          // Right-edge starts are measured from visible_width, so touches in the
+          // hidden 450..479 zone also count as right-edge starts.
           bool is_near_border = false;
           if (x1 < border_margin || y1 < border_margin
               || x1 > (visible_width - border_margin)
@@ -99,17 +93,17 @@ script:
               is_near_border = true;
           }
 
-          // Calculate distance and angle of swipe gesture
+          // Distance and angle of the swipe
           int delta_x = abs(x2 - x1);
           int delta_y = abs(y2 - y1);
           int distance = sqrt(delta_x*delta_x + delta_y*delta_y);
           int angle = atan2(delta_y, delta_x) * 180 / M_PI;
 
-          // Check if swipe meets minimum distance and maximum angle thresholds
+          // Check the distance and angle thresholds
           bool meets_distance_threshold = is_horizontal ? distance >= min_distance_x :  distance >= min_distance_y;
           bool meets_angle_threshold = (is_horizontal && abs(angle) <= max_angle) || (!is_horizontal && abs(angle) >= 90 - max_angle);
 
-          // Generate swipe event
+          // Publish the swipe event
           std::string swipe_event = "";
           if (is_near_border && meets_distance_threshold && meets_angle_threshold) {
             if (is_horizontal && is_swipe_right) {

@@ -74,6 +74,7 @@ def _make_stubs() -> None:
             return {"type": "create_entry", **kwargs}
 
     repairs_comp.RepairsFlow = StubRepairsFlow
+    repairs_comp.RepairsFlowResult = dict
     data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
     data_entry_flow.FlowResult = dict
 

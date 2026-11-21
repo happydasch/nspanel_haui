@@ -1,200 +1,50 @@
 # Roadmap
 
-Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
-2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, v0.4.7 on 2026-11-11, v0.5.0 and
-v0.5.1 on 2026-11-14, and v0.5.2 on 2026-11-17**, each tagged from a green
-`master` commit and published by the release workflow.
+Development trajectory from **v0.5** toward **v1.0**. The last stable release is
+**v0.5.3** (2026-11-21).
 
-This file tracks **open work only** — goals and gates, not task lists. Shipped
-changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
-its known risks live in [docs/develop/release.md](docs/develop/release.md); day-to-day tasks
-belong in the issue tracker.
+This file is the project's **direction**, not its backlog: the horizons it is
+moving through and what every stable release must prove. Concrete features —
+what they do, what "done" means, how expensive they are — live in
+[FEATURE_WISHLIST.md](FEATURE_WISHLIST.md); shipped work is in
+[CHANGELOG.md](CHANGELOG.md); the release runbook and its known risks are in
+[docs/develop/release.md](docs/develop/release.md). What the project is for is in
+the [documentation home](docs/README.md#how-it-works), and the
+architectural invariants it holds are in
+[Development](docs/develop/development.md#design-invariants).
 
-**No version is in development on `dev` right now.** The v0.5.x work below is
-next in line: high-speed TFTs beside the normal-speed ones, predefined palettes
-in the TFT, and the removal of the vendored Nextion patch. **v0.6** adds Display
-Repair Mode, an inspection and cleanup of the Nextion scripts and Home Assistant
-hub settings; multi-hub support remains subject to a needs decision.
+## Horizons
 
----
+Each horizon is a theme, not a list. The concrete features behind them are in
+the [feature wishlist](FEATURE_WISHLIST.md), grouped in the same order: v0.5.x
+in development, v0.6 next, then the open pool.
+
+| Horizon | Theme | What it means |
+|---|---|---|
+| **Now — v0.5.x** | Speed and weight | Display installs take minutes rather than tens of minutes, the first render is cheaper, the vendored Nextion patch disappears, and the large TFT binaries leave the repository. |
+| **Next — v0.6** | Recoverability and ownership | A damaged display is repaired from the editor; hub-scoped settings become editable in Home Assistant; the Nextion side is inventoried and cleaned up. |
+| **After that** | Content and everyday use | The panels people keep asking for but do not have (a fan, a graph, free text) and the small options that decide whether a panel feels finished. |
+| **v1.0 — stable** | Trust | Bugs closed, documentation complete, listed in the Marketplace catalog, REST API documented and frozen. |
 
 ## Release gates
 
-Applies to every stable release; the runbook and its known risks are in
-[Release process](docs/develop/release.md).
+Every stable release passes the CI jobs (`tests (3.14)`, `frontend`, `esphome`,
+`docs`, `hassfest`, `hacs`) and `make release-preflight`, which also reports a
+stale screen overview. Two process gates are not automated and are proved once
+before a release may rely on them:
 
-- **Release-check recovery path.** The 2026-11-09 GitHub Actions outage failed
-  runs before their jobs started; the documented recovery (check
-  githubstatus.com, close and reopen the PR or push a new head commit, then
-  re-run the failed workflow) has not been exercised end to end. Prove it once
-  on a dev-cycle PR before relying on it for a release
+- **Release-check recovery.** The documented recovery from a GitHub Actions run
+  that failed before its jobs started — check githubstatus.com, close and reopen
+  the PR or push a new head commit, then re-run the failed workflow — has not
+  been exercised end to end. Prove it once on a dev-cycle PR before relying on
+  it for a release
   ([release process](docs/develop/release.md#guardrails-and-known-gaps)).
-- **Current screen overview.** A development build regenerates
-  `docs/screens.html` and `docs/assets/screens/` and commits them with its
-  version. If a panel changed after the last development build, run
-  `python -m scripts.preview_gallery.gen_preview_gallery --docs` during release
-  prep so the published overview matches the shipped panels.
-
----
-
-## v0.5.x — After 0.5.2
-
-### Multiple TFTs
-
-Keep the existing 115200 TFTs as the known-good **normal-speed** default — asset
-names unchanged, so flashed panels keep auto-updating — and add a **high-speed**
-variant at 921600 baud per display model. That is an 8× baud increase (~10× in
-practice), turning an ~11 MB TFT update from ~16 min into ~2 min.
-
-- Speed is chosen per device: the update controller downloads the matching TFT
-  asset and the firmware configures the matching UART baud.
-- A boot baud scan recovers mismatches without user action — it power-cycles
-  `screen_power`, probes each Nextion-supported rate over `haui_uart`, and
-  switches the UART to the detected rate; a boot check waits `BAUD_RATE_TIMEOUT`
-  for `haui_disp->is_detected()` before scanning.
-- The high-speed TFTs are compiled in the Nextion Editor and keep the
-  landscape/portrait parity gates green; pacing stays at `max_queue_size: 800` /
-  `max_commands_per_loop: 50`, with `command_spacing` decided from observed
-  `on_buffer_overflow` events.
-- Document the speed choice, update-time expectations, baud-scan recovery and
-  upgrade caveats.
-
-**Acceptance:** both speed variants install and run on both display models and
-the universal image; a mismatched panel recovers without user action; the
-high-speed variant is ~8–10× faster; flashed panels keep auto-updating on the
-unchanged normal-speed assets; no UART buffer overflows under the update burst.
-
-### First render with predefined palettes
-
-Predefine the theme palettes in the TFT so the first render needs fewer color
-commands, without flashing the default palette or showing a partially themed
-page; editor cards must continue to match the device render. It needs a new TFT,
-so it can ship with the high-speed variants.
-
-### Remove the vendored Nextion patch
-
-`esphome/nextion_patch/` stays pinned to ESPHome 2026.10.0 because no released
-version contains the numeric-response fix
-([esphome#17744](https://github.com/esphome/esphome/pull/17744)) or the TFT
-upload buffer option ([esphome#21435](https://github.com/esphome/esphome/pull/21435)),
-and the TFT upload retry fix is not upstream yet. Once a released ESPHome
-contains every fix listed in `esphome/nextion_patch/README.md`, bump
-`min_version` and `requirements-esphome.txt` together, delete the directory and
-its `external_components` blocks, and re-validate the firmware config and a
-compile.
-
----
-
-## Release tooling
-
-Open items from the release-process review (runbook and known risks in
-[docs/develop/release.md](docs/develop/release.md)):
-
-- Scripted HMI patching for release-only edits — `tftVersion` scripting landed
-  with the version-bump tooling (0.4.x); Send Component ID and other in-place
-  edits still need the Editor or an extended patch spec (0.5+).
-- Portrait layout as a build-time rotation instead of a second committed HMI
-  (0.5+).
-
----
-
-## v0.6 — Display repair mode, features & integrations
-
-### Display repair mode
-
-A simple, self-contained TFT whose only job is to repair an existing display.
-When the normal TFT is broken, half-installed, stuck on the boot screen or
-running the wrong baud rate, the repair TFT proves the panel is alive and accepts
-a fresh normal TFT install — no Nextion Editor session required.
-
-- A minimal repair TFT per display model, small enough to install even when the
-  normal TFT is corrupt.
-- A **Repair display** action in the editor that installs the repair TFT and then
-  reinstalls the normal TFT for the device's model and speed — reachable from the
-  device's **Updates** sidebar even in a failed update state.
-- A documented recovery entry point (serial/OTA, boot handshake) and a verified
-  return path to the normal TFT on real hardware.
-
-**Acceptance:** a panel with a broken or mismatched TFT is restored to a working
-normal TFT from the editor without a Nextion Editor session, on both display
-models and both speed variants.
-
-### Nextion script inspection & cleanup
-
-The HMI event code (`Program.s`, page `Preinitialize`/`Postinitialize`, touch
-press/release events, timers) has grown page by page and is not inventoried.
-Before more behaviour moves onto the display, find out what the Nextion side can
-do and clean up what it does today.
-
-- **Inventory** — dump the event code of both HMIs (Nextion2Text) and record what
-  each script does, which hub command or ESPHome event it pairs with, and where
-  landscape and portrait differ.
-- **Possibilities** — document the Nextion instruction set and limits that matter
-  here (timers, system variables, `sendme`/`printh`, local state, sleep/wake
-  hooks, script length and RAM) and decide which behaviour is better on the
-  display than on the hub — for example instant touch feedback or page
-  preparation that removes first-render commands.
-- **Cleanup** — remove dead or duplicated scripts and automations that the hub or
-  firmware already drives, align landscape and portrait, and keep the "logic in
-  the Hub App" rule from [Nextion Editor](docs/develop/nextion-editor.md#hard-rules) except
-  where the inventory shows a reason to move it.
-
-**Acceptance:** a documented inventory of every HMI script on both display models,
-no unused or duplicated event code left, parity gates green, and every page
-behaving unchanged on hardware after the cleanup.
-
-### Hub management
-
-- **Hub settings in Home Assistant** — add an integration options flow so the
-  hub can be renamed and genuinely hub-scoped settings can be changed after
-  setup. Keep per-device settings in the editor.
-
-### Platform maturity
-
-- Developer devcontainer / quick-start script for contributors.
-- REST API surface stabilised before v1.0 (version prefix, consistent shapes).
-- ESPHome component tests for sensor/button/cover entities.
-
----
-
-## v1.0 — Stable release
-
-- All `bug`-labelled issues closed.
-- `CHANGELOG.md` covering every release from 0.1.0.
-- Listed in the Home Assistant Marketplace catalog (a PR to `hacs/default`, the
-  list the Marketplace reads), so users no longer add a custom repository or
-  connect GitHub.
-- Published on PyPI / HA add-on registry, if applicable.
-- REST API docs published alongside user docs.
-- Final branding pass: icons, screenshots, README hero image.
-
----
-
-## Deferred / needs decision
-
-- **Need for multiple hub entries** — the current model discovers and manages
-  all eligible NSPanels under one hub, with settings scoped per device. No
-  separate multi-hub use case is established yet, so retain the single-instance
-  flow unless a concrete need for independent fleets/configuration is identified.
-- **Trim the Marketplace download** (`export-ignore` the Nextion binaries) —
-  Marketplace users would lose the HMI sources.
-- **TFT storage** — the binaries stay committed to git and attached to releases
-  until repo/zip size makes Git LFS or release-only storage worthwhile.
-- **Runtime credential adoption for the universal image** — post-0.4; baked
-  credentials stay shared for now.
-- **`cls` background refresh** after sleep/wake or reconnect — needs hardware
-  confirmation of how often it matters.
-- **Byte-level TFT update progress** — needs firmware-side events.
-- **Full update-pipeline integration test** — unit and endpoint tests exist; the
-  end-to-end test is still open.
-- **Notification history** — keep past notifications, with a read-only API and a
-  view in the editor; nothing exists in code yet. Moved out of 0.5.
-- **Notification grouping and priority ordering** — mainly backend work in the
-  notification controller. Moved out of 0.5; the read/dismiss queue API and the
-  editor's queue center already shipped.
-
----
+- **Unattended updates.** `check_on_connect` and `update_interval` install
+  updates without anyone watching, but no run has been recorded on real
+  hardware: that the panel comes back on its own after a firmware install and
+  the TFT that follows, and how long it takes. Prove it once with
+  `firmware_auto_update` and `auto_install` on before relying on unattended
+  updates ([updates Q&A](https://github.com/happydasch/nspanel_haui/discussions/69)).
 
 ## Prior releases
 
@@ -204,38 +54,10 @@ behaving unchanged on hardware after the cleanup.
   configurable wakeup and notification sounds.
 - **0.3.x** — native Home Assistant integration replaces AppDaemon and MQTT; the
   panel editor moves inside Home Assistant.
-- **0.4.0** — first stable release with breaking changes: universal prebuilt
-  firmware, US/portrait model, gesture navigation, device discovery, Panel
-  Doctor, and per-device TFT install in the editor.
-- **0.4.1** — Nextion serial RX buffer overflow fixes and Clock Two font/background
-  fixes.
-- **0.4.2** — firmware auto-update through release manifests, TFT upload and
-  reboot fixes.
-- **0.4.3** — TFT installs move to the integration; per-device update settings
-  and the **HAUI Display** entity.
-- **0.4.4** — notification `timeout` hotfix; the TFT files stay at 0.4.3.
-- **0.4.5** — live preview and hub-rendered panel cards, editable popups, the
-  **HAUI Firmware** entity, encrypted native OTA and the Home Assistant 2026.11
-  Marketplace migration.
-- **0.4.6** — Marketplace minimum-version hotfix: `hacs.json` declares
-  `2026.11.0`.
-- **0.4.7** — consolidation release: one CI pipeline, manually dispatched
-  development builds, the editor's store and typed API client foundation, the
-  v0.5 architecture and design prototype; no firmware or display changes.
-- **0.5.0** — the Fleet/Device dashboard, a shared theme library with per-panel
-  themes, schedules in place of the Day/Night profiles and quiet hours, one list
-  of swipe gestures, starter templates and option checks in the panel editor,
-  per-device update settings with delayed, retried and one-at-a-time installs,
-  and Slovak.
-- **0.5.1** — Clock panel item-button routing and matching component IDs in
-  Clock, Weather and Clock Two; a 24-hour filter for **Latest events** on Fleet.
-- **0.5.2** — six colorful predefined themes and the theme-owned icon palette
-  that replaces **Theme variant**, the dashboard card, the device settings tile
-  grid with the schedule and gestures inside it, separate **Backups**,
-  **Updates** and **Themes** sidebars, per-state item values, and four schedule
-  fixes.
+- **0.4.0 onward** — see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-*Living document — priorities shift as the project grows. Open an issue or start
-a discussion to propose changes; shipped work moves to [CHANGELOG.md](CHANGELOG.md).*
+*Living document — priorities shift as the project grows. Feature candidates go
+to [FEATURE_WISHLIST.md](FEATURE_WISHLIST.md); shipped work moves to
+[CHANGELOG.md](CHANGELOG.md).*

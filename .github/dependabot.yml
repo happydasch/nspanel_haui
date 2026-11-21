@@ -1,0 +1,65 @@
+# Dependabot version updates.
+#
+# Pull requests target dev, the integration branch; master is release-only. Group related updates so one
+# review updates a toolchain instead of opening a pull request per dependency.
+
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    commit-message:
+      prefix: "ci"
+    open-pull-requests-limit: 5
+    groups:
+      actions-official:
+        patterns:
+          - "actions/*"
+      actions-tooling:
+        patterns:
+          - "astral-sh/*"
+          - "softprops/*"
+      actions-integrations:
+        patterns:
+          - "hacs/*"
+          - "home-assistant/*"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    commit-message:
+      prefix: "build"
+    open-pull-requests-limit: 5
+    groups:
+      python-tooling:
+        patterns:
+          - "*"
+    ignore:
+      # Pinned deliberately: bump it with min_version in esphome/nspanel_haui/base.yaml and a compile.
+      - dependency-name: "esphome"
+      # Kept in sync with hacs.json; bump it together with the integration version.
+      - dependency-name: "homeassistant"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    commit-message:
+      prefix: "build"
+    open-pull-requests-limit: 5
+    groups:
+      frontend-tooling:
+        patterns:
+          - "*"

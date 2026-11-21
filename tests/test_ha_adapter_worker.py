@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from custom_components.nspanel_haui.hub.adapter import HAAdapter
+from custom_components.nspanel_haui.hub.adapter import AppStoppedError, HAAdapter
 
 
 class _Hass:
@@ -478,6 +478,24 @@ def test_callbacks_still_queued_when_the_app_stops_are_dropped(env):
     time.sleep(0.1)
 
     assert calls == []
+
+
+def test_a_stopped_app_runs_nothing_for_a_caller_awaiting_a_result(env):
+    """A request racing the app's stop fails with the adapter's own error."""
+    adapter, loop, _helpers = env
+    ran = []
+    adapter.stop()
+
+    async def call():
+        try:
+            await adapter.async_run_on_worker(ran.append, "late")
+        except AppStoppedError as exc:
+            return exc
+        return None
+
+    error = asyncio.run_coroutine_threadsafe(call(), loop).result(timeout=5)
+    assert isinstance(error, AppStoppedError)
+    assert ran == []
 
 
 def test_listen_state_with_attribute_all_reports_state_pair(env):

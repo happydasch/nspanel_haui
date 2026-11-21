@@ -97,10 +97,8 @@ class HAUIESPHomeController(HAUIBase):
         if value is None:
             value = ""
 
-        # Dedup only applies to single-command sends. Batch sends
-        # (send_commands) are already deduplicated at the _dedup_commands
-        # level in haui_base.py; transport-level dedup of batches can drop
-        # an entire chunk of a multi-chunk send, causing partial updates.
+        # Dedup only single commands; batches are deduped in haui_base and
+        # transport dedup would drop chunks.
         dedup_key = (bare_cmd, value if isinstance(value, str) else str(value))
         if bare_cmd != "send_commands" and not force and self.prev_cmd == dedup_key:
             self.log(

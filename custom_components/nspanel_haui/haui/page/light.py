@@ -62,11 +62,10 @@ class LightPage(HAUIPage):
         t_info=Component(16, "tInfo"),
     )
 
-    # hardcoded to not request too often, needed for color to rect pos
+    # pColorWheel size, fixed to avoid repeated display reads
     PIC_COLOR_RECT_W = 200
     PIC_COLOR_RECT_H = 200
-    # top-left corner of pColorWheel in the landscape and the portrait TFT layout;
-    # tests/test_page_light.py checks it against the exported layouts
+    # pColorWheel origin per orientation; tests/test_page_light.py checks it
     PIC_COLOR_RECT_POS = {"landscape": (125, 75), "portrait": (60, 124)}
 
     DEFAULT_FUNCTION = "brightness"
@@ -128,8 +127,7 @@ class LightPage(HAUIPage):
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
         self.set_title(self._title)
-        # Only a popup opened for this light (item_id) closes when it becomes
-        # unavailable; a standalone light panel stays where the user put it.
+        # only a popup opened for this light closes when it becomes unavailable
         if not self.update_functions(self.DEFAULT_FUNCTION) and panel.get("item_id", None):
             self.stop_rec_cmd(send_commands=False)
             navigation = self.app.controller["navigation"]
@@ -148,13 +146,9 @@ class LightPage(HAUIPage):
             )
 
     def get_color_temp_range(self) -> tuple[int, int] | None:
-        """Returns the light's color temperature range in kelvin.
+        """The light's color temperature range in kelvin, or None.
 
-        Read on every use rather than at panel start: a light that is
-        unavailable when the panel starts reports no range yet.
-
-        Returns:
-            tuple | None: (min, max) kelvin, None if the light reports no range
+        Read on every use: an unavailable light reports no range.
         """
         if self._light_item is None:
             return None
@@ -350,14 +344,12 @@ class LightPage(HAUIPage):
         if self._current_light_function is not None and self._current_light_function not in names:
             self._current_light_function = None
 
-        # set light functions before updating slider values — the set_*_info
-        # helpers look the function up in self._light_functions
+        # set functions before slider values: the set_*_info helpers look them up
         self._light_functions = functions
         for fnc in functions:
             if fnc["status"] is False or fnc["val"] is None:
                 continue
-            # use the info setters so raw entity values (brightness 0-255,
-            # color temp in mireds/kelvin) are scaled to the 0-100 sliders
+            # scale raw entity values to the 0-100 sliders
             if fnc["name"] == "brightness":
                 self.set_brightness_info(fnc["val"])
             elif fnc["name"] == "color_temp":
@@ -556,8 +548,8 @@ class LightPage(HAUIPage):
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id != self.FNC_BTN_R_SEC:
             return
-        # The right-secondary header button is the power-off icon, shown only when
-        # the light is ON.  Always turn off — don't toggle.
+        # right-secondary is the power-off icon, shown only while the light is
+        # on; always turn off
         if self._light_item is not None:
             self._light_item.call_item_service("turn_off")
 
@@ -566,8 +558,7 @@ class LightPage(HAUIPage):
         # check for current function
         matches = [f for f in self._light_functions if f["btn"] == component]
         fnc: dict | None = matches[0] if matches else None
-        # the effect button is an action rather than a mode; its selection
-        # popup replaces this page, so nothing may be drawn after opening it
+        # the effect popup replaces this page, so draw nothing after opening it
         if fnc is not None and fnc["name"] == "effect":
             self.open_effect_selection()
             return
@@ -596,17 +587,12 @@ class LightPage(HAUIPage):
         self.log(f"Got color rect press: {component}-{button_state}")
         if button_state:
             self._touch_track = True
-            # will get set to false by touch end
+            # cleared on touch end
 
     def callback_power(self, event: HAUIEvent, component: Component) -> None:
         self.log(f"Got power press: {component}")
-        # Toggle directly via HA state — no read request round-trip needed
-        # because the Nextion button .val is unused (process_power ignores it).
-        # The old REQ_VAL approach introduced a race: the ESP32's single
-        # request global was overwritten when brightness and power reads
-        # arrived in quick succession, causing read_response with the wrong
-        # component name (e.g. "bPower" for a brightness read) and an
-        # unintended toggle.
+        # Toggle from the entity state: the Nextion button .val is unused, and a
+        # read request raced with brightness reads.
         self.process_power(0)
 
     def callback_effect(self, selection: list) -> None:
@@ -623,9 +609,8 @@ class LightPage(HAUIPage):
         if event.name == ESPEvent.TOUCH_END:
             if self._touch_track:
                 self._touch_track = False
-                # Parse TOUCH_END position robustly. The Nextion sends
-                # comma-delimited "page_id,comp_id,pos_x,pos_y". Validate
-                # length so a format mismatch doesn't crash the page.
+                # TOUCH_END carries "page_id,comp_id,pos_x,pos_y"; validate
+                # before parsing.
                 raw = event.as_str()
                 pos_x = pos_y = 0
                 if raw:
@@ -652,9 +637,7 @@ class LightPage(HAUIPage):
         if color is not None and self._touch_color != color and current_color != color:
             self.log(f"Processing color value {color}")
             self._touch_color = color
-            # Debounce: coalesce rapid color-drag events into one service call
-            # after the storm settles (50 ms).  Replaces a fragile threading.Timer
-            # whose cancel() could race with the timer firing.
+            # Coalesce rapid color-drag events into one service call.
             item = self._light_item
             self.debouncer.call(
                 "light_color", lambda: item.call_item_service("turn_on", rgb_color=color)
@@ -691,9 +674,7 @@ class LightPage(HAUIPage):
         self.log(f"Processing power value {power}")
         if not self.item_is_available(self._light_item):
             return
-        # (the Nextion button's .val is always 0) — the actual on/off state
-        # is read from the entity.  This avoids an unnecessary read request
-        # round-trip that created a race with brightness/color_temp reads.
+        # Read the actual state from the entity; the Nextion .val is always 0.
         if self._light_item.get_item_state() == "on":
             self._light_item.call_item_service("turn_off")
         else:

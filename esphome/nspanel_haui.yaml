@@ -1,9 +1,5 @@
-#
-# Configuration for NSPanel HomeAssistant UI
-#
-
-# The substituions will be defined in the install.yaml.
-# this file should not be directly edited.
+# NSPanel HAUI package. Substitutions come from install.yaml; edit that file,
+# not this one.
 
 substitutions:
   # General config
@@ -11,41 +7,24 @@ substitutions:
   friendly_name: $friendly_name
   name: $name
   # Accounts and Passwords
-  # The api key also encrypts native OTA uploads (base.yaml)
+  # The API key also encrypts native OTA uploads (base.yaml)
   api_encryption_key: $api_encryption_key
   # No web credentials: the web server is optional and disabled by default
   # (see base.yaml). Add a web_server block to your own YAML to enable it.
   wifi_ssid: $wifi_ssid
   wifi_password: $wifi_password
   ap_password: $ap_password
-  # Build identity reported in the device state.  This package builds a custom
-  # firmware with the user's own credentials; the prebuilt release image
-  # (nspanel_haui_universal.yaml) overrides it with `universal`.  The hub
-  # refuses to flash a manifest whose variant does not match the reported one.
+  # Build identity in the device state; the hub only updates a panel whose
+  # firmware reports the matching variant. The universal image reports
+  # `universal`, every custom build `custom`.
   firmware_variant: 'custom'
 
-  # Default TFT URL of the display component.  Installing a local TFT build
-  # (nspanel_haui.update_tft with its url field) relies on overriding this
-  # substitution; the hub otherwise sends the URL of the TFT it installs.
+  # Display default only; the hub sends the URL of the TFT it installs
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
-# Temporary: the numeric-response delivery fix for the stock `nextion`
-# component (esphome/esphome#17744) merged two days after the 2026.10.0
-# release tag was cut, so no released ESPHome contains it.  Without it every
-# display read logs "Numeric return but '...' invalid type 0" and the value
-# is dropped.  This overrides the stock component with the patched copy
-# vendored in this repo (esphome/nextion_patch/), which is the 2026.10.0
-# component plus the cherry-picked fix, the TFT upload TX buffer option
-# (#21435) and a TFT upload retry fix, and therefore compiles against ESPHome
-# 2026.10.0.  Remove this whole block AND esphome/nextion_patch/ once a
-# released ESPHome contains every fix listed in esphome/nextion_patch/README.md
-# (#17744 and #21435 are expected in 2026.11.0), and bump min_version
-# in base.yaml together with it.  `ref` stays `dev` for the whole bridge: dev
-# carries the patch dir first, and the file disappears from both branches in
-# the same cleanup, so master users on this package keep working until then.
-# `refresh: 0s`: the package files and the patch change together on dev, and
-# the default 1-day cache kept an older patch than the package's display.yaml
-# expects ("[tft_upload_http_buffer_size_tx] is an invalid option").
+# Vendored nextion override for installed setups (git source); remove it once
+# every fix in nextion_patch/README.md ships in a released ESPHome. Track this
+# repo's dev branch without caching.
 external_components:
   - source:
       type: git
@@ -56,19 +35,4 @@ external_components:
     refresh: 0s
 
 packages:
-  version: !include nspanel_haui/version.yaml
-  globals: !include nspanel_haui/globals.yaml
-  base: !include nspanel_haui/base.yaml
-  hardware: !include nspanel_haui/hardware.yaml
-  display: !include nspanel_haui/display.yaml
-  interval: !include nspanel_haui/interval.yaml
-  scripts_common: !include nspanel_haui/scripts_common.yaml
-  scripts_connection: !include nspanel_haui/scripts_connection.yaml
-  scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
-  scripts_display: !include nspanel_haui/scripts_display.yaml
-  scripts_event: !include nspanel_haui/scripts_event.yaml
-  api: !include nspanel_haui/api.yaml
-  button: !include nspanel_haui/button.yaml
-  number: !include nspanel_haui/number.yaml
-  switch: !include nspanel_haui/switch.yaml
-  sensor: !include nspanel_haui/sensor.yaml
+  haui: !include nspanel_haui/packages.yaml

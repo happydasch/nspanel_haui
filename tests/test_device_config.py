@@ -121,6 +121,12 @@ def test_each_display_model_names_its_tft(display_model: str | None, filename: s
     assert tft_filename_for_model(display_model) == filename
 
 
+@pytest.mark.parametrize("stored", [None, ""])
+def test_a_stored_device_without_a_display_model_is_the_landscape_panel(stored: str | None) -> None:
+    """A stored device from before the option shipped keeps starting, in landscape."""
+    assert validate_device_config({"display_model": stored}).display_model == "eu"
+
+
 # ============================================================================
 # _validate_config
 # ============================================================================

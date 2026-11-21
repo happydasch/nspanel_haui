@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   buildPreviewDisplay,
   loadPanelRender,
+  lastPanelRender,
   previewRenderKey,
 } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
@@ -163,6 +164,23 @@ test('a failed render rejects with the hub error and is not kept', async () => {
   await assert.rejects(loadPanelRender(host, panel, false), /Unknown panel type/);
   fail = false;
   assert.equal((await loadPanelRender(host, panel, false)).page, 9);
+});
+
+test('a late response cannot replace a newer remembered thumbnail', async () => {
+  const pending = [];
+  const host = editorHost(() => new Promise((resolve) => pending.push(resolve)));
+  const panel = { key: 'buffered', type: 'grid' };
+  const older = loadPanelRender(host, { ...panel, title: 'Old' }, false);
+  const newer = loadPanelRender(host, { ...panel, title: 'New' }, false);
+  const oldRender = { page: 9, before: [], commands: ['tTitle.txt="Old"'] };
+  const newRender = { page: 9, before: [], commands: ['tTitle.txt="New"'] };
+
+  pending[1](newRender);
+  await newer;
+  pending[0](oldRender);
+  await older;
+
+  assert.deepEqual(lastPanelRender(host, panel, false), newRender);
 });
 
 test('a card keeps its last render across reloads until the frontend changes', async (t) => {

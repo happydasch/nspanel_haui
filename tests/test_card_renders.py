@@ -115,6 +115,26 @@ def test_every_card_follows_the_selected_theme_colours(
     _replay(tmp_path, orientation, renders, "--themed-colors")
 
 
+def test_every_card_paints_its_body_text_in_the_selected_theme(hub_loop):
+    """A light theme repaints the body text a compiled TFT leaves in the dark theme's.
+
+    The media title, the vacuum status and the climate temperature are compiled
+    white: on a light page they take the theme's body text colour, sent with the
+    panel's first render (``haui/mapping/theme_foregrounds.py``).
+    """
+    from custom_components.nspanel_haui.haui.mapping.color import Theme
+
+    colors = Theme("sky")
+    renders = sample_world.render_every_card(hub_loop, "eu", {"theme_id": "sky"})
+
+    media = renders["media"]["commands"]
+    assert f"tMTitle.pco={colors.get('component_text')}" in media
+    assert f"m1Name.pco={colors.get('component_text')}" in media
+    assert f"m1Icon.pco={colors.get('component_active')}" in media
+    assert f"tStatus.pco={colors.get('component_text')}" in renders["vacuum"]["commands"]
+    assert f"tTemp.pco={colors.get('component_text')}" in renders["climate"]["commands"]
+
+
 def test_unlock_card_shows_its_keypad_and_title(hub_loop):
     """The alarm page's load event hides the keypad, so the unlock popup shows it again."""
     commands = sample_world.render_every_card(hub_loop, "eu")["popup_unlock"]["commands"]
@@ -175,18 +195,3 @@ def test_demo_entity_panels_show_the_controls_their_sample_entity_supports(hub_l
     vacuum = renders["vacuum"]["commands"]
     for widget in ("bFan", "bAction", "bHome", "bLocate"):
         assert f"vis {widget},1" in vacuum
-
-
-@pytest.mark.parametrize(
-    ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
-)
-def test_every_starter_template_renders_and_replays(hub_loop, tmp_path, display_model, orientation):
-    from custom_components.nspanel_haui.haui.mapping.templates import PANEL_TEMPLATES
-
-    templates = {f"template:{t.key}": {**t.panel, "key": ""} for t in PANEL_TEMPLATES}
-
-    renders = sample_world.render_every_card(hub_loop, display_model, extra_panels=templates)
-
-    for name in templates:
-        assert renders[name]["commands"], name
-    _replay(tmp_path, orientation, {name: renders[name] for name in templates})

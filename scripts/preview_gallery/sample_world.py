@@ -1,14 +1,12 @@
 """A sample Home Assistant world for rendering every panel card on the hub.
 
 Shared by ``gen_preview_gallery.py`` (the card gallery and its PNGs) and
-``tests/test_card_renders.py`` (which replays the same renders in the browser's
-simulator). The hub runs for real: ``render_every_card`` boots a
-``VirtualPanelHost`` on a stubbed Home Assistant holding the states below and
-renders a panel of every type, and every system panel, the way the editor's
-cards do.
+``tests/test_card_renders.py`` (which replays the same renders in the browser).
+``render_every_card`` boots a ``VirtualPanelHost`` on a stubbed Home Assistant holding
+the states below and renders every panel the way the editor's cards do.
 
-The ``nspanel_haui`` package and the Home Assistant import stubs must be
-importable first (``scripts/_ha_stubs.py`` outside pytest).
+The ``nspanel_haui`` package and the Home Assistant import stubs must be importable
+first (``scripts/_ha_stubs.py`` outside pytest).
 """
 
 from __future__ import annotations
@@ -28,8 +26,8 @@ from custom_components.nspanel_haui.web.preview.sample_data import (
 
 ENTITIES = SAMPLE_ENTITIES
 
-# The firmware's own entities, by (domain, ESPHome original_name). The hub
-# resolves them through the entity registry (settings, qr and device pages).
+# The firmware's own entities, by (domain, ESPHome original_name), which the hub
+# resolves through the entity registry.
 FIRMWARE_ENTITIES: list[tuple[str, str, str]] = [
     ("sensor", "Temperature", "sensor.kitchen_temperature"),
     ("sensor", "Brightness", "sensor.kitchen_brightness"),
@@ -203,8 +201,7 @@ def install_runtime_stubs(
 ) -> None:
     """Stub the Home Assistant helpers the hub imports at call time.
 
-    ``setitem``/``setattr_`` default to plain assignment; tests pass
-    ``monkeypatch``'s so the stubs are undone afterwards.
+    ``setitem``/``setattr_`` default to plain assignment; tests pass ``monkeypatch``'s.
     """
     event = types.ModuleType("homeassistant.helpers.event")
     event.async_track_state_change_event = lambda hass, entity_id, cb: lambda: None  # type: ignore[attr-defined]
@@ -247,19 +244,12 @@ def render_every_card(
     display_model: str,
     device_settings: dict[str, Any] | None = None,
     themes: dict[str, Any] | None = None,
-    extra_panels: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Render every panel card for a device of ``display_model`` (``eu``, ``us``).
 
-    User cards render their sample panel (or a bare panel of the type), system
-    cards the device's configured panel by key, as the editor sends them.
-    ``device_settings`` are stored device settings laid over the sample ones,
-    and ``themes`` supplies the shared theme library. ``extra_panels`` adds
-    cards by name, each rendered from the panel config given (e.g. a keyless
-    starter template, as the Add panel catalog sends it).
-
-    Returns:
-        Card name (type key or system key) -> ``{page, before, commands}``.
+    Returns card name (type key or system key) -> ``{page, before, commands}``.
+    ``device_settings`` are laid over the sample ones, and ``themes`` supplies the shared
+    theme library.
     """
     import custom_components.nspanel_haui as nspanel_haui
     from custom_components.nspanel_haui.haui.mapping.panel import (
@@ -299,8 +289,6 @@ def render_every_card(
         }
         for entry in get_system_panel_entries():
             cards[entry["key"]] = by_key(entry["key"])
-        for name, panel in (extra_panels or {}).items():
-            cards[name] = host.async_render(panel)
         return dict(zip(cards, await asyncio.gather(*cards.values()), strict=True))
 
     def run(coro: Any) -> Any:

@@ -35,17 +35,10 @@ class HAUIConfig(HAUIConfigAccess):
             from ..mapping.panel import build_sys_panels_defaults
 
             cfg["sys_panels"] = build_sys_panels_defaults()
-        # validate after base init so self.app etc. are available. Keep the
-        # validated values: the validators clamp and coerce device settings.
-        validated = validate_config_model(cfg)
-        if validated is not None:
-            cfg.update(validated.model_dump(exclude_unset=True))
+        cfg.update(validate_config_model(cfg).model_dump(exclude_unset=True))
         # The runtime device config is an extra key on the top-level model, so it
         # is not covered above.
-        device = validate_device_config(cfg["device"])
-        if device is not None:
-            cfg["device"] = device.model_dump(exclude_unset=True)
-        # load all panels
+        cfg["device"] = validate_device_config(cfg["device"]).model_dump(exclude_unset=True)
         panels_to_load = self._merge_sys_overrides(
             list(self.get("panels")), list(self.get("sys_panels"))
         )

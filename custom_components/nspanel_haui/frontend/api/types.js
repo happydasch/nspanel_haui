@@ -45,19 +45,6 @@
  */
 
 /**
- * A starter template returned by `/api/nspanel_haui/panel_templates`: a keyless
- * panel config whose empty entity slots (`item: ''`) the user fills; an item-list
- * slot may carry a `domain` hint for the catalog's preview.
- *
- * @typedef {Object} PanelTemplate
- * @property {string} key
- * @property {string} label
- * @property {string} description
- * @property {string} icon
- * @property {PanelConfig} panel
- */
-
-/**
  * A panel type descriptor returned by `/api/nspanel_haui/panel_types`.
  *
  * @typedef {Object} PanelTypeDescriptor
@@ -246,11 +233,15 @@
  */
 
 /**
- * A device a dashboard card can show (`nspanel_haui/card/devices`).
+ * A device a dashboard card can name (`nspanel_haui/card/devices`).
+ * `device_id` is the panel's Home Assistant device, which a rename keeps: a
+ * card stores it and names its device by it. `enabled` is whether the hub
+ * runs it: a disabled device stays in the list, and its card says so.
  * @typedef {Object} CardDevice
  * @property {string} entry_id
  * @property {string} name
- * @property {boolean} portrait
+ * @property {string|null} device_id
+ * @property {boolean} enabled
  */
 
 /**

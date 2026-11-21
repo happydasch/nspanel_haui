@@ -15,7 +15,7 @@ The QR code panel shows a QR code that guests scan to join your Wi-Fi. It has tw
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| **WiFi SSID** | | The name of the Wi-Fi network. |
+| **WiFi SSID** | | The name of the Wi-Fi network. Required. |
 | **WiFi password** | | The password of the network. |
 | **Show big code** | Off | Open the panel with the large code. |
 | **Show network info** | On | Show the network name and password as text beside the small code. |
@@ -30,5 +30,5 @@ WIFI:S:<SSID>;T:WPA;P:<PASSWORD>;;
 ## How it behaves
 
 - **Tap the code** to switch between the large and the small size. The zoom button in the header does the same.
-- **The display stays on** while the large code is shown after a tap on the code: it does not dim and the idle page does not open, so guests have time to scan it. The zoom button in the header changes the size without keeping the display on.
+- **The idle page waits** while the large code is shown, whether it was opened with a tap on the code or with the zoom button: it does not open, so guests have time to scan it.
 - An item value longer than 19 characters continues on a second line.

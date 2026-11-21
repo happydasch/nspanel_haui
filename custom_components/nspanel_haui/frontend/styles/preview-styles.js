@@ -172,6 +172,18 @@ export const previewStyles = css`
     max-height: 480px;
     margin-inline: auto;
   }
+  .haui-preview-sim-loading.is-error {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    opacity: 1;
+    text-align: center;
+  }
+  .haui-preview-sim-error {
+    color: var(--haui-bad-text);
+    font-size: var(--haui-text-caption);
+    overflow-wrap: anywhere;
+  }
   .vp-tooltip .vp-tooltip-id { opacity: .7; font-family: var(--haui-mono); }
   @media (prefers-reduced-motion: reduce) {
     .haui-preview-stage, .vp-relay-light { transition: none; }

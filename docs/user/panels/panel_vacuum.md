@@ -15,7 +15,7 @@ The vacuum panel controls one robot vacuum: start and stop, return to the dock, 
 
 | Option | Description |
 |--------|-------------|
-| **Item** | The vacuum to control. You can leave it empty and set it later; until then the panel shows no controls. |
+| **Item** | The vacuum to control. Required. |
 | **Battery Sensor** | A sensor with the battery level. Needed for the battery icon, because vacuum entities in Home Assistant no longer report the battery themselves. |
 | **Secondary Items** | Up to 6 entities shown as buttons below the controls, for example sensors or switches. |
 
@@ -39,3 +39,5 @@ The vacuum panel controls one robot vacuum: start and stop, return to the dock, 
 ## Popup
 
 Tapping a vacuum on another panel opens the same controls as a popup (`popup_vacuum`).
+
+<img src="../../assets/screens/landscape/popup_vacuum.png" alt="vacuum popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_vacuum.png" alt="vacuum popup, portrait" width="142" height="213">

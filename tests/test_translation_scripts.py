@@ -56,6 +56,24 @@ def test_extract_help_prints_usage_and_writes_nothing(tmp_path):
     assert _mtimes(repo) == before
 
 
+def test_extract_check_reports_stale_files_without_touching_them(tmp_path):
+    repo = _repo(tmp_path)
+    source = repo / "custom_components" / "nspanel_haui" / "page.py"
+    source.write_text('self.translate("Close")\nself.translate("Open")\n')
+    before = _mtimes(repo)
+
+    result = _run(repo, "extract_translations.py", "--check")
+
+    assert result.returncode == 1
+    assert all(name in result.stdout for name in ("en.json", "de.json", "translate.json"))
+    assert _mtimes(repo) == before
+
+    assert _run(repo, "extract_translations.py").returncode == 0
+    before = _mtimes(repo)
+    assert _run(repo, "extract_translations.py", "--check").returncode == 0
+    assert _mtimes(repo) == before
+
+
 def test_merge_help_prints_usage_and_writes_nothing(tmp_path):
     repo = _repo(tmp_path)
     before = _mtimes(repo)
@@ -95,3 +113,25 @@ def test_extract_finds_a_translate_call_wrapped_by_the_formatter(tmp_path):
     locale = repo / "custom_components" / "nspanel_haui" / "haui" / "locale"
     en = json.loads((locale / "en.json").read_text(encoding="utf-8"))["text"]
     assert en["A sentence too long for one line"] == "A sentence too long for one line"
+
+
+LOCALE = Path(__file__).parent.parent / "custom_components" / "nspanel_haui" / "haui" / "locale"
+
+
+def test_the_shipped_locale_directory_holds_only_language_files() -> None:
+    """The extractor's scratch template is not a language and must not ship.
+
+    ``get_translations`` resolves ``<lang>.json`` for a two-letter code, so a
+    second copy of the merge template (it belongs in ``scripts/translations/``)
+    would be dead weight in the installed integration - and two copies drift.
+    """
+    shipped = sorted(path.name for path in LOCALE.glob("*.json"))
+    language_files = [
+        name
+        for name in shipped
+        if (stem := name.removesuffix(".json")) and len(stem) == 2 and stem.isalpha()
+    ]
+
+    assert shipped == language_files, f"not a language file: {set(shipped) - set(language_files)}"
+    assert "en.json" in shipped
+    assert (SCRIPTS / "translate.json").is_file(), "the merge template lives with the scripts"

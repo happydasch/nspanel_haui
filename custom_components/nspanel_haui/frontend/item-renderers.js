@@ -303,7 +303,8 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
   }
 
   const domain = opt.domain || "";
-  const choices = Array.isArray(opt.choices) ? opt.choices : null;
+  // The API sends `choices: []` for an option that has none, so an empty list is no dropdown.
+  const choices = Array.isArray(opt.choices) && opt.choices.length ? opt.choices : null;
   const max = opt.max_items;
 
   const mutate = (fn) => {
@@ -739,7 +740,7 @@ export function renderItemEditFields(host, descriptor) {
             `;
           }
           return html`
-            <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, service name, or custom text")}`}>${info.label}</label>
+            <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, action name, or custom text")}`}>${info.label}</label>
             <input
               id="item-entity"
               class="haui-input"
@@ -801,7 +802,7 @@ export function renderItemEditFields(host, descriptor) {
           ${host._editingItemType === ITEM_TYPE.ACTION
             ? html`
               <div class="haui-field">
-                <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
+                <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Action data")}</label>
                 <textarea
                   id="item-service_data"
                   class="haui-w-full haui-item-service-data"

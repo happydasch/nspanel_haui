@@ -1,5 +1,4 @@
-# backgrounds
-# name -> picture_id
+# backgrounds: name -> picture_id. Picture 0 is the layout grid, not a background.
 BACKGROUNDS = {
     "dark": 1,
     "light": 2,
@@ -26,14 +25,6 @@ BACKGROUND_VARIANTS = {
     "dog_2": "dark",
     "cat": "dark",
 }
-
-# Solid picture fills already embedded in the HMI (1=dark, 2=light).
-BACKGROUND_COLOR_PICTURES = {"dark": BACKGROUNDS["dark"], "light": BACKGROUNDS["light"]}
-
-
-def theme_background_picture_id(variant: str) -> int:
-    """Return the HMI's solid-fill picture for a dark/light theme background."""
-    return BACKGROUND_COLOR_PICTURES[variant]
 
 
 def background_variant(background: str) -> str:

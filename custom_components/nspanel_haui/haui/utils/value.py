@@ -38,6 +38,29 @@ def format_number(value: Any) -> str:
     return str(value)
 
 
+# States Home Assistant reports for an entity that has no value yet: ``unknown``
+# before its integration published one, ``unavailable`` while it cannot reach it.
+UNRESOLVED_STATES: tuple[Any, ...] = (None, "", "unknown", "unavailable")
+
+
+def number_state(state: Any) -> float | None:
+    """A numeric entity state, or None while Home Assistant has no value for it.
+
+    ``unknown`` and ``unavailable`` are Home Assistant states, not numbers: an
+    ESPHome number a device has not reported yet reads ``unknown``, and converting
+    it raises.  Anything else that is not numeric is a real bug and raises.
+
+    Args:
+        state: The entity's state
+
+    Returns:
+        float | None: The number, or None while the state is unresolved
+    """
+    if state in UNRESOLVED_STATES:
+        return None
+    return float(state)
+
+
 def merge_dicts(dict1: dict, dict2: dict) -> None:
     """Merge two dicts together
 

@@ -15,7 +15,10 @@ export const logsStyles = css`
     --mdc-icon-size: 18px; transition: border-color 150ms, background 150ms, color 150ms;
   }
   .haui-logs-device select { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; font: inherit; }
-  .haui-logs-device:hover, .haui-logs-device:focus-within { border-color: var(--primary-color); }
+  .haui-logs-device:hover, .haui-logs-device:focus-within {
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 10%, var(--card-background-color));
+  }
   .haui-logs-device:has(select:focus-visible) { outline: var(--haui-focus-ring); outline-offset: var(--haui-focus-offset); }
   .haui-logs-device.is-filtered {
     border-color: var(--primary-color); color: var(--primary-color);

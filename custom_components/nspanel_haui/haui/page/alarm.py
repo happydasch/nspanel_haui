@@ -11,7 +11,7 @@ from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_PASSWORD
 from ..utils.icon import get_icon
 
-# keypad font default, shared by the descriptor option and the runtime helper
+# keypad font default, shared by the option and the runtime helper
 _KEYPAD_FONT_DEFAULT = 2
 
 # The action buttons (b1Fnc-b4Fnc) hold at most 10 bytes of text in both HMIs.
@@ -140,9 +140,7 @@ class AlarmPage(HAUIPage):
         b4_fnc=Component(23, "b4Fnc"),
     )
 
-    # alarm state icons (pre-converted to display glyphs — the display's
-    # set_component_text writes raw text, so "mdi:..." names must be resolved
-    # to their icon-font characters here rather than passed through verbatim).
+    # Icons are pre-resolved to glyphs: set_component_text writes raw text.
     _ALARM_ICONS = {
         "disarmed": get_icon("mdi:shield-off-outline"),
         "armed_home": get_icon("mdi:shield-home-outline"),
@@ -170,10 +168,8 @@ class AlarmPage(HAUIPage):
         "disarming": "arming",
     }
 
-    # AlarmControlPanelEntityFeature bit -> (arm service, button label).
-    # Ordered by display priority; only the first four supported modes fit
-    # the four action-button slots.  The service suffix after "alarm_arm_" is
-    # the mode key used by the ``hidden_arm_modes`` option.
+    # Feature bit -> (service, label), in display order; only the first four
+    # supported modes fit. The service suffix is the ``hidden_arm_modes`` key.
     _ARM_MODES: list[tuple[int, str, str]] = [
         (1, "alarm_arm_home", _("Home")),
         (2, "alarm_arm_away", _("Away")),
@@ -192,12 +188,11 @@ class AlarmPage(HAUIPage):
         "alarm_disarm": "disarmed",
     }
 
-    # States that are not "disarmed": while in any of them the panel offers a
-    # single disarm action instead of the arm-mode buttons.
+    # These states offer the arm-mode buttons; any other state offers disarm.
     _DISARMED_STATES = ("", "disarmed", "unknown", "unavailable")
 
     def prepare(self) -> None:
-        # currently configured alarm item (None if unconfigured/unavailable)
+        # configured alarm item (None if unavailable)
         self._item: HAUIItem | None = None
         # code digits entered on the keypad
         self._input: str = ""
@@ -205,10 +200,7 @@ class AlarmPage(HAUIPage):
         self._btn_actions: dict[str, str] = {}
 
     def _alarm_color(self, state: str) -> int:
-        """Resolve the icon color for an alarm *state* from ALARM_COLORS.
-
-        Falls back to the global ``text`` color for unmapped states.
-        """
+        """Icon color for an alarm state, falling back to the theme text color."""
         key = self._ALARM_COLOR_KEYS.get(state)
         color = self.get_icon_color("alarm", key) if key is not None else None
         return color if color is not None else self.get_color("text")
@@ -277,14 +269,7 @@ class AlarmPage(HAUIPage):
         self.update_components()
 
     def _style_keypad(self, panel: HAUIPanel) -> None:
-        """Apply the configured font and colors to every keypad button once.
-
-        Unset colors use the selected theme's ``background`` and
-        ``component_text``; the font falls back to the descriptor default for
-        panels saved before the keypad options
-        existed (including the unlock popup, which is a system panel and has no
-        options of its own).
-        """
+        """Apply the configured font and colors; unset colors use the theme."""
         font = self.option(panel, "keypad_font")
         bg_color = self.option(panel, "keypad_bg_color")
         if bg_color in (None, ""):
@@ -366,11 +351,7 @@ class AlarmPage(HAUIPage):
         return actions
 
     def _show_action_button(self, component: Component, service: str, label: str) -> None:
-        """Render a single action button as an enabled, labelled control.
-
-        Applies the optional action icon and the arm/disarm button colors of
-        the panel; unset colors keep the theme's button colors.
-        """
+        """Render an action button with its optional icon and arm/disarm colors."""
         panel = self.panel
         text = label
         if panel is not None and self.option(panel, "action_icons"):
@@ -378,7 +359,7 @@ class AlarmPage(HAUIPage):
             with_icon = f"{icon} {label}" if icon else label
             if len(with_icon.encode()) <= _ACTION_TEXT_MAX_BYTES:
                 text = with_icon
-        # One button shows disarm or an arm mode, each with its own back color.
+        # disarm and arm buttons have their own back colors
         color_args = {**self.button_color_args(True), "back_color": self.get_color("background")}
         prefix = "disarm" if service == "alarm_disarm" else "arm"
         if panel is not None:

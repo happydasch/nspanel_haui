@@ -40,3 +40,5 @@ The alarm panel arms and disarms an alarm system (an `alarm_control_panel` entit
 ## Popup
 
 Tapping an alarm entity on another panel, for example a tile on a grid, opens the same keypad as a popup (`popup_alarm`).
+
+<img src="../../assets/screens/landscape/popup_alarm.png" alt="alarm popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_alarm.png" alt="alarm popup, portrait" width="142" height="213">

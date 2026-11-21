@@ -19,7 +19,6 @@ import { t } from '../localize.js';
 /** @typedef {import('../api/types.js').Notification} Notification */
 /** @typedef {import('../api/types.js').Theme} Theme */
 /** @typedef {import('../api/types.js').PanelTypeDescriptor} PanelTypeDescriptor */
-/** @typedef {import('../api/types.js').PanelTemplate} PanelTemplate */
 /** @typedef {import('../api/types.js').SystemPanel} SystemPanel */
 /** @typedef {import('../api/client.js').ApiClient} ApiClient */
 
@@ -72,7 +71,7 @@ export function isSidebarOverlayKind(kind) {
  * @typedef {{ kind: string, anchorKey: string|null, subject: string|null, draft: any }} Overlay
  *
  * @typedef {Object} StoreState
- * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, fieldErrors: Array<{ panel: string, field: string, kind: string, message: string }>, statusError: string|null, panelTypes: PanelTypeDescriptor[], panelTemplates: PanelTemplate[], rollout: Record<string, any>|null, systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
+ * @property {{ entryId: string|null, loading: boolean, saving: boolean, error: string|null, fieldErrors: Array<{ panel: string, field: string, kind: string, message: string }>, statusError: string|null, panelTypes: PanelTypeDescriptor[], rollout: Record<string, any>|null, systemPanels: SystemPanel[], themes: Object<string, Theme> }} hub
  * @property {DevicesState} devices
  * @property {Notification[]} notifications
  * @property {{ route: Route, overlays: Overlay[], toast: { message: string, type: string }|null, dialogs: Object<string, any>, menus: Object<string, any>, preview: { mode: 'simulated'|'live', idle: boolean, showEntities: boolean } }} ui
@@ -170,8 +169,6 @@ function createInitialState(storage) {
       fieldErrors: [],
       statusError: null,
       panelTypes: [],
-      // The starter templates of the Add panel catalog.
-      panelTemplates: [],
       // Fleet's one-at-a-time update rollout; null until read.
       rollout: null,
       systemPanels: [],
@@ -200,11 +197,10 @@ export function createStore({ client, storage, onToast }) {
   const listeners = new Set();
 
   /** @type {ReturnType<typeof setInterval>|null} */
-  let selectedTimer = null;
-  /** @type {ReturnType<typeof setInterval>|null} */
-  let allTimer = null;
-  /** @type {string|null} */
-  let polledDevice = null;
+  let statusTimer = null;
+  /** @type {'selected'|'all'|null} */
+  let statusScope = null;
+  let selectedRequest = 0;
 
   /** @type {(() => void)|null} */
   let notificationUnsubscribe = null;
@@ -249,10 +245,51 @@ export function createStore({ client, storage, onToast }) {
     /** @type {any} */ (timer).unref?.();
   }
 
+  /** @param {string} entryId @param {() => boolean} isCurrent */
+  async function pollHubStatus(entryId, isCurrent) {
+    try {
+      const { devices, rollout } = await client.status.getAll(entryId);
+      if (!isCurrent()) return;
+      commit((current) => {
+        const byName = withStatuses(current.devices.byName, devices);
+        const nextRollout = rollout ?? current.hub.rollout;
+        if (byName === current.devices.byName && !current.hub.statusError
+            && JSON.stringify(nextRollout) === JSON.stringify(current.hub.rollout)) return current;
+        return {
+          ...current,
+          devices: { ...current.devices, byName },
+          hub: { ...current.hub, statusError: null, rollout: nextRollout },
+        };
+      });
+    } catch (error) {
+      if (!isCurrent()) return;
+      const statusError = /** @type {Error} */ (error).message || t('Fetch failed');
+      if (statusError !== state.hub.statusError) {
+        commit((current) => ({ ...current, hub: { ...current.hub, statusError } }));
+      }
+    }
+  }
+
   const actions = {
     /** @param {boolean} loading */
     setLoading(loading) {
       commit((current) => ({ ...current, hub: { ...current.hub, loading } }));
+    },
+
+    /**
+     * Replace the hub's custom theme library.
+     *
+     * A panel card keys its render on the theme its device draws in
+     * (`previews/previewer.js`), so a theme the sidebar saved has to reach this
+     * state or every card keeps the colors of the old definition until the
+     * editor is reloaded.
+     *
+     * @param {Object<string, any>} themes
+     */
+    setThemes(themes) {
+      const next = themes || {};
+      if (JSON.stringify(next) === JSON.stringify(state.hub.themes)) return;
+      commit((current) => ({ ...current, hub: { ...current.hub, themes: next } }));
     },
 
     /**
@@ -291,9 +328,10 @@ export function createStore({ client, storage, onToast }) {
 
       /** @type {Object<string, DeviceStatus>} */
       let statuses = {};
+      let rollout = null;
       let statusError = null;
       try {
-        statuses = await client.status.getAll(entryId);
+        ({ devices: statuses, rollout = null } = await client.status.getAll(entryId));
       } catch (error) {
         statusError = /** @type {Error} */ (error).message || t('Fetch failed');
       }
@@ -311,6 +349,7 @@ export function createStore({ client, storage, onToast }) {
             entryId,
             loading: false,
             statusError,
+            rollout,
             systemPanels: payload.system_panels || [],
             themes: payload.themes || {},
           },
@@ -320,10 +359,6 @@ export function createStore({ client, storage, onToast }) {
 
       void actions.loadPanelTypes();
       void actions.loadNotifications();
-      const selected = state.devices.selected;
-      if (selected) {
-        actions.startSelectedStatusPolling({ refresh: !statuses[selected] });
-      }
     },
 
     /**
@@ -358,15 +393,9 @@ export function createStore({ client, storage, onToast }) {
       if (panelTypesPromise) return panelTypesPromise;
       panelTypesPromise = (async () => {
         try {
-          // The catalog works without its starter templates; panel types never wait on them.
-          const templates = client.editor.panelTemplates(lang).catch(() => {
-            showToast(t('Failed to load panel templates'), 'error');
-            return [];
-          });
           const panelTypes = await client.editor.panelTypes(lang);
-          const panelTemplates = await templates;
           panelTypesLanguage = lang;
-          commit((current) => ({ ...current, hub: { ...current.hub, panelTypes, panelTemplates } }));
+          commit((current) => ({ ...current, hub: { ...current.hub, panelTypes } }));
         } catch (error) {
           showToast(t('Failed to load panel types'), 'error');
         } finally {
@@ -464,37 +493,36 @@ export function createStore({ client, storage, onToast }) {
         devices: { ...current.devices, selected: name },
         hub: { ...current.hub, statusError: null },
       }));
-      actions.startSelectedStatusPolling();
-    },
-
-    /**
-     * Start the selected-device status poller. Restarts when the selected
-     * device changed; a no-op while the same device is already polled.
-     * @param {{ refresh?: boolean }} [options]
-     */
-    startSelectedStatusPolling({ refresh = true } = {}) {
-      const selected = state.devices.selected;
-      if (!selected) {
-        actions.stopSelectedStatusPolling();
-        return;
-      }
-      if (selectedTimer && polledDevice === selected) return;
-      actions.stopSelectedStatusPolling();
-      polledDevice = selected;
-      if (refresh) void actions.pollSelectedStatus();
-      selectedTimer = setInterval(() => {
-        // The all-device poller already reports this device.
-        if (allTimer || pageHidden()) return;
+      if (statusScope !== 'all' && !state.hub.loading && !pageHidden()) {
         void actions.pollSelectedStatus();
-      }, 5000);
+      }
     },
 
-    stopSelectedStatusPolling() {
-      if (selectedTimer) {
-        clearInterval(selectedTimer);
-        selectedTimer = null;
-      }
-      polledDevice = null;
+    /** @param {'selected'|'all'|null} scope */
+    setStatusPolling(scope) {
+      if (statusScope === scope) return;
+      if (statusTimer !== null) clearInterval(statusTimer);
+      statusScope = scope;
+      statusTimer = null;
+      selectedRequest++;
+      if (!scope) return;
+
+      let pending = false;
+      const tick = async () => {
+        const entryId = state.hub.entryId;
+        if (pending || !entryId || state.hub.loading || pageHidden()) return;
+        const timer = statusTimer;
+        const isCurrent = () => timer === statusTimer && entryId === state.hub.entryId;
+        pending = true;
+        try {
+          if (scope === 'all') await pollHubStatus(entryId, isCurrent);
+          else if (state.devices.selected) await actions.pollSelectedStatus();
+        } finally {
+          pending = false;
+        }
+      };
+      statusTimer = setInterval(tick, 5000);
+      void tick();
     },
 
     /**
@@ -512,6 +540,7 @@ export function createStore({ client, storage, onToast }) {
         return;
       }
       const requested = selected || '';
+      const request = ++selectedRequest;
       /** @type {DeviceStatus|null} */
       let status = null;
       /** @type {Object<string, DeviceStatus>|null} */
@@ -527,8 +556,7 @@ export function createStore({ client, storage, onToast }) {
       } catch (caught) {
         error = /** @type {Error} */ (caught).message || t('Fetch failed');
       }
-      // The user may have switched devices while this request was in flight.
-      if (state.devices.selected !== selected) return;
+      if (request !== selectedRequest || state.hub.entryId !== entryId || state.devices.selected !== selected) return;
 
       const selectedStatus = statuses ? statuses[requested] || null : status;
       commit((current) => {
@@ -543,53 +571,6 @@ export function createStore({ client, storage, onToast }) {
           hub: { ...current.hub, statusError: error },
         };
       });
-    },
-
-    /** Start the all-device status poller (the Fleet screen shows every device). */
-    startAllStatusPolling() {
-      if (allTimer) return;
-      const fetchAll = async () => {
-        const entryId = state.hub.entryId;
-        if (!entryId || pageHidden()) return;
-        /** @type {Object<string, DeviceStatus>|null} */
-        let statuses = null;
-        let error = null;
-        try {
-          statuses = await client.status.getAll(entryId);
-        } catch (caught) {
-          // The statuses shown are now stale: say so until a poll succeeds again.
-          error = /** @type {Error} */ (caught).message || t('Fetch failed');
-        }
-        commit((current) => {
-          const byName = statuses ? withStatuses(current.devices.byName, statuses) : current.devices.byName;
-          if (byName === current.devices.byName && current.hub.statusError === error) return current;
-          return {
-            ...current,
-            devices: { ...current.devices, byName },
-            hub: { ...current.hub, statusError: error },
-          };
-        });
-        // Read every tick: another tab, an automation or another user may start
-        // one while this one shows an idle or finished rollout.
-        try {
-          const rollout = await client.updates.rollout(entryId);
-          commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
-        } catch (caught) {
-          commit((current) => ({
-            ...current,
-            hub: { ...current.hub, statusError: /** @type {Error} */ (caught).message || t('Fetch failed') },
-          }));
-        }
-      };
-      void fetchAll();
-      allTimer = setInterval(fetchAll, 5000);
-    },
-
-    stopAllStatusPolling() {
-      if (allTimer) {
-        clearInterval(allTimer);
-        allTimer = null;
-      }
     },
 
     /**
@@ -610,10 +591,16 @@ export function createStore({ client, storage, onToast }) {
       commit((current) => ({ ...current, hub: { ...current.hub, saving: true } }));
       let saved = false;
       try {
-        await client.panels.saveDevice(entryId, name, panels);
+        const result = await client.panels.saveDevice(entryId, name, panels);
         commit((current) => {
           const byName = { ...current.devices.byName };
-          byName[name] = { ...byName[name], panels };
+          // The hub drops a removed panel's key from the device's home and idle
+          // settings, so a save answers with the settings it stored.
+          byName[name] = {
+            ...byName[name],
+            panels,
+            ...(result?.config ? { config: mergeDeviceConfig(result.config) } : {}),
+          };
           return {
             ...current,
             devices: { ...current.devices, byName },
@@ -658,6 +645,11 @@ export function createStore({ client, storage, onToast }) {
           for (const [device, panels] of Object.entries(result.panels)) {
             if (byName[device]) byName[device] = { ...byName[device], panels };
           }
+          // The source device loses the panel, so the hub drops it from that
+          // device's home and idle settings in the same save.
+          if (result.config && byName[name]) {
+            byName[name] = { ...byName[name], config: mergeDeviceConfig(result.config) };
+          }
           return {
             ...current,
             devices: { ...current.devices, byName },
@@ -678,18 +670,6 @@ export function createStore({ client, storage, onToast }) {
       }
     },
 
-    /** Read the hub's update rollout into the store. */
-    async loadRollout() {
-      const entryId = state.hub.entryId;
-      if (!entryId) return;
-      try {
-        const rollout = await client.updates.rollout(entryId);
-        commit((current) => ({ ...current, hub: { ...current.hub, rollout } }));
-      } catch (error) {
-        showToast(/** @type {Error} */ (error).message || t('Fetch failed'), 'error');
-      }
-    },
-
     /**
      * Install every offered update one device at a time on the hub.
      * @returns {Promise<boolean>} whether the rollout started
@@ -707,10 +687,6 @@ export function createStore({ client, storage, onToast }) {
       }
     },
 
-    /**
-     * Cancel one queued device of the rollout, or every queued device.
-     * @param {string|null} [device]
-     */
     /** Forget the finished rollout on the hub, for every editor showing it. */
     async dismissRollout() {
       const entryId = state.hub.entryId;
@@ -723,6 +699,10 @@ export function createStore({ client, storage, onToast }) {
       }
     },
 
+    /**
+     * Cancel one queued device of the rollout, or every queued device.
+     * @param {string|null} [device]
+     */
     async cancelRollout(device = null) {
       const entryId = state.hub.entryId;
       if (!entryId) return;

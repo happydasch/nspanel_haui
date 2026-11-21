@@ -2,6 +2,9 @@
 
 from contextlib import nullcontext
 
+from support.page_app import Entity, PageApp
+
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.page.settings import SettingsPage
 
 
@@ -94,3 +97,19 @@ def test_a_brightness_change_in_home_assistant_moves_its_slider():
     page.callback_brightness("number.area_panel_dimmed", "state", "20", "unavailable", {})
 
     assert moved == [("full", 42)]
+
+
+def test_rendering_ignores_a_firmware_brightness_home_assistant_has_no_value_for():
+    """A brightness number still "unknown"/"unavailable" leaves its slider alone."""
+    full = Entity("unknown", {})
+    dimmed = Entity("unavailable", {})
+    app = PageApp({"number.panel_full": full, "number.panel_dimmed": dimmed})
+    app.find_entity_id = lambda domain, name: {
+        "Brightness Full": "number.panel_full",
+        "Brightness Dimmed": "number.panel_dimmed",
+    }.get(name)
+    page = SettingsPage(app, {"page_id": 3})
+
+    page.set_panel(HAUIPanel(app, {"type": "system_settings"}))
+
+    assert [cmd for cmd in app.cmds if cmd.startswith("hBrght.val")] == []

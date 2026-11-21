@@ -53,9 +53,7 @@ class Notification(NamedTuple):
     # Seconds after which the notification auto-dismisses.  None/0 = it stays
     # queued until dismissed (the default; notifications never auto-close).
     timeout: int | None = None
-    # Unique id, set by the controller.  It names the notification in the HA
-    # event, the editor inbox and the panel's list.  id() was used before, but
-    # CPython hands a freed tuple's id straight to the next notification.
+    # Unique id, set by the controller; CPython reuses tuple ids, so id() was unsafe.
     notif_id: str = ""
 
 
@@ -68,10 +66,7 @@ class HAUINotificationController(HAUIBase):
     """
 
     MAX_QUEUE_SIZE = 50
-    # Seconds between forced re-opens of a persistent notification's popup.
-    # A persistent notification stays in the queue until dismissed; while it
-    # is queued, this loop brings its popup back to the screen if the user
-    # navigated away, so the alert is never silently lost.
+    # A persistent notification's popup re-opens at this interval until dismissed.
     PERSISTENT_ALERT_INTERVAL = 60
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]):
@@ -85,13 +80,10 @@ class HAUINotificationController(HAUIBase):
         self.log(f"Creating Notification Controller with config: {config}", level="DEBUG")
         self._notifications: list[Notification] = []
         self._blinker = NotificationBlinker(app, visible_fn=lambda: app.device.display_visible)
-        self._blinker_refresh_fn: Callable[[], None] | None = None
         # Items of the notification list popup. Updated in place: closing a
         # notification popup re-renders the list from the kwargs it was opened with.
         self._list_items: list[dict[str, str]] = []
-        # notif_id of the notification whose popup is currently displayed, or None.
-        # Lets the close path know whether the closed popup was a queued
-        # notification, so the queue player can move on to the next one.
+        # id of the notification whose popup is shown, or None.
         self._open_popup_notif_id: str | None = None
         # Handle of a deferred "show next queued notification" timer.
         self._advance_handle: str | None = None
@@ -99,10 +91,7 @@ class HAUINotificationController(HAUIBase):
         self._persistent_alert_handles: dict[str, str] = {}
         # Auto-dismiss timers for notifications with a ``timeout``, keyed by notif_id.
         self._timeout_handles: dict[str, str] = {}
-        # Stable reference to the notification selection callback: bound
-        # methods compare by identity, and each attribute access creates a
-        # new object, so a stored bound method must be compared against the
-        # exact object it was stored as.
+        # Keep the bound method: bound methods compare by identity.
         self._notification_selection_callback = self._on_notification_selected
 
     def stop_part(self) -> None:
@@ -184,11 +173,8 @@ class HAUINotificationController(HAUIBase):
         self.app.callback_event(event)
         self._fire_notification_event("added", notification)
 
-        # A force-show notification opens immediately — unless a notification
-        # popup or list is already on screen.  Stealing an open notification
-        # popup would show the new arrival only once and drop the one the
-        # user is still reading; instead it waits in the queue and opens when
-        # the current one is dismissed.
+        # A force-show notification never steals an open notification popup or
+        # list; it waits in the queue.
         if force_show and not self._notification_view_open():
             self.open_notifications()
             self.app.device.wake_for_notification()
@@ -317,9 +303,6 @@ class HAUINotificationController(HAUIBase):
 
     def has_notifications(self) -> bool:
         return len(self._notifications) > 0
-
-    def has_persistent_notifications(self) -> bool:
-        return any(n.persistent for n in self._notifications)
 
     # ------------------------------------------------------------------
     # Viewing notifications
@@ -527,28 +510,10 @@ class HAUINotificationController(HAUIBase):
         return self._blinker
 
     def set_blinker_callback(self, refresh_fn: Callable[[], None]) -> None:
-        """Register a page's notification indicator renderer.
-
-        Called by a page in *start_panel* so the shared blinker
-        updates that page's ``t_notif`` component on each blink tick.
-        """
-        self._blinker_refresh_fn = refresh_fn
-        self._blinker.set_callback(self._on_blinker_tick)
+        self._blinker.set_callback(refresh_fn)
 
     def clear_blinker_callback(self) -> None:
-        """Unregister the current page's notification indicator.
-
-        Called by a page in *_stop_panel* so the blinker stops firing.
-        """
-        self._blinker_refresh_fn = None
         self._blinker.clear_callback()
-
-    def _on_blinker_tick(self) -> None:
-        """Dispatch the blink tick to whichever page registered a callback."""
-        if self._blinker_refresh_fn is not None:
-            self._blinker_refresh_fn()
-
-    # event
 
     def process_event(self, event: HAUIEvent) -> None:
         """Process events.

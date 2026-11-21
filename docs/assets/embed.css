@@ -1,0 +1,12 @@
+/* A docs page embeds one of the generated galleries (`docs/screens.html`,
+   `docs/cheatsheet.html`) in an iframe, so it keeps the site navigation. The galleries stay
+   standalone pages, so they open full screen as well; this only sizes the frame. */
+.haui-embed {
+  display: block;
+  width: 100%;
+  /* Tall enough to browse, short enough to leave the page's own heading in view. */
+  height: clamp(26rem, 80vh, 60rem);
+  /* The galleries bring their own palette, so the frame must read on light and dark pages. */
+  border: 1px solid currentcolor;
+  border-radius: 0.2rem;
+}

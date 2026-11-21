@@ -14,6 +14,12 @@ live viewer gets a shown page (``HAUIESPHomeController.page_commands``). A
 save restarts it on the new config; a stopping host ends it, and its viewers
 are told.
 
+A card also shows the panel itself: ``set_panel`` reports the physical
+panel's own state (asleep, offline, the versions it runs) and how many
+notifications it has queued, and ``set_buttons`` the hardware buttons. Both
+come from the hub (``VirtualPanelHost.async_follow_panel``), never from the
+card, and are replayed to a late viewer.
+
 ``attach`` and ``detach`` are called from the event loop; everything else,
 the viewers included, belongs to the app's worker.
 """
@@ -25,7 +31,6 @@ from collections.abc import Callable
 from typing import Any
 
 from ...haui.controller.esphome import command_target
-from ...haui.device_config import is_portrait_model
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +57,11 @@ class HomeStream:
         # Why the home panel does not run while viewers wait for it.
         self._error: str | None = None
         self._ended = False
+        # The physical panel as last reported to the cards (see set_panel).
+        self._panel: dict[str, Any] | None = None
+        self._notifications: int | None = None
+        # The hardware buttons as last reported (see set_buttons).
+        self._buttons: dict[str, Any] | None = None
 
     @property
     def viewer_count(self) -> int:
@@ -68,6 +78,40 @@ class HomeStream:
         self._app.dispatch(self._detach, viewer_id)
 
     # worker
+
+    def set_panel(self, state: dict[str, Any], notifications: int) -> None:
+        """Report the physical panel's own state and queued notifications.
+
+        A viewer shows it in the card; the panel itself is not drawn by this
+        stream, so nothing here reaches the display.
+
+        Args:
+            state: ``get_preview_state()`` of the device's running app.
+            notifications: how many notifications the panel has queued.
+        """
+        panel = {
+            "type": "physical",
+            "idle": bool(state["idle"]),
+            "display_state": state["display_state"],
+            "connected": bool(state["connected"]),
+            "firmware": state["firmware"],
+            "tft": state["tft"],
+        }
+        if panel != self._panel:
+            self._panel = panel
+            self._broadcast(panel)
+        if notifications != self._notifications:
+            self._notifications = notifications
+            self._broadcast({"type": "notifications", "count": notifications})
+
+    def set_buttons(self, message: dict[str, Any]) -> None:
+        """Report the hardware buttons: their entities and their lights."""
+        self._buttons = message
+        self._broadcast(message)
+
+    def _broadcast(self, message: dict[str, Any]) -> None:
+        for sink in list(self._viewers.values()):
+            sink(message)
 
     def restart(self) -> None:
         """Run the home panel again on a saved config and draw it for every viewer.
@@ -150,8 +194,15 @@ class HomeStream:
         if render is None:
             sink({"type": "error", "message": self._error})
             return
-        portrait = is_portrait_model(self._app.device.get("display_model"))
+        portrait = self._app.device.is_portrait
         sink({"type": "started", "portrait": portrait})
+        # The panel itself and its buttons, as the hub last reported them.
+        if self._panel is not None:
+            sink(self._panel)
+        if self._notifications is not None:
+            sink({"type": "notifications", "count": self._notifications})
+        if self._buttons is not None:
+            sink(self._buttons)
         sink({"type": "commands", "commands": self._before})
         sink({"type": "page", "page": render.page_id})
         sink({"type": "commands", "commands": list(self._commands.values())})

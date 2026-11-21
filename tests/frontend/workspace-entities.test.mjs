@@ -213,7 +213,11 @@ test('hovering a hardware button shows the entity it switches', async () => {
   const session = dlg._session;
   session.display = { layout: { width: 480, height: 320, visible_width: 450 }, components: new Map() };
   // The right button switches its relay, which did not resolve.
-  session._apply({ type: 'buttons', left: 'light.lamp', right: null });
+  session._apply({
+    type: 'buttons',
+    left: { relay: null, entity: 'light.lamp', state: 'on', relay_state: 'unknown' },
+    right: { relay: null, entity: null, state: 'unknown', relay_state: 'unknown' },
+  });
   const rect = { left: 0, top: 0, width: 900, height: 640 };
   dlg.renderRoot = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
   const tooltip = () => render(dlg._renderTooltip()).textContent;

@@ -9,6 +9,8 @@ import types
 
 import pytest
 
+from custom_components.nspanel_haui.hub.adapter import AppStoppedError
+
 _storage_stub = types.ModuleType("homeassistant.helpers.storage")
 _storage_stub.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", _storage_stub)
@@ -81,7 +83,7 @@ class _FakeHost:
         self.viewers = {}
         self.events = []
         self.renders = []
-        self.notifications_from = None
+        self.panel_from = None
         self.reloads = []
         self.idle_count = 0
         self.home_count = 0
@@ -89,7 +91,7 @@ class _FakeHost:
         self.opened = []
         self.followed = None
         self.home = _FakeHome()
-        self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
+        self.app = types.SimpleNamespace(device=types.SimpleNamespace(is_portrait=False))
         _FakeHost.instances.append(self)
 
     @property
@@ -126,8 +128,8 @@ class _FakeHost:
     def show_home(self):
         self.home_count += 1
 
-    async def async_follow_notifications(self, running):
-        self.notifications_from = running
+    async def async_follow_panel(self, running):
+        self.panel_from = running
 
     def show_idle(self):
         self.idle_count += 1
@@ -148,6 +150,8 @@ class _FakeHost:
     async def async_render(self, panel, kwargs=None):
         if panel.get("type") == "bogus":
             raise ValueError("Unknown panel type: 'bogus'")
+        if panel.get("type") == "stopped":
+            raise AppStoppedError("virtual_kitchen")
         self.renders.append((panel, kwargs))
         return {"page": 9, "before": [], "commands": ["cls 4226"]}
 
@@ -182,7 +186,9 @@ class _Hass:
         self.data = {}
         self.tasks = []
         self.entry = types.SimpleNamespace(
-            entry_id="entry1", data={"name": "Hub", "devices": [{"name": "kitchen"}]}
+            entry_id="entry1",
+            data={"name": "Hub", "devices": [{"name": "kitchen"}]},
+            setup_lock=asyncio.Lock(),
         )
         self.config_entries = types.SimpleNamespace(
             async_get_entry=lambda entry_id: self.entry if entry_id == "entry1" else None
@@ -258,7 +264,7 @@ def test_subscription_follows_the_running_physical_apps_info_and_notifications(w
         await _subscribe(ws, hass, conn)
         host = _FakeHost.instances[0]
         assert host.followed is running
-        assert host.notifications_from is running
+        assert host.panel_from is running
 
     _run(body)
 
@@ -295,6 +301,43 @@ def test_a_subscription_closed_while_the_app_starts_attaches_no_viewer(ws):
     [host] = _FakeHost.instances
     assert host.viewers == {}
     assert not any(event["type"] == "started" for event in conn.events)
+
+
+def test_a_save_during_preview_start_refreshes_the_new_host(ws, monkeypatch):
+    conn = _Connection()
+
+    async def body(hass):
+        starting = asyncio.Event()
+        finish_start = asyncio.Event()
+        original_start = _FakeHost.async_start
+
+        async def paused_start(host):
+            starting.set()
+            await finish_start.wait()
+            await original_start(host)
+
+        monkeypatch.setattr(_FakeHost, "async_start", paused_start)
+
+        async def refresh_saved_config():
+            async with hass.entry.setup_lock:
+                await ws.async_reload_hosts(
+                    hass,
+                    "entry1",
+                    {"devices": {"kitchen": {"config": {"locale": "de_DE"}}}},
+                )
+
+        async with asyncio.timeout(2), asyncio.TaskGroup() as tasks:
+            tasks.create_task(_subscribe(ws, hass, conn))
+            await starting.wait()
+            tasks.create_task(refresh_saved_config())
+            await asyncio.sleep(0)
+            finish_start.set()
+
+    _run(body)
+    [host] = _FakeHost.instances
+    [updated] = host.reloads
+    assert updated["device"]["locale"] == "de_DE"
+    assert conn.results == [1]
 
 
 def test_previews_and_cards_of_a_device_share_one_app(ws):
@@ -371,6 +414,18 @@ def test_render_returns_the_hub_output_and_reports_a_bad_panel(ws):
     _run(body)
     assert results == [(1, {"page": 9, "before": [], "commands": ["cls 4226"]})]
     assert conn.errors == [(2, "invalid_panel")]
+
+
+def test_a_render_whose_app_stopped_is_refused_as_its_own_error(ws):
+    """A card render racing the app's stop is answered, not raised out of the command."""
+    conn = _Connection()
+
+    async def body(hass):
+        await _render(ws, hass, conn, {"type": "stopped", "key": "rooms"})
+
+    _run(body)
+    assert conn.errors == [(1, "app_stopped")]
+    assert conn.results == []
 
 
 def test_render_by_key_uses_the_devices_configured_panel(ws):

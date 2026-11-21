@@ -5,6 +5,8 @@ description: Unlock popup — PIN-protected panel unlocking
 
 # Popup Unlock
 
+<img src="../../assets/screens/landscape/popup_unlock.png" alt="unlock popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_unlock.png" alt="unlock popup, portrait" width="142" height="213">
+
 ## About
 
 The unlock popup asks for a PIN before a protected panel opens.
@@ -26,4 +28,4 @@ The popup has the header buttons of the panel it protects, so you can move on wi
 | A panel in the navigation | Previous, home and next |
 | A stacked panel | Up, home and close |
 
-Closing the popup never opens the locked panel. In front of a locked navigation panel, closing goes to the home panel. See [Stacked Panels and Popups](../configuration/panels.md#stacked-panels-and-popups).
+Closing the popup never opens the locked panel. In front of a locked navigation panel, closing goes to the home panel. See [Stacked Panels and Popups](../editor/panels.md#stacked-panels-and-popups).

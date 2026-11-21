@@ -1,3 +1,6 @@
+import argparse
+from pathlib import Path
+
 with open("scripts/font_tools/icons_data.json") as f:
     icons = f.read()
 cheatsheet = (
@@ -409,5 +412,13 @@ cheatsheet = (
 </html>
 """
 )
-with open("docs/cheatsheet.html", "w") as f:
-    f.write(cheatsheet)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate the Material Design icon cheatsheet.")
+    parser.add_argument("--check", action="store_true", help="check without writing the cheatsheet")
+    args = parser.parse_args()
+    output = Path("docs/cheatsheet.html")
+    if args.check:
+        if not output.exists() or output.read_text(encoding="utf-8") != cheatsheet:
+            raise SystemExit(f"{output} is out of date; run the generator without --check")
+    else:
+        output.write_text(cheatsheet, encoding="utf-8")

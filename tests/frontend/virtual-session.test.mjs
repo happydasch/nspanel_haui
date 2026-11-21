@@ -412,7 +412,7 @@ test('brightness and action messages update the session state', async () => {
   assert.equal(session.displayOff, false);
 });
 
-test('relay-state messages update the hardware indicators', async () => {
+test('a buttons message carries the hardware buttons and their lights', async () => {
   const updates = [];
   const { push, resolveLayout, session } = await started({ onUpdate: () => updates.push(1) });
   push({ type: 'started', session_id: 'abc', portrait: false });
@@ -420,22 +420,17 @@ test('relay-state messages update the hardware indicators', async () => {
   await flush();
 
   const updateCount = updates.length;
-  push({ type: 'relays', left: 'on', right: 'off', entities: { left: 'off', right: null } });
+  push({
+    type: 'buttons',
+    left: { relay: 'switch.relay_left', entity: 'light.lamp', state: 'on', relay_state: 'off' },
+    right: { relay: 'switch.relay_right', entity: null, state: 'off', relay_state: 'off' },
+  });
 
-  assert.deepEqual(session.relays, { left: 'on', right: 'off' });
-  assert.deepEqual(session.buttonEntityStates, { left: 'off', right: null });
+  assert.deepEqual(session.buttons, {
+    left: { relay: 'switch.relay_left', entity: 'light.lamp', state: 'on', relay_state: 'off' },
+    right: { relay: 'switch.relay_right', entity: null, state: 'off', relay_state: 'off' },
+  });
   assert.equal(updates.length, updateCount + 1);
-});
-
-test('a buttons message names the entity each hardware button switches', async () => {
-  const { push, resolveLayout, session } = await started();
-  push({ type: 'started', session_id: 'abc', portrait: false });
-  resolveLayout();
-  await flush();
-
-  push({ type: 'buttons', left: 'light.lamp', right: null });
-
-  assert.deepEqual(session.buttonEntityIds, { left: 'light.lamp', right: null });
 });
 
 test('stop unsubscribes and ignores later output', async () => {

@@ -4,6 +4,19 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+layout_inputs=(
+  ':(glob)nextion/*.HMI' ':(glob)nextion/*.tft' nextion/images
+  scripts/hmi_layout scripts/nextion2text
+  custom_components/nspanel_haui/haui/mapping custom_components/nspanel_haui/haui/page
+)
+if git diff --cached --quiet -- "${layout_inputs[@]}"; then
+  exit 0
+fi
+if ! git diff --quiet -- "${layout_inputs[@]}"; then
+  echo 'pre-commit: stage or set aside unstaged layout inputs before regenerating assets.' >&2
+  exit 1
+fi
+
 if [[ -x .venv/bin/python ]]; then
   python=.venv/bin/python
 elif command -v python3 >/dev/null 2>&1; then
@@ -17,6 +30,7 @@ git add -A -- \
   custom_components/nspanel_haui/frontend/virtual/layout_landscape.json \
   custom_components/nspanel_haui/frontend/virtual/layout_portrait.json \
   custom_components/nspanel_haui/frontend/virtual/icon_map.json \
-  custom_components/nspanel_haui/frontend/virtual/pictures
+  custom_components/nspanel_haui/frontend/virtual/pictures \
+  custom_components/nspanel_haui/haui/mapping/font_metrics.json
 "$python" -m scripts.hmi_layout.gen_layout --check
 "$python" -m scripts.hmi_layout.gen_layout --spec portrait --check

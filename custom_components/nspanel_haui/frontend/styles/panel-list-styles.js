@@ -39,6 +39,16 @@ export const panelListStyles = css`
     box-shadow: inset 3px 0 0 var(--primary-color);
   }
   .haui-panel-row.is-dragging { opacity: .5; }
+  /* A row a setup just created: a success edge and a short entrance, so the
+     eye lands on it when the dialog closes. */
+  .haui-panel-row.is-new {
+    animation: haui-panel-row-in 320ms ease-out;
+    box-shadow: inset 3px 0 0 var(--haui-good);
+  }
+  @keyframes haui-panel-row-in {
+    from { background: color-mix(in srgb, var(--haui-good) 18%, transparent); }
+    to { background: transparent; }
+  }
   .haui-panel-row.is-drop-before { box-shadow: inset 0 2px 0 var(--primary-color); }
   .haui-panel-row.is-drop-after { box-shadow: inset 0 -2px 0 var(--primary-color); }
   .haui-panel-group.is-drop-target > .haui-panel-group-heading { box-shadow: inset 0 -2px 0 var(--primary-color); }
@@ -122,18 +132,7 @@ export const panelListStyles = css`
     z-index: 1;
   }
   .haui-panel-thumb.is-portrait .haui-panel-thumb-roles { flex-direction: column; }
-  .haui-panel-role {
-    display: grid;
-    width: 22px;
-    height: 22px;
-    place-items: center;
-    border-radius: var(--haui-radius-round);
-    box-shadow: var(--haui-shadow-card);
-    --mdc-icon-size: 15px;
-    line-height: 0;
-  }
-  .haui-panel-role-home { background: var(--primary-color); color: var(--text-primary-color, #fff); }
-  .haui-panel-role-idle { background: var(--warning-color); color: var(--primary-text-color); }
+  /* The markers themselves are the shared role markers (panel-role-styles.js). */
   .haui-panel-thumb.is-portrait .haui-panel-role { width: 18px; height: 18px; --mdc-icon-size: 12px; }
   .haui-panel-menu { min-width: 220px; }
   @container haui-editor (max-width: 720px) {
@@ -143,5 +142,6 @@ export const panelListStyles = css`
   }
   @media (prefers-reduced-motion: reduce) {
     .haui-panel-row { transition: none; }
+    .haui-panel-row.is-new { animation: none; }
   }
 `;

@@ -149,8 +149,8 @@ class ClimatePage(HAUIPage):
             self.add_item_listener(
                 item.get_item_id(), self.callback_climate_item, attribute=attribute
             )
-        # setpoint buttons are registered hidden; update_climate_control shows
-        # the single or the range setpoint depending on the entity's current values
+        # setpoint buttons start hidden; update_climate_control shows the
+        # single setpoint or the range
         for component, fnc_name, icon in (
             (self.COMPONENTS.btn_up, "temp_up", ICO_NAV_UP),
             (self.COMPONENTS.btn_down, "temp_down", ICO_DOWN),
@@ -260,8 +260,7 @@ class ClimatePage(HAUIPage):
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
 
     def update_setpoints(self, item: HAUIItem) -> None:
-        # Same rule as HA's frontend: the attributes present decide the layout,
-        # since entities supporting both kinds report only one at a time.
+        # HA's frontend picks the layout by which attributes are present.
         target = item.get_item_attr("temperature")
         low = item.get_item_attr("target_temp_low")
         high = item.get_item_attr("target_temp_high")
@@ -315,9 +314,8 @@ class ClimatePage(HAUIPage):
         item.call_item_service("set_temperature", target_temp_low=low, target_temp_high=high)
 
     def _default_temp_step(self) -> float:
-        # Climate entities only expose target_temp_step when their integration
-        # sets one; HA's own frontend then steps by 1 on Fahrenheit systems and
-        # 0.5 otherwise.
+        # target_temp_step is optional; HA's frontend steps by 1 on Fahrenheit
+        # and 0.5 otherwise
         return 1.0 if self.app.get_temperature_unit() == "°F" else 0.5
 
     def update_climate_info(self, item: HAUIItem) -> None:
@@ -361,9 +359,8 @@ class ClimatePage(HAUIPage):
         assert haui_item is not None
         self.log(f"callback_function_component: {fnc_id}, {fnc_name}")
         if fnc_name in ("temp_up", "temp_down") and haui_item.get_item_attr("temperature") is None:
-            # entities supporting both setpoint kinds report no single target in
-            # range modes such as heat_cool; stepping from nothing would send a
-            # bogus setpoint
+            # range modes report no single target; stepping from nothing would
+            # send a bogus setpoint
             self.log(
                 f"{fnc_name} ignored: entity has no single target temperature",
                 level="WARNING",
@@ -427,14 +424,7 @@ class ClimatePage(HAUIPage):
     def _open_mode_select(
         self, item: HAUIItem, mode: str, title: str, callback: Callable[[str], None]
     ) -> None:
-        """Opens the selection popup for a fan/preset/swing mode.
-
-        Args:
-            item: The climate item.
-            mode: Attribute holding the current mode; its ``<mode>s`` list holds the choices.
-            title: Translated popup title.
-            callback: Receives the selected value.
-        """
+        """Open the selection popup for a fan, preset or swing mode."""
         self.log(mode)
         modes = [
             {"value": value, "name": self.translate_state("climate", value, attr=mode)}

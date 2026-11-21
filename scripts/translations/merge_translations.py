@@ -1,9 +1,9 @@
 """Merge a translation template back into the locale files.
 
-Takes the text keys from ``scripts/translations/translate.json`` and writes them
-into every ``custom_components/nspanel_haui/haui/locale/*.json``, keeping each
-file's existing translations. Used for external translation-service round
-trips; routine extraction is done by ``extract_translations.py``.
+Takes the text keys from ``scripts/translations/translate.json`` and writes them into
+every ``custom_components/nspanel_haui/haui/locale/*.json``, keeping the existing
+translations. For translation-service round trips; routine extraction is
+``extract_translations.py``.
 """
 
 from __future__ import annotations

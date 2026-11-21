@@ -8,6 +8,7 @@ from homeassistant.util import slugify
 
 from ..haui.abstract.haui_base import HAUIBase
 from ..haui.abstract.haui_config import HAUIConfig
+from ..haui.abstract.haui_page import HAUIPage
 from ..haui.controller.connection import HAUIConnectionController
 from ..haui.controller.esphome import HAUIESPHomeController
 from ..haui.controller.gesture import HAUIGestureController
@@ -19,7 +20,11 @@ from ..haui.device_config import DEVICE_CONFIG_FIELDS
 from ..haui.mapping.color import Theme, ThemeLibrary
 from ..haui.mapping.const import ESPEvent, NotifEvent
 from ..haui.mapping.panel import PAGE_MAPPING
-from ..haui.version import get_integration_version, integration_version_mismatch
+from ..haui.version import (
+    get_integration_version,
+    hub_api_compatible,
+    integration_version_mismatch,
+)
 from .adapter import HAAdapter
 
 
@@ -43,7 +48,7 @@ class NSPanelHAUI(HAAdapter):
         self,
         hass: Any,
         name: str,
-        config_args: dict,
+        config_args: dict[str, Any],
         runtime_device_name: str = "",
         ha_device_id: str | None = None,
     ) -> None:
@@ -60,7 +65,7 @@ class NSPanelHAUI(HAAdapter):
         self.device_slug: str = slugify(runtime_device_name)
         self._ha_device_id: str | None = ha_device_id
         self._last_panel_update: str | None = None
-        self._tick_subscribers: dict[str, set[Callable]] = {}
+        self._tick_subscribers: dict[str, set[Callable[..., None]]] = {}
         self._tick_timers: dict[str, str] = {}
         self._preview_state_subscribers: set[Callable[[dict[str, Any]], None]] = set()
         self._preview_output_subscribers: set[Callable[[str, Any], None]] = set()
@@ -68,7 +73,9 @@ class NSPanelHAUI(HAAdapter):
         # update requests waiting for their answer (event loop only)
         self._update_requests: set[asyncio.Future[dict[str, Any]]] = set()
 
-    def _apply_themes(self, device_cfg: dict, themes: dict[str, dict] | None = None) -> None:
+    def _apply_themes(
+        self, device_cfg: dict[str, Any], themes: dict[str, dict[str, Any]] | None = None
+    ) -> None:
         """Build the theme library and select the device's default theme."""
         palettes = themes if themes is not None else self.device_config.get("themes")
         self.theme_library = ThemeLibrary(palettes)
@@ -165,7 +172,7 @@ class NSPanelHAUI(HAAdapter):
 
     # shared tick timers (minute / hour / day cadences)
 
-    def subscribe_tick(self, cadence: str, callback: Callable) -> None:
+    def subscribe_tick(self, cadence: str, callback: Callable[..., None]) -> None:
         """Register a callback for a device-wide tick cadence.
 
         Cadences: ``"minute"`` (60 s, fires on the minute), ``"hour"``
@@ -180,7 +187,7 @@ class NSPanelHAUI(HAAdapter):
 
         if cadence not in self._tick_timers:
 
-            def _dispatch(cb_args: dict) -> None:
+            def _dispatch(cb_args: dict[str, Any]) -> None:
                 for cb in list(self._tick_subscribers.get(cadence, set())):
                     cb(cb_args)
 
@@ -194,7 +201,7 @@ class NSPanelHAUI(HAAdapter):
                 secs = 3600 - (now.minute * 60 + now.second)
                 self._tick_timers[cadence] = self.run_hourly(_dispatch, f"now+{secs}")
 
-    def unsubscribe_tick(self, cadence: str, callback: Callable) -> None:
+    def unsubscribe_tick(self, cadence: str, callback: Callable[..., None]) -> None:
         """Unregister a callback previously added via :meth:`subscribe_tick`."""
         subs = self._tick_subscribers.get(cadence)
         if subs:
@@ -204,7 +211,7 @@ class NSPanelHAUI(HAAdapter):
 
     # config reload (called by the API when panels or device settings are saved)
 
-    def reload_config(self, cfg: dict) -> None:
+    def reload_config(self, cfg: dict[str, Any]) -> None:
         """Apply a rebuilt runtime config without a full restart.
 
         ``cfg`` comes from the same builder as startup (``_build_config_dict``
@@ -382,7 +389,7 @@ class NSPanelHAUI(HAAdapter):
     # status endpoint support
 
     @staticmethod
-    def _format_current_page(page) -> str:
+    def _format_current_page(page: HAUIPage | None) -> str:
         """Format the current page info for the status display."""
         if not page:
             return "none"
@@ -392,13 +399,13 @@ class NSPanelHAUI(HAAdapter):
             return page_name
         return f"{page.panel.get('key', '')} ({page.panel.get_type()})"
 
-    def get_device_status(self) -> dict:
+    def get_device_status(self) -> dict[str, Any]:
         """Return live device status for the frontend info strip and dialogs."""
         conn = self.controller["connection"]
         nav = self.controller.get("navigation")
         page = nav.page if nav else None
 
-        result: dict = {
+        result: dict[str, Any] = {
             "connected": conn.is_connected if conn else False,
             "connection_state": conn.connection_state.value if conn else "unknown",
             "current_page": self._format_current_page(page),
@@ -427,6 +434,8 @@ class NSPanelHAUI(HAAdapter):
             "tft_version": runtime_info.get("tft_version") or "",
             "tft_required_version": runtime_info.get("tft_required_version") or "",
             "yaml_version": runtime_info.get("yaml_version") or "",
+            "hub_api_version": runtime_info.get("hub_api_version") or "",
+            "hub_api_compatible": hub_api_compatible(runtime_info.get("hub_api_version")),
             "ip": "",
             "ssid": "",
             "rssi": None,
@@ -541,14 +550,22 @@ class NSPanelHAUI(HAAdapter):
                 self.log(f"Error notifying live-preview output subscriber: {exc}", level="ERROR")
 
     def get_preview_state(self) -> dict[str, Any]:
-        """Return the current page and display state for a live-preview mirror."""
+        """Return the panel's own state: its page, display, connection and versions.
+
+        A live-preview mirror and a dashboard card report it; nothing here is
+        about the display's output.
+        """
         navigation = self.controller["navigation"]
         page = navigation.page
+        info = self.device.device_info or {}
         return {
             "page": page.page_id if page is not None else None,
             "idle": navigation.idle_panel_active,
             "display_state": self.device.display_state,
             "connected": self.controller["connection"].is_connected,
+            # What the panel runs, as its device state last reported it.
+            "firmware": info.get("yaml_version") or "",
+            "tft": info.get("tft_version") or "",
         }
 
     def callback_event(self, event: Any) -> None:

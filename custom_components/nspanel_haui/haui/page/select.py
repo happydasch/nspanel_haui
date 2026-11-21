@@ -154,8 +154,7 @@ class SelectPage(HAUIPage):
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._handle_multiple_timer is not None:
-            # Fire the pending selection callback before closing so multi-select
-            # finalisation isn't lost when the panel is replaced.
+            # Fire a pending multi-select callback before closing.
             self.app.cancel_timer(self._handle_multiple_timer)
             self._handle_multiple_timer = None
             self._finish_selection_multiple()
@@ -295,8 +294,8 @@ class SelectPage(HAUIPage):
                     else:
                         self._selected.append(value)
                 else:
-                    # a single selection can't be emptied: callbacks pass the
-                    # value straight to services that reject None
+                    # a single selection can't be emptied: callbacks pass it to
+                    # services that reject None
                     self._selected = value
                 break
         with self.rec_cmd:

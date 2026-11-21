@@ -2,6 +2,7 @@
  * NSPanel HAUI - constants & helpers.
  * Shared constants and small helpers for the editor.
  */
+import { t } from './localize.js';
 
 /** Deep-clone a JSON-serializable value. */
 export function clone(v) {
@@ -109,26 +110,39 @@ export const LOCALE_OPTIONS = [
  * LOG_LEVEL_OPTIONS in device_config.py).  The value is the threshold at which
  * this device's app messages are emitted; DEBUG adds detailed diagnostics
  * (entity state changes, display commands) on top of routine INFO messages.
+ * Built per call, so the labels follow the language the editor loaded.
+ * @returns {{value: string, label: string}[]}
  */
-export const LOG_LEVEL_OPTIONS = [
-  { value: "CRITICAL", label: "Critical" },
-  { value: "ERROR", label: "Error" },
-  { value: "WARNING", label: "Warning" },
-  { value: "INFO", label: "Info" },
-  { value: "DEBUG", label: "Debug" },
-];
+export function logLevelOptions() {
+  return [
+    { value: "CRITICAL", label: t("Critical") },
+    { value: "ERROR", label: t("Error") },
+    { value: "WARNING", label: t("Warning") },
+    { value: "INFO", label: t("Info") },
+    { value: "DEBUG", label: t("Debug") },
+  ];
+}
 
 /**
- * Display model options for the device config dialog.
- * The model selects which TFT layout the display needs: the default landscape
- * layout (EU standard and US panels mounted landscape) or the rotated
- * portrait layout for a US panel mounted portrait.  The update controller
- * uses it to pick the release asset.
+ * The display models that run the rotated portrait TFT layout: a US panel
+ * mounted portrait. Every other model, including a US panel mounted landscape,
+ * uses the default landscape layout.
  */
-export const DISPLAY_MODEL_OPTIONS = [
-  { value: "eu", label: "European (standard)", portrait: false },
-  { value: "us", label: "US (portrait)", portrait: true },
-];
+const PORTRAIT_MODELS = ["us"];
+
+/**
+ * The display model choices the device settings show. Their labels are built
+ * per call: the editor fetches its translations after this module loaded, so a
+ * list built at import time would keep the English labels for the whole
+ * session.
+ * @returns {{value: string, label: string}[]}
+ */
+export function displayModelOptions() {
+  return [
+    { value: "eu", label: t("European (standard)") },
+    { value: "us", label: t("US (portrait)") },
+  ];
+}
 
 /** Swipes the display reports — the steps of a gesture (mirrors `GESTURES` in Python). */
 export const GESTURE_NAMES = ["swipe_left", "swipe_right", "swipe_up", "swipe_down"];
@@ -144,31 +158,39 @@ export const GESTURE_ACTIONS = ["", "next_panel", "prev_panel"];
  */
 export function isPortraitModel(displayModel) {
   const value = String(displayModel || "").toLowerCase();
-  return DISPLAY_MODEL_OPTIONS.some((o) => o.value === value && o.portrait);
+  return PORTRAIT_MODELS.includes(value);
 }
 
 /**
  * Time format presets for the device config dialog.  An empty string value
- * means "inherit the hub-level default" (matching DEVICE_CONFIG).
+ * means "inherit the hub-level default" (matching DEVICE_CONFIG).  Built per
+ * call, so the labels follow the language the editor loaded.
+ * @returns {{value: string, label: string}[]}
  */
-export const TIME_FORMAT_OPTIONS = [
-  { value: "", label: "Default (24-hour)" },
-  { value: "%H:%M", label: "24-hour (14:30)" },
-  { value: "%I:%M %p", label: "US 12-hour (2:30 PM)" },
-  { value: "%I:%M", label: "12-hour no AM/PM (2:30)" },
-];
+export function timeFormatOptions() {
+  return [
+    { value: "", label: t("Default (24-hour)") },
+    { value: "%H:%M", label: t("24-hour (14:30)") },
+    { value: "%I:%M %p", label: t("US 12-hour (2:30 PM)") },
+    { value: "%I:%M", label: t("12-hour no AM/PM (2:30)") },
+  ];
+}
 
 /**
  * Date format presets for the device config dialog.  An empty string value
- * means "inherit the hub-level default".
+ * means "inherit the hub-level default".  Built per call, so the labels follow
+ * the language the editor loaded.
+ * @returns {{value: string, label: string}[]}
  */
-export const DATE_FORMAT_OPTIONS = [
-  { value: "", label: "Default (locale-based)" },
-  { value: "%m/%d/%Y", label: "US numeric (03/14/2026)" },
-  { value: "%B %d, %Y", label: "US long (March 14, 2026)" },
-  { value: "%d.%m.%Y", label: "European numeric (14.03.2026)" },
-  { value: "%Y-%m-%d", label: "ISO (2026-03-14)" },
-];
+export function dateFormatOptions() {
+  return [
+    { value: "", label: t("Default (locale-based)") },
+    { value: "%m/%d/%Y", label: t("US numeric (03/14/2026)") },
+    { value: "%B %d, %Y", label: t("US long (March 14, 2026)") },
+    { value: "%d.%m.%Y", label: t("European numeric (14.03.2026)") },
+    { value: "%Y-%m-%d", label: t("ISO (2026-03-14)") },
+  ];
+}
 
 /**
  * Map entity popup types to the user panel type whose form edits them; an

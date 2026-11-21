@@ -11,7 +11,7 @@
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
 import { rssiStrengthClass, rssiBarCount, fmtRssi, isOlderVersion } from '../device-info.js';
-import { relativeTime, uptimeLabel } from './format.js';
+import { displayLabel, relativeTime, uptimeLabel } from './format.js';
 import { button } from './button.js';
 import { icon } from './icon.js';
 import { closeHoverCard, infoTile, toggleHoverCard } from './info-tile.js';
@@ -196,13 +196,6 @@ function tiles(model, status, onLogs) {
       note: t('in the last 24 h'), onClick: onLogs,
     })}
   </div>`;
-}
-
-function displayLabel(state) {
-  if (state === 'on') return t('On');
-  if (state === 'dim') return t('Dimmed');
-  if (state === 'off') return t('Off');
-  return t('Unknown');
 }
 
 function idlePageLabel(idlePage) {

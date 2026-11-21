@@ -1,21 +1,13 @@
 #!/usr/bin/env python3
 """Fail when a Nextion HMI or TFT changed without advancing the display TFT version.
 
-A screen change committed under an unchanged ``system.tftVersion`` never reaches
-a panel that already reports that version: the hub only installs a display image
-whose version is newer than the reported one. The release docs therefore require
-a TFT version bump whenever an HMI or a compiled TFT changes.
-
-CI compares the HMI and TFT files and the configured ``tft_version`` against the
-commit the change is based on (the PR merge base or the pushed-from commit) and
-fails when one of them changed while the TFT version did not advance.
+A screen change under an unchanged ``system.tftVersion`` never reaches a panel that
+already reports that version, because the hub only installs a newer display image.
+CI compares the HMI and TFT files and ``tft_version`` against the commit the change
+is based on (the PR merge base or the pushed-from commit).
 
 Usage:
     python -m scripts.verify_nextion.check_hmi_bump --base origin/dev
-
-Exit code 0 when no HMI or TFT changed or the TFT version advanced, 1 when the
-version is missing or did not advance, 2 when git cannot resolve the base commit
-or read its ``version.yaml``.
 """
 
 from __future__ import annotations
@@ -43,8 +35,7 @@ def read_tft_version(text: str) -> str:
 def version_key(version: str) -> tuple[int, int, int, int, int] | None:
     """Return a sortable key for ``X.Y.Z`` and ``X.Y.Z.devN`` versions.
 
-    PEP 440 orders ``X.Y.Z.devN`` before the final ``X.Y.Z``: the fourth tuple
-    element is 0 for a dev build and 1 for a final one.
+    PEP 440 orders ``X.Y.Z.devN`` before the final ``X.Y.Z``.
     """
     match = VERSION_RE.fullmatch(version)
     if match is None:
@@ -58,9 +49,7 @@ def version_key(version: str) -> tuple[int, int, int, int, int] | None:
 def evaluate(changed: list[str], base_version: str, head_version: str) -> tuple[bool, str]:
     """Decide whether the TFT version advanced with the changed HMI and TFT files.
 
-    Returns:
-        ``(ok, message)``: ``ok`` is True when no HMI or TFT changed or the
-        version advanced.
+    Returns ``(ok, message)``.
     """
     if not changed:
         return True, "no Nextion HMI or TFT changed"
@@ -84,10 +73,10 @@ def evaluate(changed: list[str], base_version: str, head_version: str) -> tuple[
         return (
             False,
             f"{names} changed, but the display TFT version did not advance "
-            f"({base_version!r} -> {head_version!r}). Bump system.tftVersion in "
-            "both HMIs and tft_version in esphome/nspanel_haui/version.yaml "
-            "(scripts/bump_tft_version.py --version <new>), then recompile both "
-            "TFTs.",
+            f"({base_version!r} -> {head_version!r}). Run "
+            "python -m scripts.bump_tft_version --version <new> to update both HMIs, "
+            "set tft_version in esphome/nspanel_haui/version.yaml to the same version, "
+            "then recompile both TFTs.",
         )
     return True, f"display TFT version advanced {base_version!r} -> {head_version!r}"
 
@@ -106,9 +95,8 @@ def _git(*args: str, root: Path = ROOT) -> str:
 def resolve_base(base: str, root: Path = ROOT) -> str:
     """Return the commit the change is compared against.
 
-    A pull request passes its base branch tip; the merge base excludes commits
-    that landed on the base branch after the PR was opened. A push passes the
-    commit it was pushed from, which is normally an ancestor already.
+    A merge base excludes commits that landed on the base branch after the PR was
+    opened; a push passes the commit it was pushed from.
     """
     try:
         return _git("merge-base", base, "HEAD", root=root).strip()

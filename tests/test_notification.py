@@ -417,7 +417,6 @@ def test_persistent_notification_repeats_its_sound(dummy_app):
     )
     notif_ctrl = MagicMock()
     notif_ctrl.get_notifications.return_value = [notification]
-    notif_ctrl.has_persistent_notifications.return_value = True
     dummy_app.controller["notification"] = notif_ctrl
     loops = []
     dummy_app.run_every = lambda cb, start, interval: loops.append((cb, interval)) or "loop"
@@ -440,7 +439,6 @@ def _persistent_alert_device(app, **cfg):
     )
     notif_ctrl = MagicMock()
     notif_ctrl.get_notifications.return_value = [notification]
-    notif_ctrl.has_persistent_notifications.return_value = True
     app.controller["notification"] = notif_ctrl
     loops = []
     app.run_every = lambda cb, start, interval: loops.append(cb) or "loop"
@@ -453,7 +451,6 @@ def _persistent_alert_device(app, **cfg):
 def _device_with_persistent_queue(app, *notifications):
     notif_ctrl = MagicMock()
     notif_ctrl.get_notifications.return_value = list(notifications)
-    notif_ctrl.has_persistent_notifications.return_value = True
     app.controller["notification"] = notif_ctrl
     return _device(app, sound_on_notification=True)
 
@@ -1089,7 +1086,6 @@ def test_a_timeout_may_expire_a_persistent_notification(loop_ctrl):
     expire({})
 
     assert ctrl.get_notifications() == []
-    assert ctrl.has_persistent_notifications() is False
 
 
 # --- display wake and notification ids ----------------------------------------

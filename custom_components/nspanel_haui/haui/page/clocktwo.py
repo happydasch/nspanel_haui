@@ -10,9 +10,11 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
+from ..utils.color import contrast_ratio, mix_rgb565
 from .clock_common import (
     background_commands,
     background_option,
+    background_picture_id,
     release_ticks,
     set_background_mode,
     subscribe_ticks,
@@ -230,8 +232,34 @@ MINUTE_RANGES = [
 
 INDEX_LETTER_START = 2
 INDEX_LETTER_LENGTH = 110
-INDEX_SPECIAL_START = 113
+INDEX_SPECIAL_START = 112
 INDEX_SPECIAL_LENGTH = 4
+
+
+# How far unlit letters stand off a light picture: a soft watermark, well
+# below the lit words.
+UNLIT_LETTER_CONTRAST = 1.4
+
+
+def unlit_letter_color(page: Any) -> int:
+    """Tone for the unlit letters on the picture the page shows.
+
+    Dark pictures use the card tone; light ones mix towards the text colour
+    just enough to stay a faint grid.
+    """
+    if page._background_variant != "light":
+        return page.get_color("component_background")
+    page_color = page.get_color("background")
+    text_color = page.get_color("text")
+    low, high = 0.0, 1.0
+    while high - low > 0.01:
+        middle = (low + high) / 2
+        mixed = mix_rgb565(page_color, text_color, middle)
+        if contrast_ratio(mixed, page_color) < UNLIT_LETTER_CONTRAST:
+            low = middle
+        else:
+            high = middle
+    return mix_rgb565(page_color, text_color, high)
 
 
 class ClockTwoPage(HAUIPage):
@@ -282,21 +310,21 @@ class ClockTwoPage(HAUIPage):
                 key="off_color",
                 kind="color",
                 label=_("Off-letter color"),
-                description=_("Leave empty to use the selected theme."),
+                description=_("Leave empty to use the color that matches the background."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="letter_color",
                 kind="color",
                 label=_("Active letter color"),
-                description=_("Leave empty to use the selected theme."),
+                description=_("Leave empty to use the color that matches the background."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="special_color",
                 kind="color",
                 label=_("Special letter color"),
-                description=_("Leave empty to use the selected theme."),
+                description=_("Leave empty to use the color that matches the background."),
                 section=_("Colors"),
             ),
             PageOption(
@@ -312,8 +340,7 @@ class ClockTwoPage(HAUIPage):
         has_header=False,
     )
 
-    # components, skipping l1-110, s1-4; no header: the page has no function
-    # buttons, ids 3-6 are letters
+    # components, skipping l1-110 and s1-4 (letters); no header buttons
     COMPONENTS = ComponentRegistry(
         t_notif=Component(116, "tNotif"),
     )
@@ -335,7 +362,7 @@ class ClockTwoPage(HAUIPage):
         set_background_mode(self, panel)
         self._off_color = self.option(panel, "off_color")
         if self._off_color in (None, ""):
-            self._off_color = self.get_color("component_background")
+            self._off_color = unlit_letter_color(self)
         self._letter_color = self.option(panel, "letter_color")
         if self._letter_color in (None, ""):
             self._letter_color = self.get_color("component_text")
@@ -352,6 +379,11 @@ class ClockTwoPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         self.read_options(panel)
         subscribe_ticks(self, with_date=False)
+        # Preinitialize skips widget 112 (the top-left dot), not the grid
+        # picture; send the dot's crop or it stays dark on a light background.
+        self.send_cmd(
+            f"{self.get_special_component(0).name}.picc={background_picture_id(self, panel)}"
+        )
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # notification
@@ -446,10 +478,8 @@ class ClockTwoPage(HAUIPage):
                     for i in lit:
                         letters_active[i] = True
                 elif isinstance(lit, dict):
-                    # dict with rules when to lit
-                    # if key is a tuple then all words need to match
-                    # if key is a string then this word needs to match
-                    # if no key matched and * in key then this will be used
+                    # dict rules: a tuple key needs every word, a string key
+                    # that word, "*" is the fallback
                     lit_key: tuple | str | None = None
                     for key in lit.keys():
                         if isinstance(key, tuple):
@@ -478,7 +508,7 @@ class ClockTwoPage(HAUIPage):
         minutes = time.minute
         hours = time.hour % 12
         words = []
-        # intro text it is. can be shown only on full hour, allways or never.
+        # intro text: always, only on the full hour, or never
         if self._show_intro_text or (minutes < 5 and self._show_intro_text_full_hour):
             words += ["it-is"]
         # set minutes
@@ -523,8 +553,7 @@ class ClockTwoPage(HAUIPage):
         else:
             color = self.get_color("component_text")
             visible = notification.has_notifications()
-        # Batch the single notification-icon update so it doesn't interleave
-        # with a panel render in progress.
+        # Batch so the icon update doesn't interleave with a panel render.
         with self.rec_cmd:
             self.update_function_component(
                 self.COMPONENTS.t_notif.name,
@@ -536,8 +565,7 @@ class ClockTwoPage(HAUIPage):
     # callback
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
-        # Batch matrix update commands so they don't interleave with a panel
-        # render in progress on another executor thread.
+        # Batch the matrix update so it doesn't interleave with a panel render.
         with self.rec_cmd:
             self.update_interface()
 

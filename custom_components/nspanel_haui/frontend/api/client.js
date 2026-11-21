@@ -13,8 +13,9 @@ import { getLanguage, t } from '../localize.js';
 /** @typedef {import('./types.js').PanelStore} PanelStore *//** @typedef {import('./types.js').PanelConfig} PanelConfig */
 
 /** @typedef {import('./types.js').PanelTypeDescriptor} PanelTypeDescriptor */
-/** @typedef {import('./types.js').PanelTemplate} PanelTemplate */
+/** @typedef {import('./types.js').DeviceConfig} DeviceConfig */
 /** @typedef {import('./types.js').DeviceStatus} DeviceStatus */
+/** @typedef {{devices: Record<string, DeviceStatus>, rollout?: Record<string, any>}} HubStatus */
 /** @typedef {import('./types.js').Notification} Notification */
 /** @typedef {import('./types.js').TftReleases} TftReleases */
 /** @typedef {import('./types.js').FirmwareReleases} FirmwareReleases */
@@ -138,10 +139,14 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       },
 
       /**
+       * Save one device's panels. The answer carries the settings the hub
+       * stored with them: a removed panel's key is dropped from the device's
+       * home and idle settings.
+       *
        * @param {string} entryId
        * @param {string} name
        * @param {PanelConfig[]} panels
-       * @returns {Promise<Object>}
+       * @returns {Promise<{ config?: DeviceConfig }>}
        */
       async saveDevice(entryId, name, panels) {
         requireEntry(entryId);
@@ -162,7 +167,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
        * @param {string} name
        * @param {string} key
        * @param {string} to
-       * @returns {Promise<{ key: string, panels: Object<string, PanelConfig[]> }>}
+       * @returns {Promise<{ key: string, panels: Object<string, PanelConfig[]>, config: DeviceConfig }>}
        */
       async move(entryId, name, key, to) {
         requireEntry(entryId);
@@ -268,6 +273,28 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       },
 
       /**
+       * Write the picked sections of one device onto other devices of the hub.
+       * A section is 'settings', 'panels' or 'update'.
+       * @param {string} entryId
+       * @param {string} from
+       * @param {string[]} to
+       * @param {string[]} sections
+       * @returns {Promise<{ devices: string[] }>}
+       */
+      copy(entryId, from, to, sections) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/copy/${entryId}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to, sections }),
+          },
+          t('Copy failed'),
+        );
+      },
+
+      /**
        * @param {string} entryId
        * @param {string} device
        */
@@ -289,7 +316,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
       /**
        * @param {string} entryId
        * @param {string} [device]
-       * @returns {Promise<DeviceStatus|{devices: Object<string, DeviceStatus>}>}
+       * @returns {Promise<DeviceStatus|HubStatus>}
        */
       get(entryId, device) {
         requireEntry(entryId);
@@ -303,7 +330,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
       /**
        * @param {string} entryId
-       * @returns {Promise<Object<string, DeviceStatus>>}
+       * @returns {Promise<HubStatus>}
        */
       async getAll(entryId) {
         const result = /** @type {any} */ (await api.status.get(entryId));
@@ -311,7 +338,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
         if (!devices || typeof devices !== 'object' || Array.isArray(devices)) {
           throw new Error(t('Invalid device status response'));
         }
-        return devices;
+        return result;
       },
     },
 
@@ -358,17 +385,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
     },
 
     updates: {
-      /**
-       * The hub's update rollout (idle when none ran since Home Assistant started).
-       * @param {string} entryId
-       * @returns {Promise<Record<string, any>>}
-       */
-      async rollout(entryId) {
-        requireEntry(entryId);
-        const result = await request(`/api/nspanel_haui/rollout/${entryId}`, undefined, t('Fetch failed'));
-        return result.rollout;
-      },
-
       /**
        * Install the offered updates one device at a time on the hub.
        * @param {string} entryId
@@ -591,19 +607,6 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
         );
       },
 
-      /**
-       * The starter templates of the Add panel catalog.
-       * @param {string} lang
-       * @returns {Promise<PanelTemplate[]>}
-       */
-      panelTemplates(lang) {
-        return request(
-          `/api/nspanel_haui/panel_templates?language=${encodeURIComponent(lang)}`,
-          undefined,
-          t('Failed to load panel templates'),
-        );
-      },
-
       /** @returns {Promise<Object<string, number>>} */
       colorDefaults() {
         return request(
@@ -676,7 +679,7 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
 
     card: {
       /**
-       * The devices a dashboard card can show: those with a running hub app.
+       * The devices a dashboard card can name, disabled ones included.
        * Open to every signed-in user, unlike the editor's calls.
        * @returns {Promise<CardDevice[]>}
        */

@@ -1,14 +1,9 @@
 """Render the display background tiles from the source pictures.
 
 Reads every picture in ``nextion/src_images/bkg/`` and writes one dimmed,
-cover-cropped PNG per orientation to ``nextion/images/bkg/<orientation>/``:
-
-* ``landscape``: 480 x 320 (EU panel, US panel mounted horizontally)
-* ``portrait``:  320 x 480 (US panel mounted vertically)
-
-The output file name is the source file's stem, which must match the key
-used in ``haui/mapping/background.py`` (``system`` is the ``modern`` picture).
-The tiles are then imported as picture resources in the Nextion Editor.
+cover-cropped PNG per orientation to ``nextion/images/bkg/<orientation>/`` (480x320
+landscape, 320x480 portrait). The output name is the source stem, which must match the
+key in ``haui/mapping/background.py`` (``system`` is the ``modern`` picture).
 
 Usage::
 
@@ -32,8 +27,7 @@ SIZES = {
     "portrait": (320, 480),
 }
 
-# Tiles sit behind text on the clock/weather pages, so they are blended
-# towards a dark gray. 0 keeps the source as is, 1 is a flat gray.
+# Tiles sit behind text, so they are blended towards a dark gray (0 keeps the source).
 DIM_COLOR = (35, 35, 35)
 DIM_ALPHA = 0.8
 

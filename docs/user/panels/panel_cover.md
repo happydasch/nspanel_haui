@@ -34,3 +34,5 @@ The cover panel controls one cover, such as a blind, a curtain or a garage door.
 ## Popup
 
 Tapping a cover on another panel opens the same controls as a popup (`popup_cover`).
+
+<img src="../../assets/screens/landscape/popup_cover.png" alt="cover popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_cover.png" alt="cover popup, portrait" width="142" height="213">

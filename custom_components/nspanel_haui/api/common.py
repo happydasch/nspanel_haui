@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Coroutine
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Any
 
+from aiohttp import web
 from homeassistant.helpers.http import HomeAssistantView
 
 from ..const import DOMAIN
+from ..haui.mapping.color import BUILTIN_THEMES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,19 +21,26 @@ ALL_DEVICES = "*"
 
 
 class ApiError(Exception):
-    """A refused request; ``api_errors`` answers it with the error response."""
+    """A refused request that ``api_errors`` answers with an error response."""
 
-    def __init__(self, message: str, status_code: int, details: dict | None = None) -> None:
+    def __init__(
+        self, message: str, status_code: int, details: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.status_code = status_code
         self.details = details or {}
 
 
-def error(view: HomeAssistantView, message: str, status_code: int, details: dict | None = None):
-    """Build the ``{"status": "error", "message": ...}`` response used by all views.
+def error(
+    view: HomeAssistantView,
+    message: str,
+    status_code: int,
+    details: dict[str, Any] | None = None,
+) -> web.Response:
+    """Build the ``{"status": "error", "message": ...}`` response of every view.
 
-    ``details`` adds fields to the body, e.g. the ``errors`` of a refused panel save.
+    ``details`` adds fields, e.g. the ``errors`` of a refused panel save.
     """
     return view.json(
         {"status": "error", "message": message, **(details or {})}, status_code=status_code
@@ -53,19 +62,20 @@ def api_errors(
     return wrapper
 
 
-def get_apps(hass: Any, entry_id: str) -> Any:
-    """Return what hass.data holds for a config entry: the apps dict, or None if not set up."""
-    return hass.data.get(DOMAIN, {}).get(entry_id)
+def get_apps(hass: Any, entry_id: str) -> dict[str, Any] | None:
+    """Return the running apps of a config entry by device name, or None when unset."""
+    apps = hass.data.get(DOMAIN, {}).get(entry_id)
+    return apps if isinstance(apps, dict) else None
 
 
 def running_apps(hass: Any, entry_id: str) -> dict[str, Any]:
     """Return the entry's running apps by device name.
 
     Raises:
-        ApiError: When the entry holds no apps dict (not set up)
+        ApiError: When the entry is not set up
     """
     apps = get_apps(hass, entry_id)
-    if not isinstance(apps, dict):
+    if apps is None:
         raise ApiError("No running devices", 400)
     return apps
 
@@ -82,21 +92,43 @@ def device_app(apps: dict[str, Any], device_name: str) -> Any:
     return app
 
 
-def query_device(request: Any) -> str:
+def running_device_app(hass: Any, entry_id: str, device_name: str) -> Any:
+    """Return one device's running app.
+
+    Raises:
+        ApiError: When the entry is not set up or the device runs no app
+    """
+    return device_app(running_apps(hass, entry_id), device_name)
+
+
+def text_field(value: Any, name: str) -> str:
+    """Return a request field as stripped text; a missing field is ''.
+
+    Raises:
+        ApiError: When the field is present but not a string
+    """
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ApiError(f"The {name} field must be a string", 400)
+    return value.strip()
+
+
+def query_device(request: web.Request) -> str:
     """Return the stripped ``device`` query param ('' when absent)."""
-    return (request.query.get("device") or "").strip()
+    return text_field(request.query.get("device"), "device")
 
 
 def body_device(body: dict[str, Any]) -> str:
     """Return the body's ``device`` field; blank or missing addresses every device."""
-    return (body.get("device") or "").strip() or ALL_DEVICES
+    return text_field(body.get("device"), "device") or ALL_DEVICES
 
 
-async def json_object(request: Any) -> dict[str, Any]:
+async def json_object(request: web.Request) -> dict[str, Any]:
     """Return the request's JSON object body; an empty body is ``{}``.
 
     Raises:
-        ApiError: When the body is not a JSON object
+        ApiError: When the body is not JSON or not an object
     """
     try:
         body = await request.json()
@@ -114,10 +146,10 @@ async def for_each_app(
     action: str,
     run: Callable[[str, Any], Awaitable[str | None]],
 ) -> tuple[list[str], list[dict[str, str]]]:
-    """Run ``run(name, app)`` for every app, one after the other.
+    """Run ``run(name, app)`` for every app in turn.
 
-    ``run`` returns why the device refused, or None on success; an exception
-    is logged and counts as a refusal too, so one device cannot stop the rest.
+    ``run`` returns why the device refused, or None on success. An exception
+    counts as a refusal too, so one device cannot stop the rest.
 
     Returns:
         The names that succeeded, and ``{"name", "error"}`` for every failure
@@ -139,7 +171,7 @@ async def for_each_app(
 
 
 def used_theme_ids(store: dict[str, Any]) -> set[str]:
-    """Return custom theme IDs referenced by device settings or panel configs."""
+    """Return the theme IDs the store's device settings and panels select."""
     used: set[str] = set()
     for device in store.get("devices", {}).values():
         if not isinstance(device, dict):
@@ -158,13 +190,12 @@ def used_theme_ids(store: dict[str, Any]) -> set[str]:
 
 
 def ensure_known_theme_ids(store: dict[str, Any], themes: dict[str, Any]) -> None:
-    """Reject device or panel references to a theme absent from the library."""
-    from ..haui.mapping.color import BUILTIN_THEMES
-
+    """Reject a device or panel reference to a theme that is not available."""
     unknown = used_theme_ids(store) - set(BUILTIN_THEMES) - set(themes)
     if unknown:
         raise ApiError(f"Unknown color theme {sorted(unknown)[0]!r}", 400)
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()  # noqa: UP017
+    """Return the current time as an ISO 8601 string."""
+    return datetime.now(UTC).isoformat()

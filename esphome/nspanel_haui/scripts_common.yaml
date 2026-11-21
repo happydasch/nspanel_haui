@@ -1,22 +1,19 @@
 ---
 script:
 
-  # The Nextion's `is_sleeping()` framework call is kept where it guards a
-  # genuine hardware-sleep session (only ever engaged on the no-hub path); the
-  # hub-side display-state machine tracks the *target* brightness state and
-  # does not record hardware sleep.  Request scripts wake before reading so a
-  # value read never lands on a dark display.
+  # is_sleeping() guards only a real hardware-sleep session (the no-hub path);
+  # request scripts wake the panel first so a read never lands on a dark display.
 
-  # Script to send a notification
+  # Send a notification
   - id: send_notification
     parameters:
       title: string
       message: string
-      icon: string        # pass empty string "" to omit icon
-      persistent: bool    # true = notification must be dismissed to stop sound
-      text_size: string   # "auto" (default) or a font size 1-3
-      icon_color: string  # "#rrggbb" or an RGB565 number; empty = theme text color
-      sound: string       # play_sound name; empty or "none" = silent
+      icon: string        # "" = no icon
+      persistent: bool    # true = loop the sound until dismissed
+      text_size: string   # "auto" or a font size 1-3
+      icon_color: string  # "#rrggbb" or RGB565; "" = theme text colour
+      sound: string       # play_sound name; "" or "none" = silent
     then:
       - lambda: |-
           ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - persistent:%i - text_size:%s - icon_color:%s - sound:%s", title.c_str(), message.c_str(), icon.c_str(), persistent, text_size.c_str(), icon_color.c_str(), sound.c_str());
@@ -40,7 +37,7 @@ script:
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.send_notification", payload_str);
 
-  # Script to request a number value from a component or global variable
+  # Request a number value from a component or global variable
   - id: request_number
     parameters:
       component: string
@@ -51,7 +48,7 @@ script:
           id(haui_disp).send_command_printf("system.resVal.val=%s.val", component.c_str());
           id(res_val).update();
 
-  # Script to request a text value from a component or global variable
+  # Request a text value from a component or global variable
   - id: request_text
     parameters:
       component: string
@@ -62,7 +59,7 @@ script:
           id(haui_disp).send_command_printf("system.resTxt.txt=%s", component.c_str());
           id(res_txt).update();
 
-  # Script to play a rtttl string
+  # Play an RTTTL string
   - id: play_rtttl
     parameters:
       song_str: std::string
@@ -71,21 +68,12 @@ script:
           ESP_LOGI("haui", "play_rtttl %s", song_str.c_str());
           id(haui_rtttl).play(song_str);
 
-  # Script to play a named sound
+  # Play a named sound
   - id: play_sound
     parameters:
       name: std::string
-      # available sounds:
-      # - startup: a startup sequence
-      # - tone: a single tone
-      # - tone_up: a single higher tone
-      # - tone_down: a single lower tone
-      # - seq_up: a raising tone sequence
-      # - seq_down: a falling tone sequence
-      # - notification: a notification sequence
-      # - alert: a alert sequence
-      # - alert_fast: a fast alert sequence
-      # - elise: beethovens: für elise
+      # startup, tone, tone_up, tone_down, seq_up, seq_down, notification,
+      # alert, alert_fast, elise
     then:
       - lambda: |-
           ESP_LOGI("haui", "Script play_sound %s", name.c_str());
@@ -117,24 +105,17 @@ script:
             id(haui_rtttl).play(sound_string);
           }
 
-  # General purpose script: stop every active device activity before a long
-  # blocking operation.  Call this from any flow that takes the main loop away
-  # for a while so nothing that is currently running bleeds into — or
-  # survives — the operation.  Callers: prepare_tft_upload, the on_begin of
-  # every OTA platform and esphome on_shutdown (base.yaml).  Add each stoppable
-  # component here instead of scattering the calls over those sites.
+  # Stop every active device activity before a long blocking operation (TFT
+  # upload, OTA, shutdown). Add each new stoppable component here.
   - id: suspend_activities
     then:
       - lambda: |-
           ESP_LOGI("haui", "Suspending active device activities");
-          // A playing rtttl tune must be stopped explicitly: the rtttl
-          // component turns a note off only from its loop(), and the LEDC
-          // keeps sounding it while a TFT upload or an OTA blocks the main
-          // loop, and through a reboot (which resets only the CPUs).
+          // rtttl only turns a note off from its loop(); a blocked loop or a
+          // CPU-only reboot leaves the LEDC sounding it.
           id(haui_rtttl).stop();
 
-  # Start a TFT upload: suspend active activities first, then set the URL and
-  # hand the blocking upload to the display.
+  # Start a TFT upload: suspend activities, set the URL, run the blocking upload.
   - id: prepare_tft_upload
     parameters:
       url: std::string

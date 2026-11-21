@@ -6,14 +6,15 @@
  */
 import { t } from './localize.js';
 import { GESTURE_NAMES, LOCALE_OPTIONS } from './constants.js';
+import { panelName } from './panel-utils.js';
+import { idlePanelKeys, unknownPanelRef } from './panel-roles.js';
 import { entryCount } from './ui/entry-list.js';
 import { themeLabel } from './ui/panel-manager.js';
-import { idlePanelKeys } from './ui/panel-pills.js';
 
 /**
  * What a group holds, as far as its tile needs it: the stored config plus the
- * names only the hub knows (`panels`, the theme library).
- * @typedef {{ panels?: any[], builtinThemes?: Record<string, any>,
+ * names only the hub knows (`panels` and their types, the theme library).
+ * @typedef {{ panels?: any[], panelTypes?: any[], builtinThemes?: Record<string, any>,
  *   customThemes?: Record<string, any> }} SectionContext
  */
 
@@ -71,10 +72,15 @@ function soundsSummary(cfg) {
 
 /** @param {any} cfg @param {SectionContext} ctx */
 function homeSummary(cfg, ctx) {
-  const home = (ctx.panels || []).find((panel) => panel.key === cfg.home_panel);
+  const home = String(cfg.home_panel ?? '');
+  const panels = ctx.panels || [];
+  // A device without panels has neither role to name: both pickers are empty,
+  // so the tile says what is missing instead of counting idle panels.
+  if (!panels.length) return t('No panels yet');
+  const panel = panels.find((entry) => entry.key === home);
   const idle = idlePanelKeys(cfg.idle_panel, cfg.idle_panel_extra).length;
   return [
-    home ? home.title || home.key : t('No home panel'),
+    home ? panelName(panel, ctx.panelTypes) || unknownPanelRef(home) : t('No home panel'),
     idle === 1 ? t('1 idle panel') : t('{count} idle panels').replace('{count}', String(idle)),
   ].join(' · ');
 }
@@ -122,13 +128,13 @@ function advancedSummary(cfg) {
 /** Every group of the device settings, in the order the landing shows them. */
 export const SETTINGS_SECTIONS = Object.freeze([
   { key: 'general', label: () => t('General'), iconName: 'settings', summary: generalSummary },
+  { key: 'home', label: () => t('Home & idle'), iconName: 'homeOutline', summary: homeSummary },
+  { key: 'hardware', label: () => t('Hardware buttons'), iconName: 'dialpad', summary: hardwareSummary },
+  { key: 'buttons', label: () => t('Screen buttons'), iconName: 'toggleSwitch', summary: buttonsSummary },
   // Brightness, dimming, display off and the schedule that sets them by time of day.
   { key: 'screen', label: () => t('Screen'), iconName: 'dimming', summary: screenSummary },
   { key: 'sounds', label: () => t('Sounds'), iconName: 'sound', summary: soundsSummary },
-  { key: 'home', label: () => t('Home & idle'), iconName: 'homeOutline', summary: homeSummary },
   { key: 'gestures', label: () => t('Gestures'), iconName: 'gesture', summary: gesturesSummary },
-  { key: 'buttons', label: () => t('Screen buttons'), iconName: 'toggleSwitch', summary: buttonsSummary },
-  { key: 'hardware', label: () => t('Hardware buttons'), iconName: 'dialpad', summary: hardwareSummary },
   // The log level, the stale-data threshold and the page settle delay.
   { key: 'advanced', label: () => t('Advanced'), iconName: 'tuneVariant', summary: advancedSummary },
 ]);

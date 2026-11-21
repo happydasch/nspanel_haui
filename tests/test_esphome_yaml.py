@@ -29,7 +29,14 @@ def test_hub_availability_reset_on_last_client_disconnect():
 
 
 def test_min_esphome_version_declared():
-    assert "min_version: 2026.10.0" in _read("base.yaml")
+    """min_version and the firmware pin must move together."""
+    pin = re.search(
+        r"^esphome==(\S+)$",
+        (ROOT.parent.parent / "requirements-esphome.txt").read_text(),
+        re.MULTILINE,
+    )
+    assert pin is not None
+    assert f"min_version: {pin.group(1)}" in _read("base.yaml")
 
 
 def test_web_server_is_optional_and_off_by_default():

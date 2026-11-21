@@ -144,6 +144,16 @@ def _commands(messages):
     return [c for m in messages if m["type"] == "commands" for c in m["commands"]]
 
 
+def _button(messages, side):
+    """One hardware button as last reported, or None before the first report.
+
+    The hub sends the two buttons together (``buttons``): the entity each one
+    switches, the light's ``state`` and the relay's own ``relay_state``.
+    """
+    message = next((m for m in reversed(messages) if m["type"] == "buttons"), None)
+    return message[side] if message else None
+
+
 @pytest.fixture
 def session(env):
     messages: list[dict] = []
@@ -212,10 +222,19 @@ def test_live_preview_publishes_relay_states_and_tracks_sandbox_toggles(session,
         relay_entities.get(name) if domain == "switch" else None
     )
 
-    _run(env, session.app.async_run_on_worker(session.app.start_relay_state_tracking))
-    no_entities = {"left": None, "right": None}
-    expected = {"type": "relays", "left": "off", "right": "on", "entities": no_entities}
-    _wait(lambda: expected in session.messages)
+    _run(env, session.app.async_run_on_worker(session.app.start_button_state_tracking))
+    _wait(
+        lambda: (
+            _button(session.messages, "left")
+            == {
+                "relay": "switch.relay_left",
+                "entity": None,
+                "state": "off",
+                "relay_state": "off",
+            }
+        )
+    )
+    assert _button(session.messages, "right")["state"] == "on"
 
     _run(
         env,
@@ -225,12 +244,8 @@ def test_live_preview_publishes_relay_states_and_tracks_sandbox_toggles(session,
             )
         ),
     )
-    _wait(
-        lambda: (
-            {"type": "relays", "left": "on", "right": "on", "entities": no_entities}
-            in session.messages
-        )
-    )
+    _wait(lambda: _button(session.messages, "left")["state"] == "on")
+    assert _button(session.messages, "right")["state"] == "on"
 
 
 def test_live_preview_button_light_shows_its_entity_without_relay_mode(session, env):
@@ -243,18 +258,18 @@ def test_live_preview_button_light_shows_its_entity_without_relay_mode(session, 
     def entity_mode():
         session.app.device.config["use_relay_left"] = False
         session.app.device.config["button_left_entity"] = "light.lamp"
-        session.app.start_relay_state_tracking()
+        session.app.start_button_state_tracking()
 
     _run(env, session.app.async_run_on_worker(entity_mode))
     _wait(
         lambda: (
-            {
-                "type": "relays",
-                "left": "off",
-                "right": "unknown",
-                "entities": {"left": "on", "right": None},
+            _button(session.messages, "left")
+            == {
+                "relay": "switch.relay_left",
+                "entity": "light.lamp",
+                "state": "on",
+                "relay_state": "off",
             }
-            in session.messages
         )
     )
 
@@ -264,17 +279,9 @@ def test_live_preview_button_light_shows_its_entity_without_relay_mode(session, 
             lambda: session.app.call_service("light/toggle", target={"entity_id": "light.lamp"})
         ),
     )
-    _wait(
-        lambda: (
-            {
-                "type": "relays",
-                "left": "off",
-                "right": "unknown",
-                "entities": {"left": "off", "right": None},
-            }
-            in session.messages
-        )
-    )
+    # The light follows the entity; the relay's own state keeps its dot.
+    _wait(lambda: _button(session.messages, "left")["state"] == "off")
+    assert _button(session.messages, "left")["relay_state"] == "off"
 
 
 def test_live_preview_names_the_entity_each_hardware_button_switches(session, env):
@@ -284,18 +291,19 @@ def test_live_preview_names_the_entity_each_hardware_button_switches(session, en
         "switch.relay_left" if (domain, name) == ("switch", "Relay Left") else None
     )
 
-    _run(env, session.app.async_run_on_worker(session.app.start_relay_state_tracking))
-    _wait(
-        lambda: {"type": "buttons", "left": "switch.relay_left", "right": None} in session.messages
-    )
+    _run(env, session.app.async_run_on_worker(session.app.start_button_state_tracking))
+    _wait(lambda: _button(session.messages, "left") is not None)
+    assert _button(session.messages, "left")["entity"] is None
+    assert _button(session.messages, "left")["relay"] == "switch.relay_left"
+    assert _button(session.messages, "right")["relay"] is None
 
     def entity_mode():
         session.app.device.config["use_relay_left"] = False
         session.app.device.config["button_left_entity"] = "light.lamp"
-        session.app.start_relay_state_tracking()
+        session.app.start_button_state_tracking()
 
     _run(env, session.app.async_run_on_worker(entity_mode))
-    _wait(lambda: {"type": "buttons", "left": "light.lamp", "right": None} in session.messages)
+    _wait(lambda: _button(session.messages, "left")["entity"] == "light.lamp")
 
 
 def test_live_preview_button_indicator_shows_any_entity_kind(session, env):
@@ -328,17 +336,17 @@ def test_live_preview_button_indicator_shows_any_entity_kind(session, env):
         def configure(entity_id=entity_id):
             session.app.device.config["use_relay_left"] = False
             session.app.device.config["button_left_entity"] = entity_id
-            session.app.start_relay_state_tracking()
+            session.app.start_button_state_tracking()
 
         session.messages.clear()
         _run(env, session.app.async_run_on_worker(configure))
         message = {
-            "type": "relays",
-            "left": "off",
-            "right": "unknown",
-            "entities": {"left": expected, "right": None},
+            "relay": "switch.relay_left",
+            "entity": entity_id,
+            "state": expected,
+            "relay_state": "off",
         }
-        _wait(lambda message=message: message in session.messages)
+        _wait(lambda message=message: _button(session.messages, "left") == message)
 
 
 def _press_button(session, side: str) -> None:
@@ -353,7 +361,7 @@ def test_hardware_button_simulates_relay_at_press_in_relay_mode(session, env):
     session.app.find_entity_id = lambda domain, name: (
         relay_id if (domain, name) == ("switch", "Relay Left") else None
     )
-    _run(env, session.app.async_run_on_worker(session.app.start_relay_state_tracking))
+    _run(env, session.app.async_run_on_worker(session.app.start_button_state_tracking))
 
     session.send_event(ESPEvent.BUTTON_LEFT, "1")
 
@@ -365,13 +373,8 @@ def test_hardware_button_simulates_relay_at_press_in_relay_mode(session, env):
     session.send_event(ESPEvent.BUTTON_LEFT, "0")
     _wait(
         lambda: (
-            {
-                "type": "relays",
-                "left": "on",
-                "right": "unknown",
-                "entities": {"left": None, "right": None},
-            }
-            in session.messages
+            _button(session.messages, "left")
+            == {"relay": relay_id, "entity": None, "state": "on", "relay_state": "on"}
         )
     )
     time.sleep(0.05)
@@ -391,7 +394,7 @@ def test_hardware_button_simulates_configured_entity_on_release(session, env):
         session.app.device.config["use_relay_left"] = False
         session.app.device.config["button_left_entity"] = entity_id
         session.app.device._register_callbacks()
-        session.app.start_relay_state_tracking()
+        session.app.start_button_state_tracking()
 
     _run(env, session.app.async_run_on_worker(configure_entity_button))
 
@@ -407,13 +410,8 @@ def test_hardware_button_simulates_configured_entity_on_release(session, env):
     assert env.services.calls == []
     _wait(
         lambda: (
-            {
-                "type": "relays",
-                "left": "off",
-                "right": "unknown",
-                "entities": {"left": "on", "right": None},
-            }
-            in session.messages
+            _button(session.messages, "left")
+            == {"relay": relay_id, "entity": entity_id, "state": "on", "relay_state": "off"}
         )
     )
 
@@ -431,16 +429,11 @@ def test_hardware_button_simulates_configured_cover_and_tracks_position(session,
         session.app.device.config["use_relay_left"] = False
         session.app.device.config["button_left_entity"] = cover_id
         session.app.device._register_callbacks()
-        session.app.start_relay_state_tracking()
+        session.app.start_button_state_tracking()
 
     _run(env, session.app.async_run_on_worker(configure_cover_button))
-    off = {
-        "type": "relays",
-        "left": "off",
-        "right": "unknown",
-        "entities": {"left": "off", "right": None},
-    }
-    _wait(lambda: off in session.messages)
+    closed = {"relay": relay_id, "entity": cover_id, "state": "off", "relay_state": "off"}
+    _wait(lambda: _button(session.messages, "left") == closed)
 
     session.send_event(ESPEvent.BUTTON_LEFT, "1")
     _wait(lambda: session.app.device.device_info.get("button_left") == "1")
@@ -450,18 +443,17 @@ def test_hardware_button_simulates_configured_cover_and_tracks_position(session,
     opened = session.app.sandbox.get(cover_id)
     assert opened.state == "open"
     assert opened.attributes["current_position"] == 100
-    on = {**off, "entities": {"left": "on", "right": None}}
-    _wait(lambda: on in session.messages)
+    _wait(lambda: _button(session.messages, "left") == {**closed, "state": "on"})
 
     session.send_event(ESPEvent.BUTTON_LEFT, "1")
     _wait(lambda: session.app.device.device_info.get("button_left") == "1")
     session.send_event(ESPEvent.BUTTON_LEFT, "0")
 
     _wait(lambda: session.app.sandbox.get(cover_id).attributes["current_position"] == 0)
-    closed = session.app.sandbox.get(cover_id)
-    assert closed.state == "closed"
-    assert closed.attributes["current_position"] == 0
-    _wait(lambda: off in session.messages)
+    closed_again = session.app.sandbox.get(cover_id)
+    assert closed_again.state == "closed"
+    assert closed_again.attributes["current_position"] == 0
+    _wait(lambda: _button(session.messages, "left") == closed)
 
 
 def test_sandbox_tap_changes_only_simulated_state(session, env):
@@ -1049,6 +1041,33 @@ def test_a_card_render_changes_no_state(session, env):
     assert not session.app.sandbox.is_simulated("light.lamp")
 
 
+def test_a_card_render_interrupted_by_the_apps_stop_ends_with_what_was_drawn(
+    session, env, monkeypatch
+):
+    """An app stopped under a render (an unload, Home Assistant stopping) is no error."""
+    from custom_components.nspanel_haui.web.preview import virtual_panel
+
+    # The render's own page start is the signal that it is under way.
+    page_started = threading.Event()
+    start = virtual_panel._PanelRender.start
+
+    def recording_start(render):
+        start(render)
+        page_started.set()
+
+    monkeypatch.setattr(virtual_panel._PanelRender, "start", recording_start)
+    card = {"type": "light", "key": "desk", "title": "Desk", "item": {"item": "light.lamp"}}
+    # A settle no quiet period reaches: only the app's stop ends this render.
+    render = asyncio.run_coroutine_threadsafe(session.async_render(card, settle=30.0), env.loop)
+
+    assert page_started.wait(timeout=5)
+    _run(env, session.app.async_run_on_worker(session.app.stop))
+    result = render.result(timeout=5)
+
+    assert result["page"] == 13
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
 def test_a_slow_weather_forecast_does_not_block_the_virtual_app_worker(session, env):
     env._states["weather.home"] = _State("rainy", {"temperature": 14.6})
     started = threading.Event()
@@ -1148,7 +1167,7 @@ def test_the_virtual_queue_mirrors_the_physical_notifications(session, env):
                 )
             ),
         )
-        _run(env, session.async_follow_notifications(source.app))
+        _run(env, session.async_follow_panel(source.app))
         # The queue as it is when the preview starts following it...
         _wait(lambda: len(controller.get_notifications()) == 1)
         mirrored = controller.get_notifications()[0]

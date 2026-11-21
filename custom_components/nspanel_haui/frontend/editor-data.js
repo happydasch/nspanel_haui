@@ -56,6 +56,10 @@ export async function loadThemeLibrary(host, entryId = host.entryId, force = fal
     if (host.entryId !== entryId) return;
     host._builtinThemes = data.builtins || {};
     host._customThemes = data.themes || {};
+    // The panel previews key their renders on the theme their device draws in,
+    // and they read it from the store: a library a save just changed has to
+    // reach it, or every card keeps drawing the old definition.
+    host._store.actions.setThemes(host._customThemes);
     host.__themeLibraryEntry = entryId;
   } catch (_error) {
     if (host.entryId === entryId) {

@@ -290,3 +290,74 @@ def test_load_drops_edits_of_fixed_system_panels() -> None:
 
     assert result["devices"]["Salon"]["panels"] == [cover, grid]
     assert store.saved[-1]["devices"]["Salon"]["panels"] == [cover, grid]
+
+
+def test_load_drops_the_word_clock_off_color_a_preset_stored() -> None:
+    """The quick start's word clock preset stored the theme's muted text tone as
+    the colour of the unlit letters, which on a light page reads as a lit letter.
+    The page now takes the tone of the picture it is drawn on."""
+    stored = {"type": "clocktwo", "key": "salon_clock", "off_color": "#737571"}
+    own_color = {"type": "clocktwo", "key": "kitchen_clock", "off_color": "#00ff00"}
+    payload = {
+        "version": 1,
+        "devices": {"Salon": {"config": {}, "panels": [stored, own_color]}},
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    assert result["devices"]["Salon"]["panels"] == [
+        {"type": "clocktwo", "key": "salon_clock"},
+        own_color,
+    ]
+    assert store.saved[-1]["devices"]["Salon"]["panels"][0] == {
+        "type": "clocktwo",
+        "key": "salon_clock",
+    }
+
+
+def test_load_drops_the_grid_tile_colors_a_preset_stored() -> None:
+    """The quick start's grid preset stored the device theme's on-tile background
+    and power-button colour in every tile, which pinned those tiles to the theme
+    the setup was created in: on a light theme an on tile stayed a dark tint with
+    the page's dark text on it. The hub resolves both from the theme now."""
+    preset_tile = {
+        "type": "grid",
+        "key": "salon",
+        "items": [
+            {
+                "item": "light.lamp",
+                "back_color": {"on": "#363015", "playing": "#363015"},
+                "power_color": "#ffdb31",
+            },
+            {"item": "switch.fan", "back_color": {"on": "#363015", "off": "#101010"}},
+        ],
+    }
+    own_colors = {
+        "type": "grid",
+        "key": "kitchen",
+        "items": [
+            {"item": "light.kitchen", "back_color": {"on": "#00ff00"}, "power_color": "#ff0000"},
+        ],
+    }
+    payload = {
+        "version": 1,
+        "devices": {"Salon": {"config": {}, "panels": [preset_tile, own_colors]}},
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    # A colour the user picked stays; only the preset's theme colours go.
+    assert result["devices"]["Salon"]["panels"] == [
+        {
+            "type": "grid",
+            "key": "salon",
+            "items": [
+                {"item": "light.lamp"},
+                {"item": "switch.fan", "back_color": {"off": "#101010"}},
+            ],
+        },
+        own_colors,
+    ]
+    assert store.saved[-1]["devices"]["Salon"]["panels"][0]["items"][0] == {"item": "light.lamp"}

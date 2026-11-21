@@ -5,23 +5,13 @@ import { countBadge } from '../ui/badge.js';
 import { segmented } from '../ui/segmented.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
+import { searchField } from '../ui/search-field.js';
 
 // One object per type: a preview frame replays its render again whenever it is
 // handed a different panel object.
 /** @type {Map<string, { type: string, key: string }>} */
 const newPanels = new Map();
 const newPanel = (type) => newPanels.get(type) || newPanels.set(type, { type, key: '' }).get(type);
-// The same for each starter template's keyless panel.
-/** @type {Map<string, any>} */
-const starterPanels = new Map();
-/** @param {{ key: string, panel: any }} starter */
-const starterPanel = (starter) => {
-  const cached = starterPanels.get(starter.key);
-  if (cached?.source === starter.panel) return cached.panel;
-  const panel = { ...starter.panel, key: '' };
-  starterPanels.set(starter.key, { source: starter.panel, panel });
-  return panel;
-};
 
 /**
  * The panels to copy, one group per device in the order they come.
@@ -60,14 +50,13 @@ function byCategory(matches) {
 }
 
 /**
- * What a new panel can start from: a panel type with its defaults, a starter
- * template, a built-in popup the device does not extend yet, or a copy of a
- * panel the hub already has. All of them lead into the panel editor.
+ * What a new panel can start from: a panel type with its defaults, a built-in
+ * popup the device does not extend yet, or a copy of a panel the hub already
+ * has. All of them lead into the panel editor.
  *
  * The catalog keeps search and preview-size controls together above its
  * collapsible sections: one per panel category (grouping first, then the
- * remaining categories), then *Start from a template*, *Extend a popup* and
- * *Copy an existing panel*.
+ * remaining categories), then *Extend a popup* and *Copy an existing panel*.
  * The search is a bare Home Assistant style field (no visible label, the
  * placeholder carries the name), and one line of intro text under it says
  * what the sections offer. Grouping starts open; the other headings alone fit
@@ -76,26 +65,21 @@ function byCategory(matches) {
  *
  * A panel type shows the hub's render of a new, still empty panel of that type
  * on the device (`preview`), so the list tells the page layouts apart; a popup
- * shows the device's built-in one (`preview(entry, true)`, rendered by key). A
- * starter template shows the hub's render of its panel, its empty slots filled
- * with example entities.
+ * shows the device's built-in one (`preview(entry, true)`, rendered by key).
  *
  * @param {{ panelTypes: any[], query?: string, onQuery: (query: string) => void,
  *   onSelect: (typeKey: string) => void, compactPreviews?: boolean,
  *   onPreviewSize?: (compact: boolean) => void,
  *   preview?: ((panel: { type: string, key: string }, byKey?: boolean) => unknown)|null,
  *   portrait?: boolean,
- *   popups?: Array<{ key: string, type: string, label?: string }>,
+ *   popups?: Array<{ key: string, type: string, label?: string, description?: string }>,
  *   onSelectPopup?: (entry: any) => void,
  *   copies?: Array<{ id: string, device?: string, deviceLabel?: string, label: string,
  *     detail: string, icon?: string, panel: any }>,
- *   onSelectCopy?: (panel: any) => void,
- *   starters?: Array<{ key: string, label: string, description: string, icon: string, panel: any }>,
- *   onSelectStarter?: (panel: any) => void }} options
+ *   onSelectCopy?: (panel: any) => void }} options
  */
 export function panelCatalog({
   panelTypes, query = '', onQuery, onSelect, copies = [], onSelectCopy = () => {},
-  starters = [], onSelectStarter = () => {},
   popups = [], onSelectPopup = () => {}, preview = null, portrait = false,
   compactPreviews = false, onPreviewSize,
 }) {
@@ -107,8 +91,9 @@ export function panelCatalog({
   const copyMatches = copies.filter((copy) => found(
     `${copy.label} ${copy.detail} ${copy.deviceLabel || ''}`,
   ));
-  const starterMatches = starters.filter((starter) => found(`${starter.label} ${starter.description}`));
-  const defaults = popups.filter((entry) => found(`${entry.label || ''} ${entry.key}`));
+  const defaults = popups.filter((entry) => found(
+    `${entry.label || ''} ${entry.description || ''} ${entry.key}`,
+  ));
   const thumb = (panel, byKey = false) => (preview
     ? html`<span class=${`haui-panel-catalog-preview ${portrait ? 'is-portrait' : ''}`.trim()}
       aria-hidden="true">${preview(panel, byKey)}</span>`
@@ -119,7 +104,8 @@ export function panelCatalog({
     class="haui-panel-catalog-option" role="listitem" data-option=${key}
     ?data-preview=${thumb !== nothing} @click=${onClick}>
     ${thumb === nothing ? (iconName ? icon(iconName) : html`<span></span>`) : thumb}
-    <span><strong>${label}</strong>${detail ? html`<span>${detail}</span>` : nothing}</span>
+    <span><strong>${iconName && thumb !== nothing ? icon(iconName) : nothing}${label}</strong>${detail
+      ? html`<span>${detail}</span>` : nothing}</span>
     ${icon('chevronRight')}
   </button>`;
   /**
@@ -146,11 +132,10 @@ export function panelCatalog({
     <div class="haui-panel-catalog-controls">
       <div class="haui-panel-catalog-controls-row">
         <div class="haui-panel-catalog-search">
-          <span class="haui-search-field haui-panel-catalog-search-field">
-            ${icon('search')}
-            <input type="search" aria-label=${t('Search panels')} placeholder=${t('Search panels')}
-              .value=${query} @input=${(event) => onQuery(event.currentTarget.value)}>
-          </span>
+          ${searchField({
+            label: t('Search panels'), value: query, className: 'haui-panel-catalog-search-field',
+            onInput: onQuery,
+          })}
         </div>
         ${preview ? html`<div class="haui-panel-catalog-layout">
           ${segmented({
@@ -173,18 +158,12 @@ export function panelCatalog({
         () => onSelect(panelType.type_key),
         thumb(newPanel(panelType.type_key)),
       )),
-    )) : copyMatches.length || defaults.length || starterMatches.length ? nothing
+    )) : copyMatches.length || defaults.length ? nothing
       : emptyState({ message: t('No panels match this search.'), iconName: null, className: 'haui-empty-state-compact' })}
-    ${starterMatches.length ? section('starters', 'template', t('Start from a template'), starterMatches.length, html`
-      <p class="haui-panel-catalog-hint">${t('A ready-made panel; choose the entities it marks, then save.')}</p>
-      ${list(starterMatches, (starter) => option(
-        starter.key, starter.icon, starter.label, starter.description,
-        () => onSelectStarter(starter.panel), thumb(starterPanel(starter)),
-      ))}`) : nothing}
     ${defaults.length ? section('popups', 'card-outline', t('Extend a popup'), defaults.length, html`
       <p class="haui-panel-catalog-hint">${t('Start from a built-in popup; your changes are saved on top of it for this device.')}</p>
       ${list(defaults, (entry) => option(
-        entry.key, 'card-outline', entry.label || entry.key, entry.key,
+        entry.key, 'card-outline', entry.label || entry.key, entry.description,
         () => onSelectPopup(entry), thumb(entry, true),
       ))}`) : nothing}
     ${copyMatches.length ? section('copies', 'content-copy', t('Copy an existing panel'), copyMatches.length, html`

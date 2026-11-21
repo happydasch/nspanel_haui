@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """Export the README images to ``docs/assets/readme/``.
 
-Each image is an HTML page in ``src/`` captured with headless Chrome at twice
-its CSS size: the hero and the two step strips (editor, quick start). The hero's
-two screens are the hub's own renders of the sample panels in ``SCREENS``, taken
-through the card gallery like ``gen_preview_gallery.py --png``, so they show what
-the display really draws.
+Each image is an HTML page in ``src/`` captured with headless Chrome at twice its CSS
+size. The hero's two screens are the hub's own renders of the sample panels in
+``SCREENS``, taken through the card gallery like ``gen_preview_gallery.py --png``.
 
 The README links the images by absolute ``raw.githubusercontent.com`` URLs: the
-Home Assistant Marketplace shows the README, and mermaid diagrams are not drawn
-there.
+Marketplace shows the README, and mermaid diagrams are not drawn there.
 
 Usage::
 
@@ -40,7 +37,12 @@ ROOT = HERE.parents[1]
 TARGET = ROOT / "docs" / "assets" / "readme"
 
 # name -> CSS size of the page; exported at 2x
-IMAGES = {"hero": (1000, 380), "editor": (1000, 236), "quick-start": (1000, 236)}
+IMAGES = {
+    "hero": (1000, 380),
+    "editor": (1000, 236),
+    "quick-start": (1000, 236),
+    "panels": (1000, 236),
+}
 WHITE = "#ffffff"
 
 

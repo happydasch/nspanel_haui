@@ -104,7 +104,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         has_header=False,
     )
 
-    # no header: the page has no function buttons
+    # no header: no function buttons
     COMPONENTS = ComponentRegistry(
         t_time=Component(2, "tTime"),
         t_date=Component(3, "tDate"),
@@ -183,7 +183,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         self.on_release(
             {self.COMPONENTS.t_time: self._advance_card},
         )
-        # setting: show_temp (header temp/pressure text only, independent of the Time cards)
+        # setting: show_temp (header text only, not the Time cards)
         self.set_function_component(
             self.COMPONENTS.t_main_text,
             self.COMPONENTS.t_main_text.name,
@@ -196,15 +196,16 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         )
         # notification (shares t_main_icon with the weather icon)
         self._show_notifications = self.option(panel, "show_notifications")
-        # Pre-register entity button components so config_panel registers
-        # touch callbacks.  Start hidden — update_items() applies the
-        # correct visible/icon/color state once entity data is available.
+        # Pre-register the item buttons so config_panel wires their callbacks;
+        # update_items() sets their state and repaints the light-page background.
         for i in range(self.NUM_ENTITIES):
             component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
+            self.set_component_back_color(component, self.get_color("component_background"))
+            self.set_component_back_color_pressed(component, self.get_color("component_pressed"))
             self.set_function_component(component, component.name, "item", visible=False)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        # weather header first: the temperature cards read this panel's item
+        # weather header first: the temperature cards read its item
         self.set_weather_item(self._get_weather_item(panel))
         self._render_cards()
         # item buttons
@@ -267,8 +268,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         if msg_sub:
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")
             msg_sub = f"{format_number(msg_sub)}{pressure_unit}"
-        # Hide the text widgets only when there is nothing to show at all; the
-        # weather icon stays visible either way.
+        # Hide the text only when empty; the weather icon stays visible.
         has_text = bool(msg or msg_sub)
         self.update_function_component(
             self.COMPONENTS.t_main_text.name, text=msg, visible=self._show_temp and has_text
@@ -342,8 +342,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         else:
             show_bell = notification.has_notifications()
             color = self.get_color("component_text")
-        # Batch the single icon update so it doesn't interleave with a panel
-        # render in progress.
+        # Batch so the icon update doesn't interleave with a panel render.
         with self.rec_cmd:
             if show_bell:
                 self.update_function_component(

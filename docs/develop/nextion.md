@@ -1,79 +1,52 @@
 ---
-title: Nextion Component
-description: Nextion display configuration, HMI editing, and display rendering
+title: Nextion component
+description: "The display component in the firmware: config options, rendering, refresh and its scripts"
 ---
 
-# Nextion Component
+# Nextion component
 
-## Installation
+The firmware drives the Nextion display and the hub renders panels through it. Read this page when you change the display configuration or the render cycle, or when you need to know which HMI script writes what.
 
-To install the TFT file on the display, the device needs to be already flashed with the NSPanel HAUI firmware
-and added to the integration. The hub installs the TFT the firmware needs when the device
-connects; to install it by hand:
+## The component in the firmware
 
-- **Using the update entity**:
+The firmware uses the stock ESPHome `nextion` display component (ESPHome 2026.11 or later) over a hardware UART, with the temporary vendored patch in `esphome/nextion_patch/`. The hub never sees the UART: it calls the device actions listed in [ESPHome component](esphome.md), and the firmware writes the Nextion commands.
 
-  - Entity: `HAUI Display` (`update.<device>_haui_display`) — press **Install**.
-    This installs the TFT release the firmware needs.
+## Display configuration
 
-- **Using a service**:
+### Dimensions and non-visible area
 
-  - Service: `nspanel_haui.update_tft`
-    This installs the TFT release the firmware needs, or the TFT at the optional `url`.
+| Area | Landscape | Portrait |
+|------|-----------|----------|
+| Display and touch resolution | 480 × 320 px | 320 × 480 px |
+| Visible area | 450 × 320 px | 320 × 480 px |
+| Hidden by the bezel | 30 px on the right (x 450..479) | none |
 
-See the [Services Reference](../user/services.md#tft-display-upload) for full details and examples.
+Touch coordinates in the hidden band are valid; no pixels are visible there. Edge gestures depend on it: `esphome/nspanel_haui/scripts_interaction.yaml` takes `visible_width` (450 in landscape, 320 in portrait) for its right-border check with a 40 px `border_margin`, so in landscape a swipe starting at x > 410 counts as a right-edge start and touches in the hidden band count too.
 
-## Nextion display configuration used in this project
+### Display options
 
-### Display dimensions and non-visible area
+These live in `esphome/nspanel_haui/display.yaml`:
 
-The Sonoff NSPanel Nextion display has the following physical touch characteristics:
+| Option | Value | Effect |
+|--------|-------|--------|
+| `uart_id` | `haui_uart` | the UART bus the display is on |
+| `wake_up_page` | `0` | page shown after *hardware* sleep. The display state machine never hardware-sleeps: it keeps System page 0 visible and dims the backlight, so this only matters if hardware sleep is requested explicitly |
+| `tft_url` | `$tft_update_url` | compile-time default TFT URL, overridable per device YAML; the hub always passes the URL of the TFT it installs. The component's validation also requires it next to `tft_upload_http_buffer_size_tx` |
+| `tft_upload_http_buffer_size_tx` | `2048` | HTTP TX buffer for the TFT download: GitHub redirects release TFTs to a signed URL of about 870 characters, and the ESP-IDF default of 512 fails with `HTTP_CLIENT: Out of buffer` |
+| `max_queue_size` | `800` | caps the command queue so a Nextion buffer overflow cannot strand entries and fragment the heap; 800 absorbs a full panel render plus concurrent state updates |
+| `max_commands_per_loop` | `50` | commands processed per loop iteration, spreading allocation and deallocation; with pacing active the pacer limits output further |
+| `command_spacing` | `2ms` | enables the command pacer globally. The ESP32 loop timestamp is constant within an iteration, so at most one queued command leaves per loop, which spreads large renders and keeps bursts out of the Nextion's 1 KB RX buffer |
+| `on_setup`, `on_page`, `on_touch` | — | triggers after the firmware connects to the display, on a page change, and on a touch |
+| `on_buffer_overflow` | — | logs the warning and publishes a `buffer_overflow` event, which starts [buffer overflow recovery](#buffer-overflow-recovery) |
 
-- **Total display/touch resolution:** 480 × 320 pixels
-- **Visible (effective) area:** 450 × 320 pixels
-- **Non-visible area:** 30 pixels on the right side (x = 450..479)
+## Panel rendering and refresh
 
-The display is 480 pixels wide, but the LCD bezel hides the rightmost 30 pixels. Touch coordinates in that band (x = 450..479) are valid but no pixels are visible there.
+The HA layer batches commands to keep the native API payload small, ESPHome queues them and the `command_spacing` pacer writes them to the UART. The pacer, not HA batching, is what protects the Nextion's 1 KB RX buffer.
 
-This is relevant for edge-based gesture detection — swipe-from-right gestures (swipe left) start in the non-visible zone. The ESPHome gesture logic in `scripts_interaction.yaml` uses `visible_width` (450 in landscape, 320 in portrait) for its right-border check (in landscape a swipe starting at x > 410 counts as a right-edge start, using a 40px margin), so touches in the non-visible zone also count as right-edge starts.
+A panel render has two paths:
 
-This project uses the stock ESPHome `nextion` display component (ESPHome 2026.10 or later, with the temporary vendored patch in `esphome/nextion_patch/`, see [ESPHome Component](esphome.md)) with a hardware UART and the following key options in `esphome/nspanel_haui/display.yaml`:
-
-- `uart_id`: references the UART bus used for the Nextion display.
-- `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. The automatic display state machine does not hardware-sleep; while disconnected the firmware keeps System page 0 visible and only dims the backlight. This setting matters only if hardware sleep is explicitly requested.
-- `tft_url`: default TFT URL. It reads the `tft_update_url` substitution; override
-  it in your device YAML to install a local TFT build. The hub always passes the
-  URL of the TFT it installs, so this value is only a compile-time default. (A
-  `tft_url` is also what the component's validation requires next to
-  `tft_upload_http_buffer_size_tx`.)
-- `tft_upload_http_buffer_size_tx` (`2048`): HTTP TX buffer for the TFT download. GitHub redirects release TFTs to a signed URL of about 870 characters; the ESP-IDF default of 512 bytes cannot hold that request line and the upload fails with `HTTP_CLIENT: Out of buffer`. Comes from the vendored patch until a released ESPHome contains it.
-- `on_setup`: triggered after ESPHome connects to the Nextion.
-- `on_page`: triggered when the display changes pages.
-- `on_touch`: triggered when a touch event happens.
-- `on_buffer_overflow`: logs the warning and publishes a `buffer_overflow` event,
-  which starts the hub's [buffer overflow recovery](#buffer-overflow-recovery).
-
-The actions the hub calls on the device are listed in
-[ESPHome Component → Actions](esphome.md#actions).
-
-### Advanced queue tuning options
-
-Also set in `display.yaml`:
-
-- `max_queue_size` (default: 800): caps the command queue to prevent heap fragmentation when the Nextion serial buffer overflows and orphans pending entries. 800 entries is enough to absorb a full panel render burst plus concurrent state updates.
-
-- `max_commands_per_loop` (default: 50): limits commands processed per loop iteration to spread out allocation/deallocation. With command pacing active, the pacer further limits output to one command per loop iteration.
-
-- `command_spacing` (`2ms`): enables ESPHome's Nextion command pacer globally. The ESP32 loop timestamp is constant within an iteration, so the pacer sends at most one queued command per loop. This spreads large renders over time and prevents bursts from overrunning the Nextion's 1 KB RX buffer. The configured minimum is 2ms; actual throughput is also bounded by the ESPHome loop cadence.
-
-### Panel rendering and refresh
-
-Commands are batched at the HA layer to reduce native API service-call overhead, then queued and paced by ESPHome before being written to the UART. The firmware's `command_spacing` pacer is the protection against overrunning the Nextion's 1 KB RX buffer for every page and command source; HA batching alone does not prevent UART bursts.
-
-The rendering cycle has two paths:
-
-- **Full render** (`display_panel`): used for initial page display, panel switches, and overflow recovery. Resets the command-dedup cache so the first batch is never suppressed as a duplicate of the previous page.
-- **Refresh** (`refresh_panel`): used for incremental updates (entity state changes, clock ticks, etc.). Re-runs `render_panel` on the already-active panel without a page transition.
+- **Full render** (`display_panel`): initial display, panel switches and the page-load path. Resets the command-dedup cache, so the first batch is never dropped as a duplicate of the previous page.
+- **Refresh** (`refresh_panel`): re-runs `render_panel` on the active panel for entity state changes, clock ticks and overflow recovery, with no page transition.
 
 ```mermaid
 flowchart TD
@@ -100,56 +73,42 @@ flowchart TD
     style Refresh fill:#f09d37,color:#fff
 ```
 
-#### Page settle delay
+### Page acknowledge and settle delay
 
-After a page-change command the Nextion sends a 0x66 ack once the new page is active. The hub waits for this ack before sending render commands — commands arriving before the ack are rejected with "Invalid variable name" (0x1A) because page components are not yet initialised.
+The Nextion answers a page change with a 0x66 ack once the new page is active, and the hub waits for it before rendering: commands that arrive earlier are rejected with "Invalid variable name" (0x1A) because the page's components are not initialised yet. After the ack the hub waits `page_settle_delay` (default `0.1` s) and then calls `display_panel`. If no ack arrives within 10 s (`PAGE_ACK_TIMEOUT`), it force-resends the page command and renders anyway.
 
-After the ack the hub waits an additional settle delay (default `0.1s`, configurable via `page_settle_delay`) before calling `display_panel`. If the ack never arrives within 10 s, the hub force-resends the page command and renders anyway as a fallback.
+### Buffer overflow recovery
 
-#### Buffer overflow recovery
+A Nextion buffer overflow (0x24) loses every instruction that was in flight, so the display shows a mix of stale and updated widgets. The hub debounces a `refresh_panel()` after `OVERFLOW_RECOVERY_DELAY` (0.5 s), doubling the delay for each consecutive overflow and pausing recovery after `OVERFLOW_RECOVERY_MAX_ATTEMPTS` (5) until the display has been overflow-free for `OVERFLOW_RECOVERY_RESET` (30 s). Recovery re-renders the active panel instead of switching pages, so its batch is smaller than the one that overflowed. The constants and the handler are in `haui/controller/navigation.py`.
 
-If the Nextion reports a buffer overflow (0x24), the hub debounces a full `display_panel` re-render, starting at a 500ms delay (doubling for each consecutive overflow, and pausing after 5 consecutive recoveries until the display has been overflow-free for 30s), to let the ESPHome queue drain any remaining commands before re-sending the complete panel state. This is a recovery safety net; normal output is paced in firmware by `command_spacing`.
+## Editing the HMI
 
-## How to edit the HMI file
+The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs to the hub. The rules that keep both HMIs in step are in [Nextion Editor](nextion-editor.md#the-hmipython-contract).
 
-The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs in the Hub App. The rules that keep both HMIs in step (landscape and portrait) are in [Nextion Editor](nextion-editor.md#hard-rules).
+- Every page sends `sendme` in `Preinitialize`: it is how a page change becomes an `esphome.page` event, and a page without it is never rendered.
+- Prepare the page in `Preinitialize`, because the hub cannot touch the display before the page is shown. What the page needs at load time arrives in the globals the hub sets before the switch: the theme colours in `Program.s` for solid-colour pages, and the picture background of the clock and weather pages.
+- Enable `Send Component ID` on any widget whose touch the hub must receive.
+- The hub addresses a widget by id and object name from the page's `COMPONENTS` registry, so reordering components changes their ids.
 
-All pages need to send a `sendme` in `Preinitialize`. This is needed to know of a page change event.
-
-Prepare the page in the `Preinitialize` event because the Hub App cannot control the display at this stage. Only after a page is shown, it is possible to change anything or interact with it. What the page needs from the hub to load correctly goes into global variables the hub sets before the page switch: the theme colours (`Program.s` globals the solid-colour pages paint themselves from, see [Nextion Editor](nextion-editor.md#hard-rules)) and the picture background of the clock and weather pages.
-
-If you want to process any click events, you need to enable `Send Component ID` on the event to be used.
-
-The hub addresses a widget by its id and object name, declared in the page's `COMPONENTS` registry. Changing the order of components on a page changes their ids.
-
-> ✍️ **Maintainers:** a step-by-step, human-oriented guide for editing the HMI
-> in the Nextion Editor — adding widgets/pages, fonts & images, and creating
-> or updating the US portrait TFT — lives in
-> [Nextion Editor (Human Guide)](nextion-editor.md).
+The walkthrough for the editor itself — widgets, pages, fonts, images, the portrait project — is [Nextion Editor](nextion-editor.md).
 
 ## Scripts for display
 
-The display tools live in `scripts/` (overview in `scripts/README.md`). Which of
-them to run after an HMI change, and in what order, is in
-[Nextion Editor §8](nextion-editor.md#8-after-any-hmi-change-scripts-to-run).
+The display tools live in `scripts/` (index in `scripts/README.md`) and run as modules from the repository root.
 
-- Fonts: `scripts/font_tools` and `scripts/charset`
-- Images: `scripts/rgb565_image`, `scripts/backgrounds`, `scripts/spinner`,
-  `scripts/color_wheel`
-- Virtual panel assets: after every HMI change run
-  `python -m scripts.hmi_layout.gen_virtual_layout`. It exports both
-  HMI files' pages, widgets and event code to
-  `custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json`,
-  the icon-character→MDI map to `icon_map.json` and the pictures (as WebP, from
-  `nextion/images`). These feed the editor's
-  [live preview](../user/configuration/README.md#the-live-preview) and the panel-card
-  previews alike — both render the real HMI pages through the shared Nextion
-  simulator. `--check`, run by the test suite, fails while the layouts or the
-  icon map are out of date.
-  `gen_virtual_layout.py` depends on the shared Home Assistant import stubs in
-  `scripts/_ha_stubs.py`. The panel cards themselves are the hub's own render;
-  `tests/test_card_renders.py` replays a render of every panel type in these
-  layouts.
-- Preview coverage: `python -m scripts.check_preview_coverage` (also run by the
-  test suite) confirms every exposed panel — user types, system panels and
-  popup aliases — still resolves to a physical page in both preview layouts.
+| Script | Writes | Run it | Guards it |
+|--------|--------|--------|-----------|
+| `python -m scripts.hmi_layout.gen_layout`, `--spec portrait` | the spec's geometry and attributes into the HMI, and the sibling's `sendkey` values | after a change to `landscape_layout.py` or `portrait_layout.py` | `--check` compares spec and HMI, including widget coverage across both |
+| `python -m scripts.hmi_layout.gen_virtual_layout` | `frontend/virtual/layout_<orientation>.json`, `icon_map.json`, the preview pictures (WebP) and `haui/mapping/font_metrics.json` | after every HMI change | `--check` (in the suite) fails while any of them is stale; it also verifies every solid page's theme code |
+| `python -m scripts.hmi_layout.gen_virtual_layout --theme-code <page>` | the `Preinitialize` theme code of one page | when a page's theme code must be pasted or refreshed | same `--check` |
+| `python -m scripts.check_preview_coverage` | — | after adding a panel type | `tests/test_preview_coverage.py` |
+| `python -m scripts.nextion2text.Nextion2Text -i <hmi> -o <dir> -d -s -p visual` | a text dump per page: widgets with ids and names, event code and visual properties | when you map widgets to `COMPONENTS` | — (read-only; `build/` is git-ignored) |
+| `python -m scripts.bump_tft_version` | `system.tftVersion` in both HMIs | with a release that ships new TFTs | `tests/test_bump_version.py` and the release manifest |
+| `python -m scripts.design_grid.gen_grid` | `nextion/images/grid_landscape.png`, `grid_portrait.png`, the editor-only design grid | after a layout rule or theme colour changes | import them into both projects by hand |
+| `python -m scripts.backgrounds.gen_backgrounds` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | after a source picture in `nextion/src_images/bkg/` changes | import them by hand |
+| `python -m scripts.spinner.gen_spinner` | `spinner_<orientation>_1.png`, `_2.png` (pictures 11 and 12) | after the `system` tile changes or `hSpinner` moves | `gen_virtual_layout --check` fails while the timer's `xpic` ids point elsewhere |
+| `python -m scripts.charset.gen_char`, `scripts/font_tools/` | `charout.txt`, the `.zi` fonts, `docs/cheatsheet.html` | when the icon set or a font size changes | `make generated-check` fails while the cheatsheet is stale |
+| `python -m scripts.rgb565_image.image_convert`, `python -m scripts.color_wheel.gen_color_wheel` | a `pixelData~` string, an HSV colour wheel picture | for ad-hoc assets | — |
+
+`make hmi-check` runs the layout, generated-asset and preview-coverage guards in one go; `make screens-check` compares the docs screen images with a fresh render.
+

@@ -1,7 +1,6 @@
-// The card gallery: the hub's renders of every panel card (out/renders.json,
-// written by gen_preview_gallery.py) drawn by the editor's own card element.
-// `?orientation=landscape&card=grid` shows one card alone at the display's
-// resolution: what `gen_preview_gallery.py --png` captures.
+// The card gallery: the hub's renders of every panel card (out/renders.json, written
+// by gen_preview_gallery.py) drawn by the editor's own card element.
+// `?orientation=landscape&card=grid` shows one card alone at the display's resolution.
 import { html, render } from '../../custom_components/nspanel_haui/frontend/vendor/lit/index.js';
 import { setPanelRenderSource } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
 import { loadLayout } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';

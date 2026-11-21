@@ -4,10 +4,10 @@
 # targets into the HA device/config-entry APIs, so the type surface must be
 # reproducible. Bump deliberately, together with hacs.json.
 #
-# NOTE: ESPHome is deliberately NOT listed here. esphome 2026.10.0 and
-# homeassistant 2026.11.0 pin different cryptography, pillow and zeroconf
-# versions, so the two cannot be resolved into one environment. Firmware builds
-# and the release gate use requirements-esphome.txt instead.
+# NOTE: ESPHome is deliberately NOT listed here. The ESPHome and Home Assistant
+# toolchains pin different cryptography, pillow and zeroconf versions, so the two
+# cannot be resolved into one environment. Firmware builds and the release gate
+# use requirements-esphome.txt instead.
 homeassistant==2026.11.0
 
 pytest>=8.0
@@ -19,6 +19,7 @@ mypy==2.4.1
 pydantic>=2.7
 types-requests
 types-python-dateutil
-voluptuous>=0.14.2
+types-PyYAML
+probatio>=0.13.0
 # Freezes the clock for the screen overview (scripts/preview_gallery).
 time-machine>=2.16

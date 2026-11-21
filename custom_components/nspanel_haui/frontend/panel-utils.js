@@ -4,9 +4,8 @@
  * Grouping and role markers for the Device panel list. The view modules stay
  * dumb: they render what these helpers and the shell prepared.
  */
-import { html } from './lit-import.js';
 import { t } from './localize.js';
-import { icon } from './ui/icon.js';
+import { panelRoleMarker } from './ui/panel-role.js';
 
 /**
  * Collect system panel keys from the host's panels data.
@@ -15,6 +14,20 @@ import { icon } from './ui/icon.js';
  */
 export function getSystemPanelKeys(host) {
   return new Set((host._panels?.system_panels || []).map(sp => sp.key).filter(Boolean));
+}
+
+/**
+ * The name a panel is shown by: its own title, else the label of its type, else
+ * its key. The hub names an untitled panel by its type too
+ * (`HAUIPanel.get_title`), so the editor never shows a bare key for one.
+ *
+ * @param {any} panel - a panel config
+ * @param {Array} [panelTypes] - the hub's panel type descriptors
+ * @returns {string}
+ */
+export function panelName(panel, panelTypes = []) {
+  const typeLabel = (panelTypes || []).find((type) => type.type_key === panel?.type)?.label;
+  return panel?.title || typeLabel || panel?.key || '';
 }
 
 /**
@@ -42,21 +55,42 @@ export function groupPanels(panels = [], systemPanels = []) {
 }
 
 /**
+ * A device that still needs its first panel: it has none, so its display shows
+ * only the hub's keyless default clock and no page navigation leads anywhere.
+ *
+ * @param {{ panels?: unknown[] }|null|undefined} device
+ * @returns {boolean}
+ */
+export function needsSetup(device) {
+  return (device?.panels || []).length === 0;
+}
+
+/**
  * Home and Idle role markers for a panel thumbnail.
  *
+ * The idle panels are one ordered carousel (`idle_panel` first, then
+ * `idle_panel_extra`), so the panel the device shows first carries the plain
+ * idle marker and every further one a dimmed marker whose label numbers its
+ * place in the cycle.
+ *
  * @param {string|null|undefined} key
- * @param {object} [deviceConfig]
+ * @param {{ homePanel?: string, idleKeys?: string[] }} [roleConfig] - the panel
+ *   the device opens at home, and its idle carousel in play order
  * @returns {Array} templates for the thumbnail's marker overlay
  */
-export function panelRoleMarkers(key, deviceConfig = {}) {
-  const roles = [];
-  if (!key || !deviceConfig) return roles;
-  if (key === deviceConfig.home_panel) {
-    roles.push(html`<span class="haui-panel-role haui-panel-role-home" role="img" aria-label=${t('Home panel')}>${icon('home')}</span>`);
+export function panelRoleMarkers(key, { homePanel = '', idleKeys = [] } = {}) {
+  const markers = [];
+  if (!key) return markers;
+  if (key === homePanel) markers.push(panelRoleMarker({ role: 'home' }));
+  const idleOrder = idleKeys.indexOf(key);
+  if (idleOrder === 0) markers.push(panelRoleMarker({ role: 'idle' }));
+  if (idleOrder > 0) {
+    markers.push(panelRoleMarker({
+      role: 'idle',
+      extra: true,
+      label: t('Idle panel {count}').replace('{count}', String(idleOrder + 1)),
+    }));
   }
-  if (key === deviceConfig.idle_panel) {
-    roles.push(html`<span class="haui-panel-role haui-panel-role-idle" role="img" aria-label=${t('Idle panel')}>${icon('sleep')}</span>`);
-  }
-  return roles;
+  return markers;
 }
 

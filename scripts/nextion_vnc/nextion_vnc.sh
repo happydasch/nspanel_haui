@@ -8,9 +8,8 @@
 #   NEXTION_VNC_PORT  its VNC port (default 5900)
 #   NOVNC_PORT        local web port (default 6080)
 #
-# The first run installs websockify into a venv and clones noVNC under
-# build/novnc/ (git-ignored). The bridge listens on 127.0.0.1 only: the VNC
-# password is all that guards the VM, so it is not exposed to the network.
+# The first run installs websockify into a venv and clones noVNC under build/novnc/
+# (git-ignored). It listens on 127.0.0.1 only: the VNC password is all that guards the VM.
 set -euo pipefail
 
 NOVNC_VERSION=v1.7.0

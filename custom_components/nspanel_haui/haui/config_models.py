@@ -26,12 +26,8 @@ __all__ = [
 
 _LOGGER = logging.getLogger(__name__)
 
-# Importing pydantic at module scope does blocking importlib I/O (import_module,
-# importlib.metadata reads), and its BaseModel metaclass triggers more blocking
-# I/O during class creation.  Both must stay off the HA event loop, so we defer
-# the pydantic import AND model creation until the first validate_* call.
-# Callers on the event loop (e.g. api.py) already dispatch validation via
-# async_add_executor_job, so this lazy init runs on a worker thread.
+# Pydantic's import and model creation do blocking I/O, so both are deferred
+# to the first validate_* call, which runs on a worker thread.
 _CONFIG_MODEL: type | None = None
 _DEVICE_CONFIG_MODEL: type | None = None
 
@@ -144,11 +140,7 @@ def _ensure_models() -> None:
         use_auto_dimming: bool = True
         use_auto_page: bool = True
         use_auto_display_off: bool = True
-        # Timeout values are pushed into ESPHome number entities whose own
-        # ranges are 0-3600 (dim/page/display-off) resp. 0-86400 (hub-side
-        # timers); the REST editor clamps to the same bounds, so enforcement
-        # here keeps every entry path (REST, YAML import, stored JSON)
-        # consistent.
+        # The hub handles page timeouts; ESPHome handles dimming and display-off.
         timeout_dimming: int = Field(10, ge=0, le=3600)
         timeout_page: int = Field(30, ge=0, le=3600)
         timeout_display_off: int = Field(120, ge=0, le=3600)
@@ -179,6 +171,12 @@ def _ensure_models() -> None:
                     "setting: it is the dimmed brightness outside the entry"
                 )
             return self
+
+        @field_validator("display_model", mode="before")
+        @classmethod
+        def _named_display_model(cls, v: Any) -> str:
+            """A device that names no model is the landscape panel, never undefined."""
+            return str(v or DEVICE_CONFIG["display_model"])
 
         @field_validator("log_level")
         @classmethod
@@ -317,7 +315,7 @@ def _rule_errors(panels_data: dict, previous: dict | None) -> list[dict[str, str
             if not isinstance(panel, dict) or panel.get("type") not in PANEL_MAPPING:
                 continue
             key = panel.get("key")
-            descriptor = PANEL_MAPPING[panel["type"]][1].DESCRIPTOR  # type: ignore[attr-defined]
+            descriptor = PANEL_MAPPING[panel["type"]][1].DESCRIPTOR
             broken = panel_option_errors(panel, descriptor, popup=key in POPUP_PANEL_MAPPING)
             if broken and previous is not None and stored.get(key) == panel:
                 _LOGGER.warning(

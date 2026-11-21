@@ -155,8 +155,7 @@ class TimerPage(HAUIPage):
         self.set_title(panel.get_title(self.translate("Timer")))
         # initial call sets up timers
         self.update_timer()
-        # the timer keeps running while the panel is closed, but closing it
-        # cancelled the display updates
+        # the timer runs on, but closing the panel stopped its display updates
         if self.is_timer_active():
             self._start_display_updates()
 
@@ -169,7 +168,7 @@ class TimerPage(HAUIPage):
             )
 
     def initialize_timer(self, panel: HAUIPanel) -> dict[str, Any]:
-        # timer is stored in panel state so it can be restored after panel was closed
+        # panel state keeps the timer across visits
         if panel.get_state("timer") is None:
             panel.set_state(
                 "timer",
@@ -188,7 +187,7 @@ class TimerPage(HAUIPage):
 
     def start_timer(self) -> None:
         timer = self._timer
-        # check if there is a active timer and cancel timer handle
+        # cancel any active timer handle
         if timer["timer_handle"] is not None:
             self.app.cancel_timer(timer["timer_handle"])
             timer["timer_handle"] = None
@@ -223,7 +222,7 @@ class TimerPage(HAUIPage):
         if timer["timer_handle"] is not None:
             self.app.cancel_timer(timer["timer_handle"])
             timer["timer_handle"] = None
-        # Cancel the repeating display update timer
+        # cancel the display update timer
         if self._handle_update_display is not None:
             self.app.cancel_timer(self._handle_update_display)
             self._handle_update_display = None

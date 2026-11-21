@@ -23,11 +23,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class _PendingReadRequest:
-    """A value/text read request awaiting its ``read_response`` event.
+    """A read request awaiting its response.
 
-    Only one read can be in-flight at a time because the ESP32 has a single
-    ``req_val_component``/``req_txt_component`` global.  Expires so a lost
-    response doesn't wedge future reads.
+    Only one can be in flight (the ESP32 has a single request global).
+    Expires so a lost response doesn't wedge future reads.
     """
 
     component_name: str
@@ -35,45 +34,31 @@ class _PendingReadRequest:
 
 
 class TouchInputMixin:
-    """Mixin that routes touch events to the page's component callbacks.
+    """Route the display's touch events to the page's component callbacks.
 
-    Depends on :class:`~haui.abstract.haui_base.HAUIBase` for ``app``,
-    ``log`` and ``send_esphome``, and on :class:`~haui.abstract.haui_page.HAUIPage`
-    for ``page_id`` and ``panel``.  The host calls ``_init_touch_input()`` from
-    its constructor and routes events through ``_process_touch_event()``.
+    The host calls ``_init_touch_input()`` and ``_process_touch_event()``.
     """
 
     # How long a release waits for a GESTURE before its callback fires: a swipe
     # that ends on a widget also releases it, and must navigate, not press it.
     RELEASE_BUFFER_DELAY: ClassVar[float] = 0.1
 
-    # How long after a slider release the deferred callback fires if no
-    # TOUCH_END arrives first.  TOUCH_END comes from a 500 ms touch poll
-    # (plus one async sensor cycle of lag), so short drags can miss it
-    # entirely — this timer guarantees the dispatch always happens, bounded.
+    # Fallback dispatch after a slider release if no TOUCH_END arrives (the
+    # 500 ms poll can miss short drags).
     DRAG_FLUSH_DELAY: ClassVar[float] = 0.25
 
-    # Swipe-gesture suppression window after a slider release.  Must outlast
-    # the touch poller's worst-case delay (~1 s) because the spurious swipe
-    # gesture produced by the drag is only published once the poller detects
-    # the touch end.
+    # Swipe suppression after a slider release; must outlast the touch poller's
+    # ~1 s lag.
     DRAG_SUPPRESS_DURATION: ClassVar[float] = 1.5
 
-    # Long press to go back (panel option ``long_press_back``, for pages
-    # without header buttons). Touch start/end come from the firmware's
-    # 200 ms touch poll, which quantizes the duration: 0.8 s catches a
-    # one-second hold. A tap is too short for the poll to report reliably,
-    # so a long press is the gesture the poll can detect.
+    # Long press to go back: 0.8 s catches a one-second hold; a tap is too short
+    # for the 200 ms poll.
     LONG_PRESS_SECONDS: ClassVar[float] = 0.8
     # Most a long press may move (display pixels) and still count.
     LONG_PRESS_SLOP: ClassVar[int] = 30
 
-    # How long a read request stays "pending" before a lost read_response no longer
-    # counts as "in flight" (see request_component_value).  A read_response that
-    # arrives after the timeout is dropped so a stale response can't overwrite
-    # a newer read.  Set to 6 seconds to accommodate Nextion serial read latency
-    # (~3-4 s for a full round-trip: ESPHome service → Nextion proxy read →
-    # sensor update → HA event).
+    # A read request expires after 6 s (Nextion round-trip ~3-4 s); a late
+    # response is dropped.
     READ_PENDING_TIMEOUT: ClassVar[float] = 6.0
 
     if TYPE_CHECKING:
@@ -97,11 +82,8 @@ class TouchInputMixin:
         # release buffered for tap-or-swipe disambiguation: (comp_id, event)
         self._queued_callback: tuple[int, HAUIEvent] | None = None
         self._buffer_timer: str | None = None
-        # drag controls (sliders): the swipe gesture the drag motion produces
-        # is suppressed (so dragging updates the value instead of navigating),
-        # and the value read is deferred to TOUCH_END because the Nextion only
-        # finalizes the slider's ``.val`` once the touch fully ends — reading
-        # it on the component-release event returns a stale 0.
+        # drag controls (sliders): suppress the swipe the drag produces and
+        # read the value on TOUCH_END, where Nextion finalises ``.val``.
         self._drag_components: set[int] = set()
         self._suppress_gesture: bool = False
         self._suppress_gesture_timer: str | None = None
@@ -115,13 +97,7 @@ class TouchInputMixin:
         self._read_callbacks: dict[str, Callable[[Any], None]] = {}
 
     def _clear_component_callbacks(self) -> None:
-        """Drops the press, release, drag and read registrations of the current panel.
-
-        The in-flight read goes too, and so do a release still waiting out the
-        tap-or-swipe window and a slider release waiting for its read: they
-        belong to the previous panel and must not reach the next one's handler
-        for the same component.
-        """
+        """Drop the previous panel's press, release, drag and read registrations."""
         self._drop_buffered_release()
         self._cancel_drag_flush_timer()
         self._pending_drag_callback = None
@@ -217,18 +193,7 @@ class TouchInputMixin:
         self._drag_components.add(component.id)
 
     def bind_slider(self, component: Component, handler: Callable[[Any], None]) -> None:
-        """Wire up a slider component end-to-end.
-
-        Registers the component as a drag control whose release triggers a
-        read request (REQ_VAL), and routes the ``read_response`` event to
-        ``handler``.  This replaces the per-page request/response boilerplate.
-
-        Args:
-            component: The slider component.
-            handler: Called with the read value once the request completes.
-                ``value`` is an ``int`` for number reads and a ``str`` for
-                text reads.  Signature: ``handler(value)``.
-        """
+        """Register a slider as a drag control and route its read value to ``handler``."""
         self.on_release(component, self._callback_slider_release, drag=True)
         self.add_read_callback(component, handler)
 
@@ -394,28 +359,19 @@ class TouchInputMixin:
     # events
 
     def _process_touch_event(self, event: HAUIEvent) -> None:
-        """Routes a component, gesture, touch or read-response event.
-
-        Other events are ignored.
-
-        Args:
-            event (HAUIEvent): Event
-        """
+        """Route a component, gesture, touch or read-response event."""
         if event.name == ESPEvent.COMPONENT:
             self.process_component_event(event)
         elif event.name == ESPEvent.GESTURE:
             # the buffered release was the end of a swipe
             self._drop_buffered_release()
-        # new touch interaction — invalidate stale (expired) read request
-        # entries from previous interactions.  Active entries (just sent)
-        # are preserved so a fresh read_response that arrives after TOUCH_START
-        # (from the touch poll cycle) is not wrongly dropped.
+        # A new touch invalidates expired read requests; fresh ones are kept.
         elif event.name == ESPEvent.TOUCH_START:
             now = time.monotonic()
             if self._pending_read_request is not None and now >= self._pending_read_request.expiry:
                 self._pending_read_request = None
-            # A touch on a widget that sends its id reports touch_start twice
-            # (Nextion event and touch poll); the first one starts the touch.
+            # The widget event and the touch poll both report touch_start; start
+            # the touch once.
             if self._touch_started_at is None:
                 self._touch_started_at = now
         elif event.name == ESPEvent.TOUCH_END:
@@ -437,19 +393,10 @@ class TouchInputMixin:
         if page_id != self.page_id:
             return
 
-        # Press events (touch_event != 0): dispatch immediately via the press
-        # callback list, then STOP.  A press must never fall through to the
-        # release handling below — that would queue the release callback while
-        # the finger is still down and double-fire it (e.g. a held power button
-        # toggling twice).
-        #
-        # For drag controls (sliders) the press is skipped entirely because
-        # touch_event is 1 for press, not the slider value — the actual
-        # value is read asynchronously via a read request on release.
+        # Press events dispatch immediately and stop: falling through would
+        # queue the release while the finger is still down.
         if button_state != 0:
-            # a press on a drag control starts a slider interaction —
-            # suppress swipe gestures right away so a long drag can't
-            # navigate away mid-interaction
+            # suppress the drag's swipe right away
             if comp_id in self._drag_components:
                 self.log(
                     f"Drag-ctrl press (comp {comp_id}) — early return (button_state={button_state})"
@@ -462,12 +409,8 @@ class TouchInputMixin:
                     break
             return
 
-        # Drag controls (sliders): suppress the swipe gesture the drag
-        # produces and defer the value read briefly.  The read fires on
-        # TOUCH_END or after DRAG_FLUSH_DELAY, whichever comes first —
-        # TOUCH_END alone is unreliable (500 ms touch poll, short drags can
-        # miss it entirely) and waiting up to ~1 s lets entity-state updates
-        # overwrite the slider value before it is read.
+        # Drag controls: suppress the swipe and read the value on TOUCH_END or
+        # after DRAG_FLUSH_DELAY, whichever comes first.
         if comp_id in self._drag_components:
             self.log(f"Drag-ctrl release (comp {comp_id}) — queued deferred value read")
             self.suppress_gesture(self.DRAG_SUPPRESS_DURATION)

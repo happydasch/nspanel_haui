@@ -1,14 +1,9 @@
 """Compiled widget colours shared by ``landscape_layout.py`` and ``portrait_layout.py``.
 
-The 0.4 dark theme draws every non-picture page in ``background`` #101010
-(RGB565 4226, ``haui/mapping/color.py``) while the header bar stays #181818
-(6339).  Widgets with a solid background were compiled with #181818, so text and
-buttons drew lighter boxes on the page (media controls, the cover/light info
-text, settings, rows, ...).  ``THEME_ATTRS`` compiles them with the page colour;
-the header widgets keep #181818.  Widgets whose colours depend on their state
-(grid tiles, select options, alarm keys) are listed too, so the compiled page
-matches before the first render.  A widget the hub always writes in one colour
-is compiled in it, so it does not change colour once the page is shown.
+The page colour (``background`` #101010) fills widgets with a solid background,
+while the header bar keeps #181818. Widgets whose colour follows their state are
+listed too, so a page matches before its first render; a widget the hub always
+writes in one colour is compiled in it, so it never changes colour once shown.
 """
 
 from __future__ import annotations
@@ -18,8 +13,7 @@ Attrs = dict[str, dict[str, dict[str, int]]]
 PAGE_BACKGROUND = 4226
 
 _BG = {"bco": PAGE_BACKGROUND}
-# The hub writes the clock and weather pages' temperature and pressure text in
-# ``header_text`` (update_function_component's default colour).
+# The hub writes the clock and weather pages' readings in ``header_text``.
 _HEADER_TEXT = {"pco": 65535}
 _FLAT = {"bco": PAGE_BACKGROUND, "bco2": PAGE_BACKGROUND}  # pressed state stays flat
 

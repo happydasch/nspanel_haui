@@ -9,12 +9,14 @@
 A flexible touchscreen UI for the Sonoff NSPanel, built on ESPHome. Everything is configured in a
 visual editor inside Home Assistant, with no YAML to write.
 
+<img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-device-preview-light.png" alt="NSPanel HAUI editor showing a landscape grid panel preview beside its connection, diagnostics, theme, updates and backup cards" width="100%">
+
 Requires Home Assistant 2026.11 or later.
 
 **[Documentation](https://happydasch.github.io/nspanel_haui/dev/)** ·
 [Installation](https://happydasch.github.io/nspanel_haui/dev/user/install.html) ·
 [Panels](https://happydasch.github.io/nspanel_haui/dev/user/panels/index.html) ·
-[Screens](https://happydasch.github.io/nspanel_haui/dev/screens.html) ·
+[Screens](https://happydasch.github.io/nspanel_haui/dev/user/screens.html) ·
 [FAQ](https://happydasch.github.io/nspanel_haui/dev/user/faq.html) ·
 [Changelog](https://github.com/happydasch/nspanel_haui/blob/dev/CHANGELOG.md)
 
@@ -24,24 +26,36 @@ Requires Home Assistant 2026.11 or later.
 
 **On the panel**
 
-- **Landscape and portrait** layouts for the EU and US panel
-- **13 panel types**: clocks, weather, grid, row, light, media, climate, cover, vacuum, timer,
-  alarm, QR code and popups
-- **Gestures**: tap, slide, swipe, configurable sequences and long press to go back
-- **Idle page and dimming**: clock or weather idle page, auto-dimming and schedules
+- **Landscape and portrait** layouts for the EU and US panel, with 13 panel types: clock and word
+  clock, weather, grid, row, light, media, climate, cover, vacuum, timer, alarm and QR code
+- **Touch and gestures**: taps, swipes, configurable sequences and long press to go back
+- **Idle page, schedules and dimming**: a clock or weather idle page, automatic dimming and
+  time-based display states
 - **Notifications**: a queue with icon colours and sounds, persistent alerts, silent times and
   PIN-protected panels
-- **Hardware buttons, themes and pictures**: relays or any entity, theme colours, backgrounds
-- **Updates**: firmware and display updates as Home Assistant entities
-- **Local and multilingual**: ESPHome native API, no cloud; six languages
+- **Themes and pictures**: ten predefined themes, a colour editor, custom backgrounds, and hardware
+  buttons as relays or any entity
+- **Updates and languages**: firmware and display updates as Home Assistant entities, six
+  languages, all local over the ESPHome native API
 
 **In the editor**
 
-- **Visual panel builder**: panel catalog, entities, text and actions, titles, icons and colours
-- **Preview as you work**: thumbnails, an interactive virtual display or the live device view
-- **Arrange per device**: drag panels between navigation, hidden and popup groups
+- **Visual panel builder**: searchable panel catalog, entity and action editors, icons and colours
+- **Previews as you work**: panel thumbnails, an interactive simulated display and the live device
+  view
+- **Quick start**: room, whole-home, sensor, entry and alarm, timer and guest Wi-Fi presets for a
+  new device
+- **Per-device arrangement**: navigation, hidden and popup groups, reordering and moving panels
+  between devices
 - **Device settings**: language, theme, gestures, schedules, dimming, buttons and notifications
-- **Fleet management**: status, firmware, events, updates, backup and restore
+- **Fleet management**: status, latest events and logs, updates, backups, and copying settings or
+  panels to other devices
+
+**On your dashboard**
+
+- **Dashboard card**: every panel of the hub or one panel, as a large or compact preview or status
+  only, with the live screen, display state, notification count, versions and button lights.
+  View-only for every signed-in user
 
 ## Quick start
 
@@ -55,7 +69,7 @@ Requires Home Assistant 2026.11 or later.
    `happydasch/nspanel_haui`, then restart Home Assistant. Existing HACS installs migrate automatically.
 4. **Set it up**: add **NSPanel HAUI** from **Settings → Devices & Services → Add Integration**, then
    open the sidebar editor to add panels.
-   ([Configuration guide](https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html))
+   ([Editor guide](https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html))
 
 ## Editor
 
@@ -69,10 +83,10 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with six device cards showing their home screens, the device inventory and latest events" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with device cards showing their home screens, the device inventory and latest events" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with six device cards showing their home screens, the device inventory and latest events" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with device cards showing their home screens, the device inventory and latest events" width="100%">
     </td>
   </tr>
   <tr>
@@ -125,6 +139,62 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-add-panel-light.png" alt="Add panel catalog in the light theme with a search field, the grouping section open with a preview of a grid and a row panel, and the backgrounds, entities and tools sections below" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-add-panel-dark.png" alt="Add panel catalog in the dark theme with a search field, the grouping section open with a preview of a grid and a row panel, and the backgrounds, entities and tools sections below" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Pick a starting point</b><br>
+      <sub>Panel catalog with search, grouped categories and a preview per panel type.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-edit-popup-light.png" alt="Panel editor in the light theme for an entity popup, with the hub's render of the light popup, the panel title and the light and advanced sections" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-edit-popup-dark.png" alt="Panel editor in the dark theme for an entity popup, with the hub's render of the light popup, the panel title and the light and advanced sections" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Extend a popup</b><br>
+      <sub>Panel editor for an entity popup, opened from the panel's key.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-quick-start-light.png" alt="Quick start dialog in the light theme over a device without panels, listing one card per configuration with the hub's render of the home page it creates" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-quick-start-dark.png" alt="Quick start dialog in the dark theme over a device without panels, listing one card per configuration with the hub's render of the home page it creates" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Set up a device from a preset</b><br>
+      <sub>Quick start dialog offering a configuration per use case, each a card with the hub's render of the page it creates.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-quick-start-pages-light.png" alt="Second step of the quick start in the light theme: the chosen configuration, its switches and the five pages it creates with each page's render and role" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-quick-start-pages-dark.png" alt="Second step of the quick start in the dark theme: the chosen configuration, its switches and the five pages it creates with each page's render and role" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>See what a preset creates</b><br>
+      <sub>The chosen preset's second step: its choices, then every page it writes with the hub's render and its role.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
       <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
@@ -137,12 +207,56 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
       <sub>Language, screen, sounds, home and idle panels, buttons, gestures and the schedule, each group a page of its own.</sub>
     </td>
   </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-screen-light.png" alt="Screen group of the device settings in the light theme with the brightness, dimming and display-off fields and a schedule of two entries" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings-screen-dark.png" alt="Screen group of the device settings in the dark theme with the brightness, dimming and display-off fields and a schedule of two entries" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Set the screen by time of day</b><br>
+      <sub>The Screen group of the device settings with the schedule editor.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-theme-light.png" alt="Theme editor in the light theme with the palette preview of a living room screen, the predefined theme tiles and the colour sections" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-theme-dark.png" alt="Theme editor in the dark theme with the palette preview of a living room screen, the predefined theme tiles and the colour sections" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Themes and colours</b><br>
+      <sub>Theme editor with the palette preview, theme tiles and colours.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-backups-light.png" alt="Backups sidebar in the light theme with the YAML backup file's export and import and the copy-to-device choices" width="100%">
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-backups-dark.png" alt="Backups sidebar in the dark theme with the YAML backup file's export and import and the copy-to-device choices" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" colspan="2">
+      <b>Backup and copy</b><br>
+      <sub>Backups sidebar with the YAML backup file and copying settings and panels to another device.</sub>
+    </td>
+  </tr>
 </table>
 
-<p align="center"><a href="https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html"><b>Explore the editor guide →</b></a><br>
-<sub>See the full configuration walkthrough, including preview and device management.</sub></p>
+<p align="center"><a href="https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html"><b>Explore the editor guide →</b></a><br>
+<sub>See the full editor walkthrough, including preview and device management.</sub></p>
 
 ## Panels
+
+<img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/panels.png" alt="Choose a panel type, add entities, swipe sideways between panels, tap for full controls" width="100%">
 
 A panel is one screen on the display. Add as many as you like and swipe between them. There are
 13 panel types and a set of built-in popups. Select one to see what it shows and how to set it up.
@@ -243,24 +357,16 @@ A panel is one screen on the display. Add as many as you like and swipe between 
 - **Both layouts**: every panel exists for the landscape and the portrait display.
 - **Protect a panel**: give any panel a PIN.
 
-Browse [all panel types](https://happydasch.github.io/nspanel_haui/dev/user/panels/index.html), see
-[every screen in both layouts](https://happydasch.github.io/nspanel_haui/dev/screens.html), or copy an
-[example layout](https://happydasch.github.io/nspanel_haui/dev/user/examples.html) for a room.
-
-## How it works
-
-The hub runs inside Home Assistant: it reads entity states, renders the display commands and sends
-them over the ESPHome native API. The ESP32 relays them to the Nextion display over serial and
-reports touches and button presses back. See
-[Communication](https://happydasch.github.io/nspanel_haui/dev/develop/communication.html).
+Browse [all panel types](https://happydasch.github.io/nspanel_haui/dev/user/panels/index.html) or see
+[every screen in both layouts](https://happydasch.github.io/nspanel_haui/dev/user/screens.html).
 
 ## Documentation
 
 The full documentation is at **[happydasch.github.io/nspanel_haui](https://happydasch.github.io/nspanel_haui/dev/)**.
 
-- **Start**: [Installation](https://happydasch.github.io/nspanel_haui/dev/user/install.html) · [Quick start](https://happydasch.github.io/nspanel_haui/dev/user/get-started.html) · [Updating](https://happydasch.github.io/nspanel_haui/dev/user/update.html) · [FAQ](https://happydasch.github.io/nspanel_haui/dev/user/faq.html) · [Troubleshooting](https://happydasch.github.io/nspanel_haui/dev/user/troubleshooting.html)
-- **Configure**: [Overview](https://happydasch.github.io/nspanel_haui/dev/user/configuration/index.html) · [Device](https://happydasch.github.io/nspanel_haui/dev/user/configuration/device.html) · [Display models](https://happydasch.github.io/nspanel_haui/dev/user/configuration/display-models.html) · [Panels](https://happydasch.github.io/nspanel_haui/dev/user/configuration/panels.html) · [Items](https://happydasch.github.io/nspanel_haui/dev/user/configuration/items.html) · [Examples](https://happydasch.github.io/nspanel_haui/dev/user/examples.html)
-- **Use**: [Gestures and display states](https://happydasch.github.io/nspanel_haui/dev/user/device.html) · [Services](https://happydasch.github.io/nspanel_haui/dev/user/services.html) · [Icons](https://happydasch.github.io/nspanel_haui/dev/cheatsheet.html) · [Screens](https://happydasch.github.io/nspanel_haui/dev/screens.html)
+- **Start**: [Installation](https://happydasch.github.io/nspanel_haui/dev/user/install.html) · [Quick start](https://happydasch.github.io/nspanel_haui/dev/user/get-started.html) · [Updating](https://happydasch.github.io/nspanel_haui/dev/user/update.html) · [Version compatibility](https://happydasch.github.io/nspanel_haui/dev/user/version-compatibility.html) · [FAQ](https://happydasch.github.io/nspanel_haui/dev/user/faq.html) · [Troubleshooting](https://happydasch.github.io/nspanel_haui/dev/user/troubleshooting.html)
+- **Editor**: [Overview](https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html) · [Device settings](https://happydasch.github.io/nspanel_haui/dev/user/editor/device.html) · [Display models](https://happydasch.github.io/nspanel_haui/dev/user/editor/display-models.html) · [Panels](https://happydasch.github.io/nspanel_haui/dev/user/editor/panels.html) · [Items](https://happydasch.github.io/nspanel_haui/dev/user/editor/items.html)
+- **Use**: [Gestures and display states](https://happydasch.github.io/nspanel_haui/dev/user/editor/device.html#gestures) · [Actions](https://happydasch.github.io/nspanel_haui/dev/user/actions.html) · [Dashboard card](https://happydasch.github.io/nspanel_haui/dev/user/dashboard-card.html) · [Icons](https://happydasch.github.io/nspanel_haui/dev/user/icons.html) · [Screens](https://happydasch.github.io/nspanel_haui/dev/user/screens.html)
 - **Develop**: [Development](https://happydasch.github.io/nspanel_haui/dev/develop/development.html) · [Design](https://happydasch.github.io/nspanel_haui/dev/develop/design.html) · [Communication](https://happydasch.github.io/nspanel_haui/dev/develop/communication.html) · [ESPHome](https://happydasch.github.io/nspanel_haui/dev/develop/esphome.html) · [Hub](https://happydasch.github.io/nspanel_haui/dev/develop/hub.html) · [Nextion](https://happydasch.github.io/nspanel_haui/dev/develop/nextion.html)
 
 For custom firmware builds, see the
@@ -268,7 +374,7 @@ For custom firmware builds, see the
 
 > **Upgrading from 0.3.x or earlier?** Read the [upgrade guide](https://happydasch.github.io/nspanel_haui/dev/user/update.html)
 > first. Saved panels do not migrate, and settings stored in config entries by 0.3.2 or earlier are not
-> carried over. See [device configuration](https://happydasch.github.io/nspanel_haui/dev/user/configuration/device.html#how-settings-are-saved).
+> carried over. See [editor storage](https://happydasch.github.io/nspanel_haui/dev/user/editor/index.html#saving-and-storage).
 
 ## Credits
 
@@ -277,4 +383,6 @@ Inspired by [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui)
 
 See the [GitHub contributors](https://github.com/happydasch/nspanel_haui/graphs/contributors)
 for everyone who contributed. Special thanks to @jameshiscott, who contributed the
-[live preview and the Nextion simulator](docs/user/configuration/README.md#the-live-preview).
+[live preview and the Nextion simulator](docs/user/editor/README.md#the-live-preview).
+
+Third-party licenses and notices are in [licenses/](licenses/README.md).

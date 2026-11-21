@@ -8,7 +8,6 @@ import { deviceDetails } from '../../custom_components/nspanel_haui/frontend/ui/
 import { panelActions } from '../../custom_components/nspanel_haui/frontend/ui/panel-manager.js';
 import { scheduleSection } from '../../custom_components/nspanel_haui/frontend/ui/schedule-section.js';
 import { gestureSection } from '../../custom_components/nspanel_haui/frontend/ui/gesture-section.js';
-import { idlePanelConfig, idlePanelKeys } from '../../custom_components/nspanel_haui/frontend/ui/panel-pills.js';
 import { deviceActions } from '../../custom_components/nspanel_haui/frontend/ui/device-actions.js';
 import { panelCatalog } from '../../custom_components/nspanel_haui/frontend/views/panel-catalog.js';
 import { previewStage } from '../../custom_components/nspanel_haui/frontend/ui/preview-stage.js';
@@ -96,7 +95,7 @@ function controls(preview, callbacks = {}) {
   });
 }
 
-test('the side stack opens Updates, Themes and Backups from its own buttons', () => {
+test('the side stack opens Updates and Backups from its own buttons', () => {
   const opened = [];
   const view = deviceDetails({
     name: 'kitchen', status: { connected: true, device_info: {} },

@@ -11,10 +11,10 @@ import { icon } from './icon.js';
  * `tool` is an icon-only control at the end of the heading (the device settings).
  *
  * @param {{ iconName: string, title: unknown, subtitle?: unknown, tool?: unknown, primary: unknown,
- *   secondary?: unknown[], stacked?: boolean, inlineActions?: boolean, note?: unknown }} options
+ *   secondary?: unknown[], stacked?: boolean, note?: unknown }} options
  */
 export function actionCard({
-  iconName, title, subtitle, tool, primary, secondary = [], stacked = false, inlineActions = false, note,
+  iconName, title, subtitle, tool, primary, secondary = [], stacked = false, note,
 }) {
   const innerClasses = [
     'haui-action-card-inner',
@@ -25,7 +25,7 @@ export function actionCard({
       <span class="haui-action-card-icon">${icon(iconName)}</span>
       <div class="haui-action-card-copy"><h2>${title}</h2>${subtitle ? html`<p>${subtitle}</p>` : nothing}</div>
       ${tool ? html`<div class="haui-action-card-tool">${tool}</div>` : nothing}
-      <div class=${`haui-action-card-actions${stacked ? ' is-stacked' : ''}${inlineActions ? ' is-inline' : ''}`}>
+      <div class=${`haui-action-card-actions${stacked ? ' is-stacked' : ''}`}>
         ${primary}
         ${secondary.length ? html`<div class="haui-action-card-secondary">${secondary}</div>` : nothing}
       </div>

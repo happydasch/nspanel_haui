@@ -1,64 +1,97 @@
 ---
-title: Development
-description: Architecture, component design, and information for extending NSPanel HAUI
+title: Development setup
+description: Local commands, throwaway Home Assistant instances, git hooks and test conventions
 ---
 
-# Development
+# Development setup
 
-Everything you need to understand the internals of NSPanel HAUI, extend the
-integration, or contribute to the project.
+There is no build step: Home Assistant imports `custom_components/nspanel_haui/` and serves the editor from the same folder. This page covers the environments, the commands, the hooks and what a change must satisfy before review. The runtime itself is described in [Hub & runtime](hub.md).
 
----
+## Requirements
 
-## Common local commands
+| Tool | Version | Needed for |
+|------|---------|------------|
+| Python | 3.14 | the integration and every check |
+| Node | 22+ | the editor tests and the backend's card-render replay |
+| Docker | any recent | the Docker development instance, optional |
+| ESPHome | 2026.11 | firmware builds only, in its own environment |
 
-A root `Makefile` provides shortcuts for common checks and the two throwaway
-Home Assistant development instances. Run `make` or `make help` to list them.
-
-- `make check` runs backend and frontend tests, formatting validation, Ruff
-  lint, mypy, the frontend type check, the strict docs build, and read-only
-  HMI/layout and preview-coverage checks. It does not run ESPHome validation
-  or mutate generated assets.
-- `make test` runs both test suites (`make test-integration` for the backend
-  and `make test-frontend` for the editor tests). Individual checks are
-  available as `make format`, `make format-check`, `make lint`,
-  `make typecheck`, `make typecheck-frontend`, `make docs`, and `make hmi-check`.
-  `make format` reformats Python code with Ruff; `make format-check` verifies
-  the formatter output, and `make lint` only reports lint errors.
-- The frontend type check runs `tsc` over the modules marked `// @ts-check`.
-  Install its tooling once with `npm ci`; the check itself is
-  `make typecheck-frontend` (or `npm run typecheck:frontend`). See
-  [Frontend Architecture](frontend.md).
-- `make esphome-config` validates the universal ESPHome config, but requires
-  the separate ESPHome environment (`requirements-esphome.txt`); its pinned
-  dependencies conflict with the Home Assistant development environment.
-- `make ha-venv-setup` creates `.venv_ha` with Python 3.14 and Home Assistant
-  2026.11.0, and links the integration into `.dev/ha-config`. Start it with
-  `make ha-venv-start`; follow its log with `make ha-venv-logs`.
-- `make ha-docker-up`, `make ha-docker-stop`, `make ha-docker-restart`,
-  `make ha-docker-logs`, and `make ha-docker-down` manage the Docker instance
-  from `compose.yaml`.
-
-Activate the project virtual environment before running checks, and install the
-development dependencies if needed:
+## Set up once
 
 ```bash
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
+pip install -r requirements-docs.txt   # make docs
+npm ci                                 # the frontend type check
+scripts/git_hooks/install.sh           # optional pre-commit hook
 ```
 
-Install `requirements-docs.txt` as well to use the docs target. Backend and
-frontend tests both need Node 22+ (the backend tests replay card renders).
-`ha-docker-down` removes the container but preserves its config. Resetting
-either instance is intentionally not a Make target: follow the reset
-instructions below only when you mean to delete that instance's Home Assistant
-state.
+Activate `.venv` in every shell that runs a `make` target: the system `python` and `pytest` are not the project ones.
 
-## Local development deployment
+## Commands
 
-The repository has no separate integration build or frontend development
-server. To run the checked-out code in a Home Assistant test instance, expose
-the integration folder inside that instance's config directory:
+`make` or `make help` lists every target.
+
+| Target | Does |
+|--------|------|
+| `make -j4 check` | The routine gate: `test`, `format-check`, `lint`, `typecheck`, `typecheck-frontend`, `docs`, `version-check`, `generated-check`, in parallel |
+| `make test` | Both suites: `test-integration` (backend) and `test-frontend` (editor) |
+| `make format` / `make format-check` | Rewrite / verify Python formatting with Ruff |
+| `make lint` | Ruff lint findings only, no fixes |
+| `make typecheck` | `mypy` over `custom_components/nspanel_haui` |
+| `make typecheck-frontend` | `tsc` over the modules marked `// @ts-check` |
+| `make docs` | `zensical build --strict`; a broken page link fails it |
+| `make hmi-check` | Both HMI layout specs, the generated layouts and preview coverage |
+| `make screens-check` | `docs/screens.html` and its PNGs against a fresh render (needs Chrome) |
+| `make version-check` | The integration version against its firmware mirrors |
+| `make generated-check` | Icon cheatsheet and locale files are current |
+| `make release-preflight` | Read-only report of what a stable release still needs |
+| `make esphome-config`, `make esphome-compile`, `make esphome-size` | Firmware validation, build and partition fit, in the ESPHome environment |
+
+Raw commands, for one check:
+
+```bash
+pytest tests/
+node --test 'tests/frontend/*.test.mjs'
+npm run typecheck:frontend
+ruff format custom_components/ scripts/ tests/
+ruff check custom_components/ scripts/
+mypy
+```
+
+`make esphome-*` needs a second environment (`requirements-esphome.txt`); its pinned dependencies conflict with the Home Assistant development one. `make ha-docker-down` removes the container but keeps its config.
+
+## Architecture
+
+<p align="center">
+  <img src="../assets/diagrams/architecture.svg" alt="Architecture Diagram" width="80%">
+</p>
+
+| Layer | Component | Role |
+|-------|-----------|------|
+| **Hub app** | `NSPanelHAUI`, inside Home Assistant | Reads entity states, renders display commands, owns navigation |
+| **ESP32** | ESPHome firmware | Serial bridge to the display, relays touches and button presses |
+| **Nextion** | Touchscreen | Draws widgets, holds widget state, reports touch input |
+
+### Design invariants
+
+These hold today; changing one is an architecture decision, not a refactor.
+
+- **Configuration lives in Home Assistant.** The panel config store and the device settings are the single source of truth; the display holds no user configuration.
+- **Logic in the hub app, drawing on the display.** The Nextion draws, the hub decides. Display-side scripts exist for preparation and immediate feedback only.
+- **The firmware is a stable substrate.** A feature ships in the integration without a reflash where possible, which is why the update entities exist and why the ESPHome package changes rarely.
+- **The fleet is the unit of design.** Updates, backups and rollouts are fleet-wide concerns, not per-device afterthoughts.
+- **Home Assistant's own vocabulary.** States, attributes, device classes, units and translations come from Home Assistant; the integration translates, it does not reinterpret.
+- **Recoverable by default.** No step may leave a device in a state only a serial flash can fix, unless the editor documents it and reaches it.
+
+## Running a development instance
+
+Both instances are throwaway: state lives in the git-ignored `.dev/`, they run the Home Assistant version the integration requires ([2026.11](../user/install.md#requirements)), and they take it from `HA_VERSION` (`Makefile` and `compose.yaml`, default `2026.11.0`), so `make HA_VERSION=2026.12.0 ha-venv-setup ha-venv-start` tests a newer core.
+
+### Exposing the checkout
+
+Any Home Assistant instance can run the checkout by linking the folder into its config directory:
 
 ```bash
 HA_CONFIG=/path/to/home-assistant/config
@@ -68,325 +101,119 @@ ln -sfn "$REPO/custom_components/nspanel_haui" \
   "$HA_CONFIG/custom_components/nspanel_haui"
 ```
 
-If a Marketplace or copied installation already exists at that destination, move it
-aside before creating the link. `ln -sfn` replaces an earlier link; a plain
-`ln -s` would follow it and create a second link inside the integration folder,
-which Python then imports instead of the integration package. For containers, the symlink target must also be
-available inside the container; otherwise copy the integration folder into
-`$HA_CONFIG/custom_components/nspanel_haui` instead. Restart Home Assistant
-after Python or frontend changes so it reloads the integration and its versioned
-static assets.
+`ln -sfn` replaces an earlier link; a plain `ln -s` follows it and creates a second link inside the integration folder, which Python imports instead of the package. Move a Marketplace or copied installation aside first, and inside a container either mount the checkout or copy the folder. Restart Home Assistant after Python or frontend changes: the editor is served as cached static assets under a content-hash URL computed at startup, so a browser reload alone keeps the old modules.
 
-### Development instance in a virtual environment
-
-A throwaway Home Assistant runs from its own virtual environment with the
-checked-out integration, without touching the Home Assistant instance that runs
-the house. Its state lives in the git-ignored `.dev/ha-config` directory, its
-packages in the git-ignored `.venv_ha`. It runs the Home Assistant version the
-integration requires, [2026.11](../user/install.md#requirements) (the minimum in the
-Marketplace metadata), which needs Python 3.14. Set it up once from the repository root:
+### Virtual environment
 
 ```bash
-python3.14 -m venv .venv_ha
-.venv_ha/bin/pip install homeassistant==2026.11.0
-mkdir -p .dev/ha-config/custom_components
-ln -sfn "$PWD/custom_components/nspanel_haui" \
-  .dev/ha-config/custom_components/nspanel_haui
+make ha-venv-setup     # .venv_ha with Python 3.14 + Home Assistant, plus the symlink
+make ha-venv-start     # Ctrl+C stops it
+make ha-venv-logs      # follow the log, also in .dev/ha-config/home-assistant.log
 ```
 
-Start the instance; Ctrl+C stops it:
+The first start installs the default integrations' requirements and takes a few minutes. Restart by stopping `hass` and starting it again — **Settings → System → Restart** only stops it here, because nothing starts it again. To reset, stop it and delete `.dev/ha-config`, then run `make ha-venv-setup`.
+
+The instance runs on the host's network, so mDNS discovery works as on a regular installation: ESPHome offers the panels it finds and the hub picks them up through their ESPHome entries. On macOS, allow **Local Network** access for the terminal app that starts `hass`, or connections fail with "No route to host".
+
+### Docker
+
+`compose.yaml` bind-mounts `.dev/ha-docker` and the integration folder, so the container sees the checkout itself (a symlink would point outside it).
 
 ```bash
-.venv_ha/bin/hass -c .dev/ha-config
+docker compose up -d                                   # or make ha-docker-up
+docker compose restart                                 # Settings → System → Restart works here
+docker compose logs -f
 ```
 
-Open <http://localhost:8123> and complete onboarding. The first start installs
-the requirements of the default integrations into `.venv_ha` and takes a few
-minutes. The log goes to the terminal and to `.dev/ha-config/home-assistant.log`.
-Python and frontend edits apply after a restart: Ctrl+C and start it again
-(**Settings → System → Restart** only stops it, since nothing starts `hass`
-again when it exits for a restart), then reload the browser. The editor is
-served as cached static assets under a content-hash URL computed at startup,
-so a browser reload alone keeps the old modules. To try another Home
-Assistant version, install it into the same environment, for example
-`.venv_ha/bin/pip install homeassistant==2026.12.0`.
+With the `ports` mapping the container sits on Docker's bridge network, which mDNS from the LAN does not reach: add the panels by IP address in the ESPHome integration. On Linux, `network_mode: host` instead of `ports` restores discovery. To reset, run `docker compose down` and delete `.dev/ha-docker`.
 
-The instance runs on the host's own network, so mDNS discovery works as on a
-regular installation: ESPHome offers the panels it finds, and the HAUI hub picks
-them up through their ESPHome entries. Home Assistant listens on all interfaces,
-so other devices on the LAN can open the UI too. On macOS, allow **Local
-Network** access for the terminal app that starts `hass` (System Settings →
-Privacy & Security → Local Network); without it, connections to the panels fail
-with "No route to host". If the panels answer the production Home Assistant but
-not the development machine, see
-[panels reachable from one machine but not another](../user/troubleshooting.md#panels-reachable-from-one-machine-but-not-another).
+!!! warning "One hub per panel"
+    Never point a development hub at a panel the production Home Assistant drives: two hubs sending commands to one display fight over it. Use a test panel or stop the production hub first.
 
-To reset the instance, stop it, delete its state and link the integration again:
+### Firmware
 
-```bash
-rm -rf .dev/ha-config
-mkdir -p .dev/ha-config/custom_components
-ln -sfn "$PWD/custom_components/nspanel_haui" \
-  .dev/ha-config/custom_components/nspanel_haui
-```
-
-### Development instance in Docker
-
-The same throwaway instance can run from the official container image instead.
-`compose.yaml` in the repository root bind-mounts the git-ignored config
-directory `.dev/ha-docker` (apart from the virtual environment's
-`.dev/ha-config`) and the integration folder, so the container sees the
-checkout itself (a symlink in the config directory would point outside the
-container). Its image is the required Home Assistant version as well,
-[2026.11](../user/install.md#requirements). Start it from the repository root:
-
-```bash
-docker compose up -d
-```
-
-Open <http://localhost:8123> and complete onboarding. **Settings → System →
-Restart** works here, because the container starts Home Assistant again;
-`docker compose restart` does the same from the shell and
-`docker compose logs -f` follows the log. After frontend edits, restart Home
-Assistant and then reload the browser. To reset the instance, run `docker compose down` and delete
-`.dev/ha-docker`; to try another Home Assistant version, change the image tag
-in `compose.yaml`.
-
-With the `ports` mapping the container sits on Docker's bridge network, which
-mDNS from the LAN does not reach: add the panels by IP address in the ESPHome
-integration. On Linux, `network_mode: host` in place of `ports` gives the
-container the host's network, and discovery works as in the virtual
-environment.
-
-Do not point the development hub at a panel that the production Home Assistant
-drives: two hubs sending commands to one display fight over it. Use a test panel
-or stop the production hub first.
-
-For local ESPHome development, configure the secrets required by
-`esphome/nspanel_haui_dev.yaml` and activate the separate environment with
-`requirements-esphome.txt` installed. Then build and upload to the test panel:
+`esphome/nspanel_haui_dev.yaml` adds the optional web server and `debug.yaml` diagnostics; `nspanel_haui_universal.yaml` is the release build. Configure the required secrets, install `requirements-esphome.txt` in its own environment, then:
 
 ```bash
 esphome run esphome/nspanel_haui_dev.yaml
 ```
 
-The dev config includes the optional web server and `debug.yaml` diagnostics.
-Release builds use `esphome/nspanel_haui_universal.yaml`; they do not include the
-dev-only diagnostics. Keep test firmware and test integration instances separate
-from production devices.
-
----
+See [ESPHome firmware](esphome.md) for the configs and the build targets.
 
 ## Git hooks
 
-A repository-local pre-commit hook can keep the generated virtual display assets
-in sync and catch portrait HMI geometry drift before a commit. Install it from
-the repository checkout:
+`scripts/git_hooks/install.sh` sets `core.hooksPath` to the repository's `pre-commit` hook, which runs only when staged changes touch the display layouts or their inputs. It checks both HMI specs and regenerates the preview layouts, icon map, pictures and font metrics, and it refuses to regenerate from unstaged layout inputs — stage the inputs with the generated files. It never writes either HMI. For a read-only check use `make hmi-check`; the hook prefers the project `.venv`, so install the development dependencies first. `git config --unset core.hooksPath` removes the hook.
 
-```bash
-scripts/git_hooks/install.sh
-```
+## Tests
 
-The hook runs `scripts/hmi_layout/gen_virtual_layout.py`, stages only its
-outputs (`layout_*.json`, `icon_map.json`, and `pictures/`), then checks both
-specs with `python -m scripts.hmi_layout.gen_layout --check` (landscape) and
-`python -m scripts.hmi_layout.gen_layout --spec portrait --check`. It never
-rewrites either HMI. The project `.venv` is preferred; otherwise it uses
-`python3` from `PATH`.
-Install the development dependencies first (`pip install -r requirements-dev.txt`)
-so both generators can run. The hook is opt-in per checkout; to remove its local
-configuration, run `git config --unset core.hooksPath`.
+### Backend tests
 
-## Architecture
+`pytest tests/` needs no running Home Assistant: `tests/conftest.py` stubs the `homeassistant` and `dateutil` modules through `sys.modules`, and a test file adds its own overrides where it must. Mock with `unittest.mock` and keep stub classes for Home Assistant types minimal. The suite needs Node 22+, because `tests/test_card_renders.py` replays every panel render.
 
-The system has three layers:
+- **Assert at the boundaries** — the display commands (`app.cmds`), the Home Assistant calls (`entity.calls`), the return values — never internals or copy. The frontend follows the same rule ([assertion boundaries](frontend-testing.md#assertion-boundaries)).
+- **Build the real object on the shared fake** in `tests/support/page_app.py` (`PageApp`, `Entity`) and drive a page through `set_panel`. Extend that fake instead of copying it, and construct real objects rather than `Class.__new__` with assigned private attributes.
+- **One file per module**, named after it (`test_page_<type>.py`, `test_<module>.py`). Do not copy a constant or key list into a test, and do not add a test that something removed stays removed.
+- **`tests/test_page_commands_golden.py`** pins the exact commands, service calls and popup requests of the feature-gated pages in `tests/page_commands_golden.json`; regenerate deliberately with `PAGE_COMMANDS_REGEN=1 pytest tests/test_page_commands_golden.py`.
+- **Generated assets have guards:** `test_gen_layout` (both HMI specs), `test_bump_version` (version sources, both HMIs, both TFTs), `test_preview_coverage`, `test_frontend_styles`.
+- **`tests/test_page_options.py`** refuses `panel.get()` on a declared page option — read those with `self.option(panel, key)`. A `config_flow.py` change goes with `test_config_flow.py`; an option-rule change goes with `tests/fixtures/option_rules_cases.json`, which runs through both the Python and the JS engine.
 
-<p align="center">
-  <img src="../assets/diagrams/architecture.svg" alt="Architecture Diagram" width="80%">
-</p>
+### Frontend tests
 
-| Layer | Component | Role |
-|-------|-----------|------|
-| **Hub App** | `NSPanelHAUI` (runs in HA) | Reads entity states, renders display commands, manages navigation |
-| **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
-| **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
+`node --test 'tests/frontend/*.test.mjs'` runs the editor suite. Import `./support/browser.mjs` before DOM or Lit code, render through `support/render.mjs`, query through `support/queries.mjs`. A new primitive needs a semantic assertion in `ui-primitives.test.mjs` and a demo in `ui-primitives-preview.js`. Details: [Editor tests](frontend-testing.md).
 
----
+### Display and preview
 
-## Live preview regression checklist
-
-The live simulator starts with a blank browser-side display and replays the running
-hub app's output; it does not render a second copy of the panel. Changes to page
-lifecycle, display commands, WebSocket delivery, or simulator replay should keep
-that contract covered end to end.
-
-Before review, run the focused regression tests and then the normal project checks:
+`make hmi-check` covers both HMI specs, the generated layouts and the preview coverage; `make screens-check` compares `docs/screens.html` and its PNGs with a fresh render. A change to the page lifecycle, the display commands, the WebSocket delivery or the simulator replay also needs the focused regression set:
 
 ```bash
 pytest tests/test_live_panel.py tests/test_page_weather.py tests/test_card_renders.py
 node --test tests/frontend/virtual-session.test.mjs
 ```
 
-These cover a fresh full-page attach, replays of content drawn in different
-page lifecycle hooks, reconnecting onto a blank simulator before the new stream
-arrives, live page switches, and replay of actual hub commands in the browser's
-Nextion simulator. Weather tests also cover missing, malformed, and failed
-forecast service responses, with the last good forecast retained or empty slots
-cleared when no good result exists. Keep cross-layer tests fed by captured hub
-output rather than duplicating an expected command stream in JavaScript.
+These cover a fresh full-page attach, replays of content drawn in different lifecycle hooks, reconnecting onto a blank simulator, live page switches and replaying real hub commands in the browser's Nextion simulator. Feed cross-layer tests with captured hub output instead of duplicating an expected command stream in JavaScript.
 
-For changes that affect live mode, manually verify on a connected device when
-available:
+For live mode, verify on a connected device when one is available:
 
-1. Open Live after the device is already showing a clock or weather page; check
-   current time, weather details, forecast, and any page-specific content.
-2. Close and reopen Live, then reconnect the device; the simulator should first
-   start clean and then reproduce the complete current page.
-3. Change pages on the physical panel and confirm the simulator follows. Exercise
-   a slider or button and confirm the real device responds once.
-4. Switch Simulated → Live and Live → Simulated; entering Live drops the
-   simulated states and follows the physical panel, and Simulated starts again
-   on its home panel (also when the physical panel was on its idle page).
-   Confirm sandbox interactions do not operate real entities.
-5. If forecast rendering changed, verify both a successful forecast refresh and
-   temporary unavailability with and without a previously rendered forecast.
-6. Repeat for portrait hardware if the change can affect layout or page IDs.
+1. Open Live on a clock or weather page: time, weather details, forecast and page content are complete.
+2. Close and reopen Live, then reconnect the device: the simulator starts clean and reproduces the current page.
+3. Switch pages on the panel; the simulator follows. Move a slider or press a button; the device responds once.
+4. Switch Simulated → Live and back: Live drops the simulated states, Simulated restarts on its home panel, and sandbox interactions never touch real entities.
+5. Repeat on portrait hardware when the change affects layout or page ids.
 
-Record any unavailable hardware checks in the change's PR checklist instead of
-marking them as verified.
+Record hardware checks you could not run in the pull request instead of marking them verified.
 
----
+## Code style
 
-## Developer Docs
+| Area | Rule |
+|------|------|
+| Python | 3.14, 100 columns, `from __future__ import annotations`, imports sorted |
+| Ruff | `E,F,W,I,UP,B` with `S101` and `B008` ignored; `ruff format` before a commit |
+| Docstrings | Google style, `Args:` and `Returns:` |
+| Names | `NSPanelHAUI` for the app, `HAUI` prefix for core abstractions, `SuffixPage` for pages, snake_case purpose names for components |
+| Logging | `_LOGGER` plus `self.log()` / `self.debug_log()` |
+| JavaScript | No linter: match the file — 2 spaces, single quotes, semicolons, trailing commas, `.js` imports, `// @ts-check` to opt into typing |
 
-- **[Release Process & Strategy](release.md)** — Branches, versioning, CI gates, release assets and development builds
-- **[Update Process](update-process.md)** — How the hub checks for and installs firmware and TFT updates, universal and custom builds, and the notifications it shows
-- **[Design Guidelines](design.md)** — Styling, theming, and the workflow for adding a panel type
-- **[Frontend Architecture](frontend.md)** — The sidebar editor: structure, components, styling and tests
-- **[Communication Overview](communication.md)** — Handshake, heartbeats and display reads between hub, device and display
-- **[Notification Process](notifications.md)** — The notification queue, delivery paths and popup presentation
-- **[ESPHome Component](esphome.md)** — ESP32 firmware: config, events, actions and entities
-- **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
-- **[Nextion Component](nextion.md)** — Display configuration, rendering and HMI basics
-- **[Nextion Editor (Human Guide)](nextion-editor.md)** — Editing both HMI projects and the scripts to run afterwards
-- **[Services Reference](../user/services.md)** — Home Assistant services for display control and TFT upload
+Comments explain *why*; a comment that restates the next line is noise. Fail loudly: raise instead of swallowing, and a call site that must degrade logs at warning level.
 
----
+## Developer guide
 
-## Versioning
+| Group | Page | Covers |
+|-------|------|--------|
+| **General** | [Hub & runtime](hub.md) | App objects, threading, panel lifecycle, controllers, REST API |
+| | [Communication](communication.md) | Handshake, heartbeats, reconnection, reading values from the display |
+| | [Notifications](notifications.md) | Queue, delivery paths, timers, presentation |
+| **ESPHome & display** | [ESPHome firmware](esphome.md) | Configs, OTA, events, actions, brightness, sensors |
+| | [Nextion component](nextion.md) | Display configuration, rendering, refresh, display scripts |
+| | [Editing the HMI](nextion-editor.md) | Working in Nextion Editor on both projects |
+| | [Design guidelines](design.md) | Style, fonts, icons, themes, adding a panel |
+| **Frontend** | [Editor architecture](frontend.md) | The editor: constraints, boot sequence, layers, feature map |
+| | [Screens](frontend-screens.md), [sidebars and overlays](frontend-overlays.md) | Routes, the Fleet and Device regions, overlays, focus |
+| | [Visual foundations](frontend-visuals.md), [components](frontend-components.md) | Tokens, breakpoints, text sizes, primitives, composites |
+| | [Tests](frontend-testing.md) | Conventions, local checks, assertion boundaries |
+| | [Live preview and cards](preview.md) | Virtual panel, simulator, dashboard card |
+| **Releases** | [Update process](update-process.md) | Channels, checks, installs, rollouts |
+| | [Upgrading](upgrading.md) | Breaking changes per version, rollback |
+| | [Release process](release.md) | Artifacts, versioning, branches, CI, runbook |
 
-The hub app version lives in `custom_components/nspanel_haui/manifest.json`
-(read at runtime by `haui/version.py`; keep `pyproject.toml` in sync); the ESPHome
-config and the TFT carry their own compatibility version. The four places that
-must agree and the tag policy are in
-[Release process & strategy](release.md#versioning-and-tag-policy).
+Direction and release gates live in [ROADMAP.md](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md), ideas in [FEATURE_WISHLIST.md](https://github.com/happydasch/nspanel_haui/blob/dev/FEATURE_WISHLIST.md), shipped changes in [CHANGELOG.md](https://github.com/happydasch/nspanel_haui/blob/master/CHANGELOG.md).
 
----
-
-## Release decisions (maintainers)
-
-These decisions shaped the 0.4 release. When a future release changes them,
-update this section. The mechanics — runbook, version places, CI gates and the
-asset contract — are owned by [Release process & strategy](release.md).
-
-### Universal prebuilt firmware (0.4)
-
-0.4 ships one prebuilt binary (`nspanel_haui.bin`) for every panel, EU and
-US/portrait alike. It cannot know your Wi-Fi, so it is provisioned at first boot:
-the device opens a setup access point named after itself (e.g.
-`nspanel-haui-a1b2c3`; the MAC suffix keeps every AP unique) with a captive
-portal, and the user enters their Wi-Fi once. A fixed, documented API key is
-baked in. Provisioning steps are in [Installation](../user/install.md) → *Universal
-image*; the asset contract and CI rules are in
-[Release process & strategy](release.md#what-a-release-ships).
-
-**Constraints (by design):**
-
-- **One binary installs any number of panels.** `name_add_mac_suffix: true`
-  appends the last six MAC digits at runtime, so every panel gets a unique
-  hostname, mDNS name and setup access point from the same `.bin`.
-- **The image carries no Wi-Fi network.** With a network in the YAML, ESPHome
-  keys the captive-portal Wi-Fi to the build's config hash, and every firmware
-  update with a changed config forgets it. Without one it uses a fixed key; an
-  `on_boot` step moves Wi-Fi saved by builds before 0.4.3 there.
-- **The credentials are public** (the API key, which also encrypts native
-  OTA). Anyone on the LAN can reflash the panel. Use `install.yaml` + secrets when
-  that is not acceptable.
-- **Entity ids after a rename/area assignment** are resolved through HA's entity
-  registry (by ESPHome-authored name), so the hub works with the universal
-  binary regardless of how the device is renamed or assigned to an area.
-
-### Display layouts (0.4): portrait TFT from a scripted geometry spec
-
-The US portrait panel gets its own TFT, but not a hand-maintained second
-project: `nextion/nspanel_haui_portrait.HMI` is the landscape project with the
-device orientation switched and every widget's geometry written by
-`scripts/hmi_layout/gen_layout.py` from a spec module (`portrait_layout.py`
-for the 320 × 480 layout, `landscape_layout.py` for refinements of the
-480 × 320 one). Object names, ids and event code are identical in both
-projects, so the hub addresses either TFT with the same `COMPONENTS`.
-
-- The script patches attributes in place and recomputes each page block's
-  content stamp, so the editor accepts the file; adding widgets, event code,
-  pictures or fonts remains Nextion Editor work.
-- The hub's `display_model` (`eu` / `us`) is the single switch
-  (`HAUIDevice.display_model` / `.is_portrait`): it picks the TFT asset, syncs
-  the firmware's *Display Model* number (gesture dimensions and the URL the
-  firmware's own *Update Display* button uses), positions the light page's
-  colour wheel and turns the editor previews into the 320 × 480 layout.
-  The editor asks before installing the matching TFT after a saved model
-  change, because the display cannot report which layout it runs.
-- Portrait keeps the header title full-width with the four function buttons
-  at its ends, as in landscape; grids re-flow (grid 2 × 3, select 2 × 6, rows
-  with their controls under the name line).
-
-### Firmware OTA goes through the hub's update entity
-
-The integration's **HAUI Firmware** update entity (`update.py`, driven by the
-update controller) reads the firmware manifest at the device's
-`firmware_manifest_url` — by default the one of the latest GitHub release — and
-installs a newer firmware through the firmware's `install_firmware_url` action
-(`ota.http_request.flash` with the image URL and md5). The device pulls the
-image over HTTP, reboots, and then installs the matching TFT. The firmware
-declares no update entity of its own, so the ESPHome side shows only the
-ESPHome integration's stock dashboard entity. The first flash onto firmware
-without the install action (0.4.2 and older) is still a manual step, because
-the hub cannot reach it.
-
-For your own `custom` firmware, follow
-[Your custom firmware: choose `dev` or `master`](release.md#your-custom-firmware-choose-dev-or-master)
-to build the checked-out branch with a commit-identifying version and publish it
-to a local manifest. For the CI-built universal `dev` image, set the test panel's
-**Update channel** to **Development** and leave **Custom manifest URL**
-empty; the hub follows the newest
-[published dev prerelease](release.md#published-development-firmware).
-The hub logs manifest reads, install starts and outcomes; the Device screen's
-**Diagnostics** show install errors. [Update Process](update-process.md) describes the whole cycle:
-when checks run, the update settings and both firmware variants.
-
-### Development builds are dispatched manually (0.4.7)
-
-Development firmware no longer builds on every push to `dev`. The
-**Development Firmware** workflow is dispatched by hand (Actions → Development
-Firmware → **Run workflow** on `dev`) when the build changes what a device
-installs — firmware or display inputs — and hub-only, docs and frontend pushes
-ride along in the next build. Each run publishes a versioned universal
-prerelease and commits its version and the regenerated screen overview back to
-`dev` as one commit, then dispatches CI on `dev` to test it and deploy the docs.
-Set the `screens_only` input to regenerate the screens with a docs-only commit,
-without building, tagging or publishing firmware. The mechanics are in
-[Release process & strategy](release.md#published-development-firmware).
-
-### Release assets and gates
-
-The release asset names (frozen contract), the Nextion gate and the CI
-workflow checks are owned by
-[Release process & strategy](release.md#what-a-release-ships); keep that page as
-the single source.
-
----
-
-## Roadmap
-
-Planned work lives in the [Roadmap](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md);
-shipped changes are listed in the [Changelog](https://github.com/happydasch/nspanel_haui/blob/master/CHANGELOG.md).

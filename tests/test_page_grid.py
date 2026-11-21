@@ -5,12 +5,13 @@ from __future__ import annotations
 from support.page_app import Entity, PageApp
 
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import Theme, active_tile_color
 from custom_components.nspanel_haui.haui.page.grid import GridPage
 from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
 
-def _last_color(app: PageApp, component: str) -> int | None:
-    prefix = f"{component}.bco="
+def _last_color(app: PageApp, component: str, attr: str = "bco") -> int | None:
+    prefix = f"{component}.{attr}="
     for cmd in reversed(app.cmds):
         if cmd.startswith(prefix):
             return int(cmd[len(prefix) :])
@@ -78,5 +79,57 @@ def test_power_button_redrawn_after_icon_on_refresh() -> None:
     page.callback_item_state("light.lamp", "brightness", None, None, {})
     page._flush_item_updates()
 
+
+def _draw_grid(theme_id: str, state: str, items: list[dict] | None = None) -> PageApp:
+    app = PageApp({"light.lamp": Entity(state, {"friendly_name": "Lamp"})})
+    app.theme = Theme(theme_id)
+    page = GridPage(app, {"page_id": 9})
+    page.set_panel(
+        HAUIPanel(
+            app,
+            {"type": "grid", "items": items or [{"item": "light.lamp", "show_power_button": True}]},
+        )
+    )
+    return app
+
+
+def test_an_on_tile_takes_its_colours_from_the_selected_theme() -> None:
+    # The tile lifted towards the dark theme's on colour used to be stored in the
+    # panel, so on a light theme an on tile stayed dark under the light theme's
+    # dark text. The hub mixes it into the theme's own page on every render.
+    dark, light = Theme("dark"), Theme("light")
+    dark_app = _draw_grid("dark", "on")
+    light_app = _draw_grid("light", "on")
+
+    assert _last_color(dark_app, "g1Btn") == active_tile_color(
+        dark.get("background"), dark.get("entity_on")
+    )
+    assert _last_color(light_app, "g1Btn") == active_tile_color(
+        light.get("background"), light.get("entity_on")
+    )
+    # The power button is the theme's own on colour, not the dark theme's yellow.
+    assert _last_color(light_app, "g1Power", "pco") == light.get("entity_on")
+    # An off tile stays flat on the page and keeps its power glyph dimmed.
+    off_app = _draw_grid("light", "off")
+    assert _last_color(off_app, "g1Btn") == light.get("background")
+    assert _last_color(off_app, "g1Power", "pco") == light.get("component_pressed")
+
+
+def test_item_colours_win_over_the_theme_tile() -> None:
+    app = _draw_grid(
+        "light",
+        "on",
+        [
+            {
+                "item": "light.lamp",
+                "show_power_button": True,
+                "back_color": {"on": "#ff0000"},
+                "power_color": "#00ff00",
+            }
+        ],
+    )
+
+    assert _last_color(app, "g1Btn") == parse_color_value("#ff0000")
+    assert _last_color(app, "g1Power", "pco") == parse_color_value("#00ff00")
     last_icon = max(i for i, cmd in enumerate(app.cmds) if _draws(cmd, "g1Icon"))
     assert any(_draws(cmd, "g1Power") for cmd in app.cmds[last_icon + 1 :])

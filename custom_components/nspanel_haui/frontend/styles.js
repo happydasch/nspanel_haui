@@ -16,6 +16,8 @@ import { formCommonStyles } from './styles/form-common-styles.js';
 import { itemListStyles } from './styles/item-list-styles.js';
 import { panelListStyles } from './styles/panel-list-styles.js';
 import { panelPillStyles } from './styles/panel-pill-styles.js';
+import { panelRoleStyles } from './styles/panel-role-styles.js';
+import { quickStartStyles } from './styles/quick-start-styles.js';
 import { settingsTileStyles } from './styles/settings-tile-styles.js';
 
 export const haStyle = css`
@@ -56,9 +58,9 @@ export const haStyleDialog = css`
 `;
 
 export const sharedStyles = css`
-  ${dashboardTokens}${dashboardComponentStyles}${panelPillStyles}${entryStyles}
+  ${dashboardTokens}${panelRoleStyles}${dashboardComponentStyles}${panelPillStyles}${entryStyles}
   ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}${settingsTileStyles}${contentStyles}
 `;
 
-export const dialogStyles = css`${sharedStyles}${updatesStyles}`;
+export const dialogStyles = css`${sharedStyles}${updatesStyles}${quickStartStyles}`;
 export const editorStyles = css`${dialogStyles}${panelListStyles}${fleetStyles}${deviceLayoutStyles}${devicePanelStyles}`;

@@ -6,10 +6,12 @@ on the Nextion commands sent and the media_player services called.
 """
 
 import pytest
+from support.page_app import Entity, PageApp
 
 from custom_components.nspanel_haui.haui.abstract import haui_page as haui_page_module
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.features import MediaPlayerFeatures as F
 from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
@@ -254,3 +256,22 @@ def test_media_controls_come_back_when_the_player_is_available_again(monkeypatch
 
     for name in ("bPlay", "bPrev", "bNext", "hVolume"):
         assert _last_vis(page.cmds, name) == f"vis {name},1"
+
+
+def test_a_light_theme_repaints_the_white_body_text():
+    """The TFT compiles the media title white; a light page needs it dark.
+
+    The page's Preinitialize theme code paints the page, header and button
+    backgrounds only, so the hub sends the theme's body text colour with the
+    panel's first render.
+    """
+    light = Theme("light")
+    app = PageApp({_ENTITY_ID: Entity("playing", {"media_title": "Morning Coffee"})})
+    app.theme = light
+    page = MediaPage(app, {"page_id": _PAGE_ID})
+
+    page.set_panel(HAUIPanel(app, {"type": "media", "item": _ENTITY_ID}))
+
+    assert f"tMTitle.pco={light.get('component_text')}" in app.cmds
+    assert f"m1Name.pco={light.get('component_text')}" in app.cmds
+    assert f"m1Icon.pco={light.get('component_active')}" in app.cmds

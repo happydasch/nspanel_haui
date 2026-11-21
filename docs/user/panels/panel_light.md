@@ -15,7 +15,7 @@ The light panel controls one light: power, brightness, color temperature, color 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| **Item** | — | The light to control. You can leave it empty and set it later; until then the panel shows no controls. |
+| **Item** | — | The light to control. Required. |
 | **Show Kelvin** | On | Show the color temperature in Kelvin (`3500K`). Off: in mireds (`286Mired`). This only changes what is shown. |
 
 ## Controls
@@ -38,3 +38,5 @@ The light panel controls one light: power, brightness, color temperature, color 
 ## Popup
 
 Tapping a light on another panel, for example a tile on a grid, opens the same controls as a popup (`popup_light`). The name set on that item is used as the popup's title.
+
+<img src="../../assets/screens/landscape/popup_light.png" alt="light popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_light.png" alt="light popup, portrait" width="142" height="213">

@@ -102,17 +102,29 @@ export function closeUpdates(host) {
 
 /* ── backups sidebar ─────────────────────────────────────────────────────── */
 
-/** Open the Backups sidebar: the device's YAML Export and Import. @param {any} host @param {string} deviceName */
+/** Open the Backups sidebar: the device's YAML file and a copy onto other devices. @param {any} host @param {string} deviceName */
 export function openBackups(host, deviceName) {
   host._captureSidebarFocus();
   host._store.actions.pushOverlay({ kind: 'backups', anchorKey: 'backups', subject: deviceName, draft: null });
 }
 
-/** The Backups sidebar's body, whose two cards run the device's YAML export and import. @param {any} host */
-export function renderBackups(host) {
+/**
+ * The Backups sidebar's body: the device's YAML file, then a copy of what it
+ * holds onto the hub's other devices.
+ * @param {any} host
+ * @param {string} name
+ */
+export function renderBackups(host, name) {
+  const state = host._store.getState();
+  const devices = state.devices.order
+    .filter((entry) => entry !== name)
+    .map((entry) => ({ name: entry, label: state.devices.byName[entry].friendlyName }));
   return html`<nspanel-backup-sidebar .open=${true}
+    .api=${host.api} .entryId=${host.entryId} .deviceName=${name} .devices=${devices}
+    .sourceLabel=${state.devices.byName[name].friendlyName}
     @backup-export=${() => host._exportYaml()}
     @backup-import=${() => host._importYaml()}
+    @backup-copied=${(event) => host._onBackupCopied(event.detail)}
   ></nspanel-backup-sidebar>`;
 }
 

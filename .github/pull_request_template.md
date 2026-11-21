@@ -19,5 +19,6 @@
 - [ ] `npm ci` (once per clone), then `node --test 'tests/frontend/*.test.mjs'` and `npm run typecheck:frontend` pass (frontend changes only)
 - [ ] `ruff format --check custom_components/ scripts/ tests/` and `ruff check custom_components/ scripts/` are clean
 - [ ] `mypy` is clean
+- [ ] Firmware changes: `make esphome-compile` passes (or the ESPHome build workflow is green)
 - [ ] Breaking changes documented in `docs/user/update.md` and the CHANGELOG "Breaking changes" section
 - [ ] Screenshot or short recording attached for display/frontend changes

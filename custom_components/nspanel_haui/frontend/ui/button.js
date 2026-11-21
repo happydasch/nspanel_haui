@@ -6,14 +6,24 @@ import { t } from '../localize.js';
  * Render a native button with shared dashboard classes and semantics.
  * `anchorKey` marks a control that owns an anchored popover. `detail` is
  * secondary text after the label, such as what the setting it opens holds.
+ * `pressed` turns the button into a toggle, with a state that does not depend
+ * on its fill. `describedBy` names the note that explains the action.
+ *
+ * @param {{ label: unknown, iconName?: string|null, variant?: string,
+ *   onClick?: ((event: MouseEvent) => void)|null, disabled?: boolean, busy?: boolean,
+ *   type?: string, className?: string, title?: string, anchorKey?: string|null,
+ *   id?: string|null, detail?: unknown, pressed?: boolean, describedBy?: string|null }} options
  */
 export function button({
   label, iconName = null, variant = 'outline', onClick, disabled = false, busy = false,
-  type = 'button', className = '', title = '', anchorKey = null, id = null, detail = '',
+  type = 'button', className = '', title = '', anchorKey = null, id = null, detail = '', pressed,
+  describedBy = null,
 }) {
   return html`<button type=${type} id=${id ?? nothing}
     class=${`haui-button ${variant ? `haui-button-${variant}` : ''} ${className}`.trim()}
     ?disabled=${disabled || busy} aria-busy=${busy ? 'true' : nothing}
+    aria-pressed=${pressed === undefined ? nothing : String(pressed)}
+    aria-describedby=${describedBy ?? nothing}
     data-overlay-anchor=${anchorKey ?? nothing}
     title=${title || nothing} @click=${onClick || nothing}>
     ${iconName ? icon(iconName) : nothing}<span>${label}</span>${detail

@@ -1,40 +1,19 @@
 #!/usr/bin/env python3
 """Turn a local firmware build into a test release served by Home Assistant.
 
-Test firmware must not go through GitHub: the release workflow publishes every
-``v*`` tag as the latest release, and the HAUI Firmware entity of every panel
-reads ``releases/latest/download/firmware-manifest.json`` and installs it.
-This script instead writes the two files a release carries for over-the-air
-updates into a folder Home Assistant serves (``/config/www`` is served as
-``/local``):
-
-- ``nspanel_haui_ota.bin`` — the OTA app image of the build
-- ``firmware-manifest.json`` — the schema the release workflow writes
-  (name / version / builds[].ota with the absolute image URL and its md5)
-
-Point the test panel's *Firmware manifest URL* (device editor → Updates) at
-the written manifest; its HAUI Firmware entity then offers each newer test
-release, and the hub installs it like a GitHub release.
+Test firmware must not go through GitHub, which publishes every ``v*`` tag as the
+latest release, so the script writes ``nspanel_haui_ota.bin`` and
+``firmware-manifest.json`` (the schema the release workflow writes) into a folder
+Home Assistant serves and the test panel's *Firmware manifest URL* points at.
 
 Build the firmware with ``yaml_version`` equal to ``--version`` and
-``firmware_variant`` equal to ``--variant`` (default ``custom``). The script
-checks both embedded values before writing the manifest. Use
-``--variant universal`` only for an image built from
-``nspanel_haui_universal.yaml``.
-
-The hub offers the manifest's firmware only when its version is newer than
-what the panel runs, so a build reporting an older version would be installed
-over and over. Each test release needs a newer version (``0.4.4-dev1``,
-``0.4.4-dev2``, ...).
+``firmware_variant`` equal to ``--variant``; the hub offers only a newer version,
+so each test release needs one (``0.4.4-dev1``, ``0.4.4-dev2``, ...).
 
 Usage:
-    python -m scripts.dev_release \\
-        --image esphome/.esphome/build/nspanel-test/build/firmware.ota.bin \\
-        --version 0.4.4-dev1 \\
-        --base-url http://homeassistant.local:8123/local/nspanel \\
-        --out /Volumes/config/www/nspanel
-
-Exit code 0 when both files were written, 1 when the image was refused.
+    python -m scripts.dev_release --image build/firmware.ota.bin \
+        --version 0.4.4-dev1 --base-url http://homeassistant.local:8123/local/nspanel \
+        --out /config/www/nspanel
 """
 
 from __future__ import annotations
@@ -50,9 +29,8 @@ from scripts.release.generate_firmware_manifest import build_manifest_from_asset
 
 IMAGE_NAME = "nspanel_haui_ota.bin"
 MANIFEST_NAME = "firmware-manifest.json"
-# Mirrors the hub's checks (haui/controller/update.py): the app partition of
-# the shipped partition table, and the first byte of an ESP32 app image (a
-# factory image starts with 0xFF padding and must never be written over the air).
+# Mirrors the hub's checks (haui/controller/update.py): the shipped app partition
+# offset and the image magic byte (a factory image starts with 0xFF).
 FIRMWARE_MAX_BYTES = 0x1C0000
 ESP_IMAGE_MAGIC = 0xE9
 FIRMWARE_VARIANTS = frozenset({"custom", "universal"})
@@ -66,16 +44,15 @@ def check_image(data: bytes, version: str, variant: str = "custom") -> str | Non
         return "not an ESP32 app image; use the OTA image (firmware.ota.bin), not the factory image"
     if len(data) > FIRMWARE_MAX_BYTES:
         return f"{len(data)} bytes do not fit the {FIRMWARE_MAX_BYTES} byte app partition"
-    # The build embeds its yaml_version as a C string (ESPHOME_PROJECT_VERSION).
+    # yaml_version is embedded as a C string (ESPHOME_PROJECT_VERSION).
     if b"\0" + version.encode() + b"\0" not in data:
         return (
             f"the image does not contain version {version!r}; build it with "
             f"yaml_version: '{version}' (the hub reinstalls a build whose version "
             "is older than the manifest's)"
         )
-    # The build embeds firmware_variant as a C string.  Do not allow a
-    # mismatched manifest label: the hub relies on this value to prevent a
-    # universal image replacing a custom panel's credentials (or vice versa).
+    # The variant is embedded as a C string, so a mismatched label would let a
+    # universal image replace a custom panel's credentials (or vice versa).
     if b"\0" + variant.encode() + b"\0" not in data:
         return (
             f"the image does not report firmware_variant {variant!r}; build it with "
@@ -87,11 +64,8 @@ def check_image(data: bytes, version: str, variant: str = "custom") -> str | Non
 def build_manifest(version: str, image_url: str, md5: str, variant: str = "custom") -> dict:
     """The manifest in the schema the release workflow writes.
 
-    ``variant`` mirrors what the running firmware reports as its build
-    identity (``custom`` for a build from ``install.yaml``/``nspanel_haui_dev.yaml``;
-    the GitHub release workflow writes ``universal`` for the prebuilt image).
-    The hub refuses to install a manifest whose variant does not match the
-    panel's, so a test release must name the variant of the panel that follows it.
+    ``variant`` must name the panel that follows the release: the hub refuses an
+    install whose variant does not match.
 
     Raises:
         ValueError: If ``variant`` is not one the hub recognizes.

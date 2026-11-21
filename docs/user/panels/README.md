@@ -1,13 +1,13 @@
 ---
-title: Panel Overview
-description: Overview of all available panel types for NSPanel HAUI
+title: Panel Types
+description: All panel types available for NSPanel HAUI
 ---
 
-# Panel Overview
+# Panel Types
 
-A panel is one screen on the display. There are **13 panel types** you can add, plus built-in popups and system panels. The **Add panel** catalog lists them under four categories: **Backgrounds**, **Entities**, **Grouping** and **Tools**. Select a panel below to read what it shows and which options it has.
+A panel is one screen on the display. There are **13 panel types** you can add, plus built-in popups and system panels. The **Add panel** catalog groups the types under **Backgrounds**, **Entities**, **Grouping** and **Tools**, and also lists **Extend a popup** and **Copy an existing panel**. Select a panel below to read what it shows and which options it has.
 
-You add panels in the editor, see the [Configuration Overview](../configuration/README.md). The [Screens overview](../../screens.html) shows every panel in the landscape and the portrait layout.
+You add panels in the editor, see the [Editor overview](../editor/README.md). The [Screens overview](../screens.md) shows every panel in the landscape and the portrait layout.
 
 ## Backgrounds
 
@@ -54,22 +54,33 @@ Panels for special tasks.
 
 Popups open on top of the current panel and close again. They are built in; you do not add them.
 
-| Popup | Key | Opens when |
-|-------|-----|------------|
-| [Notify](popup_notify.md) | `popup_notify` | A notification is shown |
-| [Select](popup_select.md) | `popup_select` | You choose from a list, for example a fan speed or a preset |
-| [Unlock](popup_unlock.md) | `popup_unlock` | You open a panel that has a PIN |
-| Entity popups | `popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_cover`, `popup_alarm`, `popup_timer` | You tap an entity on a grid, row or other panel. They look like the panel of the same type. |
+| Preview | Popup | Key | Opens when |
+|---------|-------|-----|------------|
+| <a href="popup_notify.md"><img src="../../assets/screens/landscape/popup_notify.png" alt="notify popup" width="120" height="85"></a> | [Notify](popup_notify.md) | `popup_notify` | A notification is shown |
+| <a href="popup_select.md"><img src="../../assets/screens/landscape/popup_select.png" alt="select popup" width="120" height="85"></a> | [Select](popup_select.md) | `popup_select` | You choose from a list, for example a fan speed or a preset |
+| <a href="popup_unlock.md"><img src="../../assets/screens/landscape/popup_unlock.png" alt="unlock popup" width="120" height="85"></a> | [Unlock](popup_unlock.md) | `popup_unlock` | You open a panel that has a PIN |
 
-You can change a popup for a device with **Add panel → Extend a popup**, see [System Panel Overrides](../configuration/panels.md#system-panel-overrides). To open one of your own panels on top of another panel, see [Stacked Panels and Popups](../configuration/panels.md#stacked-panels-and-popups).
+These popups show one item's full controls in the panel of its type. Tapping a light, media player, vacuum, cover, climate or alarm entity on a grid, row or other panel opens its popup; a timer item opens the timer popup.
+
+| Preview | Popup | Key | Controls |
+|---------|-------|-----|----------|
+| <a href="panel_light.md"><img src="../../assets/screens/landscape/popup_light.png" alt="light popup" width="120" height="85"></a> | Light | `popup_light` | The [Light](panel_light.md) panel |
+| <a href="panel_media.md"><img src="../../assets/screens/landscape/popup_media_player.png" alt="media popup" width="120" height="85"></a> | Media player | `popup_media_player` | The [Media](panel_media.md) panel |
+| <a href="panel_vacuum.md"><img src="../../assets/screens/landscape/popup_vacuum.png" alt="vacuum popup" width="120" height="85"></a> | Vacuum | `popup_vacuum` | The [Vacuum](panel_vacuum.md) panel |
+| <a href="panel_cover.md"><img src="../../assets/screens/landscape/popup_cover.png" alt="cover popup" width="120" height="85"></a> | Cover | `popup_cover` | The [Cover](panel_cover.md) panel |
+| <a href="panel_climate.md"><img src="../../assets/screens/landscape/popup_climate.png" alt="climate popup" width="120" height="85"></a> | Climate | `popup_climate` | The [Climate](panel_climate.md) panel |
+| <a href="panel_alarm.md"><img src="../../assets/screens/landscape/popup_alarm.png" alt="alarm popup" width="120" height="85"></a> | Alarm | `popup_alarm` | The [Alarm](panel_alarm.md) panel |
+| <a href="panel_timer.md"><img src="../../assets/screens/landscape/popup_timer.png" alt="timer popup" width="120" height="85"></a> | Timer | `popup_timer` | The [Timer](panel_timer.md) panel |
+
+You can change a popup for a device with **Add panel → Extend a popup**, see [System Panel Overrides](../editor/panels.md#system-panel-overrides). To open one of your own panels on top of another panel, see [Stacked Panels and Popups](../editor/panels.md#stacked-panels-and-popups).
 
 ## System Panels
 
 Always there. They need no configuration and cannot be changed.
 
-| Panel | Key | Shows |
-|-------|-----|-------|
-| [Blank](panel_blank.md) | `sys_blank` | Nothing. Use it as the idle panel for an empty screen. |
-| [System](panel_system.md) | `sys_system` | A message while the panel connects or has lost its connection |
-| [Settings](panel_settings.md) | `sys_settings` | Brightness sliders. Swipe down to open it. |
-| [About](panel_about.md) | `sys_about` | Versions and the IP address. Swipe up to open it. |
+| Preview | Panel | Key | Shows |
+|---------|-------|-----|-------|
+| <a href="panel_blank.md"><img src="../../assets/screens/landscape/sys_blank.png" alt="blank panel" width="120" height="85"></a> | [Blank](panel_blank.md) | `sys_blank` | Nothing. Add it to the idle panels for an empty screen. |
+| <a href="panel_system.md"><img src="../../assets/screens/landscape/sys_system.png" alt="system panel" width="120" height="85"></a> | [System](panel_system.md) | `sys_system` | A message while the panel connects or has lost its connection |
+| <a href="panel_settings.md"><img src="../../assets/screens/landscape/sys_settings.png" alt="settings panel" width="120" height="85"></a> | [Settings](panel_settings.md) | `sys_settings` | Brightness sliders. Swipe down to open it. |
+| <a href="panel_about.md"><img src="../../assets/screens/landscape/sys_about.png" alt="about panel" width="120" height="85"></a> | [About](panel_about.md) | `sys_about` | Versions and the IP address. Swipe up to open it. |

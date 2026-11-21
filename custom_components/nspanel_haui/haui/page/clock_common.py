@@ -1,8 +1,4 @@
-"""Setup and teardown shared by the clock, clocktwo and weather pages.
-
-Module-level functions rather than a base class: the three pages share only
-these identical blocks and nothing else of their lifecycle.
-"""
+"""Setup and teardown shared by the clock, clocktwo and weather pages."""
 
 from __future__ import annotations
 
@@ -13,7 +9,6 @@ from ..mapping.descriptor import PageOption, _
 
 LIGHT_BACKGROUND_TEXT_COLOR = 10565  # RGB565 #282828
 BACKGROUND_CHOICES = [
-    ("scheme", _("Use color scheme")),
     ("dark", _("Dark Color")),
     ("light", _("Light Color")),
     ("modern", _("Modern")),
@@ -35,37 +30,29 @@ def background_option() -> PageOption:
         default="dark",
         allow_template=True,
         label=_("Background"),
-        description=_("Choose a background image, or use the selected theme."),
+        description=_("Choose the picture the panel is drawn on."),
         choices=BACKGROUND_CHOICES.copy(),
         section=_("Appearance"),
     )
 
 
-def light_background_selected(page: Any, panel: HAUIPanel) -> bool:
-    """Whether a static page background uses the light contrast palette."""
+def background_choice(page: Any, panel: HAUIPanel) -> str:
+    """Resolve the panel's background picture.
+
+    Unknown values fall back to the theme's fill, so the display never keeps
+    the previous panel's picture.
+    """
     background = page.render_template(page.option(panel, "background"), False)
-    return background != "scheme" and background_variant(background) == "light"
+    if background in BACKGROUNDS:
+        return background
+    page.log(f"Background {background!r} is not a picture; using the theme's fill", level="WARNING")
+    return panel.theme.background_variant()
 
 
 def set_background_mode(page: Any, panel: HAUIPanel) -> None:
-    """Resolve whether this page uses its selected theme or a static background palette."""
-    background = page.render_template(page.option(panel, "background"), False)
-    page._use_theme_background = background == "scheme"
-    page._background_variant = (
-        panel.theme.background_variant()
-        if page._use_theme_background
-        else background_variant(background)
-    )
+    """Resolve the contrast palette paired with the page's background picture."""
+    page._background_variant = background_variant(background_choice(page, panel))
     page._light_background = page._background_variant == "light"
-
-
-def readable_background_text_color(
-    key: str, light: bool, theme_color: int = LIGHT_BACKGROUND_TEXT_COLOR
-) -> int | None:
-    """Return the selected theme's readable text color for a light background."""
-    if light and key in {"header_text", "component_text", "text"}:
-        return theme_color
-    return None
 
 
 def readable_foreground_color(
@@ -73,7 +60,7 @@ def readable_foreground_color(
     light: bool,
     text_color: int = LIGHT_BACKGROUND_TEXT_COLOR,
 ) -> int:
-    """Replace pure white foregrounds on a light background with the theme text role."""
+    """Replace pure white foregrounds on a light background with its palette's text colour."""
     if light and color == 65535:
         return text_color
     return color
@@ -83,18 +70,14 @@ if TYPE_CHECKING:
     from ..abstract.haui_panel import HAUIPanel
 
 
+def background_picture_id(page: Any, panel: HAUIPanel) -> int:
+    """Return the picture the page shows as its background."""
+    return BACKGROUNDS[background_choice(page, panel)]
+
+
 def background_commands(page: Any, panel: HAUIPanel) -> list[str]:
     """Set the system picture id first, before the target page's Preinitialize reads it."""
-    background = page.render_template(page.option(panel, "background"), False)
-    if background == "scheme":
-        # Picture 0 is the HMI's layout-helper grid, not a blank background.
-        # The TFT's solid dark/light fills are picture IDs 1 and 2.
-        picture_id = panel.theme.background_picture_id()
-    elif background in BACKGROUNDS:
-        picture_id = BACKGROUNDS[background]
-    else:
-        return []
-    return [f"system.vBackground.val={picture_id}"]
+    return [f"system.vBackground.val={background_picture_id(page, panel)}"]
 
 
 def subscribe_ticks(page: Any, *, with_date: bool = True) -> None:

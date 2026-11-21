@@ -1,0 +1,122 @@
+name: Bug report
+description: Report something that does not work as expected.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        Please report one problem per issue, and search the existing issues before opening a new one.
+
+        > [!WARNING]
+        > Remove Wi-Fi names, passwords, API keys, tokens and any other private data before posting.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Versions and hardware
+
+        The editor's **Diagnostics** card has a **Copy report** button with the integration, firmware and display versions.
+        Paste it below if you can; otherwise use the fields.
+
+  - type: textarea
+    attributes:
+      label: Device report
+      description: Paste the editor's **Copy report** output.
+      render: text
+      placeholder: |
+        Integration: 0.5.3
+        Firmware: 0.5.3
+        Display: 0.4.5 (required 0.4.5)
+        Model: EU landscape
+
+  - type: input
+    attributes:
+      label: Integration version
+      description: Shown in Settings → Devices & services → NSPanel HAUI, or in the device report.
+      placeholder: "0.5.3"
+
+  - type: input
+    attributes:
+      label: Firmware version
+      description: The **HAUI Firmware** update entity, or the device report.
+      placeholder: "0.5.3"
+
+  - type: input
+    attributes:
+      label: Display (TFT) version
+      description: The **HAUI Display** entity, or the device report.
+      placeholder: "0.4.5"
+
+  - type: dropdown
+    attributes:
+      label: Display model
+      options:
+        - EU, landscape
+        - US, landscape
+        - US, portrait
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Affected panel type
+      description: For example grid, climate, weather, notifications, or "all panels".
+      placeholder: "Grid, or all panels"
+
+  - type: markdown
+    attributes:
+      value: |
+        ## What happened
+
+  - type: textarea
+    attributes:
+      label: What happened, and what did you expect?
+      description: Describe the behaviour you saw and the behaviour you expected.
+      placeholder: "The panel shows ... but I expected ..."
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: The shortest sequence that shows the problem.
+      placeholder: |
+        1. Open the editor
+        2. Tap ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Home Assistant logs
+      description: |
+        Relevant lines from **Settings → System → Logs**, with the level set to **Debug** for the
+        `nspanel_haui` integration if possible. Remove anything private.
+      render: text
+
+  - type: textarea
+    attributes:
+      label: ESPHome logs
+      description: |
+        The panel's log from the ESPHome dashboard: start at boot for a startup problem, or at the
+        action that fails. Remove anything private.
+      render: text
+
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Screenshots, a recording, your panel configuration or anything else that helps.
+      render: text
+
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the FAQ and Troubleshooting pages.
+          required: true
+        - label: I removed passwords, keys, tokens and other private data.
+          required: true

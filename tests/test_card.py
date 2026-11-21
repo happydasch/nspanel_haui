@@ -52,9 +52,30 @@ def _with_apps(card, hass, apps):
     hass.data[card.DOMAIN] = {"entry1": apps}
 
 
-def _subscribe(card, kind, hass, conn, msg_id=1, device="kitchen"):
+def _with_devices(card, hass, *names):
+    """The hub's devices, as its config entry lists them."""
+    hass.entry.data["devices"] = [{"name": name} for name in names]
+
+
+def _store(card, monkeypatch, devices):
+    """What the panel store holds: each device's settings, ``enabled`` included."""
+    from custom_components.nspanel_haui.hub import storage
+
+    class _PanelStore:
+        async def async_load(self):
+            return {"version": 1, "devices": devices}
+
+    monkeypatch.setattr(storage, "panel_store", lambda hass, entry_id: _PanelStore())
+
+
+def _subscribe(card, kind, hass, conn, msg_id=1, device="kitchen", **target):
     command = card.ws_home_subscribe if kind == "home" else card.ws_live_subscribe
-    return command(hass, conn, {"id": msg_id, "entry_id": "entry1", "device": device})
+    return command(hass, conn, {"id": msg_id, "entry_id": "entry1", "device": device, **target})
+
+
+def _device_ids(card, monkeypatch, mapping):
+    """Resolve the panel's Home Assistant device id from this test's map."""
+    monkeypatch.setattr(card, "resolve_ha_device_id", lambda hass, name: mapping.get(name))
 
 
 def test_card_commands_are_open_to_every_user_and_the_editors_stay_admin_only(card):
@@ -73,18 +94,97 @@ def test_card_commands_are_open_to_every_user_and_the_editors_stay_admin_only(ca
     assert len(registered) > len(open_types)
 
 
-def test_devices_lists_the_running_apps_with_their_orientation(card):
+def test_devices_lists_the_hubs_devices_disabled_ones_included(card, monkeypatch):
+    """A disabled device is still selectable; its card says why it shows nothing."""
     conn = _Connection()
+    _device_ids(card, monkeypatch, {"kitchen": "ha-device-1"})
+    _store(card, monkeypatch, {"hall": {"config": {"enabled": False}}})
 
     async def body(hass):
-        _with_apps(card, hass, {"kitchen": _App(), "hall": _App(portrait=True)})
+        _with_devices(card, hass, "kitchen", "hall", "attic")
+        _with_apps(card, hass, {"kitchen": _App()})
         await card.ws_devices(hass, conn, {"id": 1})
 
     _run(body)
     assert conn.payloads[1] == [
-        {"entry_id": "entry1", "name": "kitchen", "portrait": False},
-        {"entry_id": "entry1", "name": "hall", "portrait": True},
+        {"entry_id": "entry1", "name": "kitchen", "device_id": "ha-device-1", "enabled": True},
+        {"entry_id": "entry1", "name": "hall", "device_id": None, "enabled": False},
+        {"entry_id": "entry1", "name": "attic", "device_id": None, "enabled": True},
     ]
+
+
+@pytest.mark.parametrize("kind", ["home", "live"])
+def test_a_card_of_a_disabled_device_is_told_apart_from_one_that_is_starting(
+    card, kind, monkeypatch
+):
+    """A disabled device has no live screen; its home render needs no app."""
+    conn = _Connection()
+    _store(card, monkeypatch, {"kitchen": {"config": {"enabled": False}}})
+
+    async def body(hass):
+        _with_apps(card, hass, {})
+        await _subscribe(card, kind, hass, conn)
+
+    _run(body)
+    if kind == "home":
+        # The hub renders the panels from the store: the card keeps its screen.
+        assert conn.results == [1]
+        [host] = _FakeHost.instances
+        assert host.followed is None, "a device that does not run reports no metadata"
+        assert host.panel_from is None, "and no state of its own"
+        assert len(host.home.viewers) == 1
+    else:
+        assert conn.errors == [(1, "disabled")]
+        assert _FakeHost.instances == []
+    assert _FakeLive.instances == []
+
+
+@pytest.mark.parametrize("kind", ["home", "live"])
+def test_a_card_finds_its_device_by_its_home_assistant_device_id(card, kind, monkeypatch):
+    """The card editor stores the panel's own device id, so a rename keeps the dashboard working."""
+    conn = _Connection()
+    running = _App()
+    _device_ids(card, monkeypatch, {"kitchen": "ha-device-1"})
+
+    async def body(hass):
+        _with_apps(card, hass, {"kitchen": running})
+        # The name is the one the card was set up with; the id is what wins.
+        await _subscribe(card, kind, hass, conn, device="old-name", device_id="ha-device-1")
+
+    _run(body)
+    assert conn.results == [1]
+    if kind == "home":
+        assert _FakeHost.instances[0].panel_from is running
+    else:
+        assert _FakeLive.instances[0].source is running
+
+
+@pytest.mark.parametrize("kind", ["home", "live"])
+def test_a_card_with_an_unknown_device_id_is_refused_like_an_unknown_name(card, kind, monkeypatch):
+    conn = _Connection()
+    _device_ids(card, monkeypatch, {"kitchen": "ha-device-1"})
+
+    async def body(hass):
+        _with_apps(card, hass, {"kitchen": _App()})
+        await _subscribe(card, kind, hass, conn, device_id="ha-device-2")
+
+    _run(body)
+    assert conn.errors == [(1, "not_found")]
+    assert _FakeHost.instances == []
+    assert _FakeLive.instances == []
+
+
+@pytest.mark.parametrize("kind", ["home", "live"])
+def test_a_card_subscription_needs_a_device_id_or_an_entry_and_device(card, kind):
+    conn = _Connection()
+
+    async def body(hass):
+        _with_apps(card, hass, {"kitchen": _App()})
+        command = card.ws_home_subscribe if kind == "home" else card.ws_live_subscribe
+        await command(hass, conn, {"id": 1})
+
+    _run(body)
+    assert conn.errors == [(1, "invalid_format")]
 
 
 @pytest.mark.parametrize("kind", ["home", "live"])
@@ -109,7 +209,7 @@ def test_a_home_card_watches_the_devices_home_stream_until_it_unsubscribes(card)
         await _subscribe(card, "home", hass, conn)
         [host] = _FakeHost.instances
         assert host.followed is running
-        assert host.notifications_from is running
+        assert host.panel_from is running
         [(viewer_id, sink)] = host.home.viewers.items()
         sink({"type": "page", "page": 9})
         conn.subscriptions[1]()

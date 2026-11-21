@@ -84,6 +84,92 @@ def _drawn(messages):
     return 'g1Name.txt="Lamp"' in _commands(messages)
 
 
+def _panels(messages):
+    """The panel's own state, as the cards were told it."""
+    return [
+        {key: message[key] for key in ("idle", "display_state", "connected", "firmware", "tft")}
+        for message in messages
+        if message["type"] == "physical"
+    ]
+
+
+def _buttons(messages):
+    """The hardware buttons' last report."""
+    return next(m for m in reversed(messages) if m["type"] == "buttons")
+
+
+class _Notifications:
+    """The running app's notification controller, as the panel feed reads it."""
+
+    def __init__(self, panel):
+        self._panel = panel
+        self.queue: list = []
+
+    def get_notifications(self):
+        return list(self.queue)
+
+    def add(self, title):
+        self.queue.append(
+            types.SimpleNamespace(
+                notif_id=title,
+                title=title,
+                message="",
+                icon="",
+                persistent=False,
+                force_show=False,
+                icon_color=None,
+                sound="",
+                text_size="",
+                timeout=None,
+            )
+        )
+        self._panel.publish()
+
+
+class _Panel:
+    """A device's running app, as the cards' panel feed reads it.
+
+    The real one is an ``NSPanelHAUI`` on its own worker; here the state and
+    the queue are plain attributes the test changes.
+    """
+
+    def __init__(self, relays=None):
+        self.state = {
+            "page": GRID_PAGE_ID,
+            "idle": False,
+            "display_state": "on",
+            "connected": True,
+            "firmware": "0.5.2",
+            "tft": "1.0.4",
+        }
+        self.subscribers: list = []
+        self.notifications = _Notifications(self)
+        self.controller = {"notification": self.notifications}
+        self.device = types.SimpleNamespace(
+            is_portrait=False,
+            find_esphome_entity_id=lambda domain, name: (relays or {}).get(name),
+            get=lambda key, default=None: default,
+        )
+
+    async def async_run_on_worker(self, fn, *args):
+        return fn(*args)
+
+    def subscribe_preview_state(self, callback):
+        self.subscribers.append(callback)
+
+        def unsubscribe():
+            self.subscribers.remove(callback)
+
+        return unsubscribe
+
+    def get_preview_state(self):
+        return dict(self.state)
+
+    def publish(self):
+        for callback in list(self.subscribers):
+            callback({**self.get_preview_state(), "event": "notifications"})
+
+
 def test_a_card_sees_the_home_panel_without_moving_the_sandbox(env):
     host = _host(env, _config())
     sandbox: list[dict] = []
@@ -229,4 +315,132 @@ def test_the_home_panel_asks_home_assistant_for_its_weather_forecast(env):
 
     _wait(lambda: any(call[:2] == ("weather", "get_forecasts") for call in env.services.calls))
     assert cards[0] == STARTED
+    _run(env, host.async_stop())
+
+
+def test_a_card_sees_the_panels_own_state_and_its_queued_notifications(env):
+    host = _host(env, _config())
+    panel = _Panel()
+    cards = _watch(env, host)
+    _wait(lambda: _drawn(cards))
+
+    _run(env, host.async_follow_panel(panel))
+
+    _wait(lambda: {"type": "notifications", "count": 0} in cards)
+    assert _panels(cards)[-1] == {
+        "idle": False,
+        "display_state": "on",
+        "connected": True,
+        # The card's status row shows what the panel runs.
+        "firmware": "0.5.2",
+        "tft": "1.0.4",
+    }
+
+    panel.state["display_state"] = "off"
+    panel.state["connected"] = False
+    panel.notifications.add("Doorbell")
+
+    _wait(lambda: {"type": "notifications", "count": 1} in cards)
+    assert _panels(cards)[-1] == {
+        "idle": False,
+        "display_state": "off",
+        "connected": False,
+        "firmware": "0.5.2",
+        "tft": "1.0.4",
+    }
+    _run(env, host.async_stop())
+
+
+def test_one_panel_feed_serves_every_card_of_the_device(env):
+    host = _host(env, _config())
+    panel = _Panel()
+    first = _watch(env, host, "first")
+    second = _watch(env, host, "second")
+    _wait(lambda: _drawn(first) and _drawn(second))
+
+    _run(env, host.async_follow_panel(panel))
+    _run(env, host.async_follow_panel(panel))
+    panel.notifications.add("Doorbell")
+
+    _wait(lambda: {"type": "notifications", "count": 1} in first)
+    assert {"type": "notifications", "count": 1} in second
+    assert len(panel.subscribers) == 1
+    _run(env, host.async_stop())
+
+
+def test_the_cards_frame_shows_the_panels_real_button_lights(env):
+    env._states["switch.kitchen_relay_left"] = _State("on", {})
+    host = _host(env, _config())
+    panel = _Panel(relays={"Relay Left": "switch.kitchen_relay_left"})
+    cards = _watch(env, host)
+    _wait(lambda: _drawn(cards))
+
+    _run(env, host.async_follow_panel(panel))
+
+    _wait(lambda: any(m["type"] == "buttons" for m in cards))
+    assert _buttons(cards)["left"] == {
+        "relay": "switch.kitchen_relay_left",
+        "entity": None,
+        "state": "on",
+        "relay_state": "on",
+    }
+    _run(env, host.async_stop())
+
+
+def test_the_frames_lights_follow_a_real_state_change(env, states):
+    env._states["switch.kitchen_relay_left"] = _State("off", {})
+    host = _host(env, _config())
+    panel = _Panel(relays={"Relay Left": "switch.kitchen_relay_left"})
+    cards = _watch(env, host)
+    _run(env, host.async_follow_panel(panel))
+    _wait(lambda: any(m["type"] == "buttons" for m in cards))
+
+    states.change("switch.kitchen_relay_left", "on", {})
+
+    _wait(lambda: _buttons(cards)["left"]["state"] == "on")
+    # The relay's own light is the same one: this button switches its relay.
+    assert _buttons(cards)["left"]["relay_state"] == "on"
+    _run(env, host.async_stop())
+
+
+def test_a_late_card_gets_the_panel_state_and_the_lights(env):
+    env._states["switch.kitchen_relay_left"] = _State("on", {})
+    host = _host(env, _config())
+    panel = _Panel(relays={"Relay Left": "switch.kitchen_relay_left"})
+    first = _watch(env, host, "first")
+    _wait(lambda: _drawn(first))
+    _run(env, host.async_follow_panel(panel))
+    _wait(lambda: any(m["type"] == "buttons" for m in first))
+
+    late = _watch(env, host, "late")
+
+    _wait(lambda: _drawn(late))
+    assert late[0] == STARTED
+    types_seen = [m["type"] for m in late]
+    assert types_seen.index("physical") < types_seen.index("commands")
+    assert {"type": "notifications", "count": 0} in late
+    assert _buttons(late)["left"]["state"] == "on"
+    _run(env, host.async_stop())
+
+
+def test_a_disabled_device_still_renders_its_home_panel(env):
+    """A card draws a device the hub does not run; only its own state is missing."""
+    config = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"home_panel": "grid_0", "enabled": False},
+                    "panels": [GRID],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+    host = _host(env, config)
+    cards = _watch(env, host)
+
+    _wait(lambda: _drawn(cards))
+    assert cards[0] == STARTED
+    assert _panels(cards) == []
     _run(env, host.async_stop())

@@ -10,6 +10,10 @@ import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app
 
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
 import { openThemeSidebar, saveTheme } from '../../custom_components/nspanel_haui/frontend/theme-editor.js';
+import { loadThemeLibrary } from '../../custom_components/nspanel_haui/frontend/editor-data.js';
+import { buildPreviewContext } from '../../custom_components/nspanel_haui/frontend/previews/context.js';
+import { previewRenderKey } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
+import { jsonResponse, makeHost } from './fake-host.mjs';
 import { filterLogEntries, logEntries, logText } from '../../custom_components/nspanel_haui/frontend/dialogs/logs.js';
 
 const DIALOGS = [
@@ -360,4 +364,41 @@ test('theme color reset saves settings first, then saves that device’s panels'
     ['settings', 'dark', 'Theme applied'],
     ['panels', panels, ''],
   ]);
+});
+
+test('a saved theme definition reaches the store the panel previews key on', async () => {
+  const icons = {
+    dark: { weather: { sunny: 20 }, alarm: { armed: 21 }, climate: { off: 22 } },
+    light: { weather: { sunny: 30 }, alarm: { armed: 31 }, climate: { off: 32 } },
+  };
+  const evening = { name: 'Evening', colors: { background: 10, text: 20 }, icons };
+  const edited = { ...evening, colors: { background: hexToRgb565('#00ff00'), text: 20 } };
+  const panels = {
+    device_order: ['kitchen'],
+    themes: { evening },
+    devices: { kitchen: { config: { theme_id: 'evening' }, panels: [] } },
+  };
+  let library = { version: 1, builtins: { dark: evening }, themes: { evening } };
+  const host = makeHost(panels, (method, path) => {
+    if (method === 'GET' && path === '/api/nspanel_haui/themes/entry1') return jsonResponse(library);
+    throw new Error(`unexpected ${method} ${path}`);
+  });
+  const renderKey = () => previewRenderKey(buildPreviewContext(
+    'entry1',
+    'kitchen',
+    host.store.getState().devices.byName.kitchen,
+    null,
+    host.api,
+    host.store.getState().hub.themes,
+  ));
+
+  await loadThemeLibrary(host, 'entry1', true);
+  const before = renderKey();
+
+  // What the theme sidebar saved: the same theme id, a new palette.
+  library = { ...library, themes: { evening: edited } };
+  await loadThemeLibrary(host, 'entry1', true);
+
+  assert.deepEqual(host.store.getState().hub.themes, { evening: edited });
+  assert.notEqual(renderKey(), before);
 });

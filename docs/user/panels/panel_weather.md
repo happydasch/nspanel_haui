@@ -9,22 +9,22 @@ description: Weather panel — screensaver with weather and info items
 
 ## About
 
-The weather panel shows the current weather, a forecast and the time and date. It works well as a screensaver. Below the weather you can show up to two more values, for example the indoor temperature and humidity.
+The weather panel shows the current weather, the time and date, and optionally a forecast. It works well as a screensaver. Below the weather you can show up to two more values, for example the indoor temperature and humidity.
 
 ## How to configure
 
-| Option | Description |
-|--------|-------------|
-| **Item** | The weather entity. Required. |
-| **Info items** | Up to 2 entities shown below the weather, for example indoor temperature, humidity or CO2. |
-| **Background** | A picture or **Use color scheme**, see [Background](#background). |
-| **Show forecast** | **Daily** or **Hourly**. |
-| **Show weather** | Show the large weather icon. |
-| **Show temperature** | Show the temperature. |
-| **Show home temperature** | Show the inside temperature next to the weather. |
-| **Inside temperature sensor** | The sensor for the inside temperature. Empty: the NSPanel's built-in temperature sensor. |
-| **Weather icon color** | **Color** (default) colors the icons by condition, **Monochrome** uses the text color. |
-| **Show notifications** | Use the weather icon as the notification bell, see [Notifications](#notifications). |
+| Option | Default | Description |
+|--------|---------|-------------|
+| **Item** | — | The weather entity. Optional; without one the panel shows the time and date, with no weather or forecast. |
+| **Info items** | — | Up to 2 entities shown below the weather, for example indoor temperature, humidity or CO2. |
+| **Background** | Dark Color | The picture the panel is drawn on — **Dark Color**, **Light Color** or a decorative one — see [Background](#background). |
+| **Forecast type** | Off | **Off**, **Daily** or **Hourly**. |
+| **Show weather** | On | Show the large weather icon. |
+| **Show temperature** | On | Show the temperature. |
+| **Show home temperature** | Off | Show the inside temperature next to the weather. |
+| **Inside temperature sensor** | Built-in sensor | The sensor for the inside temperature. Empty: the NSPanel's built-in temperature sensor. |
+| **Weather icon color** | Color | **Color** colors the icons by condition, **Monochrome** uses the text color. |
+| **Show notifications** | On | Use the weather icon as the notification bell, see [Notifications](#notifications). |
 
 ### Cycle Cards
 
@@ -44,9 +44,9 @@ The cards work as on the [clock panel](panel_clock.md#cycle-cards), with one dif
 
 ### Background
 
-Choose a picture, or **Use color scheme** for a plain background from the selected theme. Text and icons always use colors that are readable on the chosen background.
+Choose **Dark Color** (the default), **Light Color** or a decorative picture. Text and icons always use the colors that are readable on the picture the panel is drawn on.
 
-For a background that changes, for example at night, choose **Template…**. See [Background pages](../configuration/device.md#background-pages) for all backgrounds and an example.
+For a background that changes, for example at night, choose **Template…**. See [Background pages](../editor/themes.md#background-pages) for all backgrounds and an example.
 
 ### Forecast
 
@@ -65,4 +65,4 @@ With **Show notifications** on, the weather icon turns into a bell while notific
 This panel has no header buttons. To leave it:
 
 - Swipe left or right from a screen edge to change the panel.
-- Or turn on **Long press to go back** in the *Advanced* section. Then holding a finger anywhere for about a second goes back to the previous panel, or to the home panel. See [Standard Fields](../configuration/panels.md#standard-fields).
+- Or turn on **Long press to go back** in the *Advanced* section. Then holding a finger anywhere for about a second goes back to the previous panel, or to the home panel. See [Standard Fields](../editor/panels.md#standard-fields).

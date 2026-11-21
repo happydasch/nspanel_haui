@@ -1,13 +1,12 @@
 """Render the design-aid grids ``nextion/images/grid_landscape.png`` and
 ``grid_portrait.png``.
 
-The grids are page backgrounds for the Nextion Editor that show the layout
-rules of each orientation (portrait: ``scripts/hmi_layout/portrait_layout.py``):
-header, 12 px side margins, content area, column and row guides, icon and
-image placeholder sizes, font-size samples, the display centers and the theme
-colors of ``haui/mapping/color.py`` as RGB565 values. The landscape grid shows
-the colors in the 30 px strip the EU bezel hides; portrait has no hidden strip,
-so they run along its bottom edge.
+The grids are page backgrounds for the Nextion Editor that show each orientation's
+layout rules (portrait: ``scripts/hmi_layout/portrait_layout.py``): header, margins,
+content area, column and row guides, placeholder sizes, font-size samples, the centers
+and the theme colors of ``haui/mapping/color.py`` as RGB565 values. The landscape grid
+shows them in the 30 px strip the EU bezel hides; portrait runs them along its bottom
+edge.
 
 Usage::
 
@@ -146,10 +145,7 @@ def rgb565(value: int) -> tuple[int, int, int]:
 
 
 def split(total: int, count: int) -> list[tuple[int, int]]:
-    """Returns (start, size) of ``count`` cells filling ``total`` px with 2 px gaps.
-
-    The remainder widens the first gaps, like the original landscape grid.
-    """
+    """Returns (start, size) of ``count`` cells filling ``total`` px with 2 px gaps."""
     size = (total - (count - 1) * GAP) // count
     extra = total - count * size - (count - 1) * GAP
     cells, pos = [], 0

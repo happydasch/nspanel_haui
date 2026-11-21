@@ -23,8 +23,23 @@ class Entity:
     def get_state(self) -> str:
         return self.state
 
+    def listen_state(self, callback: Any) -> str:
+        """Register a state callback, as ``ItemProxy`` does; the page keeps the handle."""
+        return f"listen:{self.state}"
+
     def call_service(self, service: str, **kwargs: Any) -> None:
         self.calls.append((service, kwargs))
+
+
+class Blinker:
+    """The notification indicator: ``refresh()`` runs the page callback it was given."""
+
+    def __init__(self) -> None:
+        self.callback: Any = None
+
+    def refresh(self) -> None:
+        if self.callback is not None:
+            self.callback()
 
 
 class Controller:
@@ -32,6 +47,7 @@ class Controller:
 
     def __init__(self) -> None:
         self.cmds: list[str] = []
+        self.blinker = Blinker()
 
     def send_cmd(self, command: str, value: str | list[str], force: bool = False) -> None:
         self.cmds.extend(value if isinstance(value, list) else [value])
@@ -39,14 +55,23 @@ class Controller:
     def has_notifications(self) -> bool:
         return False
 
+    def set_blinker_callback(self, refresh_fn: Any) -> None:
+        self.blinker.callback = refresh_fn
+
+    def clear_blinker_callback(self) -> None:
+        self.blinker.callback = None
+
 
 class Device:
-    """A landscape device without settings of its own."""
+    """A landscape device; ``settings`` holds the device config it reports."""
 
     is_portrait = False
 
+    def __init__(self, settings: dict[str, Any] | None = None) -> None:
+        self._settings = settings or {}
+
     def get(self, key: str, default: Any = None) -> Any:
-        return default
+        return self._settings.get(key, default)
 
     def get_locale(self) -> str:
         return "en_US"
@@ -68,14 +93,16 @@ class PageApp:
         *,
         controller: Controller | None = None,
         temperature_unit: str = "°C",
+        device_settings: dict[str, Any] | None = None,
     ) -> None:
         self.entities = entities
         self.theme = Theme()
         self.temperature_unit = temperature_unit
         self.listeners: list[tuple[str, str | None]] = []
+        self.ticks: dict[str, list[Any]] = {}
         controller = controller or Controller()
         self.controller: dict[str, Any] = {"esphome": controller, "notification": controller}
-        self.device = Device()
+        self.device = Device(device_settings)
         self.device_config = DeviceConfig()
 
     @property
@@ -84,6 +111,10 @@ class PageApp:
 
     def log(self, msg: str, **kwargs: Any) -> None:
         pass
+
+    def render_template(self, template: str) -> str:
+        """The hub renders a template; the fake returns the value it was given."""
+        return template
 
     def item_exists(self, entity_id: str) -> bool:
         return entity_id in self.entities
@@ -100,6 +131,13 @@ class PageApp:
 
     def get_temperature_unit(self) -> str:
         return self.temperature_unit
+
+    def subscribe_tick(self, period: str, cb: Any) -> None:
+        self.ticks.setdefault(period, []).append(cb)
+
+    def unsubscribe_tick(self, period: str, cb: Any) -> None:
+        if cb in self.ticks.get(period, []):
+            self.ticks[period].remove(cb)
 
     def run_in(self, cb: Any, delay: float, **kwargs: Any) -> str:
         return "timer"

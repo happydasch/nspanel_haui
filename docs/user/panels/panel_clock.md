@@ -16,14 +16,14 @@ The clock panel shows the time and date in large letters. It can also show the w
 | Option | Default | Description |
 |--------|---------|-------------|
 | **Item** | — | A weather entity. Optional; needed for the weather options below. |
-| **Background** | | A picture or **Use color scheme**, see [Background](#background). |
+| **Background** | Dark Color | The picture the panel is drawn on, see [Background](#background). |
 | **Show weather** | On | Show the weather icon. |
 | **Show temperature** | On | Show the temperature and air pressure. |
 | **Show home temperature** | Off | Show the inside temperature next to the weather. |
 | **Inside temperature sensor** | Built-in sensor | The sensor for the inside temperature. Empty: the NSPanel's built-in temperature sensor. |
 | **Weather icon color** | Color | **Color** colors the icon by condition, **Monochrome** uses the text color. |
 | **Items** | — | Up to 6 entities shown as buttons at the bottom. |
-| **Show notifications** | | Show the notification bell. |
+| **Show notifications** | On | Show the notification bell. |
 
 ### Cycle Cards
 
@@ -50,13 +50,13 @@ Good to know:
 
 ### Background
 
-Choose a picture, or **Use color scheme** for a plain background from the selected theme. Text and icons always use colors that are readable on the chosen background.
+Choose **Dark Color** (the default), **Light Color** or a decorative picture. Text and icons always use the colors that are readable on the picture the panel is drawn on.
 
-For a background that changes, for example at night, choose **Template…**. See [Background pages](../configuration/device.md#background-pages) for all backgrounds and an example.
+For a background that changes, for example at night, choose **Template…**. See [Background pages](../editor/themes.md#background-pages) for all backgrounds and an example.
 
 ### Leaving the Panel
 
 This panel has no header buttons. To leave it:
 
 - Swipe left or right from a screen edge to change the panel.
-- Or turn on **Long press to go back** in the *Advanced* section. Then holding a finger anywhere for about a second goes back to the previous panel, or to the home panel. See [Standard Fields](../configuration/panels.md#standard-fields).
+- Or turn on **Long press to go back** in the *Advanced* section. Then holding a finger anywhere for about a second goes back to the previous panel, or to the home panel. See [Standard Fields](../editor/panels.md#standard-fields).

@@ -1,23 +1,19 @@
-"""Landscape (480x320) refinements for ``nspanel_haui.HMI`` — the 0.4 visual refresh.
+"""Landscape (480x320) refinements for ``nspanel_haui.HMI``.
 
-Unlike ``portrait_layout.py`` this spec is *partial*: it lists only the widgets
-it changes, every other widget keeps the geometry the Nextion Editor saved.
-Apply it with ``python -m scripts.hmi_layout.gen_layout`` (the default spec).
-
-Both HMIs are addressed by the same Python ``COMPONENTS`` registries, so every
-change made here (sizes, slider attributes, new widgets in the editor) must be
+Unlike ``portrait_layout.py`` this spec is *partial*: it lists only the widgets it
+changes, and the rest keep the geometry the Nextion Editor saved. Apply it with
+``python -m scripts.hmi_layout.gen_layout`` (the default spec). Both HMIs are
+addressed by the same ``COMPONENTS`` registries, so every change here must be
 mirrored in ``portrait_layout.py`` — and the other way round.
 
 Rules:
 
 - 12 px side margins; the EU bezel hides x >= 450, so content ends at x 438.
 - 8 px gutters between controls, 50 px header.
-- Grid tiles and sliders keep the original (pre-0.4) design, which reads
-  better on the device than the refresh's 8 px gaps and 50 px knob tracks:
-  140 px tiles with 4 px gaps, slim 30 px settings and volume tracks with a
-  small 25 px knob, and flat fill bars without a knob on the light, cover and
-  row pages (``ATTRS`` sets the cursor size; the hub colours the knob at
-  render time).
+- Grid tiles and sliders keep their compact design, which reads better on the
+  device: 140 px tiles with 4 px gaps, slim 30 px tracks with a small 25 px knob,
+  and flat fill bars without a knob on the light, cover and row pages
+  (``ATTRS`` sets the cursor size; the hub colours the knob at render time).
 """
 
 from __future__ import annotations
@@ -35,15 +31,13 @@ CONTENT_W = RIGHT - MARGIN  # 426
 HMI_NAME = "nspanel_haui.HMI"
 PARTIAL = True
 
-# Slider cursor attributes.  ``pco`` is the compiled fallback knob colour; the
-# hub overrides it at render time (see set_slider_color).  A 0 x 0 cursor draws
-# no knob, so those sliders read as a plain fill bar.
+# Slider cursor attributes: ``pco`` is the compiled fallback knob colour, which the
+# hub overrides at render time; a 0 x 0 cursor draws no knob (a plain fill bar).
 _H_SLIDER = {"wid": 25, "hig": 30, "pco": 15416}
 _V_SLIDER = {"wid": 0, "hig": 0, "pco": 12678}
 _ROW_SLIDER = {"wid": 0, "hig": 0, "pco": 19773}
 
-# Six 50 px buttons spread evenly across the content width (clock, vacuum,
-# climate modes): 12, 87, 162, 237, 313, 388.
+# Six 50 px buttons across the content width: 12, 87, 162, 237, 313, 388.
 _SIX_ACROSS = [MARGIN + round(i * (CONTENT_W - 50) / 5) for i in range(6)]
 
 
@@ -218,8 +212,7 @@ LAYOUT: dict[str, dict[str, Rect]] = {
     },
 }
 
-# Slider cursors, the clock's touch setting and the page-background colour of
-# every solid widget (theme.py).
+# Slider cursors, the clock's touch setting and every solid widget's page colour (theme.py).
 ATTRS: dict[str, dict[str, dict[str, int]]] = with_theme(
     {
         "settings": {"hBrght": _H_SLIDER, "hBrghtDim": _H_SLIDER},
@@ -228,8 +221,7 @@ ATTRS: dict[str, dict[str, dict[str, int]]] = with_theme(
         "media": {"hVolume": _H_SLIDER},
         "row": {f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
         # Send Component ID 2 (on press): tapping the time advances the clock's
-        # cards, which broke once in 0.4 when the setting was lost. The portrait
-        # HMI copies it from this project (portrait_layout.SIBLING_HMI).
+        # cards. The portrait HMI copies it from this project (SIBLING_HMI).
         "clock": {"tTime": {"sendkey": 2}},
     }
 )

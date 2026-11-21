@@ -15,10 +15,10 @@ The media panel controls one media player, such as a TV, a speaker or a receiver
 
 | Option | Description |
 |--------|-------------|
-| **Item** | The media player to control. You can leave it empty and set it later; until then the panel shows no controls. |
+| **Item** | The media player to control. Required. |
 | **Sonos favorites** | A sensor that holds your Sonos favorites (from the Sonos integration). They appear under the **Media** button. |
 | **Sonos favorites in source list** | Show the Sonos favorites in the source list instead. |
-| **Media Favorites** | Your own favorites, one per row: a media content ID, or a `media_player` entity whose current media is played. |
+| **Media favorites** | Your own favorites, one per row: a media content ID, or a `media_player` entity whose current media is played. |
 | **Group media player entities** | More players that can be grouped with this one. |
 
 ## Controls
@@ -26,7 +26,7 @@ The media panel controls one media player, such as a TV, a speaker or a receiver
 | Control | Shown when |
 |---------|------------|
 | **Play / pause, previous, next, shuffle, repeat** | The player supports them |
-| **Volume slider** | Always. The volume is set when you release the slider. |
+| **Volume slider** | The player supports setting the volume. The volume is set when you release the slider. |
 | **Progress bar** | A track with a known length is playing |
 | **Source** button | The player has a source list, or the Sonos favorites are in the source list |
 | **Media** button | You set media favorites, or Sonos favorites that are not in the source list |
@@ -43,3 +43,5 @@ The players offered for grouping are the ones the player itself reports, plus th
 ## Popup
 
 Tapping a media player on another panel opens the same controls as a popup (`popup_media_player`).
+
+<img src="../../assets/screens/landscape/popup_media_player.png" alt="media popup, landscape" width="300" height="213"> <img src="../../assets/screens/portrait/popup_media_player.png" alt="media popup, portrait" width="142" height="213">

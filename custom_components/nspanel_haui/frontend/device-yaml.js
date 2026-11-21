@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - device selection and YAML import/export.
+ * NSPanel HAUI - device selection, YAML import/export and copying between devices.
  *
  * Every function takes the Lit element instance (`host`) as its first parameter.
  *
@@ -45,6 +45,23 @@ export async function importDeviceYaml(host) {
   } catch (e) {
     host._showToast(e.message || t("Import failed"), "error");
   }
+}
+
+/* ── copy to device ──────────────────────────────────────────────────────── */
+
+/**
+ * A copy the Backups sidebar made: name the devices that took it and read the
+ * store again, since their settings and panels changed behind the editor.
+ * @param {any} host
+ * @param {{ devices?: string[] }} detail
+ */
+export async function reportCopiedDevices(host, detail) {
+  const devices = detail?.devices || [];
+  if (!devices.length) return;
+  const state = host.store.getState();
+  const labels = devices.map((name) => state.devices.byName[name]?.friendlyName || name);
+  host._showToast(t('Copied to {devices}').replace('{devices}', labels.join(', ')), 'success');
+  await host.store.actions.loadPanels();
 }
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */

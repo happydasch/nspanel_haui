@@ -83,7 +83,7 @@ Everything below lives under `custom_components/nspanel_haui/` unless noted.
 
 ## Threading
 
-Every call into an app — device events, state changes, timers, reloads, services, notify — runs on that app's single worker thread, in order.
+Every call into an app — device events, state changes, timers, reloads, actions, notify — runs on that app's single worker thread, in order.
 
 - From the event loop use `app.dispatch()` (fire-and-forget) or `await app.async_run_on_worker()`. Never `hass.async_add_executor_job` with app code.
 - Blocking work (HTTP, disk) never runs on the worker: `app.run_off_worker(fn, *args, timeout=…)` waits for the result, `app.submit_off_worker(fn, on_done=…)` applies it back on the worker. The callable must not touch app state.

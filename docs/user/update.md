@@ -119,7 +119,7 @@ Saved settings are **not converted**. Set **Brightness full** under **Screen** f
 
 The `type` field (`info`, `warning`, `critical`) of `nspanel_haui.send_notification` is gone. Use `icon_color` (`#rrggbb`, an RGB565 number, `[r, g, b]` or an integer string; empty uses the theme text colour) and `sound` (a `play_sound` name, or `none` for silence).
 
-- The [preset notification script](services.md#preset-notification-script) restores the old types.
+- The [preset notification script](actions.md#preset-notification-script) restores the old types.
 - Persistent notifications open immediately and may open over the idle page. A schedule entry with sound off still keeps the display dark.
 - The `nspanel_haui.notification` event has `icon_color` and `sound` instead of `notif_type`.
 - The ESPHome `send_notification` action requires `icon_color` and `sound`. Custom YAML must pass them: `icon_color: ""` with `sound: "notification"` is the old `info`; `sound: "alert"` is the old `critical` sound. Older firmware still works: a missing colour uses the theme text colour, and a missing sound plays `notification`.

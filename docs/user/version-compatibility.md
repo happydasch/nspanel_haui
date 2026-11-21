@@ -38,6 +38,23 @@ The firmware and the display are updated independently:
 The hub checks the firmware build variant before installing an update. A universal image is not installed on
 a custom build, and a custom build is not replaced by the universal image.
 
+## Firmware contract version
+
+The firmware and the hub also exchange a contract version, `hub_api_version` (currently `1.0`). The
+firmware reports it in `req_connection` and in `res_device_state`, and the hub compares the major
+part only:
+
+- **Same major** — the two understand the same handshake and the same event payloads.
+- **Another major, or a value that is not a dotted version** — the hub logs a warning when the panel
+  connects and reports `device_info.hub_api_compatible: false` in the device status, so the
+  diagnostics mark the panel as incompatible instead of the hub guessing at an unknown payload.
+- **No value at all** — firmware from before the field counts as compatible, so a panel that was not
+  updated yet never holds the integration back.
+
+A warning in the log means the panel should get the current firmware from its **Updates** sidebar.
+The major part changes only for an incompatible change to the handshake or a payload, and that ships
+as a firmware release the hub installs itself.
+
 ## Upgrade order
 
 1. Update the integration.

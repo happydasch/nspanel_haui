@@ -277,6 +277,22 @@ export function createStore({ client, storage, onToast }) {
     },
 
     /**
+     * Replace the hub's custom theme library.
+     *
+     * A panel card keys its render on the theme its device draws in
+     * (`previews/previewer.js`), so a theme the sidebar saved has to reach this
+     * state or every card keeps the colors of the old definition until the
+     * editor is reloaded.
+     *
+     * @param {Object<string, any>} themes
+     */
+    setThemes(themes) {
+      const next = themes || {};
+      if (JSON.stringify(next) === JSON.stringify(state.hub.themes)) return;
+      commit((current) => ({ ...current, hub: { ...current.hub, themes: next } }));
+    },
+
+    /**
      * Load the hub entry: panel store, panel types, statuses and notifications.
      * The selected device survives a reload when it still exists.
      *

@@ -113,7 +113,7 @@ The default dark palette (`COLORS` in `haui/mapping/color.py`; role keys in pare
 | `component_active_dark` | dimmed active controls | `#3b86c3` / [59, 134, 195] | 15416 |
 | `component_accent`, `header_accent` | accents, header icons | `#f69d31` / [246, 157, 49] | 62694 |
 | `component_background` | slider tracks and the empty part of a progress bar | `#282828` / [40, 40, 40] | 10565 |
-| `entity_on` | entity is on | `#fdd835` / [253, 216, 53] | 65222 |
+| `entity_on` | entity is on, and a grid tile whose item is on: the tile background is this colour mixed 16 % into the page background (`active_tile_color()`), and the power button is drawn in it | `#fdd835` / [253, 216, 53] | 65222 |
 | `entity_off` | entity is off | `#44739e` / [68, 115, 158] | 17299 |
 
 Both TFTs compile every solid widget on a content page with `background`, and only the header bar keeps `header_background`. Text-bearing widgets (tiles, row names and icons, select and notify buttons, keypad keys) use `background`, never `component_background`, so they stay flat on the page; `component_background` compiles at [49, 49, 49] and the hub repaints it when it shows the control.
@@ -216,5 +216,5 @@ The script scans the Python and JavaScript sources for string-literal `t()`, `ho
 | 7 | `haui/locale/*.json` | Regenerate, fill in the blanks |
 | 8 | `nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft` | Compile both, [after any HMI change](nextion-editor.md#after-any-hmi-change) |
 
-To try a TFT on a device before a release, install it with the `nspanel_haui.update_tft` action and its `url` field ([Services Reference](../user/services.md#tft-display-upload)).
+To try a TFT on a device before a release, install it with the `nspanel_haui.update_tft` action and its `url` field ([Actions reference](../user/actions.md#tft-display-upload)).
 

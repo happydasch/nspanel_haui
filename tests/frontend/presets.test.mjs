@@ -368,12 +368,13 @@ test('a page takes the colours of the theme the device draws in', () => {
   const palette = { background: 0, entity_on: 0xFFFF, header_accent: 0xF800 };
   const themed = resolve('room', { theme: palette });
   const home = themed.pages.find((page) => page.role === 'home');
-  // A tile is tinted while the item is on, and keeps the theme background when it is not.
+  // A grid tile's on background and power button are the hub's own theme colours,
+  // so a preset stores neither: a stored one would pin the tile to the theme the
+  // setup was created in.
   for (const item of home.panel.items) {
-    assert.deepEqual(Object.keys(item.back_color), ['on', 'playing'], item.item);
-    assert.match(item.power_color, /^#[0-9a-f]{6}$/);
+    assert.ok(!('back_color' in item), item.item);
+    assert.ok(!('power_color' in item), item.item);
   }
-  assert.ok(!resolve('room').pages[0].panel.items.some((item) => item.back_color));
   const clockTwo = resolve('home', { theme: palette }).pages.find((page) => page.role === 'idle').panel;
   assert.equal(clockTwo.special_color, '#ff0000');
   // The unlit letters follow the picture the panel is drawn on, so no tone is

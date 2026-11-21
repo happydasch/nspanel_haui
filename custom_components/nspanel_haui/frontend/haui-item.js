@@ -37,7 +37,7 @@ export function itemLabels() {
     skip:      { label: "", placeholder: t("No value needed") },
     text:      { label: t("Display Text"), placeholder: t("Hello, World!") },
     navigate:  { label: t("Target Panel"), placeholder: t("grid_0") },
-    action:    { label: t("Service"), placeholder: t("light/turn_on") },
+    action:    { label: t("Action"), placeholder: t("light/turn_on") },
   };
 }
 
@@ -161,7 +161,7 @@ export function itemPrimaryText(config) {
 
 /**
  * Secondary display text for a row: the underlying value (entity id, target,
- * service, text content). Empty when skip.
+ * action, text content). Empty when skip.
  * @param {object} config
  * @returns {string}
  */

@@ -111,7 +111,7 @@ nav:
     - Reference:
       - Screens Overview: user/screens.md
       - Icons Cheatsheet: user/icons.md
-    - Services: user/services.md
+    - Actions: user/actions.md
     - Dashboard Card: user/dashboard-card.md
     - FAQ: user/faq.md
     - Troubleshooting: user/troubleshooting.md

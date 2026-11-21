@@ -21,7 +21,7 @@
  */
 import { clone } from './constants.js';
 import { t } from './localize.js';
-import { paletteHex, tileColors } from './preset-colors.js';
+import { paletteHex } from './preset-colors.js';
 import { areaSensor, domainEntities, entitiesInArea, hasEntities } from './preset-entities.js';
 import { panelExists } from './panel-roles.js';
 
@@ -698,17 +698,12 @@ function resolvePage(page, { hass, areaId, areaName, panelTypes, choices, preset
     .filter((option) => isBlank(panel[option.key]))
     .map((option) => ({ key: option.key, label: option.label || option.key }));
 
-  // A page may take its own colours from the device theme, and a grid tile is
-  // the one item that carries them - a tile shows the theme background until
-  // the item is on. Neither overrides a colour the preset set explicitly.
+  // A page may take its own colours from the device theme; that never overrides
+  // a colour the preset set explicitly. A grid tile's on background and power
+  // button are not carried here: the hub resolves them from the theme on every
+  // render, so they follow a theme change (`haui/page/grid.py`).
   for (const [colorKey, colorValue] of Object.entries(page.colors?.(theme) || {})) {
     if (colorValue && isBlank(panel[colorKey])) panel[colorKey] = colorValue;
-  }
-  if (typeKey === 'grid' && Array.isArray(panel.items)) {
-    const colors = tileColors(theme);
-    if (Object.keys(colors).length) {
-      panel.items = panel.items.map((entry) => (isBlank(entry?.back_color) ? { ...entry, ...colors } : entry));
-    }
   }
 
   return {

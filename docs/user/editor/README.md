@@ -107,13 +107,13 @@ The **Backups** sidebar exports, imports and copies a device's settings and pane
 
 The **Logs** sidebar shows the 50 most recent messages for a device, newest first and grouped by day. Open it from the **Integration log** tile or from **Logs** in the device's row menu. Filter by **All**, **Warnings** or **Errors**, or search; the copy button copies the lines shown.
 
-On the dashboard, **Latest events** lists warnings and errors of the last 24 hours. **Logs** shows the full log and **Reset** restarts the window from now; **Last 24 hours** brings the default back. Both follow the selected device, or show all devices when none is selected.
+On the dashboard, **Latest events** lists warnings and errors of the last 24 hours. **Logs** shows the full log and **Reset** restarts the window from now; **Last 24 hours** brings the default back. A reset is remembered in the browser, so reloading the editor keeps the shorter window. Both follow the selected device, or show all devices when none is selected.
 
 The logs contain only NSPanel HAUI messages. They are not the full Home Assistant or ESPHome log, and they are not saved to disk.
 
 ### Notifications inbox
 
-The editor header has a **Notifications** inbox. It lists the notifications waiting on all your panels and updates as they arrive. Dismissing one there removes it from the panel too. See [Services → Notifications](../services.md#notifications).
+The editor header has a **Notifications** inbox. It lists the notifications waiting on all your panels and updates as they arrive. Dismissing one there removes it from the panel too. See [Actions → Notifications](../actions.md#notifications).
 
 ## Panels view
 

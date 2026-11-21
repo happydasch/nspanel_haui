@@ -45,7 +45,7 @@ The integration in Home Assistant decides what the panel shows. The firmware on 
 - **Swipe from an edge** to move between panels, open About or open Settings. Change the gestures in [Device settings](user/editor/device.md#gestures).
 - **The display dims and turns off** after its timeouts. A touch wakes it; if an idle page is shown, the touch leaves that page. See [Screen](user/editor/device.md#screen).
 - **An idle page** can open after inactivity, like a screensaver, and returns to the previous panel on wake. See [Home & idle](user/editor/device.md#home-idle).
-- **Notifications queue** on the panel and blink the notification indicator until they are read. See [Services → Notifications](user/services.md#notifications).
+- **Notifications queue** on the panel and blink the notification indicator until they are read. See [Actions → Notifications](user/actions.md#notifications).
 
 ## User guide
 
@@ -75,7 +75,7 @@ The integration in Home Assistant decides what the panel shows. The firmware on 
 ### Dashboard and automation
 
 - [Dashboard Card](user/dashboard-card.md) — show a hub's panels, or one panel, on a dashboard
-- [Services](user/services.md) — control the panel from automations
+- [Actions](user/actions.md) — control the panel from automations
 
 ### Help
 

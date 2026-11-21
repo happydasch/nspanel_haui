@@ -214,7 +214,7 @@ Every entry here needs a Nextion page, which is why they are the expensive items
 - **Actionable notifications** — The popup already has a left and a right button
   and a callback hook; the notification controller uses them for *Dismiss* only.
   What is missing is the user side: labels and an action per button (fire an
-  event or call a service), so the panel can answer a question instead of only
+  event or call an action), so the panel can answer a question instead of only
   acknowledging it.
 
 ### Display and idle behaviour
@@ -386,10 +386,10 @@ These are covered today; the linked docs show how.
   timer and vacuum, each overridable per item with `popup_key`.
 - **Notification queue** with `icon_color`, `sound`, `timeout`, `force_show`,
   persistent looping, and a queue view in the editor —
-  [Notifications](docs/user/services.md).
-- **Per-message notification text size** — `text_size` on the service, the notify
+  [Notifications](docs/user/actions.md).
+- **Per-message notification text size** — `text_size` on the action, the notify
   entities, the popup panel and the ESPHome action, as `auto` (the largest font
-  that fits) or a font id — [Notifications](docs/user/services.md).
+  that fits) or a font id — [Notifications](docs/user/actions.md).
 - **Quiet hours, and a panel that stays dark** — A schedule entry with `sound`
   off silences notifications inside its window while they still queue, and its
   `display_off`/`brightness` keep the panel dark; nothing is dropped, delayed or
@@ -397,7 +397,7 @@ These are covered today; the linked docs show how.
 - **Notification readability** — `text_size` sets the size per message, a
   per-panel theme sets the contrast (the theme library's light and dark
   palettes), and `persistent: true` keeps a message on screen until it is
-  dismissed — [Notifications](docs/user/services.md).
+  dismissed — [Notifications](docs/user/actions.md).
 - **Themes** with light/dark icon palettes, a shared library and per-panel themes.
 - **Schedules**, **gestures**, the **idle page** with carousel, **snapshot
   restore** and **auto-navigate home** — [Device settings](docs/user/editor/device.md).

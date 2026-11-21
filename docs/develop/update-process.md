@@ -299,7 +299,7 @@ After pressing **Install** on the **Firmware** or **Display** row, choose what t
 
 A local file or URL is a manual override: a TFT stays installed until the firmware version changes or Home Assistant restarts, and a firmware install pauses automatic firmware updates until Home Assistant restarts, so the hub does not replace your choice on the next check. A TFT that does not match the firmware may lack pages or widgets the firmware uses, so use an image built for the target panel, especially for custom firmware.
 
-Both installs are also services: `nspanel_haui.update_firmware` and `nspanel_haui.update_tft` take one device, optionally a given `version` or the file at a `url`. They suit automations; see [Services](../user/services.md#display-updates) for the fields and examples.
+Both installs are also actions: `nspanel_haui.update_firmware` and `nspanel_haui.update_tft` take one device, optionally a given `version` or the file at a `url`. They suit automations; see [Actions](../user/actions.md#display-updates) for the fields and examples.
 
 ## What the panel and the editor show
 

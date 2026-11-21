@@ -25,7 +25,7 @@ Normally you don't have to: the hub installs the TFT the firmware needs when the
 - **In Home Assistant:** press **Install** on the panel's **HAUI Display** update entity.
 - **In an automation:** call `nspanel_haui.update_tft`. Add `url` to install your own TFT file.
 
-See [Services](services.md#nspanel_hauiupdate_tft) for the details.
+See [Actions](actions.md#nspanel_hauiupdate_tft) for the details.
 
 ### An update fails or is not possible
 

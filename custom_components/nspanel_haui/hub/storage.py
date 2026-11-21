@@ -10,14 +10,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Coroutine, Mapping
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 
 from ..haui.device_config import DEVICE_CONFIG, find_store_device
-from ..haui.mapping.color import BUILTIN_THEMES
+from ..haui.mapping.color import BUILTIN_THEMES, active_tile_color
 from ..haui.mapping.const import GESTURES
+from ..haui.utils.color import parse_color_value
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -220,8 +222,6 @@ def drop_preset_clock_off_color(device_name: str, device_data: dict[str, Any]) -
     Returns:
         True when a panel was changed.
     """
-    from ..haui.utils.color import parse_color_value
-
     modified = False
     for panel in device_data.get("panels") or []:
         if not isinstance(panel, dict) or panel.get("type") != "clocktwo":
@@ -237,6 +237,86 @@ def drop_preset_clock_off_color(device_name: str, device_data: dict[str, Any]) -
             panel.get("key") or panel.get("title") or "the word clock",
             device_name,
         )
+    return modified
+
+
+# The colours the quick start's grid presets wrote into every tile: the built-in
+# palettes' on-tile background and their entity-on colour.
+PRESET_TILE_COLORS = frozenset(
+    active_tile_color(theme["colors"]["background"], theme["colors"]["entity_on"])
+    for theme in BUILTIN_THEMES.values()
+)
+PRESET_POWER_COLORS = frozenset(theme["colors"]["entity_on"] for theme in BUILTIN_THEMES.values())
+# A preset mixed its colour in RGB888 and the hub mixes in RGB565, so a stored
+# value can sit one step of a channel off the palette entry it names.
+TILE_COLOR_CHANNEL_STEP = 1
+
+
+def _same_color(stored: int, entry: int) -> bool:
+    """Whether two RGB565 colours are the same up to one step of each channel."""
+    return all(
+        abs(((stored >> shift) & mask) - ((entry >> shift) & mask)) <= TILE_COLOR_CHANNEL_STEP
+        for shift, mask in ((11, 0x1F), (5, 0x3F), (0, 0x1F))
+    )
+
+
+def _is_preset_color(value: Any, palette: frozenset[int]) -> bool:
+    """Whether a stored tile colour names one of the quick start's theme colours."""
+    if isinstance(value, bool) or not isinstance(value, str | int):
+        return False
+    if isinstance(value, str) and re.fullmatch(r"#?[0-9a-fA-F]{6}", value.strip()) is None:
+        return False
+    stored = parse_color_value(value)
+    return any(_same_color(stored, entry) for entry in palette)
+
+
+def drop_preset_grid_tile_colors(device_name: str, device_data: dict[str, Any]) -> bool:
+    """Drop the theme colours the quick start's grid presets stored as literals.
+
+    A preset wrote the device theme's on-tile background and power-button colour
+    into every tile, which pinned those tiles to the theme the setup was created
+    in: after a theme change an on tile kept a dark tint on a light page. The hub
+    resolves both from the theme on every render now (``haui/page/grid.py``), so
+    a stored value that is one of the built-in palettes is dropped and a colour
+    the user picked stays.
+
+    Args:
+        device_name: Name of the device, for the log.
+        device_data: One device of the panel store.
+
+    Returns:
+        True when a panel was changed.
+    """
+    modified = False
+    for panel in device_data.get("panels") or []:
+        if not isinstance(panel, dict) or panel.get("type") != "grid":
+            continue
+        dropped = False
+        for entry in panel.get("items") or []:
+            if not isinstance(entry, dict):
+                continue
+            if _is_preset_color(entry.get("power_color"), PRESET_POWER_COLORS):
+                del entry["power_color"]
+                dropped = True
+            back_color = entry.get("back_color")
+            if isinstance(back_color, dict):
+                for state in ("on", "playing"):
+                    if _is_preset_color(back_color.get(state), PRESET_TILE_COLORS):
+                        del back_color[state]
+                        dropped = True
+                if not back_color:
+                    del entry["back_color"]
+            elif _is_preset_color(back_color, PRESET_TILE_COLORS):
+                del entry["back_color"]
+                dropped = True
+        if dropped:
+            modified = True
+            _LOGGER.warning(
+                "Cleared the theme colors of the grid tiles of %s on %s: an on tile "
+                "follows the selected theme",
+                panel.get("key") or panel.get("title") or "a grid panel",
+                device_name,
+            )
     return modified
 
 
@@ -401,6 +481,8 @@ class PanelStorage:
             if drop_fixed_sys_overrides(dev_name, dev_data):
                 modified = True
             if drop_preset_clock_off_color(dev_name, dev_data):
+                modified = True
+            if drop_preset_grid_tile_colors(dev_name, dev_data):
                 modified = True
 
         if normalize_device_order(result):

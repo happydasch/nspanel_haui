@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { hexToRgb565, mixHex, rgb565ToHex } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
+import { hexToRgb565, rgb565ToHex } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
 import {
-  paletteHex, themePalette, tileColors,
+  paletteHex, themePalette,
 } from '../../custom_components/nspanel_haui/frontend/preset-colors.js';
 
 /** A built-in theme library as the hub serves it: RGB565 colours per theme. */
@@ -28,27 +28,6 @@ test('palette entries read as hex colours, whatever the theme stores', () => {
   assert.equal(paletteHex({ header_accent: '#00ff00' }, 'header_accent'), '#00ff00');
   assert.equal(paletteHex({}, 'header_accent'), '');
   assert.equal(paletteHex(null, 'header_accent'), '');
-});
-
-test('a tile is coloured for its active state, and unset without a palette', () => {
-  assert.deepEqual(tileColors(null), {});
-  // A theme without the colours a tint needs leaves the device defaults alone.
-  assert.deepEqual(tileColors({ background: 0x0000 }), {});
-  const colors = tileColors(BUILTINS.dark.colors);
-  // Off keeps the page background, so only the active states are keyed.
-  assert.deepEqual(Object.keys(colors.back_color), ['on', 'playing']);
-  assert.equal(colors.back_color.on, colors.back_color.playing);
-  assert.equal(colors.power_color, '#ffffff');
-  // The tint is the page background lifted towards the theme's on colour.
-  assert.notEqual(colors.back_color.on, '#000000');
-  assert.notEqual(colors.back_color.on, '#ffffff');
-});
-
-test('mixHex blends two colours and refuses anything else', () => {
-  assert.equal(mixHex('#000000', '#ffffff', 0), '#000000');
-  assert.equal(mixHex('#000000', '#ffffff', 1), '#ffffff');
-  assert.equal(mixHex('#000000', '#ffffff', 0.5), '#808080');
-  assert.equal(mixHex('red', '#ffffff', 0.5), '');
 });
 
 test('an RGB565 colour survives a round trip through hex', () => {

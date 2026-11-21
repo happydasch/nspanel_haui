@@ -12,7 +12,7 @@ Every item has its own editor. **Entity picker** searches for an entity or choos
 There are two kinds:
 
 - **Entity items** show a Home Assistant entity, e.g. `light.kitchen`.
-- **Internal items** have no entity: show text, open a panel or call a service. See [Internal items](#internal-items).
+- **Internal items** have no entity: show text, open a panel or call an action. See [Internal items](#internal-items).
 
 ## Fields
 
@@ -89,15 +89,15 @@ An internal item has no entity. Choose its type in the item's type selector, the
 | `skip` | Leaves the place empty | |
 | `text` | Shows text | The text |
 | `navigate` | Opens another panel | The panel key |
-| `action` | Calls a Home Assistant service | The service, e.g. `light.toggle` |
+| `action` | Calls a Home Assistant action | The action, e.g. `light.toggle` |
 
-An `action` can pass data as a JSON object in **Service data**:
+An `action` can pass data as a JSON object in **Action data** (the item's `service_data`):
 
 ```json
 {"brightness": 255, "transition": 2}
 ```
 
-The keys are available as variables when the service is a script.
+The keys are available as variables when the action is a script.
 
 ## Override a default popup
 

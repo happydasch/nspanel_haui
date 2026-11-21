@@ -88,7 +88,7 @@ A saved config shows the current panel again on the loaded page, with `start_pan
 
 ## Worker thread
 
-Every call into an app — device events, state changes, timers, reloads, services, notify — runs on that app's single worker thread, in order.
+Every call into an app — device events, state changes, timers, reloads, actions, notify — runs on that app's single worker thread, in order.
 
 | Work | Use |
 |------|-----|
@@ -163,7 +163,7 @@ The registries are derived from the page descriptors in `haui/mapping/panel.py`;
 | `icon` (optional) | Shown only when set, beside the text (above it in portrait). When omitted, no icon is displayed and the text uses the icon's area too: the full width in landscape, the full height in portrait, so more text fits on each page. `icon_color` colours it |
 | `btn_left`, `btn_right` (optional) | Button labels; a button is shown only when set. Colours via `btn_left_color`, `btn_left_back_color` and the `btn_right_*` equivalents |
 | `icon_color` (optional) | Icon colour in any `parse_color_value` format (`#rrggbb`, RGB565 int, `[r, g, b]`, integer string). Empty or unset means the theme's text colour |
-| `text_size` | `auto` (default: the largest font that fits the message on one page) or a font size 1-3, paged at that size when the message does not fit. The per-notification `text_size` field on the service/actions overrides this panel value |
+| `text_size` | `auto` (default: the largest font that fits the message on one page) or a font size 1-3, paged at that size when the message does not fit. The per-notification `text_size` field on the action overrides this panel value |
 | `close_on_button` | Close when a button is pressed. Default: true |
 | `button_callback_fnc`, `close_callback_fnc` | Callbacks |
 
@@ -191,7 +191,7 @@ Each configured NSPanel HAUI device is linked to its underlying ESPHome device i
 | Surface | Behaves as |
 |---------|------------|
 | Integration page | Lists every claimed ESPHome device; clicking one opens its ESPHome device page, which stays the primary config entry |
-| Service device picker (`integration: nspanel_haui`) | Only ESPHome devices with HAUI firmware; plain ESPHome devices are excluded |
+| Action device picker (`integration: nspanel_haui`) | Only ESPHome devices with HAUI firmware; plain ESPHome devices are excluded |
 | Entry unload | The config entry is removed from the device again |
 | Delete device | Removes the device from the hub like **Remove** in the editor (`async_remove_config_entry_device` in `__init__.py`); its settings and panels are deleted |
 

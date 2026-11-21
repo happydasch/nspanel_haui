@@ -8,6 +8,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
+from ..mapping.color import active_tile_color
 from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
@@ -230,12 +231,19 @@ class GridPage(PagedItemsMixin, HAUIPage):
             self._active_handles.append(handle)
 
     def get_grid_colors(self, item: HAUIItem | None) -> tuple:
-        # Default theme colors — no panel-level overrides.
+        # Default theme colors — no panel-level overrides. An off tile stays flat on
+        # the page, an on tile lifts towards the theme's entity-on colour and shows
+        # its power button in that colour, so both follow a theme change.
+        active = item is not None and self.is_item_active(item)
         text_color: Any = self.get_color("text")
         back_color: Any = self.get_color("background")
+        if active:
+            back_color = active_tile_color(
+                self.get_color("background"), self.get_color("entity_on")
+            )
         color_pressed: Any = self.get_color("component_text")
         back_color_pressed: Any = self.get_color("component_pressed")
-        power_color: Any = self.get_color("component_active")
+        power_color: Any = self.get_color("entity_on") if active else back_color_pressed
 
         # Item-level overrides; resolve state-keyed/templated colours here
         # (a dict would render the tile black).
@@ -245,7 +253,9 @@ class GridPage(PagedItemsMixin, HAUIPage):
             color_pressed = item.get_color_field("color_pressed", color_pressed)
             back_color_pressed = item.get_color_field("back_color_pressed", back_color_pressed)
             power_color = item.get_color_field("power_color", power_color)
-            if not self.is_item_active(item):
+            # The power button's colour is the one while the item is on; an off
+            # tile keeps its glyph flat in the pressed tone.
+            if not active:
                 power_color = back_color_pressed
 
         return text_color, color_pressed, back_color, back_color_pressed, power_color

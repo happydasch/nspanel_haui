@@ -126,7 +126,7 @@ Hub → device actions (ESPHome Native API service calls):
 | `upload_tft_url` (`url`) | Update the TFT from a URL. The hub sends it; use `nspanel_haui.update_tft` (optionally with `url`) or the **HAUI Display** entity instead. |
 | `play_rtttl` (`song_str`) | Play any standard RTTTL string (`name:d=...,o=...,b=...:notes`). |
 | `play_sound` (`name`) | Play a built-in sound: `startup`, `tone`, `tone_up`, `tone_down`, `seq_up`, `seq_down`, `notification`, `alert_fast`, `alert` or `elise` (`scripts_common.yaml` holds the RTTTL strings). |
-| `send_notification` (`title`, `message`, `icon`, `persistent`, `text_size`, `icon_color`, `sound`) | All parameters are required here, while the HA service and notify entities expose them as optional: pass `""` for no icon or colour, `"none"` for a silent notification, `false` and `"auto"` for the defaults. `icon_color` accepts `#rrggbb` or an RGB565 number. No force-show and no timeout field; a persistent notification still opens immediately, loops its sound and re-opens the popup about every 60 s until dismissed. |
+| `send_notification` (`title`, `message`, `icon`, `persistent`, `text_size`, `icon_color`, `sound`) | All parameters are required here, while the HA action and notify entities expose them as optional: pass `""` for no icon or colour, `"none"` for a silent notification, `false` and `"auto"` for the defaults. `icon_color` accepts `#rrggbb` or an RGB565 number. No force-show and no timeout field; a persistent notification still opens immediately, loops its sound and re-opens the popup about every 60 s until dismissed. |
 
 A playing tune is stopped before a TFT upload, an OTA firmware update or a reboot — those block the buzzer's main loop, so the current note would otherwise keep sounding.
 

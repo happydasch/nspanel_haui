@@ -1,14 +1,14 @@
 ---
-title: Services
-description: Home Assistant services provided by NSPanel HAUI for display control and device management
+title: Actions
+description: Home Assistant actions provided by NSPanel HAUI for display control and device management
 ---
 
-# Services
+# Actions
 
-NSPanel HAUI adds services (actions) to Home Assistant, so automations and scripts can control the panel. You can try them under **Developer Tools → Actions**.
+NSPanel HAUI adds actions to Home Assistant, so automations and scripts can control the panel. You can try them under **Developer Tools → Actions**. Older Home Assistant versions call them services.
 
-| Service | What it does |
-|---------|--------------|
+| Action | What it does |
+|--------|--------------|
 | [`nspanel_haui.send_notification`](#nspanel_hauisend_notification) | Show a notification |
 | [`nspanel_haui.open_panel`](#nspanel_hauiopen_panel) | Open a panel |
 | [`nspanel_haui.close_panel`](#nspanel_hauiclose_panel) | Close the current panel |
@@ -22,9 +22,9 @@ The integration also provides [notify entities](#notify-platform-standard-notify
 
 **The `device` field**
 
-- For navigation and notifications, `device` is optional. Without it, the service acts on all panels.
+- For navigation and notifications, `device` is optional. Without it, the action applies to all panels.
 - For `update_tft` and `update_firmware`, `device` is required, so an install never starts on every panel by accident.
-- Choose the panel in the service's **Device** selector. In YAML, `device` is the device ID of the panel's NSPanel HAUI device or of its ESPHome device.
+- Choose the panel in the action's **Device** selector. In YAML, `device` is the device ID of the panel's NSPanel HAUI device or of its ESPHome device.
 - A call with a `device` that is not a running panel fails with an error.
 
 ## Navigation & Display Control
@@ -108,7 +108,7 @@ data:
 
 | Way | Options |
 |-----|---------|
-| `nspanel_haui.send_notification` service | All options |
+| `nspanel_haui.send_notification` action | All options |
 | `notify.<device>` entities | Title and message only |
 | ESPHome `send_notification` action | No `force_show` and no timeout; a notification that is not persistent only shows when the indicator is tapped |
 
@@ -408,7 +408,7 @@ A voice assistant can show messages on a panel when you give it a script to call
 
 ## Display Updates
 
-Updates normally run on their own, see [Updating](update.md). These services and entities are for automations and for installing a specific version.
+Updates normally run on their own, see [Updating](update.md). These actions and entities are for automations and for installing a specific version.
 
 ### `nspanel_haui.update_tft`
 
@@ -438,7 +438,7 @@ data:
 Good to know:
 
 - **Progress.** The display reports no percentage. The state goes from *checking* to *installing* to *done*, or to *error* with the reason. You see it in the **Updates** sidebar, in the device's **Diagnostics** and on the **HAUI Display** entity.
-- **A file from a URL stays.** The hub does not replace it with the release TFT until the firmware version changes or Home Assistant restarts. Calling the service without `version` and `url` also installs the release TFT again.
+- **A file from a URL stays.** The hub does not replace it with the release TFT until the firmware version changes or Home Assistant restarts. Calling the action without `version` and `url` also installs the release TFT again.
 - **A file from a URL has no version the hub can check.** The install counts as done when the panel restarts after the upload. An upload without a restart is reported as failed, see [Troubleshooting](troubleshooting.md#tft-install-fails-with-the-panel-did-not-reboot-after-the-upload).
 - A TFT that does not match the firmware may lack pages the firmware uses.
 

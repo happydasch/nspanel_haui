@@ -15,7 +15,7 @@ Pixelmator sources they are rendered from.
 
 The hub installs TFTs itself: use the **HAUI Display** update entity or **Display
 (TFT)** in the editor's **Updates** sidebar. To install your own build, pass its URL
-to the [TFT update service](../docs/user/services.md).
+to the [TFT update action](../docs/user/actions.md).
 
 Both TFTs are attached to every GitHub release. The hub picks the one for a device
 from its `display_model` setting — see

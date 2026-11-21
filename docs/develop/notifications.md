@@ -7,7 +7,7 @@ description: The notification queue, delivery paths, timers, presentation and ev
 
 A notification enters a per-device queue, opens a popup that survives navigation, and leaves only when the user dismisses it or its `timeout` expires. Read this when you add a delivery path, change the popup, or queue a notification from your own code.
 
-One rule governs every path: **a notification is never dropped, delayed or hidden**. Auto-dismissal happens only through the service's `timeout`, the queue plays through in order (`_advance_queue`), a persistent notification re-opens every 60 s, and a queued popup gets no `close_timeout`. A muted schedule, a busy display or an open popup changes when and how a notification appears, never whether it does.
+One rule governs every path: **a notification is never dropped, delayed or hidden**. Auto-dismissal happens only through the action's `timeout`, the queue plays through in order (`_advance_queue`), a persistent notification re-opens every 60 s, and a queued popup gets no `close_timeout`. A muted schedule, a busy display or an open popup changes when and how a notification appears, never whether it does.
 
 Everything below the entry points runs inside one `HAUINotificationController` per device, on that device app's worker thread.
 
@@ -44,19 +44,19 @@ Everything below the entry points runs inside one `HAUINotificationController` p
 
 `notif_id` is assigned when the notification is queued, never by the caller. Do not substitute `id(notification)`: CPython reuses the identity of a freed tuple, and the queue replaces entries.
 
-The hub has no severity presets; `info`/`warning`/`alert`/`critical`/`silent` live in a Home Assistant script that fills in the fields above: [Services → Preset notification script](../user/services.md#preset-notification-script).
+The hub has no severity presets; `info`/`warning`/`alert`/`critical`/`silent` live in a Home Assistant script that fills in the fields above: [Actions → Preset notification script](../user/actions.md#preset-notification-script).
 
 ## Delivery paths
 
-All three entry points converge on `HAUINotificationController.add_notification()`. Only the HA service carries the full option set.
+All three entry points converge on `HAUINotificationController.add_notification()`. Only the HA action carries the full option set.
 
 | Path | Options | Notes |
 |------|---------|-------|
-| `nspanel_haui.send_notification` service | `title`, `message`, `icon`, `persistent`, `force_show`, `icon_color`, `sound`, `text_size`, `timeout` | Recommended; targets one device or every panel (omit `device`). The controller applies `force_show = force_show or persistent` |
+| `nspanel_haui.send_notification` action | `title`, `message`, `icon`, `persistent`, `force_show`, `icon_color`, `sound`, `text_size`, `timeout` | Recommended; targets one device or every panel (omit `device`). The controller applies `force_show = force_show or persistent` |
 | `notify.<device>` / `notify.<device>_persistent_notification` | `title`, `message` only | The persistent entity sets only `persistent`; the controller's persistent rule supplies `force_show`, the loop and the icon/sound defaults |
-| ESPHome `send_notification` action | `title`, `message`, `icon`, `persistent`, `text_size`, `icon_color`, `sound` (all required by the action) | The HA service and notify entities expose the same fields as optional. Sends an `esphome.send_notification` JSON event; no force-show and no timeout |
+| ESPHome `send_notification` action | `title`, `message`, `icon`, `persistent`, `text_size`, `icon_color`, `sound` (all required by the action) | The HA action and notify entities expose the same fields as optional. Sends an `esphome.send_notification` JSON event; no force-show and no timeout |
 
-The service schema validates `icon_color` as `#rrggbb`, an RGB565 number, `[r, g, b]` or an integer string, `sound` against `SOUND_NAMES` plus `none`, `text_size` as `auto` or `1..3`, and `timeout` as `0..3600`. A call without a matching device raises `ServiceValidationError` instead of doing nothing, and a sound name outside `SOUND_NAMES` raises `ValueError` in the controller.
+The action schema validates `icon_color` as `#rrggbb`, an RGB565 number, `[r, g, b]` or an integer string, `sound` against `SOUND_NAMES` plus `none`, `text_size` as `auto` or `1..3`, and `timeout` as `0..3600`. A call without a matching device raises `ServiceValidationError` instead of doing nothing, and a sound name outside `SOUND_NAMES` raises `ValueError` in the controller.
 
 ## Queue lifecycle
 

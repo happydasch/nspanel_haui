@@ -36,7 +36,7 @@ The universal image needs no per-device build: `name_add_mac_suffix: true` appen
 
 The **HAUI Firmware** and **HAUI Display** entities install from the selected manifest; the settings and the install order are in [Update Process](update-process.md#settings). When the selected manifest does not carry the TFT an installed firmware requires, the hub also reads the manifest of the release named like that firmware's version, and uses it only when firmware version and required TFT version match (the build variant is not compared, because a release ships one universal image but a TFT that serves both variants).
 
-Outside the channels, both services install one panel directly: `nspanel_haui.update_firmware` with `url` (an OTA image) or `version` (another release, older ones included) pauses the automatic firmware update until Home Assistant restarts, and `nspanel_haui.update_tft` with `url` or `version` installs a display image by hand. A local manifest written by `scripts/dev_release.py` carries no `tft` block, so a panel following a **Custom manifest URL** keeps its display unless you install one of these.
+Outside the channels, both actions install one panel directly: `nspanel_haui.update_firmware` with `url` (an OTA image) or `version` (another release, older ones included) pauses the automatic firmware update until Home Assistant restarts, and `nspanel_haui.update_tft` with `url` or `version` installs a display image by hand. A local manifest written by `scripts/dev_release.py` carries no `tft` block, so a panel following a **Custom manifest URL** keeps its display unless you install one of these.
 
 ## Versioning and tags
 
@@ -207,7 +207,7 @@ Every run updates `manifest.json`, `pyproject.toml` and `yaml_version`; only `--
 
 ### 4. Docs and firmware
 
-1. Update the user docs for behaviour changes (install, services, display models).
+1. Update the user docs for behaviour changes (install, actions, display models).
 2. Write the `docs/user/update.md` entry and the CHANGELOG *Breaking changes* line for every breaking change.
 3. Validate the docs and the firmware config on the candidate:
 

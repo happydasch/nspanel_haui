@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from ..utils.color import mix_rgb565
+
 COLORS = {
     # dark theme: page < header < cards < pressed, on 8-step greys.
     "header_background": 6339,  # [24, 24, 24]
@@ -351,6 +353,26 @@ THEME_GLOBALS = {
     "component_pressed": "thmPressed",
     "component_background": "thmCompBg",
 }
+
+# How far an on grid tile is lifted off the page: the theme's entity-on colour
+# mixed into the page background.
+TILE_TINT = 0.16
+
+
+def active_tile_color(background: int, entity_on: int) -> int:
+    """Return the background of a grid tile whose item is on.
+
+    The tile lifts towards the theme's entity-on colour instead of a stored one,
+    so the lift follows the theme the panel draws in.
+
+    Args:
+        background: The theme's page background.
+        entity_on: The theme's entity-on colour.
+
+    Returns:
+        int: The RGB565 background of a tile whose item is on.
+    """
+    return mix_rgb565(background, entity_on, TILE_TINT)
 
 
 class Theme:

@@ -185,13 +185,13 @@ test('an entity list option whose choices are empty offers the entity picker', (
 });
 
 /** Render the inline item editor for one item of a panel with `itemOptions`. */
-function mountItemEditor(itemOptions, config) {
+function mountItemEditor(itemOptions, config, itemType = 'text') {
   const container = document.createElement('div');
   const descriptor = { type_key: 'grid', item_options: itemOptions };
   const h = {
     _editingPanel: { index: 0, data: { type: 'grid' } },
     _editingItem: { optKey: 'entities', index: 0, config, domain: '' },
-    _editingItemType: 'text',
+    _editingItemType: itemType,
     requestUpdate() { render(renderItemEditFields(h, descriptor), container); },
   };
   h.requestUpdate();
@@ -245,6 +245,14 @@ test('the advanced item fields fold behind a native disclosure', () => {
   const { container } = mountItemEditor([], { item: 'Hello' });
   const summary = byText(container, 'Advanced');
   assert.equal(summary.closest('summary')?.parentElement?.tagName, 'DETAILS');
+});
+
+test('an action item passes what is typed into Action data as service_data', () => {
+  const { h, container } = mountItemEditor([], { item: 'action:light/turn_on' }, 'action');
+  const data = byLabel(container, 'Action data');
+  assert.equal(data.tagName, 'TEXTAREA', 'the action data field is the action item\'s data box');
+  typeInto(data, '{"brightness": 255}');
+  assert.deepEqual(h._editingItem.config, { item: 'action:light/turn_on', service_data: { brightness: 255 } });
 });
 
 /** Render the inline item editor for an entity item; `hass` has the entity's state. */

@@ -16,7 +16,7 @@ It opens:
 - right away for a notification sent with `force_show` or `persistent`, or
 - when you tap the notification indicator.
 
-See [Notifications](../services.md#notifications) for how notifications behave on the panel, and [Services](../services.md#nspanel_hauisend_notification) for how to send one.
+See [Notifications](../actions.md#notifications) for how notifications behave on the panel, and [Actions](../actions.md#nspanel_hauisend_notification) for how to send one.
 
 ## What it shows
 

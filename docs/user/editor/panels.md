@@ -88,7 +88,7 @@ Selecting a panel opens its editor in a sidebar.
 |-------|--------------|
 | **Type** | The panel type, e.g. `clock`, `grid` or `light`. Set when the panel is added and cannot be changed; delete and re-add it instead. |
 | **Title** | Header text. A title too long for the header is cut and ends in `..`. |
-| **Key** | Unique name of the panel on this device, used by items, gestures and services. |
+| **Key** | Unique name of the panel on this device, used by items, gestures and actions. |
 | **Show in navigation** | On (default): reached by swiping and header buttons. Off: opened stacked on another panel, see [Stacked panels and popups](#stacked-panels-and-popups). |
 | **Panel pin** | A numeric PIN the panel asks for before it opens. |
 | **Close automatically after (seconds)** | Closes the panel and goes back after this many seconds. `0` (default) keeps it open. |
@@ -114,7 +114,7 @@ Navigation panels are reached by swiping or with the header buttons. Any panel c
 - from a `navigate` item, see [Internal items](items.md#internal-items)
 - from an item's `popup_key`, see [Override a default popup](items.md#override-a-default-popup)
 - with a gesture, see [Gestures](device.md#gestures)
-- with the [`nspanel_haui.open_panel`](../services.md#nspanel_hauiopen_panel) service
+- with the [`nspanel_haui.open_panel`](../actions.md#nspanel_hauiopen_panel) action
 
 ## Stacked panels and popups
 

@@ -41,6 +41,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Editor: the quick start fills grid and row pages with available entities and creates them even when empty ([Quick Start Guide](docs/user/get-started.md)).
 - Editor: Backups lays **Export** and **Import** side by side, and **Copy to other devices** has select all, clear and a status line ([Backups](docs/user/editor/README.md)).
 - Editor: the titlebar stays pinned while a screen scrolls, and device sticky panels pin below it.
+- Editor: **Latest events** keeps the moment **Reset** set across a reload, and **Last 24 hours** clears it ([Logs](docs/user/editor/README.md#logs)).
+- Editor: an internal item's **Action** and **Action data** use Home Assistant's wording instead of **Service** and **Service data** ([Items](docs/user/editor/items.md#internal-items)).
 - Development: `make check` runs the frontend, version, icon and translation checks, `make screens-check` verifies the screen overview, and the git hook refuses unstaged layout inputs ([Development](docs/develop/development.md)).
 - Development: `make esphome-compile` and `make esphome-size` compile a firmware config and fail an image that fills 92 % of its app partition ([ESPHome](docs/develop/esphome.md)).
 - Release: `make release-preflight`, `scripts/release/publish_stable.py`, uv-based CI installs and a separate screen-render job ([Release process](docs/develop/release.md)).
@@ -55,12 +57,15 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Docs: the user guide shows the editor screens, the panels' popups and the dashboard card in screenshots ([The Editor](docs/user/editor/README.md)).
 - Docs: the README's quick start, editor and panels banners are captured from HTML pages like the hero, next to the editor screenshots and the dashboard card captures, and `tests/test_docs_images.py` fails a page that points at a missing picture ([Design Guidelines](docs/develop/design.md)).
 - Docs: the generated **Screens overview** and **Icons cheatsheet** are pages of the guide, embedded in the site so the navigation stays, and still open full screen in a new tab ([Screens Overview](docs/user/screens.md), [Icons Cheatsheet](docs/user/icons.md)).
+- Docs: the services reference is the **Actions** page at `user/actions.html`, following Home Assistant's name for them; every link points there ([Actions](docs/user/actions.md)).
 - Repository: `CONTRIBUTING.md`, `SECURITY.md` and issue forms state how to contribute, report a vulnerability and file a bug ([Contributing](CONTRIBUTING.md)).
 - Licensing: `licenses/` carries the notices for Roboto, Material Design Icons and the bundled Nextion and ESPHome tooling ([Third-party notices](licenses/README.md)).
 
 ### Fixed
 
 - Panels: light themes keep body text and control icons readable ([Color Themes](docs/user/editor/themes.md)).
+- Panels: a grid tile whose item is on lifts off the page in the selected theme's on color and draws its power button in that color, so the tile follows a theme change instead of the theme the setup was created in; the store clears the theme colors a quick start wrote into grid tiles ([Panel Grid](docs/user/panels/panel_grid.md)).
+- Editor: a saved theme's new colors reach the panel previews and the dashboard card, instead of every card keeping the old palette until the editor is reloaded ([Color Themes](docs/user/editor/themes.md)).
 - Panels: a collapsed single-navigation header button stays correct when a page updates it ([Panel QR-Code](docs/user/panels/panel_qr.md)).
 - Panels: the quick start's word clock no longer stores the muted text tone for unlit letters ([Panel Clock Two](docs/user/panels/panel_clocktwo.md)).
 - Editor: the quick start's configurations and the pages they create use the editor's language ([Quick Start Guide](docs/user/get-started.md)).
@@ -299,7 +304,7 @@ Thanks to [@pikas1](https://github.com/pikas1) for the Slovak translation
 - The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/user/editor/device.md#home-idle)).
 - Update the integration first, then install matching firmware and TFT; mixed hub and firmware versions are unsupported ([Upgrade guide](docs/user/update.md#automatic-page-switching-moved-to-the-hub)).
 - Notification `type` (`info`/`warning`/`critical`) is replaced by `icon_color` and `sound` on `nspanel_haui.send_notification`; the `nspanel_haui.notification` event carries both instead of `notif_type`, and the ESPHome `send_notification` action requires the two new variables ([Upgrading](docs/develop/upgrading.md#045)).
-- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/user/services.md#notifications)).
+- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/user/actions.md#notifications)).
 
 ### Added
 
@@ -386,7 +391,7 @@ Thanks to [@pikas1](https://github.com/pikas1) for the Slovak translation
   ([Update Process](docs/develop/update-process.md#on-the-display)).
 - A notification sent without an icon shows none and uses the full text width;
   its icon colour and sound are general notification fields
-  ([Services](docs/user/services.md#nspanel_hauisend_notification)).
+  ([Actions](docs/user/actions.md#nspanel_hauisend_notification)).
 - Grid tile, alarm keypad/action-button and Clock Two word colors default to the
   active color scheme; their optional color settings override it per panel or
   item. Values saved from older versions keep overriding until **Reset existing

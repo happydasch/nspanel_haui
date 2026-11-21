@@ -54,6 +54,8 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
     urls,
     api,
     store,
+    // The editor reads and writes the store through `_store` (as the shell does).
+    _store: store,
     hass: {
       language: 'en',
       locale: { language: 'en' },

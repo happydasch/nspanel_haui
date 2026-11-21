@@ -61,6 +61,8 @@ Panel cards (`/render`, `VirtualPanelHost.async_render`) run one panel's page th
 
 The result is `{"page", "before", "commands"}`: `before` is what the hub sends before switching to the page (the theme colours and its picture background), and the editor replays the whole thing in the Nextion simulator. A user card renders the editor's config, unsaved edits included; a system card renders the device's configured panel by `key`.
 
+A card's render key (`previews/previewer.js`) covers everything the hub draws with: the device, its saved settings and panels, the device info its pages show, and the theme definition the device draws in. That theme is read from the store's `hub.themes` — the library `api/editor.themes` returns, which `editor-data.js` commits on every load — so a palette the sidebar saved reaches the cards without a page reload.
+
 Popups open with the sample context `preview_kwargs()` defines (`web/preview/virtual_panel.py`: an example notification, sample choices, a panel to unlock) or, for an entity popup — recognised by its system key, so an edited one too — an entity of its `item` option's domain while its config names none: the first one that is on, else the first one that is off. A card rendered with its own `kwargs` — the panel editor's entity popup, which picks a random entity of the domain once per editing session — wins over the sample.
 
 ## Live mode

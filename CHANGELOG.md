@@ -22,7 +22,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Fixed
 
-- Firmware: the panel draws fast again — opening a panel and paging inside one. The component phase is gated on `esphome: loop_interval` (ESPHome's default is 16 ms) and the Nextion pacer sends one command per phase, so `command_spacing: 2ms` was really 16 ms per command; opening a panel (112–156 commands) took 1.8–2.5 s and a paging step 0.4–0.5 s. The firmware runs the loop every 2 ms again ([Nextion component](docs/develop/nextion.md#command-pacing-costs-one-component-phase-per-command)).
+- Firmware: the panel draws fast again — opening a panel and paging inside one. The component phase is gated on `esphome: loop_interval` (ESPHome's default is 16 ms) and the Nextion pacer sends one command per phase, so `command_spacing: 2ms` was really 16 ms per command; opening a panel (112–156 commands) took 1.8–2.5 s and a paging step 0.4–0.5 s, and a full command queue needed longer to drain than its 8 s stale age, so the tail of a heavy render was dropped unsent and left stale widgets. The firmware runs the loop every 2 ms again ([Nextion component](docs/develop/nextion.md#command-pacing-costs-one-component-phase-per-command)).
 
 ## [0.5.3] — 2026-11-21
 

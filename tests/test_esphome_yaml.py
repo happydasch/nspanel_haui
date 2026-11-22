@@ -12,6 +12,25 @@ def _read(name: str) -> str:
     return (ROOT / name).read_text()
 
 
+def _ms(text: str, key: str) -> int | None:
+    """An option whose value is written as ``<n>ms``, or None when it is not set."""
+    match = re.search(rf"^\s+{key}:\s*(\d+)\s*ms\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _count(text: str, key: str) -> int | None:
+    """An option whose value is a plain integer, or None when it is not set."""
+    match = re.search(rf"^\s+{key}:\s*(\d+)\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _component_default_ms(key: str) -> int | None:
+    """The default the vendored component declares for ``key`` (e.g. max_queue_age)."""
+    source = (ROOT.parent / "nextion_patch" / "nextion" / "display.py").read_text()
+    match = re.search(rf'{key.upper()},\s*default="(\d+)ms"', source)
+    return int(match.group(1)) if match else None
+
+
 def _load_tagged(path: Path) -> dict:
     """Parse ESPHome YAML, keeping custom tags (``!remove`` …) as ``"!<tag>"``."""
 
@@ -78,10 +97,30 @@ def test_loop_interval_does_not_outrun_the_command_spacing():
     by default). A loop interval above the spacing therefore makes every render
     slower than configured — 16 ms per command is a panel page taking seconds.
     """
-    loop = re.search(r"^\s+loop_interval:\s*(\d+)ms\s*$", _read("base.yaml"), re.MULTILINE)
-    spacing = re.search(r"^\s+command_spacing:\s*(\d+)ms\s*$", _read("display.yaml"), re.MULTILINE)
+    loop = _ms(_read("base.yaml"), "loop_interval")
+    spacing = _ms(_read("display.yaml"), "command_spacing")
     assert loop is not None and spacing is not None
-    assert int(loop.group(1)) <= int(spacing.group(1))
+    assert loop <= spacing
+
+
+def test_a_full_command_queue_drains_before_its_entries_expire():
+    """``max_queue_age`` must not purge a command the pacer never sent.
+
+    A full queue drains at one command per component phase, so the age limit has
+    to cover ``max_queue_size × command_spacing``. At 16 ms per command a full
+    queue needed 12.8 s against the component's 8 s default, and the tail of a
+    heavy render was dropped unsent instead of merely arriving late.
+    """
+    display = _read("display.yaml")
+    size = _count(display, "max_queue_size")
+    spacing = _ms(display, "command_spacing")
+    age = _ms(display, "max_queue_age")
+    if age is None:
+        age = _component_default_ms("max_queue_age")
+    assert size is not None and spacing is not None and age is not None
+    assert size * spacing <= age, (
+        f"a full queue needs {size * spacing} ms to drain but entries expire after {age} ms"
+    )
 
 
 def test_tft_upload_tx_buffer_fits_the_github_redirect():

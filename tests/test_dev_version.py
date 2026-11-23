@@ -71,3 +71,13 @@ def test_version_kind_is_shared_with_manual_bumps():
     assert dev_version.version_kind("0.4.5.dev17+gabcdef0") is None
     assert dev_version.version_kind("0.4.5") == "stable"
     assert dev_version.version_kind("0.4.5-dev17") is None
+
+
+def test_the_next_patch_matches_the_first_build_of_that_cycle():
+    # The release sync opens the next patch's changelog section and the first dev build
+    # derives its version from the released one, so the two must answer the same thing.
+    assert dev_version.next_patch("0.5.4") == "0.5.5"
+    assert dev_version.next_patch("0.9.9") == "0.9.10"
+    assert dev_version.derive_dev_version("0.5.4", 77).startswith(dev_version.next_patch("0.5.4"))
+    with pytest.raises(ValueError, match="Expected a stable X.Y.Z release"):
+        dev_version.next_patch("0.5.4.dev76")

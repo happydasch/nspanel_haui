@@ -24,6 +24,19 @@ def version_kind(version: str) -> str | None:
     return None
 
 
+def next_patch(version: str) -> str:
+    """The version whose changelog section follows ``version``: the next patch release.
+
+    The release sync opens that section and the next development build derives its base
+    from the released version, so both must answer the same thing.
+    """
+    match = _STABLE_RE.fullmatch(version)
+    if not match:
+        raise ValueError(f"Expected a stable X.Y.Z release, got {version!r}")
+    major, minor, patch = map(int, match.groups())
+    return f"{major}.{minor}.{patch + 1}"
+
+
 def derive_dev_version(current_version: str, run_number: str | int) -> str:
     """Derive the PEP 440 dev version from the branch version and run number.
 
@@ -34,8 +47,9 @@ def derive_dev_version(current_version: str, run_number: str | int) -> str:
     stable = _STABLE_RE.fullmatch(current_version)
     previous_dev = _DEV_RE.fullmatch(current_version)
     if stable:
-        major, minor, patch = map(int, stable.groups())
-        base = f"{major}.{minor}.{patch + 1}"
+        # The first build of a cycle continues the released version, so a patch cycle
+        # needs no bump commit.
+        base = next_patch(current_version)
     elif previous_dev:
         base = ".".join(previous_dev.groups())
     else:

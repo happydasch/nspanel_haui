@@ -36,6 +36,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from scripts.release.dev_version import next_patch
 from scripts.release.publish_stable import REPO, remote_is_canonical
 
 MANIFEST = "custom_components/nspanel_haui/manifest.json"
@@ -99,8 +100,7 @@ def released_version(master: str) -> str:
 
 def next_version(released: str) -> str:
     """The version whose changelog section the sync opens."""
-    major, minor, patch = released.split(".")
-    return f"{major}.{minor}.{int(patch) + 1}"
+    return next_patch(released)
 
 
 def is_dev_build(version: str, released: str) -> bool:

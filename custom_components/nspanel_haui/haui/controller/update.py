@@ -1247,6 +1247,11 @@ class HAUIUpdateController(HAUIBase):
             },
         )
 
+    @property
+    def tft_install_active(self) -> bool:
+        """Whether a TFT upload is in flight, so the display accepts no command."""
+        return self._update_state == UPDATE_STATE_INSTALLING
+
     def get_update_state(self) -> dict[str, Any]:
         """Return the current TFT update state for the device status payload.
 

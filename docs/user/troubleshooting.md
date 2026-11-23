@@ -59,13 +59,38 @@ Since the firmware that reports upload failures, the hub shows the panel's own r
 | `the server does not support range requests` | The host answers the whole file to every request; the panel downloads a TFT in ranges | Serve the file from Home Assistant's own `www` folder (`/local/…`) or another host that supports ranges |
 | `the file size … is out of range` | The download is smaller than 4 KiB or bigger than 128 MiB — usually an HTML error page instead of a `.tft` | Point `url` at the `.tft` file itself |
 | `the panel has no network connection` | The panel lost Wi-Fi before the download started | Check the panel's Wi-Fi and try again |
-| `the display refused the upload` | The display is in a state where it will not take a file (a half-finished upload) | Power-cycle the panel, then install again |
+| `the display refused the upload` | The display is in a state where it will not take a file: a half-finished upload, or firmware running against a display that carries another program | Power-cycle the panel, then install again; if it refuses at once every time, see [The panel refuses every TFT upload](#the-panel-refuses-every-tft-upload) |
 | `an upload is already running` | A second request arrived while the first transfer was still running | Wait for it to finish; power-cycle the panel if it never does |
 | `A TFT install started at … is still running` | The hub refused a second install because one is in flight | Wait, or power-cycle the panel to clear an upload that never finishes |
 
 A `url` that Home Assistant cannot read is **not** one of these: the hub warns and starts the install anyway, because the panel's network can differ from Home Assistant's. The editor and the action refuse a URL only when Home Assistant got a definite answer (a `404`, no range support, too large).
 
-### The action or Install button says it started, but nothing happens
+### The panel refuses every TFT upload
+
+**Cause:** the display is not answering the hub at all. The tell is a combination, not one line:
+
+- `Checking installed version: required=0.4.5 installed=` — the display never delivered the text of `system.tftVersion`.
+- `Page event not received within timeout` — it never acknowledged a page change either. This appears **before** the install starts, which rules out an upload that went wrong.
+- `the display refused the upload (power-cycle it to recover)` on every attempt.
+
+Together they mean the display is not running the HAUI TFT — typically a panel still on the stock Sonoff firmware — or it is wedged in upload mode. Home Assistant cannot send it anything, including the file that would fix it.
+
+**Fix:** flash it once outside Home Assistant, then let the hub take over:
+
+1. **Cut power** to the panel for a few seconds. An ESPHome restart does not clear the display's upload state; only its own power cycle does.
+2. If it still refuses, upload a TFT over the serial header with the Nextion Editor — the wiring is in [Reading from UART timed out](#reading-from-uart-timed-out-at-byte-0-or-upgrade-response-is-0) below. Use `nspanel_haui.tft` from the release the firmware requires (the `installed=`/`required=` numbers name it).
+3. The next connect hands the panel its page and the version arrives, so `installed=` fills in and automatic updates work again.
+
+The reason it failed is in the **ESPHome log**, not the Home Assistant log. Two lines decide the diagnosis:
+
+| ESPHome log line | Meaning |
+|------------------|---------|
+| `Upload resp: [...]` with an **empty** byte list | The display's transmit line is dead — wiring, or the UART pins swapped. A protocol problem would show at least one byte |
+| `Upload prep failed 1a` / `23` | The display is alive and answers, but refuses the upload command: it is running a foreign program, or is stuck in upload mode |
+
+The hub itself holds every display command while an install is in flight, so a page switch during an upload can no longer be written into the transfer.
+
+
 
 **Cause:** an install was already in flight, or the panel had not handed over to the hub yet. The editor and `nspanel_haui.update_tft` now fail with the reason instead of returning a false success.
 

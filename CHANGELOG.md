@@ -13,6 +13,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
+- Display: the hub holds every display command while a TFT install is in flight, so a page switch, a timer or a notification can no longer be written into the transfer; the panel stops acknowledging pages during an upload, which used to make the page-ack timeout redraw the whole panel into it ([Troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
 - Release: `master` is the only long-lived branch. A release is a pull request merged plus a `vX.Y.Z` tag; the post-release sync, `release/X.Y.Z` preparation on a second branch, `make release-preflight` and `publish_stable.py` are gone, and a development build reports its version through `esphome -s` instead of committing it, so no workflow pushes to a branch ([Release process](docs/develop/release.md#published-development-firmware)).
 
 ## [0.5.4] — 2026-11-23

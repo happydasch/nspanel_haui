@@ -11,6 +11,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.5] — unreleased
 
+### Changed
+
+- Release: `master` is the only long-lived branch. A release is a pull request merged plus a `vX.Y.Z` tag; the post-release sync, `release/X.Y.Z` preparation on a second branch, `make release-preflight` and `publish_stable.py` are gone, and a development build reports its version through `esphome -s` instead of committing it, so no workflow pushes to a branch ([Release process](docs/develop/release.md#published-development-firmware)).
+
 ## [0.5.4] — 2026-11-23
 
 ### Breaking changes

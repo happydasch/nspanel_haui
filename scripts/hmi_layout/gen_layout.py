@@ -237,13 +237,6 @@ def _write_attr(raw: bytearray, widget: Widget, att: str, value: int) -> None:
     widget.attrs[att] = value
 
 
-def _write_geometry(raw: bytearray, widget: Widget, rect: Rect) -> None:
-    x, y, w, h = rect
-    values = {"x": x, "y": y, "w": w, "h": h, "endx": x + w - 1, "endy": y + h - 1}
-    for att, value in values.items():
-        _write_attr(raw, widget, att, value)
-
-
 def _restamp(raw: bytearray, block: PageBlock, old_crc: int) -> None:
     """Replace a page block's content stamp after its bytes changed (same length)."""
     (old_stamp,) = struct.unpack_from("<I", raw, block.start)

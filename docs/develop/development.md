@@ -46,7 +46,6 @@ Activate `.venv` in every shell that runs a `make` target: the system `python` a
 | `make screens-check` | `docs/screens.html` and its PNGs against a fresh render (needs Chrome) |
 | `make version-check` | The integration version against its firmware mirrors |
 | `make generated-check` | Icon cheatsheet and locale files are current |
-| `make release-preflight` | Read-only report of what a stable release still needs |
 | `make esphome-config`, `make esphome-compile`, `make esphome-size` | Firmware validation, build and partition fit, in the ESPHome environment |
 
 Raw commands, for one check:

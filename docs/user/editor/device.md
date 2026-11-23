@@ -215,7 +215,7 @@ Older swipe settings are converted into gestures when the device settings load a
 
 - **Log Level** — how much this device writes to the Home Assistant log: Critical, Error, Warning, Info or Debug. Debug adds state changes and display commands.
 - **Stale data threshold (seconds)** — marks old **Row** values: a value whose entity has not updated for this many seconds is dimmed and ends in `…`. Set it just above the slowest sensor's update interval. `0` turns it off.
-- **Page settle delay (seconds)** — how long the hub waits after the display confirms a page change before drawing. Raise it only if the log shows invalid-variable errors right after page changes.
+- **Page settle delay (seconds)** — how long the hub waits after the display confirms a page change before drawing. The default of `0.05` s is enough because the confirmation already means the new page is active; `0` renders immediately. Raise it only if the log shows invalid-variable errors right after page changes.
 
 To see Debug messages, allow them in Home Assistant's [logger configuration](https://www.home-assistant.io/integrations/logger/):
 

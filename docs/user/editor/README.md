@@ -51,7 +51,7 @@ A row shows the firmware version, the display (TFT) version, the IP address and 
 - **Disable** — keeps the device and its settings but stops serving it. Its card still shows the last render. Updates need an enabled, connected device.
 - **Remove** — after confirmation, deletes the device with its settings and panels.
 
-The inventory card closes with one coloured segment per device, showing its connection state. **Install updates** starts a rollout for every device with an offered update; see [Updating](../update.md).
+The inventory card closes with one coloured segment per device, showing its connection state; hovering or focusing a segment names that device. **Install updates** starts a rollout for every device with an offered update; see [Updating](../update.md).
 
 ## Device view
 

@@ -18,7 +18,11 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 ### Changed
 
 - Editor: **Backups** says what an **Import** and a **Copy to other devices** replace in a warning banner instead of a line under the buttons ([Backups](docs/user/editor/README.md)).
+- Editor: the connection segments at the foot of the Device inventory name their device and state in a popover on hover or focus, instead of the browser's own tooltip ([Editor](docs/user/editor/README.md)).
+- Editor: the **Device inventory** header shows its pending updates and integration version as toned figures — a green check when nothing is waiting, an amber download when one is, and a warning tag while the panels report different versions — in the diagnostics tiles' type (13 px muted name above a 14 px/500 value), so the value reads first without growing the strip.
 - Release: the release workflow merges the release into `dev` and `dev` into `master` once it published, so both branches end on one commit instead of a manual merge-back ([Release process](docs/develop/release.md)).
+- Device: the **Page settle delay** default drops from `0.1` to `0.05` s, halving the wait before a new page is drawn; the display's page ack already means the page is active, so the delay is only a margin ([Device settings](docs/user/editor/device.md)). A device that already stores `0.1` keeps it until it is changed in the editor.
+- Logging: the hub logs each ESPHome command chunk at **Debug** instead of **Info**, so a ticking page no longer writes about a line per second to the Home Assistant log.
 
 ### Fixed
 

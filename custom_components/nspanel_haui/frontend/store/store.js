@@ -35,7 +35,7 @@ import { t } from '../localize.js';
  * new one closes the previous, while sidebars stack on top of it.
  */
 const ANCHORED_OVERLAY_KINDS = Object.freeze([
-  'panel-menu', 'device-menu', 'notification-centre',
+  'panel-menu', 'device-menu', 'notification-centre', 'fleet-bar-tip',
 ]);
 
 /** @param {string|null|undefined} kind */

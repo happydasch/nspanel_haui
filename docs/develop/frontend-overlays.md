@@ -36,6 +36,7 @@ The panel editor asks the hub to render the unsaved form (`crud.js:buildPanelCon
 | Overlay | Contents |
 |---|---|
 | Notification centre (`views/notifications.js`) | The queued notifications with per-item dismiss; the count is the queue length |
+| Fleet bar tip (`fleet-bar-tip`) | The device of one segment of the inventory's footer and how it is connected, anchored at that segment and opened by hovering or focusing it |
 | Panel preview popover | An enlarged thumb with the panel's name and key, opened on hover, focus or tap |
 | Toast (`toast.js`) | One transient success, error or info message, `role="status"`, no focus steal |
 | Confirmation dialog (`dialogs/confirm.js`) | Destructive confirmation on `HauiDialog`, opened by the action it guards |

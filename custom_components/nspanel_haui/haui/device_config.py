@@ -51,9 +51,12 @@ DEVICE_CONFIG: dict[str, Any] = {
     "show_idle_button": False,
     "show_notifications_button": True,
     # page settle delay (seconds)
-    # Wait this long after the page-change event before rendering, so all
-    # widgets are initialised.
-    "page_settle_delay": 0.1,
+    # Wait this long after the page-change ack before rendering, so all widgets
+    # are initialised. The ack (0x66) already means the page is active, so this
+    # is only a margin: 0.05 s is half the former 0.1 s and still covers a
+    # Nextion finishing a page's Preinitialize. Raise it only if the log shows
+    # "Invalid variable name" (0x1A) right after a page change.
+    "page_settle_delay": 0.05,
     # logging
     "log_level": "INFO",
     # stale-data indicator threshold in seconds (0 = off)

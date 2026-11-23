@@ -1,7 +1,13 @@
+"""The development build version is derived, never written into the tree.
+
+A dev build is not a commit: ``dev_version`` only prints the version, which
+``dev-firmware.yml`` injects into the image with ``esphome -s`` and uses as the tag.
+"""
+
 from __future__ import annotations
 
 import importlib.util
-import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -26,44 +32,11 @@ def test_rejects_unsupported_branch_version():
         dev_version.derive_dev_version("0.4.4-beta1", 17)
 
 
-def test_writes_the_shared_firmware_version_sources(tmp_path: Path):
-    manifest_dir = tmp_path / "custom_components/nspanel_haui"
-    manifest_dir.mkdir(parents=True)
-    (manifest_dir / "manifest.json").write_text(
-        json.dumps({"domain": "nspanel_haui", "version": "0.4.4"}, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    version_dir = tmp_path / "esphome/nspanel_haui"
-    version_dir.mkdir(parents=True)
-    (version_dir / "version.yaml").write_text(
-        "substitutions:\n  yaml_version: '0.4.4'\n  tft_version: '0.4.3'\n",
-        encoding="utf-8",
-    )
-    env_file = tmp_path / "github.env"
-
-    assert dev_version.write_dev_version(tmp_path, 17, env_file) == "0.4.5.dev17"
-
-    assert json.loads((manifest_dir / "manifest.json").read_text())["version"] == "0.4.5.dev17"
-    assert "yaml_version: '0.4.5.dev17'" in (version_dir / "version.yaml").read_text()
-    assert "tft_version: '0.4.3'" in (version_dir / "version.yaml").read_text()
-    assert env_file.read_text() == "DEV_VERSION=0.4.5.dev17\n"
-
-
-def test_writes_the_shipped_tft_version(tmp_path: Path):
-    version_dir = tmp_path / "esphome/nspanel_haui"
-    version_dir.mkdir(parents=True)
-    version_file = version_dir / "version.yaml"
-    version_file.write_text(
-        "substitutions:\n  yaml_version: '0.4.5.dev17'\n  tft_version: '0.4.3'\n",
-        encoding="utf-8",
-    )
-    env_file = tmp_path / "github.env"
-
-    dev_version.write_tft_version(tmp_path, "0.4.5", env_file)
-
-    assert "tft_version: '0.4.5'" in version_file.read_text()
-    assert "yaml_version: '0.4.5.dev17'" in version_file.read_text()
-    assert env_file.read_text() == "TFT_VERSION=0.4.5\n"
+def test_the_next_patch_is_the_released_version_successor():
+    assert dev_version.next_patch("0.5.4") == "0.5.5"
+    assert dev_version.next_patch("0.9.9") == "0.9.10"
+    with pytest.raises(ValueError, match="Expected a stable X.Y.Z release"):
+        dev_version.next_patch("0.5.4.dev76")
 
 
 def test_version_kind_is_shared_with_manual_bumps():
@@ -73,11 +46,38 @@ def test_version_kind_is_shared_with_manual_bumps():
     assert dev_version.version_kind("0.4.5-dev17") is None
 
 
-def test_the_next_patch_matches_the_first_build_of_that_cycle():
-    # The release sync opens the next patch's changelog section and the first dev build
-    # derives its version from the released one, so the two must answer the same thing.
-    assert dev_version.next_patch("0.5.4") == "0.5.5"
-    assert dev_version.next_patch("0.9.9") == "0.9.10"
-    assert dev_version.derive_dev_version("0.5.4", 77).startswith(dev_version.next_patch("0.5.4"))
-    with pytest.raises(ValueError, match="Expected a stable X.Y.Z release"):
-        dev_version.next_patch("0.5.4.dev76")
+def test_the_base_comes_from_the_newest_release_tag(tmp_path: Path):
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    git(
+        "-c",
+        "user.email=t@example.com",
+        "-c",
+        "user.name=t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "one",
+    )
+    with pytest.raises(ValueError, match="no vX.Y.Z tag"):
+        dev_version.base_from_tags(tmp_path)
+
+    git("tag", "-a", "v0.5.4", "-m", "v0.5.4")
+    assert dev_version.base_from_tags(tmp_path) == "0.5.4"
+
+
+def test_a_build_changes_no_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """The whole point: nothing in the tree is touched, so nothing is committed."""
+    output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(dev_version, "shipped_tft_version", lambda: "0.4.5")
+
+    assert dev_version.main(["77", "--base", "0.5.4"]) == 0
+    written = output.read_text(encoding="utf-8")
+    assert "version=0.5.5.dev77" in written
+    assert "tft_version=0.4.5" in written
+    # No version file exists under tmp_path and none was created or read.
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["github-output"]

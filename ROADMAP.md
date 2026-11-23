@@ -29,8 +29,8 @@ in development, v0.6 next, then the open pool.
 ## Release gates
 
 Every stable release passes the CI jobs (`tests (3.14)`, `frontend`, `esphome`,
-`docs`, `hassfest`, `hacs`) and `make release-preflight`, which also reports a
-stale screen overview. Two process gates are not automated and are proved once
+`docs`, `hassfest`, `hacs`) on the pull request that carries it: `master` is the
+only long-lived branch and a release commit reaches it no other way. Two process gates are not automated and are proved once
 before a release may rely on them:
 
 - **Release-check recovery.** The documented recovery from a GitHub Actions run

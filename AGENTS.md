@@ -106,7 +106,7 @@ Every call into an app — device events, state changes, timers, reloads, action
 - **A notification is never dropped, delayed or hidden:** auto-dismiss only through the service's `timeout`, the queue plays through (`_advance_queue`), a persistent one re-opens every 60 s, and queued-notification popups get no `close_timeout`.
 - **A card or thumbnail is the hub's own render, replayed.** No renderer in the browser, no second preview path, and never key a render on live readings (uptime, RSSI) — the 5 s status poll would re-render every card.
 - **No Python files in `frontend/`** — it is served without authentication. The card's WebSocket commands in `web/card.py` stay the only WebSocket commands without `require_admin`: they read and lead to no input path.
-- **A dev release tag is the PEP 440 version itself** (`X.Y.(Z+1).dev<run>`), byte-identical to the manifest's version — never a `+local`/`+g<sha>` segment, which AwesomeVersion sorts above its own successors.
+- **A dev release tag is the PEP 440 version itself** (`X.Y.(Z+1).dev<run>`) and byte-identical to the version the image reports — that version reaches the build as `esphome -s yaml_version …`, so it is *not* written into `manifest.json`, which keeps the released version. Never add a `+local`/`+g<sha>` segment, which AwesomeVersion sorts above its own successors.
 - **Keep the two copies of a shared default in one commit:** `frontend/constants.js` mirrors Python (`haui/device_config.py`, …), and `haui/option_rules.py` mirrors `frontend/option-rules.js` (`tests/fixtures/option_rules_cases.json` runs through both).
 
 ## Display and page code
@@ -166,7 +166,7 @@ Read the `docs/develop/frontend*.md` pages before a UI change; these are the rul
 
 ## Commits and pull requests
 
-Conventional Commits (`type(scope): message`); PR titles use the same format and stay under 100 characters. `dev` is the integration branch: branch off `dev`, PR with `--base dev`, hotfixes off `master`. `master` is release-only — `release/X.Y.Z` branches PRed into it, squash-merged with a clean body, tagged at that commit — so no commit message on that path may quote a CI-skip marker: GitHub scans the whole tagged message and the release workflow never starts. The release workflow's `sync` job then puts `master` and `dev` on one commit (`scripts/release/sync_branches.py`); do not merge `master` into `dev` by hand unless that job failed. Full cycle: `docs/develop/release.md`.
+Conventional Commits (`type(scope): message`); PR titles use the same format and stay under 100 characters. `master` is the only long-lived branch: cut a short-lived branch from it (`feat/…`, `fix/…`, `release/X.Y.Z`), open the PR with `--base master`, and merge it with a merge commit. The ruleset needs the six always-running checks green, so no release or feature commit reaches `master` any other way — and **no workflow ever pushes to a branch**: the release workflow only publishes a tag, and a development build reports its version through `esphome -s` instead of committing it. A release is the merged PR plus a `vX.Y.Z` tag; nothing has to be synced afterwards. Full cycle: `docs/develop/release.md`.
 
 - Fill in `.github/pull_request_template.md` (what changed, why, how it was tested, unverified device checks); add a screenshot or recording for frontend or display changes; reference the issues involved.
 - All CI jobs must pass: `tests (3.14)`, `frontend`, `esphome`, `docs`, `hassfest`, `hacs`.

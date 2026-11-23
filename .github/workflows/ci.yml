@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, dev]
+    branches: [master]
   pull_request:
-    branches: [master, dev]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -98,7 +98,7 @@ jobs:
         run: esphome config esphome/nspanel_haui_universal.yaml
 
   docs:
-    # Strict build once per run. master and dev runs upload the site for deploy-docs.
+    # Strict build once per run; a master push uploads the site for deploy-docs.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
@@ -110,18 +110,11 @@ jobs:
           python: "3.14"
           requirements: docs
 
-      # Applied before the build, so the uploaded artifact is deployable.
-      - name: Apply the dev site URLs
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
-        run: bash scripts/docs/dev_site.sh
-
       - name: Build site
         run: zensical build --strict
 
       - name: Upload the built site
-        if: >-
-          github.event_name != 'pull_request' &&
-          (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7
         with:
           name: docs-site
@@ -147,13 +140,10 @@ jobs:
         with:
           category: integration
 
-  # Publishes both branches to Pages: master at the root, dev under dev/. The
-  # current branch comes from the docs artifact, only its sibling is built here.
+  # Publishes master to Pages. One long-lived branch, so there is no sibling site.
   deploy-docs:
     needs: docs
-    if: >-
-      github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -166,61 +156,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # Checkouts come before the artifact download: checkout cleans untracked files.
-      - name: Check out the dev site
-        if: github.ref == 'refs/heads/master'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
-        with:
-          ref: dev
-          path: dev
-          persist-credentials: false
-
-      - name: Check out the stable site
-        if: github.ref == 'refs/heads/dev'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
-        with:
-          ref: master
-          path: stable
-          persist-credentials: false
-
       - name: Download the built site
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8
         with:
           name: docs-site
-          path: current
-
-      - name: Set up Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
-        with:
-          python-version: "3.14"
-
-      # The sibling builds with its own branch's docs requirements and dev site URLs.
-      - name: Build the dev site
-        if: github.ref == 'refs/heads/master'
-        working-directory: dev
-        run: |
-          bash scripts/docs/dev_site.sh
-          python -m pip install -r requirements-docs.txt
-          zensical build --strict
-
-      - name: Build the stable site
-        if: github.ref == 'refs/heads/dev'
-        working-directory: stable
-        run: |
-          python -m pip install -r requirements-docs.txt
-          zensical build --strict
-
-      - name: Combine the sites
-        env:
-          REF: ${{ github.ref }}
-        run: |
-          if [ "$REF" = "refs/heads/master" ]; then
-            cp -R current site
-            cp -R dev/site site/dev
-          else
-            cp -R stable/site site
-            cp -R current site/dev
-          fi
+          path: site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5

@@ -67,20 +67,15 @@ with `ZiLib.dll` for the Nextion font generator.
 | `bump_version.py` | Bump the integration, firmware and TFT versions everywhere |
 | `bump_tft_version.py` | Set `system.tftVersion` in both HMIs and re-stamp the pages |
 | `dev_release.py` | Write a local OTA image and firmware manifest for testing hub updates |
-| `release/dev_version.py` | CI helper: derive and write the dev firmware and TFT versions |
+| `release/dev_version.py` | CI helper: derive a development build's version; writes nothing |
 | `release/compile_firmware.sh` | CI helper: compile the universal firmware and copy both images |
 | `release/generate_firmware_manifest.py` | CI helper: build the release firmware manifest |
-| `release/dev_release_notes.py` | CI helper: write the development prerelease notes |
-| `release/preflight.py` | Report what a stable release still needs, without changing anything |
-| `release/publish_stable.py` | Preview the next stable tag, or push it with `--push` |
-| `release/sync_branches.py` | After a stable release: merge it into `dev`, open the next changelog section and merge `dev` into `master` (preview unless `--apply`) |
 
 ### Tooling
 
 | Script | Purpose |
 |--------|---------|
 | `git_hooks/install.sh`, `git_hooks/pre-commit` | Install the hooks and regenerate layouts before a commit |
-| `docs/dev_site.sh` | Point `mkdocs.yml` at the dev docs site |
 | `nextion_vnc/nextion_vnc.sh` | Serve the Nextion Editor VM through noVNC |
 | `_ha_stubs.py` | Install `homeassistant.*` import stubs for generators; import it before `haui` |
 
@@ -102,8 +97,8 @@ the empty non-English values. `merge_translations` is only for an external
 translation round trip.
 
 **Release.** Follow the runbook in
-[docs/develop/release.md](../docs/develop/release.md). `release/preflight` reports
-what a stable release still needs; it never builds, tags or publishes.
+[docs/develop/release.md](../docs/develop/release.md). One long-lived branch,
+`master`; the release scripts only bump the version and build the image.
 
 **Before committing.** Run `make -j4 check`; shortcuts and local setup are in
 [docs/develop/development.md](../docs/develop/development.md).

@@ -13,7 +13,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
-- Release: the post-release sync merges only a pull request whose base still reads `master`, so a retargeted one can no longer record the release on another branch and leave `master` behind; the repository setting the sync job needs is documented ([Release process](docs/develop/release.md#repository-settings-the-release-depends-on)).
+- Release: `master` is the only long-lived branch. A release is a pull request merged plus a `vX.Y.Z` tag; the post-release sync, `release/X.Y.Z` preparation on a second branch, `make release-preflight` and `publish_stable.py` are gone, and a development build reports its version through `esphome -s` instead of committing it, so no workflow pushes to a branch ([Release process](docs/develop/release.md#published-development-firmware)).
 
 ## [0.5.4] — 2026-11-23
 

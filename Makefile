@@ -11,7 +11,7 @@ CONFIG ?= esphome/nspanel_haui_universal.yaml
 # Optional arguments for targets that take them, e.g. ARGS=--draft
 ARGS ?=
 
-.PHONY: help check test test-integration test-frontend format format-check lint typecheck typecheck-frontend docs hmi-check screens-check release-preflight version-check generated-check esphome-config esphome-compile esphome-size \
+.PHONY: help check test test-integration test-frontend format format-check lint typecheck typecheck-frontend docs hmi-check screens-check version-check generated-check esphome-config esphome-compile esphome-size \
 	ha-venv-setup ha-venv-start ha-venv-logs \
 	ha-docker-up ha-docker-stop ha-docker-restart ha-docker-logs ha-docker-down
 
@@ -60,9 +60,6 @@ hmi-check: ## Verify HMI layouts, generated layout assets, and preview coverage
 
 screens-check: ## Compare docs/screens.html and its PNGs with a fresh render (Chrome + Node 22+)
 	python -m scripts.preview_gallery.gen_preview_gallery --check
-
-release-preflight: ## Report what a stable release still needs (read-only; pass ARGS=--draft)
-	python -m scripts.release.preflight $(ARGS)
 
 esphome-config: ## Validate universal ESPHome config (separate ESPHome environment)
 	esphome config $(CONFIG)

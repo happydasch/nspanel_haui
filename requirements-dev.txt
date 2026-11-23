@@ -14,9 +14,9 @@ pytest>=9.2.0
 pytest-asyncio>=1.5.0
 # Pinned like Home Assistant: a new ruff can reformat or flag unchanged code and
 # a new mypy can report new errors, failing CI on an unrelated change.
-ruff==0.17.5
+ruff==0.17.6
 mypy==2.4.1
-pydantic>=2.14.3
+pydantic>=2.14.4
 types-requests
 types-python-dateutil
 types-PyYAML

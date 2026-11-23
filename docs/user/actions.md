@@ -437,7 +437,11 @@ data:
 
 Good to know:
 
+- **It answers.** The action returns the update state — `started` until the panel answers, then `installing`, `error`, … — so an automation can branch on it with `response_variable: result`.
+- **A refusal fails the call.** Nothing matches the device, updates are off, an install is already running, or the panel cannot be reached: the action raises with the hub's reason instead of returning as if it started. Automations that relied on the old silent success need to handle the error.
+- **The URL is checked first.** A non-http(s) address, an answer of `404`/`5xx`, a file larger than the display can hold, or a server that ignores range requests is refused with the reason before the panel is asked to download. If Home Assistant itself cannot reach the address, the install still starts — the panel's network may differ.
 - **Progress.** The display reports no percentage. The state goes from *checking* to *installing* to *done*, or to *error* with the reason. You see it in the **Updates** sidebar, in the device's **Diagnostics** and on the **HAUI Display** entity.
+- **The panel reports a failed upload itself.** Firmware from this release on sends the reason it could not install (no network, the server's answer, a refused display) as soon as the upload ends, so a failure shows in seconds instead of after the 20-minute timeout. Older firmware keeps the timeout-only reporting.
 - **A file from a URL stays.** The hub does not replace it with the release TFT until the firmware version changes or Home Assistant restarts. Calling the action without `version` and `url` also installs the release TFT again.
 - **A file from a URL has no version the hub can check.** The install counts as done when the panel restarts after the upload. An upload without a restart is reported as failed, see [Troubleshooting](troubleshooting.md#tft-install-fails-with-the-panel-did-not-reboot-after-the-upload).
 - A TFT that does not match the firmware may lack pages the firmware uses.
@@ -498,7 +502,9 @@ target:
 
 Always install a TFT through the integration: with the **HAUI Display** entity, with `nspanel_haui.update_tft`, or in the editor by pressing **Install** beside **Display (TFT)** in the **Updates** sidebar. All three follow the install and report failures.
 
-The firmware has an ESPHome action `esphome.<device>_upload_tft_url`. The hub uses it to pass the file's address to the panel. Do not call it yourself: the hub would not know about the install. Use `nspanel_haui.update_tft` with `url` instead.
+The firmware has an ESPHome action `esphome.<device>_upload_tft_url`. The hub uses it to pass the file's address to the panel. Prefer `nspanel_haui.update_tft` with `url`: the hub checks the address first, tracks the install and reports the panel's failure. Called directly, the action still uploads, but only the ESPHome log shows how it ended.
+
+**From local file** in the **Updates** sidebar takes the same path: Home Assistant stages the file, hands the panel its temporary address and follows the install like a URL install, so it reports the same failures.
 
 The former `esphome.<device>_upload_tft` action and the **Update Display** button no longer exist, see [Upgrading](../develop/upgrading.md#045).
 

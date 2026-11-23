@@ -69,7 +69,8 @@ The hub validates the file before installing it. The panel downloads it from Hom
 ## If something goes wrong
 
 - **Try again.** Open the **Updates** sidebar, press **Install** beside **Firmware** or **Display (TFT)**, and choose an offered update, a release, **From URL** or **From local file**.
-- **Display update fails.** See [TFT Upload Failures](troubleshooting.md#tft-upload-failures).
+- **Display update fails.** The sidebar, the **HAUI Display** entity and `nspanel_haui.update_tft` say why: the panel's own reason (no network, the server's answer, a refused display) or the reason the hub would not start the install. See [TFT Upload Failures](troubleshooting.md#tft-upload-failures).
+- **An install that will not start.** A second install while one is running is refused with its start time instead of being reported as started; wait for it, or power-cycle the panel if the transfer never finishes.
 - **Go back to an older version.** The Marketplace does not downgrade. Restore a backup; see [Rollback](../develop/upgrading.md#rollback).
 
 ## Upgrading from older versions

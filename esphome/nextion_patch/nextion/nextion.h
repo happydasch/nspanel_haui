@@ -1128,6 +1128,14 @@ class Nextion final : public NextionBase, public PollingComponent, public uart::
   void set_tft_url(const std::string &tft_url) { this->tft_url_ = tft_url; }
 
   /**
+   * Why the last TFT upload failed, as shown in the Hub's update state.
+   *
+   * Cleared when an upload starts, set on every failing return of
+   * ``upload_tft()``; a successful upload reboots, so it never reads it.
+   */
+  std::string tft_upload_error() const { return this->tft_upload_error_; }
+
+  /**
    * @brief Uploads the TFT file to the Nextion display.
    *
    * This function initiates the upload of a TFT file to the Nextion display. Users can specify a target baud rate for
@@ -1588,6 +1596,8 @@ class Nextion final : public NextionBase, public PollingComponent, public uart::
   WiFiClient *get_wifi_client_();
 #endif  // USE_ESP8266
   std::string tft_url_;
+  /// Why ``upload_tft()`` returned false; empty until a failure.
+  std::string tft_upload_error_;
   uint32_t content_length_ = 0;
   int tft_size_ = 0;
   uint32_t original_baud_rate_ = 0;

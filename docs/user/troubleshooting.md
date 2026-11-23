@@ -49,6 +49,28 @@ sudo arp -d 192.168.0.106
 
 **Fix:** install the TFT again, one panel at a time. The ESPHome log shows the error as `[E][nextion.upload]` lines ending in `Upload failed`.
 
+### The install fails at once and names a reason
+
+Since the firmware that reports upload failures, the hub shows the panel's own reason instead of waiting 20 minutes. The reason is also in the ESPHome log as `TFT upload failed: …`:
+
+| Reason | Cause | Fix |
+|--------|-------|-----|
+| `the server answered HTTP 404` (or another `4xx`/`5xx`) | The `url` does not serve a file to the panel | Check the address on another device; it must be reachable from the panel, not only from your browser |
+| `the server does not support range requests` | The host answers the whole file to every request; the panel downloads a TFT in ranges | Serve the file from Home Assistant's own `www` folder (`/local/…`) or another host that supports ranges |
+| `the file size … is out of range` | The download is smaller than 4 KiB or bigger than 128 MiB — usually an HTML error page instead of a `.tft` | Point `url` at the `.tft` file itself |
+| `the panel has no network connection` | The panel lost Wi-Fi before the download started | Check the panel's Wi-Fi and try again |
+| `the display refused the upload` | The display is in a state where it will not take a file (a half-finished upload) | Power-cycle the panel, then install again |
+| `an upload is already running` | A second request arrived while the first transfer was still running | Wait for it to finish; power-cycle the panel if it never does |
+| `A TFT install started at … is still running` | The hub refused a second install because one is in flight | Wait, or power-cycle the panel to clear an upload that never finishes |
+
+A `url` that Home Assistant cannot read is **not** one of these: the hub warns and starts the install anyway, because the panel's network can differ from Home Assistant's. The editor and the action refuse a URL only when Home Assistant got a definite answer (a `404`, no range support, too large).
+
+### The action or Install button says it started, but nothing happens
+
+**Cause:** an install was already in flight, or the panel had not handed over to the hub yet. The editor and `nspanel_haui.update_tft` now fail with the reason instead of returning a false success.
+
+**Fix:** read the reason in the **Updates** sidebar or the failure message. If it names an install that is still running, wait for it; if the panel never finishes, power-cycle it and install again. Firmware from this release reports a failed upload within seconds; older firmware only reports through the timeout.
+
 ### "Reading from UART timed out at byte 0!" or "Upgrade response is 0"
 
 **Fix:** upload the display file with the Nextion Editor over a cable. Connect the display to 5V, GND, TF-TX and TF-RX; [blakadder's NSPanel teardown guide](https://blakadder.com/nspanel-teardown/) shows the connections. After one successful upload this way, updates through the hub work again.

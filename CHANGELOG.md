@@ -14,11 +14,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 ### Breaking changes
 
 - Firmware: the **Display Model** config entity is a `select` with **Landscape** / **Portrait** instead of a `0`/`1` number, so the panel's device page offers a dropdown; `number.<device>_display_model` becomes `select.<device>_display_model` ([Upgrading](docs/user/update.md#display-model-is-a-dropdown)).
+- Display: `nspanel_haui.update_tft` raises with the hub's reason when a TFT install does not start — no matching device, updates off, an install already running, an unusable URL — and answers with the update state, where it used to return as if it had started and only log the refusal. It also installs the URL on a panel that has not handshaked yet, instead of deriving a manifest install ([Updating](docs/user/update.md#if-something-goes-wrong)).
 
 ### Changed
 
 - Editor: **Backups** says what an **Import** and a **Copy to other devices** replace in a warning banner instead of a line under the buttons ([Backups](docs/user/editor/README.md)).
 - Editor: the connection segments at the foot of the Device inventory name their device and state in a popover on hover or focus, instead of the browser's own tooltip ([Editor](docs/user/editor/README.md)).
+- Editor: the **Updates** sidebar opens the install picker for a display or firmware update above the **Update settings** card instead of at the sidebar's foot, so the choice sits with the versions and installs it belongs to ([Updates](docs/user/update.md)).
 - Editor: the **Device inventory** header shows its pending updates and integration version as toned figures — a green check when nothing is waiting, an amber download when one is, and a warning tag while the panels report different versions — in the diagnostics tiles' type (13 px muted name above a 14 px/500 value), so the value reads first without growing the strip.
 - Release: the release workflow merges the release into `dev` and `dev` into `master` once it published, so both branches end on one commit instead of a manual merge-back ([Release process](docs/develop/release.md)).
 - Device: the **Page settle delay** default drops from `0.1` to `0.05` s, halving the wait before a new page is drawn; the display's page ack already means the page is active, so the delay is only a margin ([Device settings](docs/user/editor/device.md)). A device that already stores `0.1` keeps it until it is changed in the editor.
@@ -27,6 +29,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 ### Fixed
 
 - Firmware: the panel draws fast again — opening a panel and paging inside one. The component phase is gated on `esphome: loop_interval` (ESPHome's default is 16 ms) and the Nextion pacer sends one command per phase, so `command_spacing: 2ms` was really 16 ms per command; opening a panel (112–156 commands) took 1.8–2.5 s and a paging step 0.4–0.5 s, and a full command queue needed longer to drain than its 8 s stale age, so the tail of a heavy render was dropped unsent and left stale widgets. The firmware runs the loop every 2 ms again ([Nextion component](docs/develop/nextion.md#command-pacing-costs-one-component-phase-per-command)).
+- Display: a TFT install from a URL or a local file is no longer skipped in silence. It starts on a panel that has not handshaked yet instead of turning into a manifest install, a second request names the install that is still running instead of answering as if it started, and `nspanel_haui.update_tft` raises with the hub's reason (and answers with the update state) instead of only logging it ([Updating](docs/user/update.md#if-something-goes-wrong)).
+- Firmware: the panel reports a failed TFT upload with its reason as soon as the upload ends, so the hub fails the install within seconds instead of after its 20-minute timeout. Home Assistant also checks a TFT URL first — a `404`, a server that ignores range requests, an oversized file — and refuses it before the panel is sent off to download it ([Troubleshooting](docs/user/troubleshooting.md#tft-upload-failures)).
 
 ## [0.5.3] — 2026-11-21
 

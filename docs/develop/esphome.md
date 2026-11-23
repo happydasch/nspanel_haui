@@ -104,6 +104,8 @@ Device → hub events, published under the `esphome.` prefix (`esphome.heartbeat
 | `page` | New page id. A new page was opened. |
 | `send_notification` | JSON: `title`, `message`, `icon` (only if set), `persistent`, `text_size` (only if set), `icon_color` (only if set), `sound` (always). Published by the `send_notification` script. |
 | `buffer_overflow` | `1`. The display reported a buffer overflow. |
+| `tft_upload_started` | The TFT URL the panel accepted; the upload is running. Sent from `prepare_tft_upload` before the blocking transfer, so the hub can restart its install timeout. |
+| `tft_upload_failed` | Why `upload_tft()` returned false: no network, an upload already running, the display refusing to leave reparse mode or the upload, the HTTP client failing, `HTTP <code>`, a server without range support, a file size out of range, a display-rejected chunk. A successful upload reboots inside the uploader, so there is no success event. |
 
 The HAUI integration version is reported separately in the hub's status payload and is expected to match the firmware's `yaml_version`. The device reports its installed `tft_version` and the firmware-required `tft_required_version` separately, because a firmware release may reuse or require a newer TFT. `hub_api_version` is the firmware ↔ hub contract version; the hub compares its major part and reports a mismatch instead of guessing at an unknown payload.
 
@@ -125,7 +127,7 @@ Hub → device actions (ESPHome Native API service calls):
 | `set_brightness` (`intensity`) | Change display brightness. |
 | `display_off` / `display_on` | Hardware sleep and wake (no-hub path). |
 | `install_firmware_url` (`url`, `md5sum`) | Flash the OTA image at `url`. The hub sends it for every firmware install; use `nspanel_haui.update_firmware`, the **HAUI Firmware** entity or the editor's **Updates** sidebar instead — they track the install. |
-| `upload_tft_url` (`url`) | Update the TFT from a URL. The hub sends it; use `nspanel_haui.update_tft` (optionally with `url`) or the **HAUI Display** entity instead. |
+| `upload_tft_url` (`url`) | Update the TFT from a URL. The hub sends it; use `nspanel_haui.update_tft` (optionally with `url`) or the **HAUI Display** entity instead. The panel publishes `tft_upload_started` or `tft_upload_failed` for it, but the hub acts on those only while its own install is in flight — a direct call's outcome reaches the ESPHome log, not the update entity. |
 | `play_rtttl` (`song_str`) | Play any standard RTTTL string (`name:d=...,o=...,b=...:notes`). |
 | `play_sound` (`name`) | Play a built-in sound: `startup`, `tone`, `tone_up`, `tone_down`, `seq_up`, `seq_down`, `notification`, `alert_fast`, `alert` or `elise` (`scripts_common.yaml` holds the RTTTL strings). |
 | `send_notification` (`title`, `message`, `icon`, `persistent`, `text_size`, `icon_color`, `sound`) | All parameters are required here, while the HA action and notify entities expose them as optional: pass `""` for no icon or colour, `"none"` for a silent notification, `false` and `"auto"` for the defaults. `icon_color` accepts `#rrggbb` or an RGB565 number. No force-show and no timeout field; a persistent notification still opens immediately, loops its sound and re-opens the popup about every 60 s until dismissed. |

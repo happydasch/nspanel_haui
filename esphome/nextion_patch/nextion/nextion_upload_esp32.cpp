@@ -6,6 +6,7 @@
 #include <esp_heap_caps.h>
 #include <esp_http_client.h>
 #include <cinttypes>
+#include <cstdarg>
 #include "esphome/components/network/util.h"
 #include "esphome/components/watchdog/watchdog.h"
 #include "esphome/core/application.h"
@@ -18,6 +19,17 @@ namespace esphome::nextion {
 
 ESPHOME_LOG_TAG(TAG, "nextion.upload");
 static constexpr size_t NEXTION_MAX_RESPONSE_LOG_BYTES = 16;
+
+// Name a failure with its numbers: the Hub shows the string in its install
+// state, so it must fit a display line and never allocate unbounded.
+static std::string failure_reason(const char *format, ...) {
+  char buffer[96];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buffer, sizeof(buffer), format, args);
+  va_end(args);
+  return std::string(buffer);
+}
 
 // Timeout for display acknowledgment during TFT upload (ms).
 // A single value is used for all chunks; the happy path returns as soon as
@@ -36,6 +48,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
   ESP_LOGD(TAG, "Range start: %" PRIu32, range_start);
   if (range_size <= 0 or range_end <= range_start) {
     ESP_LOGE(TAG, "Invalid range end: %" PRIu32 ", size: %" PRIu32, range_end, range_size);
+    this->tft_upload_error_ = "the file ended before the display received it";
     return -1;
   }
 
@@ -67,9 +80,15 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
           if (range_start == 0) {
             ESP_LOGE(TAG, "Unexpected length for 200 response: %d (expected %d)", chunk_size,
                      static_cast<int>(this->tft_size_));
+            this->tft_upload_error_ =
+                failure_reason("the server sent %d bytes, the panel expected %d", chunk_size,
+                               static_cast<int>(this->tft_size_));
           } else {
             // A server that ignored the range once will ignore it again
             ESP_LOGE(TAG, "Server does not support range requests (got 200 at offset %" PRIu32 ")", range_start);
+            this->tft_upload_error_ = failure_reason(
+                "the server does not support range requests (HTTP 200 at offset %" PRIu32 ")",
+                range_start);
           }
           chunk_size = -1;
           last_err = ESP_FAIL;
@@ -77,6 +96,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
         }
         ESP_LOGW(TAG, "Bad response: status %d, length %d (expected %" PRIu32 ")", status_code, chunk_size,
                  range_end - range_start + 1);
+        this->tft_upload_error_ = failure_reason("the server answered HTTP %d with %d bytes", status_code, chunk_size);
         chunk_size = -1;
         last_err = ESP_FAIL;
         // A 4xx (except timeout/rate-limit) won't improve on retry
@@ -98,6 +118,12 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
   }
   if (chunk_size <= 0) {
     ESP_LOGE(TAG, "HTTP request failed, last status: %d, last error: %s", status_code, esp_err_to_name(last_err));
+    if (this->tft_upload_error_.empty()) {
+      this->tft_upload_error_ =
+          status_code > 0
+              ? failure_reason("the server answered HTTP %d", status_code)
+              : failure_reason("the download failed: %s", esp_err_to_name(last_err));
+    }
     return -1;
   }
 
@@ -106,6 +132,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
   uint8_t *buffer = allocator.allocate(4096);
   if (!buffer) {
     ESP_LOGE(TAG, "Buffer alloc failed");
+    this->tft_upload_error_ = "not enough memory for the transfer buffer";
     return -1;
   }
 
@@ -219,6 +246,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
         ESP_LOGE(
             TAG, "Invalid response: [%s]",
             format_hex_pretty_to(hex_buf, reinterpret_cast<const uint8_t *>(recv_string.data()), recv_string.size()));
+        this->tft_upload_error_ = "the display rejected a data chunk";
         // Deallocate buffer
         allocator.deallocate(buffer, 4096);
         buffer = nullptr;
@@ -231,6 +259,9 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
       break;  // Exit the loop if there is no more data to read
     } else {
       ESP_LOGE(TAG, "HTTP read failed: %" PRIu16, read_len);
+      if (this->tft_upload_error_.empty()) {
+        this->tft_upload_error_ = "the download broke off";
+      }
       break;  // Exit the loop on error
     }
   }
@@ -243,16 +274,26 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
 
 bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   ESP_LOGD(TAG, "TFT upload requested, exit reparse: %s, URL: %s", YESNO(exit_reparse), this->tft_url_.c_str());
+  this->tft_upload_error_.clear();
 
   if (this->connection_state_.is_updating_) {
     ESP_LOGW(TAG, "Upload in progress");
+    this->tft_upload_error_ = "an upload is already running";
     return false;
   }
 
   if (!network::is_connected()) {
     ESP_LOGE(TAG, "No network");
+    this->tft_upload_error_ = "the panel has no network connection";
     return false;
   }
+
+  // Every failing return below names its cause: the Hub reports it instead of
+  // waiting for its install timeout to expire.
+  auto fail = [this](const std::string &error) {
+    this->tft_upload_error_ = error;
+    return this->upload_end_(false);
+  };
 
   // Temporarily adjust watchdog timeout for the duration of the TFT upload
   watchdog::WatchdogManager wdm(this->tft_upload_watchdog_timeout_);
@@ -266,6 +307,8 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
     ESP_LOGD(TAG, "Exit reparse mode");
     if (!this->set_protocol_reparse_mode(false)) {
       ESP_LOGW(TAG, "Exit reparse failed");
+      // Not upload_end_(): nothing was prepared, the display keeps running.
+      this->tft_upload_error_ = "the display refused to leave reparse mode";
       return false;
     }
   }
@@ -292,14 +335,14 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   esp_http_client_handle_t http_client = esp_http_client_init(&config);
   if (!http_client) {
     ESP_LOGE(TAG, "HTTP init failed");
-    return this->upload_end_(false);
+    return fail("could not initialise the HTTP client");
   }
 
   esp_err_t err = esp_http_client_set_header(http_client, "Connection", "keep-alive");
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "Set header failed: %s", esp_err_to_name(err));
     esp_http_client_cleanup(http_client);
-    return this->upload_end_(false);
+    return fail(failure_reason("could not set the keep-alive header: %s", esp_err_to_name(err)));
   }
 
   // Perform the HTTP request
@@ -308,7 +351,7 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "HTTP failed: %s", esp_err_to_name(err));
     esp_http_client_cleanup(http_client);
-    return this->upload_end_(false);
+    return fail(failure_reason("the download failed: %s", esp_err_to_name(err)));
   }
 
   // Check the HTTP Status Code
@@ -316,7 +359,8 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   int status_code = esp_http_client_get_status_code(http_client);
   if (status_code != 200 && status_code != 206) {
     ESP_LOGE(TAG, "HTTP request failed with status %d", status_code);
-    return this->upload_end_(false);
+    esp_http_client_cleanup(http_client);
+    return fail(failure_reason("the server answered HTTP %d", status_code));
   }
 
   this->tft_size_ = esp_http_client_get_content_length(http_client);
@@ -328,7 +372,7 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
     esp_http_client_close(http_client);
     esp_http_client_cleanup(http_client);
     ESP_LOGV(TAG, "Connection closed");
-    return this->upload_end_(false);
+    return fail(failure_reason("the file size %d is out of range", this->tft_size_));
   } else {
     ESP_LOGV(TAG, "Size check OK");
   }
@@ -385,14 +429,14 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
     esp_http_client_close(http_client);
     esp_http_client_cleanup(http_client);
     ESP_LOGV(TAG, "Connection closed");
-    return this->upload_end_(false);
+    return fail("the display refused the upload (power-cycle it to recover)");
   }
 
   ESP_LOGV(TAG, "Set method to GET");
   esp_err_t set_method_result = esp_http_client_set_method(http_client, HTTP_METHOD_GET);
   if (set_method_result != ESP_OK) {
     ESP_LOGE(TAG, "Set GET failed: %s", esp_err_to_name(set_method_result));
-    return this->upload_end_(false);
+    return fail(failure_reason("could not start the download: %s", esp_err_to_name(set_method_result)));
   }
 
   ESP_LOGD(TAG,
@@ -415,7 +459,11 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
       esp_http_client_close(http_client);
       esp_http_client_cleanup(http_client);
       ESP_LOGV(TAG, "Connection closed");
-      return this->upload_end_(false);
+      // upload_by_chunks_ names the cause; keep it when it did.
+      if (this->tft_upload_error_.empty()) {
+        return fail(failure_reason("the transfer stopped at byte %" PRIu32, position));
+      }
+      return fail(this->tft_upload_error_);
     }
     App.feed_wdt();
     ESP_LOGV(TAG, "Heap: %" PRIu32 " left: %" PRIu32, esp_get_free_heap_size(), this->content_length_);

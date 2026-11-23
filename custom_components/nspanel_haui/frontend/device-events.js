@@ -103,10 +103,12 @@ export async function installTft(host, e) {
       return;
     }
     if (e.detail.file) e.target?._finishLocalUpload?.();
+    // A start is not a success: the panel only answers with the outcome later
+    // (the update entity and the row show it), so this stays informational.
     if (name === "*") {
-      host._showToast(t('TFT update started for {count} device(s)').replace('{count}', count), "success");
+      host._showToast(t('Install started on {count} device(s)').replace('{count}', String(count)), "info");
     } else {
-      host._showToast(t('TFT update started for "{name}"').replace('{name}', _friendlyName(host, name)), "success");
+      host._showToast(t('Install started on "{name}"').replace('{name}', _friendlyName(host, name)), "info");
     }
   } catch (err) {
     if (e.detail.file) {

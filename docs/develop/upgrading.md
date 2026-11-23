@@ -139,6 +139,8 @@ Panels below 0.4.4 need one manual flash before the hub can update them:
 
 After that one manual flash the hub updates a universal panel itself, and a custom panel continues as in [Custom firmware](update-process.md#custom-firmware).
 
+Firmware from the release that added them publishes `esphome.tft_upload_started` and `esphome.tft_upload_failed`, so a failed TFT install shows its reason within seconds. Older firmware sends neither: the hub only notices a failure when the panel reconnects without a reboot, or when the 20-minute install timeout expires. The two directions interoperate — an old hub ignores the events, an old firmware simply reports nothing — so rolling the firmware back only costs that fast failure report. `nspanel_haui.update_tft` raising with the hub's reason and answering with the update state needs this integration version, not new firmware.
+
 ## Rollback
 
 1. Restore a Home Assistant backup from before the update; the Marketplace does not downgrade. Copying the previous integration folder back works too.

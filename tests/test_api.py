@@ -52,8 +52,23 @@ def _install_ha_stubs() -> None:
     storage_mod = types.ModuleType("homeassistant.helpers.storage")
     storage_mod.Store = object
 
+    # The TFT URL pre-flight asks Home Assistant's shared session. These tests
+    # do not model a host: an unreachable answer keeps the install going, the
+    # "the panel may still reach it" path.
+    aiohttp_client_mod = types.ModuleType("homeassistant.helpers.aiohttp_client")
+
+    class _UnreachableSession:
+        async def head(self, *args, **kwargs):
+            raise OSError("no route to host")
+
+        async def get(self, *args, **kwargs):
+            raise OSError("no route to host")
+
+    aiohttp_client_mod.async_get_clientsession = lambda hass: _UnreachableSession()
+
     for name, mod in {
         "homeassistant.helpers.http": http_mod,
+        "homeassistant.helpers.aiohttp_client": aiohttp_client_mod,
         "homeassistant.exceptions": exceptions_mod,
         "homeassistant.components.http.decorators": decorators_mod,
         "homeassistant.helpers.storage": storage_mod,
@@ -1972,6 +1987,27 @@ def test_tft_install_passes_the_requested_url():
     asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", ("install_tft_url", "http://ha.local/x.tft")]
+
+
+def test_tft_install_refuses_a_url_the_panel_cannot_install(monkeypatch):
+    """A URL Home Assistant can see is unusable never reaches the panel."""
+    from custom_components.nspanel_haui.api import updates
+
+    async def _problem(hass, url):
+        return "The TFT URL answered HTTP 404"
+
+    monkeypatch.setattr(updates, "tft_url_problem", _problem)
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen", "url": "http://ha.local/x.tft"})
+
+    response = asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert response["status_code"] == 502
+    assert "HTTP 404" in response["body"]["message"]
+    assert app.calls == []
 
 
 @pytest.mark.parametrize(

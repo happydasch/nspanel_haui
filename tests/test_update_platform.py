@@ -356,6 +356,26 @@ def test_update_entities_publish_failure_summaries_and_do_not_poll(monkeypatch):
     assert not (firmware._attr_supported_features & update.UpdateEntityFeature.PROGRESS)
 
 
+def test_the_panels_upload_failure_reaches_the_display_entity(monkeypatch):
+    """The reason the panel reported is what the entity shows."""
+    update = _import_update(monkeypatch)
+    display = _entity(update)
+
+    asyncio.run(
+        display._async_update_event(
+            _event(
+                state="error",
+                last_error="The panel could not install the TFT: the server answered HTTP 404",
+            )
+        )
+    )
+
+    assert display._attr_release_summary == (
+        "The panel could not install the TFT: the server answered HTTP 404"
+    )
+    assert display.in_progress is False
+
+
 def test_firmware_install_keeps_the_entity_available_while_the_panel_reboots(monkeypatch):
     update = _import_update(monkeypatch)
     entity = _firmware(update)

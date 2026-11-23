@@ -67,7 +67,7 @@ test('uploading a local TFT sends the file to the protected staging endpoint', a
   await Events.installTft(host, { detail: { name: 'kitchen', file } });
 
   assert.match(host.urls[0], /device=kitchen&filename=custom\.tft/);
-  assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
+  assert.deepEqual(host.toasts.at(-1), ['info', 'Install started on "kitchen"']);
 });
 
 test('uploading a local firmware image uses the firmware staging endpoint', async () => {
@@ -189,7 +189,7 @@ test('toggling a device that is not selected leaves the selected config alone', 
   await Events.installTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(paths, [['POST', '/api/nspanel_haui/update_tft/entry1', { device: 'kitchen' }]]);
-  assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
+  assert.deepEqual(host.toasts.at(-1), ['info', 'Install started on "kitchen"']);
 });
 
 test('a failed TFT install shows the backend error', async () => {
@@ -238,7 +238,7 @@ for (const [label, detail, body] of [
 
     await Events.installTft(host, { detail: { name: 'kitchen', ...detail } });
 
-    assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
+    assert.deepEqual(host.toasts.at(-1), ['info', 'Install started on "kitchen"']);
   });
 }
 

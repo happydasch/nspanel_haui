@@ -205,6 +205,19 @@ def test_buzzer_is_silenced_before_every_main_loop_stall():
     assert upload.index("script.execute: suspend_activities") < upload.index("upload_tft()")
 
 
+def test_the_panel_reports_a_tft_upload_it_could_not_start():
+    """A failed upload names its cause; a successful one reboots instead.
+
+    Without the failure event the hub could only guess from its install
+    timeout, twenty minutes later.
+    """
+    upload = _read("scripts_common.yaml").split("- id: prepare_tft_upload")[1]
+    assert upload.index('"esphome.tft_upload_started"') < upload.index("upload_tft()")
+    assert upload.index("upload_tft()") < upload.index('"esphome.tft_upload_failed"')
+    # The reason the uploader recorded travels with the event.
+    assert "tft_upload_error()" in upload
+
+
 def test_native_ota_is_encrypted_with_the_api_key():
     """ESPHome warns that an OTA password next to an api key wastes flash and
     RAM (#81).  A bare ``encryption:`` inherits ``api_encryption_key``.

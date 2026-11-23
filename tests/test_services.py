@@ -121,13 +121,37 @@ class _ServiceValidationError(Exception):
     pass
 
 
+class _HomeAssistantError(Exception):
+    pass
+
+
 @pytest.fixture(autouse=True)
 def ha_exceptions(monkeypatch):
-    """Stub ``homeassistant.exceptions`` with the error a service raises for bad input."""
+    """Stub ``homeassistant.exceptions`` with the errors a service raises."""
     exceptions = types.ModuleType("homeassistant.exceptions")
     exceptions.ServiceValidationError = _ServiceValidationError
+    exceptions.HomeAssistantError = _HomeAssistantError
     monkeypatch.setitem(sys.modules, "homeassistant.exceptions", exceptions)
     return exceptions
+
+
+@pytest.fixture(autouse=True)
+def unreachable_preflight(monkeypatch):
+    """Home Assistant cannot reach the test URLs: the pre-flight only warns.
+
+    ``update_url`` asks Home Assistant's shared session; a transport error
+    is the "the panel may still reach it" path, so URL installs proceed.
+    """
+    from custom_components.nspanel_haui import update_url
+
+    class _Unreachable:
+        async def head(self, *args, **kwargs):
+            raise OSError("no route to host")
+
+        async def get(self, *args, **kwargs):
+            raise OSError("no route to host")
+
+    monkeypatch.setattr(update_url, "_session", lambda hass: _Unreachable())
 
 
 def _make_app(
@@ -140,6 +164,11 @@ def _make_app(
     app._ha_device_id = ha_device_id
     app.controller = {"navigation": mock_nav, "esphome": mock_esphome_ctrl}
     app.name = name
+    # The controller answers on its worker; the service waits for that answer,
+    # so a bare MagicMock would leave every install waiting out the timeout.
+    app.start_async_tft_install = MagicMock(
+        side_effect=lambda version, url, on_complete: on_complete({"state": "installing"})
+    )
     return app
 
 
@@ -430,6 +459,113 @@ async def test_update_tft_with_version_installs_that_release(
 
     app.start_async_tft_install.assert_called_once()
     assert app.start_async_tft_install.call_args.args[:2] == ("0.4.1", None)
+
+
+@pytest.mark.asyncio
+async def test_update_tft_answers_with_the_controllers_state(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    """The call returns the state, so an automation can branch on it."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    app.start_async_tft_install = MagicMock(
+        side_effect=lambda version, url, on_complete: on_complete(
+            {"state": "installing", "tft_url": url}
+        )
+    )
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from custom_components.nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target", "url": "http://ha.local/display.tft"}
+    call.service = SERVICE_UPDATE_TFT
+
+    answer = await _handle_update_tft(mock_hass, call)
+
+    assert answer["state"] == "installing"
+    assert answer["tft_url"] == "http://ha.local/display.tft"
+
+
+@pytest.mark.asyncio
+async def test_update_tft_raises_the_controllers_reason(mock_hass, mock_nav, mock_esphome_ctrl):
+    """A refusal reaches the caller instead of only the log."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target", name="kitchen")
+    app.start_async_tft_install = MagicMock(
+        side_effect=lambda version, url, on_complete: on_complete(
+            {"state": "error", "last_error": "A TFT install started earlier is still running"}
+        )
+    )
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from custom_components.nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target"}
+    call.service = SERVICE_UPDATE_TFT
+
+    with pytest.raises(_HomeAssistantError, match="still running"):
+        await _handle_update_tft(mock_hass, call)
+
+
+@pytest.mark.asyncio
+async def test_update_tft_reports_started_when_the_worker_does_not_answer(
+    mock_hass, mock_nav, mock_esphome_ctrl, monkeypatch
+):
+    """A busy worker delays the answer; the dispatch is queued, not lost."""
+    from custom_components.nspanel_haui import services
+
+    monkeypatch.setattr(services, "ANSWER_TIMEOUT_SECONDS", 0.01)
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    app.start_async_tft_install = MagicMock()  # never answers
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    call = MagicMock()
+    call.data = {"device": "dev_target"}
+    call.service = SERVICE_UPDATE_TFT
+
+    assert await services._handle_update_tft(mock_hass, call) == {"state": "started"}
+    app.start_async_tft_install.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_refuses_a_url_the_panel_cannot_install(
+    mock_hass, mock_nav, mock_esphome_ctrl, monkeypatch
+):
+    """The pre-flight runs before anything is dispatched."""
+    from custom_components.nspanel_haui import update_url
+
+    async def _problem(hass, url):
+        return "The TFT URL answered HTTP 404"
+
+    monkeypatch.setattr(update_url, "tft_url_problem", _problem)
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from custom_components.nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target", "url": "http://ha.local/missing.tft"}
+    call.service = SERVICE_UPDATE_TFT
+
+    with pytest.raises(_HomeAssistantError, match="HTTP 404"):
+        await _handle_update_tft(mock_hass, call)
+
+    app.start_async_tft_install.assert_not_called()
+
+
+def test_the_tft_service_registers_as_answering(mock_hass):
+    """``update_tft`` reports a state; the other services stay fire-and-forget."""
+    from custom_components.nspanel_haui import services as svc
+
+    svc.async_register_services(mock_hass)
+
+    responses = {
+        call.args[1]: call.kwargs.get("supports_response")
+        for call in mock_hass.services.async_register.call_args_list
+    }
+    # homeassistant.core is a stub here: playbook of distinct enum members.
+    assert responses[SERVICE_UPDATE_TFT] != responses[SERVICE_OPEN_PANEL]
+    assert responses[SERVICE_UPDATE_FIRMWARE] == responses[SERVICE_OPEN_PANEL]
 
 
 @pytest.mark.asyncio

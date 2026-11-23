@@ -6,7 +6,7 @@ on:
       - "**/*.sh"
       - ".github/workflows/shellcheck.yml"
   push:
-    branches: [master, dev]
+    branches: [master]
     paths:
       - "**/*.sh"
       - ".github/workflows/shellcheck.yml"

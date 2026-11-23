@@ -11,11 +11,12 @@ Thanks for helping improve NSPanel HAUI. This page covers the contribution flow;
 
 ## Branches and pull requests
 
-`dev` is the integration branch. Branch from `dev` and open the pull request against it.
+`dev` is the integration branch and the repository's default branch. Commit small changes to `dev` directly,
+or branch from `dev` and open the pull request against it.
 
-`master` is release-only. Hotfixes of a released version branch from `master`; everything else reaches it
-through a `release/X.Y.Z` branch. Do not open a pull request against `master` unless you are preparing a
-release.
+`master` is release-only. A stable release promotes `dev` into `master` with a pull request; hotfixes of a
+released version also branch from `master`. Do not open a pull request against `master` unless you are
+promoting or hotfixing a release.
 
 Use a Conventional Commits title, under 100 characters:
 

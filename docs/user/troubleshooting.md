@@ -138,15 +138,18 @@ Saving in the editor applies device settings and panels right away. Restart Home
 
 ## Firmware Build Problems
 
-### ESPHome stops with "couldn't find remote ref dev"
+### ESPHome stops with "couldn't find remote ref …"
 
-Your device YAML fetches the firmware from a branch that no longer exists. Until
-0.5.5 the repository had a `dev` branch; `master` is its one long-lived branch now.
+Your device YAML fetches the firmware from a branch that is not in the repository,
+usually because it names a branch that was renamed or deleted. Two branches stay:
+`master` holds the released code — the one to build from — and `dev` the development
+code that has not been released yet.
 
 1. Open your device's YAML in the ESPHome dashboard and find the `ref:` entries —
    the `packages:` remote package and, inside `esphome/nspanel_haui.yaml`, the
    `external_components:` git source.
-2. Point both at `master`:
+2. Point both at `master`, or at `dev` when you deliberately build the development
+   branch:
 
    ```yaml
    packages:

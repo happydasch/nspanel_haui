@@ -12,7 +12,7 @@
 
 ## Checklist
 
-- [ ] Base branch is `master` (the only long-lived branch)
+- [ ] Base branch is `dev` for a feature or fix, `master` only for a stable promotion
 - [ ] Docs in `docs/` updated for behaviour, options or defaults that changed
 - [ ] `zensical build --strict` passes
 - [ ] `pytest tests/` passes

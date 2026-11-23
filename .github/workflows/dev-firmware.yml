@@ -1,9 +1,9 @@
 name: Development Firmware
 
-# Dispatched on `master`. Builds a universal image that reports `X.Y.Z.dev<run>`,
-# publishes it as a prerelease and prunes the older ones. Nothing is committed and
-# no branch is pushed: the version reaches the image through `esphome -s`, and the
-# release tag names it, so the integration keeps the released version and `master`
+# Dispatched on `dev`, the development branch. Builds a universal image that reports
+# `X.Y.Z.dev<run>`, publishes it as a prerelease and prunes the older ones. Nothing is
+# committed and no branch is pushed: the version reaches the image through `esphome -s`,
+# and the release tag names it, so the integration keeps the released version and `dev`
 # never moves.
 on:
   workflow_dispatch:

@@ -180,7 +180,7 @@ python -m scripts.preview_gallery.gen_preview_gallery --serve   # or --png
 python -m scripts.check_preview_coverage
 ```
 
-Every exposed panel — user types, system panels, popup aliases — must resolve to a physical page in both generated layouts. The same samples make up the [Screens overview](../user/screens.md): `gen_preview_gallery --docs` writes one PNG per card and orientation to `docs/assets/screens/` and to `docs/screens.html`, and the **Development Firmware** workflow commits them, so never add a screenshot by hand.
+Every exposed panel — user types, system panels, popup aliases — must resolve to a physical page in both generated layouts. The same samples make up the [Screens overview](../user/screens.md): `gen_preview_gallery --docs` writes one PNG per card and orientation to `docs/assets/screens/` and to `docs/screens.html`, and the pull request that changes what a screen draws commits them, so never add a screenshot by hand.
 
 ### What a page doc must answer
 

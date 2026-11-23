@@ -9,11 +9,17 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Release: `dev` is the integration branch again and `master` stays stable-only, so a **Development** firmware build carries unreleased code while a stable release still arrives through a promotion pull request and a `vX.Y.Z` tag ([Release process](docs/develop/release.md)).
+
 ## [0.5.6] — 2026-11-23
 
 ### Fixed
 
-- Firmware: the vendored Nextion override is fetched from `master`, so building your own firmware works again — every ESPHome build of the package used to stop at config validation with `couldn't find remote ref dev`, because 0.5.5 deleted that branch ([Troubleshooting](docs/user/troubleshooting.md#esphome-stops-with-couldnt-find-remote-ref-dev)).
+- Firmware: the vendored Nextion override is fetched from `master`, so building your own firmware works again — every ESPHome build of the package used to stop at config validation with `couldn't find remote ref dev`, because 0.5.5 deleted that branch ([Troubleshooting](docs/user/troubleshooting.md#esphome-stops-with-couldnt-find-remote-ref)).
 - Docs: the README images and links name `master` instead of the deleted `dev` branch, so the HACS and Marketplace listing shows its screenshots again ([README](README.md)).
 - Editor: the footer's **Documentation** link opens the published docs instead of the deleted `/dev/` site, which answered 404 on a development build.
 

@@ -287,12 +287,13 @@ def test_nextion_patch_is_never_older_than_the_package():
     assert "refresh: 0s" in block
 
 
-def test_every_git_source_names_the_live_branch():
-    """A ref naming a deleted branch fails every build with "couldn't find remote ref".
+def test_every_git_source_names_the_stable_branch():
+    """A ref naming a branch that is not in the repository fails every build.
 
     The vendored patch and install.yaml's remote package both fetch this repository
-    by branch, so they must name the one long-lived branch: `dev` was deleted and
-    every build pinning it stopped at config validation.
+    by branch, so they must name `master`, the stable one: an installed panel builds
+    the released firmware, while `dev` carries unreleased code for the development
+    channel.
     """
     branch = "master"
     package = (ROOT.parent / "nspanel_haui.yaml").read_text()

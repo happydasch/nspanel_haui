@@ -24,8 +24,8 @@ substitutions:
 
 # Vendored nextion override for installed setups (git source); remove it once
 # every fix in nextion_patch/README.md ships in a released ESPHome. Follow this
-# repo's one long-lived branch, refreshed on every build so a compile never pairs
-# a new display.yaml with an older patch.
+# repo's stable branch, refreshed on every build so a compile never pairs a new
+# display.yaml with an older patch.
 external_components:
   - source:
       type: git

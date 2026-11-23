@@ -29,6 +29,20 @@ jobs:
           echo "Run the release workflow on a v* tag; branch builds do not have a release manifest." >&2
           exit 1
 
+      - name: Require the tagged commit on master
+        # A v* tag becomes the latest stable release for every panel, so it may only
+        # name a commit that reached master through its dev -> master promotion.
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/master:refs/remotes/origin/master"
+          if ! git merge-base --is-ancestor "$SHA" refs/remotes/origin/master; then
+            echo "v tag $GITHUB_REF_NAME names $SHA, which is not on master." >&2
+            echo "Promote dev into master with a pull request and tag the merge commit." >&2
+            exit 1
+          fi
+
       - uses: ./.github/actions/setup
         with:
           # ESPHome is pinned to min_version in esphome/nspanel_haui/base.yaml for
@@ -48,7 +62,7 @@ jobs:
             exit 1
           fi
 
-      # The HMI layout and version checks ran in the release PR's `tests (3.14)`
+      # The HMI layout and version checks ran in the promotion PR's `tests (3.14)`
       # job; the manifest step still refuses a TFT without tft_version.
       - name: Compile the universal firmware binary
         # esphome compile validates the config first.

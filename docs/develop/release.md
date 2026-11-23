@@ -1,16 +1,18 @@
 ---
 title: Release process
-description: One branch, one tag, the development firmware channel, and the CI gates
+description: Two branches, one tag, the development firmware channel, and the CI gates
 ---
 
 # Release process
 
-`master` is the only long-lived branch. A change arrives as a pull request that the
-`Protect master` ruleset gates with the six always-running checks; a release is that
-pull request merged plus a `vX.Y.Z` tag, which `release.yml` turns into the published
-release. **No workflow ever pushes to a branch**: a development build reports its own
-version through `esphome -s` instead of committing it, so nothing has to be reconciled
-after a release.
+`dev` is the integration branch and the repository default; `master` holds stable code
+only. Day-to-day work is committed to `dev`, directly or as a pull request whose six
+always-running checks are green. A stable release is a `dev` → `master` promotion pull
+request that the `Protect master` ruleset gates, plus a `vX.Y.Z` tag on the merge commit,
+which `release.yml` turns into the published release; afterwards `master` is merged back
+into `dev`, so the two branches converge and the next cycle starts even. **No workflow
+ever pushes to a branch**: a development build reports its own version through
+`esphome -s` instead of committing it, so nothing has to be reconciled after a release.
 
 ## What a release ships
 
@@ -58,7 +60,7 @@ Semantic Versioning, and every version string the tooling writes must parse as P
 - `yaml_version` and `tft_version` are independent serials. The firmware reports the latter as `tft_required_version`, so a display fix can require a newer TFT than the firmware it ships with. Never rewrite the TFT version to match the firmware version.
 - `hub_api_version` is a third, separate number (currently `1.0`, in `esphome/nspanel_haui/version.yaml` and `haui/version.py`). It describes the handshake and event contract, and only an incompatible change to either bumps its major part.
 - A TFT change committed under an unchanged `tft_version` never reaches a panel that already reports that version. `scripts/verify_nextion/check_hmi_bump.py` fails the `tests (3.14)` job when an HMI or a TFT changed against the PR base and `tft_version` did not advance.
-- Stable tags are `vX.Y.Z`, and the prepared notes file is named after the tag. `release.yml` fires on any `v*` tag pushed anywhere, so tagging only green `master` commits is policy, not enforcement. A manual dispatch works only on a `v*` ref.
+- Stable tags are `vX.Y.Z`, and the prepared notes file is named after the tag. `release.yml` fires on any `v*` tag and its preflight refuses one whose commit is not reachable from `master`, so a tag on a development commit can never become the latest stable release. A manual dispatch works only on a `v*` ref.
 - `scripts/bump_version.py --check` (`make version-check`) fails on drift between these files. Never edit a version file by hand.
 - Never push a tag to test firmware. Every `v*` tag becomes the *latest* release, which every panel with `firmware_auto_update` follows; test a build by dispatching **Development Firmware** and following it with a **Custom manifest URL** or the **Development** channel instead.
 
@@ -66,7 +68,7 @@ A TFT change that lands under no release needs its own bump before the next buil
 
 ## Published development firmware
 
-Dispatch **Actions → Development Firmware → Run workflow** on `master`. The build takes the run number as a PEP 440 dev version, compiles the universal image with `esphome -s yaml_version <version>`, publishes it as a prerelease and prunes the older ones:
+Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The build takes the run number as a PEP 440 dev version, compiles the universal image with `esphome -s yaml_version <version>`, publishes it as a prerelease and prunes the older ones:
 
 ```text
 base version   the newest vX.Y.Z tag as its next patch, or the `base` input (0.6.0)
@@ -77,21 +79,23 @@ pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stabl
                release never leaves the Marketplace's or the hub's release lists
 ```
 
-A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `master`, and a dispatch queues behind a running build rather than cancelling it.
+A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev`, so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
 
 A panel follows the channel through its **Update channel**: **Development** reads the cached GitHub release list and follows the `firmware-manifest.json` of the newest release in it that ships one, dev prereleases included; a stable release of the same version supersedes its dev builds. There is no fixed dev manifest URL. The CI image is `universal`, so it cannot replace firmware reporting `firmware_variant: custom`.
 
-Because the integration itself is not versioned by a dev build, a panel on the **Development** channel updates its firmware and display while the integration stays at the last stable version. That is deliberate: it keeps `master` from moving outside a pull request.
+Because the integration itself is not versioned by a dev build, a panel on the **Development** channel updates its firmware and display while the integration stays at the last stable version. That is deliberate: a development build never makes a stable version.
 
 ## Branches and cadence
 
 | Branch | Role | Rules |
 |--------|------|-------|
-| `master` | the only long-lived branch, the repository's default, docs at the site root | the "Protect master (release-only)" ruleset blocks direct and force pushes and branch deletion, and needs a pull request with the six always-running checks green |
-| Feature and fix branches | one change | cut from `master`, PR with `--base master`, merged with a merge commit |
-| `release/X.Y.Z` | release prep: version bump, changelog, notes, TFTs | the same, merged with a merge commit so the branch history lands on `master` |
+| `dev` | the integration branch, the repository's default branch | direct commits and merges are allowed; `ci.yml` runs on every push and on pull requests to it, nothing is required |
+| `master` | stable code, docs at the site root | the "Protect master (release-only)" ruleset blocks direct and force pushes and branch deletion, and needs a pull request with the six always-running checks green |
+| Feature and fix branches | one change, when a pull request is wanted | cut from `dev`, PR with `--base dev`, merged with a merge commit |
+| `release/X.Y.Z` | release prep: version bump, changelog, notes, TFTs | cut from `dev`, PR with `--base dev`, merged with a merge commit |
+| `hotfix/X.Y.Z` | a fix for a released version | cut from `master`, PR with `--base master`, merged, tagged, then merged back into `dev` |
 
-The cycle: branch off `master` → PR → six checks green → merge → tag `vX.Y.Z` → `release.yml` publishes. That is the whole cycle; there is no sync step, no second branch and no bot commit.
+The cycle: commit to `dev` → six checks green → promote `dev` into `master` with a pull request → checks green → merge with a merge commit → tag `vX.Y.Z` on that merge commit → `release.yml` publishes → merge `master` back into `dev`. Only the promotion and the following sync touch `master`; nothing else is a bot commit, and no workflow pushes a branch.
 
 No fixed calendar. Patch releases close regressions and gate failures; minor releases ship features and breaking changes. A breaking change ships a `docs/user/update.md` entry and a CHANGELOG *Breaking changes* section — no alias is kept, so the upgrade guide is the only migration path.
 
@@ -101,23 +105,24 @@ Commits and PR titles use [Conventional Commits](https://www.conventionalcommits
 
 | Job | Workflow | Trigger | Proves |
 |-----|----------|---------|--------|
-| `tests (3.14)` | `ci.yml` | push and PR to `master`; manual dispatch | icon cheatsheet and translations current (`make generated-check`), version sources agree (`make version-check`), the TFT bump gate, `pytest tests/` (card renders replayed through Node, the frontend style guard, both HMI layout checks, the display version check), `ruff format --check`, `ruff check`, `mypy` |
+| `tests (3.14)` | `ci.yml` | push and PR to `dev` and `master`; manual dispatch | icon cheatsheet and translations current (`make generated-check`), version sources agree (`make version-check`), the TFT bump gate, `pytest tests/` (card renders replayed through Node, the frontend style guard, both HMI layout checks, the display version check), `ruff format --check`, `ruff check`, `mypy` |
 | `frontend` | `ci.yml` | the same | `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'` |
 | `esphome` | `ci.yml` | the same | `esphome config esphome/nspanel_haui_universal.yaml` |
 | `docs` | `ci.yml` | the same | `zensical build --strict`, and on a `master` push the site artifact for `deploy-docs` |
 | `hassfest`, `hacs` | `ci.yml` | the same | Home Assistant integration and HACS repository validation |
-| `deploy-docs` | `ci.yml` | push to `master`, manual dispatch — never a PR | publishes Pages from the `docs-site` artifact |
+| `deploy-docs` | `ci.yml` | push to `master`, manual dispatch on `master` — never a PR or `dev` | publishes Pages from the `docs-site` artifact |
 | `Compile firmware` | `esphome-build.yml` | PRs touching `esphome/`, `requirements-esphome.txt`, `scripts/verify_firmware/`, the workflow or the setup action; manual, with the ESPHome channel | `make esphome-compile` and `make esphome-size`, which fails at 92 % of the app partition |
-| `build` | `dev-firmware.yml` | manual dispatch on `master` | the versioned universal prerelease, the manifest, and the prune of old dev releases |
-| `release` | `release.yml` | `v*` tag push; manual dispatch on a `v*` ref | tag equals the `manifest.json` version, ESPHome compile, manifest generation (refuses a TFT that does not embed `tft_version`), prepared notes, asset upload; the run is never cancelled |
+| `build` | `dev-firmware.yml` | manual dispatch on `dev` | the versioned universal prerelease, the manifest, and the prune of old dev releases |
+| `release` | `release.yml` | `v*` tag push; manual dispatch on a `v*` ref | the tag commit is reachable from `master`, tag equals the `manifest.json` version, ESPHome compile, manifest generation (refuses a TFT that does not embed `tft_version`), prepared notes, asset upload; the run is never cancelled |
 | `Validate title` | `pr-title.yml` | PR opened, edited, synchronized or reopened | Conventional Commits title, 100 characters at most |
 | `Shell scripts` | `shellcheck.yml` | PRs and pushes touching a `*.sh` file | shellcheck over the scripts |
 
 ### Repository settings the release depends on
 
-Two settings are prerequisites, not conveniences, and neither is visible from the code:
+Three settings are prerequisites, not conveniences, and none of them is visible from the code:
 
-- **"Protect master (release-only)"** must keep the six status checks and stay free of bypass actors, so a release commit reaches `master` only through a pull request whose checks ran.
+- **`dev` is the default branch** and accepts direct pushes: development lands there, and only `master` is gated.
+- **"Protect master (release-only)"** must keep the six status checks and stay free of bypass actors, so a promotion or hotfix reaches `master` only through a pull request whose checks ran.
 - **"Allow GitHub Actions to create and approve pull requests"** may stay **off**: no workflow opens a pull request. Turn it on only if a future job needs to.
 
 ### Run the same gates locally
@@ -141,14 +146,14 @@ make esphome-config     # CONFIG defaults to esphome/nspanel_haui_universal.yaml
 ### 1. Prepare
 
 ```bash
-git switch master && git pull
+git switch dev && git pull
 git switch -c release/0.5.6
 python -m scripts.bump_version 0.5.6                      # firmware-only release
 python -m scripts.bump_version 0.5.6 --tft-update         # release with a new TFT
 python -m scripts.bump_version 0.5.6 --check --tft-update # dry run
 ```
 
-Every run updates `manifest.json`, `pyproject.toml` and `yaml_version`; only `--tft-update` also writes ESPHome `tft_version` and both HMI `system.tftVersion` values, which is legal only for a same-length version — a length-changing bump needs the Nextion Editor. Recompile both TFTs after `--tft-update`.
+Every run updates `manifest.json`, `pyproject.toml` and `yaml_version`; only `--tft-update` also writes ESPHome `tft_version` and both HMI `system.tftVersion` values, which is legal only for a same-length version — a length-changing bump needs the Nextion Editor. Recompile both TFTs after `--tft-update`. Merge the prep branch into `dev` (`gh pr create --base dev`, merge commit) so the promotion carries the bump.
 
 ### 2. Display assets, when the release carries them
 
@@ -173,15 +178,15 @@ make hmi-check
 
 Credit external contributors by their GitHub handle in both; keep repository-relative links (`docs/user/update.md#…`), which GitHub resolves against the tag.
 
-### 4. Merge and tag
+### 4. Promote and tag
 
 ```bash
 make -j4 check && make esphome-config
-gh pr create --base master
-gh pr merge <n> --merge --body "Release prep for X.Y.Z"
+gh pr create --base master --head dev --title "chore(release): Promote X.Y.Z"
+gh pr merge <n> --merge --body "Stable promotion for X.Y.Z"
 ```
 
-Merge with a **merge commit**, so the branch history lands on `master` and the tagged commit carries it. Never let a CI-skip marker reach that body or any commit message: GitHub scans the whole tagged message, skips the `v*` tag push and `release.yml` never starts. Recover with `gh workflow run release.yml --ref vX.Y.Z`.
+Merge with a **merge commit**, so the history `dev` gathered lands on `master` and the tagged commit carries it. The promotion PR is the only way into `master`, and its `tests (3.14)` run is the report `release.yml` relies on. Never let a CI-skip marker reach that body or any commit message: GitHub scans the whole tagged message, skips the `v*` tag push and `release.yml` never starts. Recover with `gh workflow run release.yml --ref vX.Y.Z`.
 
 Then tag the merge commit from a checkout of the canonical repository:
 
@@ -191,18 +196,28 @@ git tag -a v0.5.6 -m "NSPanel HAUI 0.5.6"
 git push origin v0.5.6
 ```
 
+`release.yml` refuses a `v*` tag whose commit is not on `master`, so a tag pushed to a development commit fails its preflight instead of publishing.
+
 ### 5. Post-release
 
-1. Watch the `release` job; do not announce before it is green.
-2. Check the five assets under the frozen names and that the body is the prepared notes:
+1. Merge `master` back into `dev`, so the two branches converge and the next cycle builds on the released code:
+
+    ```bash
+    git switch dev && git pull
+    git merge --no-ff origin/master -m "chore: Merge master into dev"
+    git push origin dev
+    ```
+
+2. Watch the `release` job; do not announce before it is green.
+3. Check the five assets under the frozen names and that the body is the prepared notes:
 
     ```bash
     gh release view vX.Y.Z --json assets,body
     ```
 
-3. Flash one panel from the published `.bin` and confirm the TFT auto-update.
-4. Announce the release and link its notes.
-5. Regenerate the screen overview in a follow-up pull request if the release changed it.
+4. Flash one panel from the published `.bin` and confirm the TFT auto-update.
+5. Announce the release and link its notes.
+6. Regenerate the screen overview in a follow-up pull request if the release changed it.
 
 ### 6. Rollback
 
@@ -210,12 +225,12 @@ Mark the GitHub release as a draft or delete it, then publish a patch release. N
 
 ```bash
 gh release edit vX.Y.Z --draft     # withdraw it from the Marketplace and the panels
-# then, from a fresh release/X.Y.(Z+1) branch, the normal runbook
+# then, from a fresh release/X.Y.(Z+1) branch cut from dev, the normal runbook
 ```
 
 ## Guardrails and known gaps
 
-- **A tag push runs no `ci.yml`.** Only `release.yml` reacts to a tag, so tag only commits that were green on their pull request.
+- **A tag push runs no `ci.yml`.** Only `release.yml` reacts to a tag, so tag only the promotion merge commit that was green on its pull request; the preflight refuses a tag that is not on `master`.
 - **Release notes are a separate file.** Without `.github/release-notes/<tag>.md` the body is a pointer to the changelog, whose one-line entries carry no detail.
 - **An Actions run that fails before its jobs start cannot be re-run.** Close and reopen the PR (or push a new head commit) once GitHub is healthy, then re-run the failed workflow. Check [githubstatus.com](https://www.githubstatus.com) before a release.
 - **A failed docs deploy needs a new run, not a re-run.** When `deploy-docs` fails with `No artifacts named "github-pages"` ([actions/deploy-pages#451](https://github.com/actions/deploy-pages/issues/451)), a re-run uploads a second artifact and is refused; start a new run (`gh workflow run ci.yml --ref master`).
@@ -225,5 +240,5 @@ gh release edit vX.Y.Z --draft     # withdraw it from the Marketplace and the pa
 - **~120 MB of Nextion binaries live in git** (`nextion/`: both HMIs, both TFTs, fonts and images). Marketplace downloads carry them, so repo and zip size grow with every TFT rebuild; they stay committed so the HMI sources remain available, and Git LFS or release-only storage is undecided.
 - **The universal image bakes a shared API key**, which also encrypts native OTA. The MAC suffix gives each device a unique name and access point, but the credentials are public: anyone on the LAN can reflash the panel. Use `install.yaml` with secrets for a private build.
 - **The development channel is universal-only.** A panel running a `custom` build never receives a dev or stable CI image; rebuild it from `esphome/install.yaml` and serve it through its own manifest.
-- **A dev build versions the firmware, not the integration.** A panel on the **Development** channel updates its firmware and display; the integration stays at the last stable release until it is merged again.
+- **A dev build versions the firmware, not the integration.** A panel on the **Development** channel updates its firmware and display; the integration stays at the last stable release until `dev` is promoted again.
 - **ESPHome is pinned.** `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in `requirements-esphome.txt` move together.

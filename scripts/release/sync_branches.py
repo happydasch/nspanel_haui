@@ -40,6 +40,8 @@ from scripts.release.publish_stable import REPO, remote_is_canonical
 
 MANIFEST = "custom_components/nspanel_haui/manifest.json"
 WORKFLOW = "ci.yml"
+# The branch the sync pull request merges into; the release itself lands here.
+SYNC_BASE = "master"
 BOT_NAME = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
 RELEASED_RE = re.compile(r"^\d+\.\d+\.\d+$")
@@ -259,7 +261,7 @@ def open_pull_request(branch: str, released: str, subjects: list[str], paths: li
             "--repo",
             REPO,
             "--base",
-            "master",
+            SYNC_BASE,
             "--head",
             branch,
             "--title",
@@ -271,6 +273,38 @@ def open_pull_request(branch: str, released: str, subjects: list[str], paths: li
         os.unlink(handle.name)
     print(f"  pull       opened {url}", flush=True)
     return int(url.rstrip("/").rsplit("/", 1)[1])
+
+
+def pull_request_base(number: int) -> str:
+    """The branch a pull request targets now; a person can retarget it while it waits."""
+    data = json.loads(
+        run(
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            REPO,
+            "--json",
+            "baseRefName",
+        )
+    )
+    return str(data["baseRefName"])
+
+
+def base_refusal(base: str, number: int) -> str | None:
+    """Why merging into ``base`` would land on the wrong branch, or None when it is right.
+
+    A pull request retargeted while it waits for its checks merges into that branch
+    instead, which records the release in the wrong place and leaves ``master`` behind.
+    """
+    if base == SYNC_BASE:
+        return None
+    return (
+        f"pull request #{number} now targets {base}, not {SYNC_BASE}; its branch carries the "
+        f"release and the next changelog section, so merging it anywhere else leaves "
+        f"{SYNC_BASE} behind. Set the base back to {SYNC_BASE} and rerun"
+    )
 
 
 def ensure_ci(sha: str, *, ref: str, grace: int = 40) -> str:
@@ -424,6 +458,9 @@ def sync(*, apply: bool, version: str | None, timeout: int) -> None:
         number = open_pull_request(branch, released, subjects, paths)
         print(f"  ci         {ensure_ci(head, ref=branch)}", flush=True)
         wait_for_checks(number, timeout=timeout)
+        refusal = base_refusal(pull_request_base(number), number)
+        if refusal:
+            raise ValueError(refusal)
         run("gh", "pr", "merge", str(number), "--repo", REPO, "--merge")
         print(f"  merged     pull request #{number}", flush=True)
         git("fetch", "origin", "master", "dev", cwd=checkout)

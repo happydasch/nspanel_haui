@@ -101,6 +101,13 @@ Check each published dev release for `firmware-manifest.json`, both TFT assets a
 !!! warning "Do not dispatch a development build during release prep"
     It pushes a bot commit onto `dev` at a moment you do not control once the release PR is open.
 
+### Repository settings the release depends on
+
+Two settings are prerequisites, not conveniences. Both are configured once per repository and neither is visible from the code:
+
+- **"Allow GitHub Actions to create and approve pull requests"** (Settings → Actions → General → Workflow permissions) must be on, and `release.yml`'s `sync` job declares `contents`, `pull-requests` and `actions` write on top of it. With the toggle off, `GITHUB_TOKEN` may not open a pull request at all, and the `sync` job fails with `GitHub Actions is not permitted to create or approve pull requests` *after* the release published — the release is fine, only the branch sync stops. Recover by turning the toggle on and re-running that job; it finds both branches in step and does nothing, or opens and merges `sync/vX.Y.Z`. Check it with `gh api repos/<owner>/<repo>/actions/permissions/workflow`.
+- **"Protect master (release-only)"** must keep the six status checks and stay free of bypass actors, so a release commit reaches `master` only through a pull request whose checks ran.
+
 ## Branches and cadence
 
 | Branch | Role | Rules |
@@ -325,8 +332,8 @@ gh release edit vX.Y.Z --draft     # withdraw it from the Marketplace and the pa
 - **Release notes are a separate file.** Without `.github/release-notes/<tag>.md` the body is a pointer to the changelog, whose one-line entries carry no detail.
 - **`publish_stable.py` refuses rather than guesses.** It exits when `origin` does not push to the canonical repository, when `origin/master` carries no stable version in `manifest.json`, when the tag already exists on the remote, when there is no successful `ci.yml` push run for that commit, or when `origin/master` moved since the preview — rerun the preview instead of forcing the push.
 - **`make release-preflight` is read-only.** `dev-firmware.yml` stays the only writer of the screen overview, `release.yml` the only builder and publisher, and `publish_stable.py` the only tag push.
-- **The sync reaches `master` through a pull request, not a push.** The ruleset takes no direct push, so `sync_branches.py` opens `sync/vX.Y.Z` and merges it. A pull request opened with `GITHUB_TOKEN` starts no workflow, so the script dispatches `ci.yml` on the branch to report the six required checks on its head commit; should they never appear, push any commit to `sync/vX.Y.Z` with your own token so a `pull_request` run reports them, then merge.
-- **A failed `sync` job leaves the release published and the run red.** Rerun that job once the cause is fixed, or run `python -m scripts.release.sync_branches --apply` from a checkout; it reuses the open pull request and opens no second changelog section.
+- **The sync reaches `master` through a pull request, not a push.** The ruleset takes no direct push, so `sync_branches.py` opens `sync/vX.Y.Z` and merges it. A pull request opened with `GITHUB_TOKEN` starts no workflow, so the script dispatches `ci.yml` on the branch to report the six required checks on its head commit; should they never appear, push any commit to `sync/vX.Y.Z` with your own token so a `pull_request` run reports them, then merge. It refuses to merge a pull request whose base no longer reads `master`: retargeting one while it waits for its checks merges the release into that branch instead and leaves `master` behind.
+- **A failed `sync` job leaves the release published and the run red.** Rerun that job once the cause is fixed, or run `python -m scripts.release.sync_branches --apply` from a checkout; it reuses the open pull request and opens no second changelog section. Its first execution (v0.5.4) failed on `GitHub Actions is not permitted to create or approve pull requests` although the job already declared `pull-requests: write`: the repository toggle in [Repository settings the release depends on](#repository-settings-the-release-depends-on) is what allows the token to open a pull request.
 - **The Nextion Editor is GUI-only.** TFT compilation cannot be scripted, the version bump is scripted only for same-length versions, and the gate can only verify the result.
 - **The portrait TFT derives from the landscape HMI.** Regenerate and recompile it after every landscape edit; a forgotten step ships a stale portrait or fails the gate.
 - **Asset names are frozen.** Add variants without renaming existing assets.

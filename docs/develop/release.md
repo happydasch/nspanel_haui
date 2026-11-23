@@ -142,10 +142,10 @@ make esphome-config     # CONFIG defaults to esphome/nspanel_haui_universal.yaml
 
 ```bash
 git switch master && git pull
-git switch -c release/0.5.5
-python -m scripts.bump_version 0.5.5                      # firmware-only release
-python -m scripts.bump_version 0.5.5 --tft-update         # release with a new TFT
-python -m scripts.bump_version 0.5.5 --check --tft-update # dry run
+git switch -c release/0.5.6
+python -m scripts.bump_version 0.5.6                      # firmware-only release
+python -m scripts.bump_version 0.5.6 --tft-update         # release with a new TFT
+python -m scripts.bump_version 0.5.6 --check --tft-update # dry run
 ```
 
 Every run updates `manifest.json`, `pyproject.toml` and `yaml_version`; only `--tft-update` also writes ESPHome `tft_version` and both HMI `system.tftVersion` values, which is legal only for a same-length version — a length-changing bump needs the Nextion Editor. Recompile both TFTs after `--tft-update`.
@@ -187,8 +187,8 @@ Then tag the merge commit from a checkout of the canonical repository:
 
 ```bash
 git switch master && git pull
-git tag -a v0.5.5 -m "NSPanel HAUI 0.5.5"
-git push origin v0.5.5
+git tag -a v0.5.6 -m "NSPanel HAUI 0.5.6"
+git push origin v0.5.6
 ```
 
 ### 5. Post-release

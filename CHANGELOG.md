@@ -11,6 +11,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.5] — unreleased
 
+### Changed
+
+- Release: the post-release sync merges only a pull request whose base still reads `master`, so a retargeted one can no longer record the release on another branch and leave `master` behind; the repository setting the sync job needs is documented ([Release process](docs/develop/release.md#repository-settings-the-release-depends-on)).
+
 ## [0.5.4] — 2026-11-23
 
 ### Breaking changes

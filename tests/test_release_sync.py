@@ -13,6 +13,7 @@ from pathlib import Path
 
 from scripts.release.publish_stable import REPO
 from scripts.release.sync_branches import (
+    base_refusal,
     build_branch,
     is_dev_build,
     next_version,
@@ -190,3 +191,12 @@ def test_the_pull_request_says_which_files_the_release_rewrote() -> None:
 
 def test_the_pull_request_title_fits_the_repository_limit() -> None:
     assert len(pull_request_title("0.5.3")) <= 100
+
+
+def test_the_sync_merges_only_a_pull_request_that_still_targets_master() -> None:
+    # A retargeted pull request merges into that branch instead and leaves master behind.
+    assert base_refusal("master", 109) is None
+    refusal = base_refusal("dev", 109)
+    assert refusal is not None
+    assert "targets dev, not master" in refusal
+    assert "rerun" in refusal

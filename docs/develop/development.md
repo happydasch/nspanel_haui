@@ -214,5 +214,5 @@ Comments explain *why*; a comment that restates the next line is noise. Fail lou
 | | [Upgrading](upgrading.md) | Breaking changes per version, rollback |
 | | [Release process](release.md) | Artifacts, versioning, branches, CI, runbook |
 
-Direction and release gates live in [ROADMAP.md](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md), ideas in [FEATURE_WISHLIST.md](https://github.com/happydasch/nspanel_haui/blob/dev/FEATURE_WISHLIST.md), shipped changes in [CHANGELOG.md](https://github.com/happydasch/nspanel_haui/blob/master/CHANGELOG.md).
+Direction and release gates live in [ROADMAP.md](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md), ideas in [FEATURE_WISHLIST.md](https://github.com/happydasch/nspanel_haui/blob/master/FEATURE_WISHLIST.md), shipped changes in [CHANGELOG.md](https://github.com/happydasch/nspanel_haui/blob/master/CHANGELOG.md).
 

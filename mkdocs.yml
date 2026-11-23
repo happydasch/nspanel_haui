@@ -62,9 +62,6 @@ markdown_extensions:
 extra_css:
   - assets/embed.css
 
-extra_javascript:
-  - assets/dev-repo-version.js
-
 extra:
   social:
     - icon: fontawesome/brands/github

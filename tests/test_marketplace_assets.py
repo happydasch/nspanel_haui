@@ -4,6 +4,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRATION_DIR = ROOT / "custom_components" / "nspanel_haui"
 
+# Where the README's images are served from: the repository and its one long-lived
+# branch. A URL naming any other ref breaks as soon as that ref is deleted.
+REPO = "happydasch/nspanel_haui"
+README_BRANCH = "master"
+
 
 def test_marketplace_readme_images_use_resolvable_absolute_urls():
     from urllib.parse import urlparse
@@ -20,7 +25,11 @@ def test_marketplace_readme_images_use_resolvable_absolute_urls():
         parsed = urlparse(source)
         assert parsed.scheme in {"http", "https"}
         if parsed.netloc == "raw.githubusercontent.com":
-            asset = parsed.path.split("/dev/", 1)[1]
+            # The ref must be the live branch, not a branch that no longer exists:
+            # a deleted ref answers 404 and every README image breaks.
+            prefix = f"/{REPO}/{README_BRANCH}/"
+            assert parsed.path.startswith(prefix), source
+            asset = parsed.path[len(prefix) :]
             assert (ROOT / asset).is_file(), source
 
 

@@ -26,8 +26,8 @@ body:
       description: Paste the editor's **Copy report** output.
       render: text
       placeholder: |
-        Integration: 0.5.4
-        Firmware: 0.5.4
+        Integration: 0.5.5
+        Firmware: 0.5.5
         Display: 0.4.5 (required 0.4.5)
         Model: EU landscape
 
@@ -35,7 +35,7 @@ body:
     attributes:
       label: Integration version
       description: Shown in Settings → Devices & services → NSPanel HAUI, or in the device report.
-      placeholder: "0.5.4"
+      placeholder: "0.5.5"
 
   - type: input
     attributes:

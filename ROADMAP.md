@@ -1,7 +1,7 @@
 # Roadmap
 
 Development trajectory from **v0.5** toward **v1.0**. The last stable release is
-**v0.5.4** (2026-11-23).
+**v0.5.5** (2026-11-23).
 
 This file is the project's **direction**, not its backlog: the horizons it is
 moving through and what every stable release must prove. Concrete features —

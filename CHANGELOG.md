@@ -9,12 +9,16 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-## [0.5.5] — unreleased
+## [0.5.5] — 2026-11-23
 
 ### Changed
 
-- Display: the hub holds every display command while a TFT install is in flight, so a page switch, a timer or a notification can no longer be written into the transfer; the panel stops acknowledging pages during an upload, which used to make the page-ack timeout redraw the whole panel into it ([Troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
 - Release: `master` is the only long-lived branch. A release is a pull request merged plus a `vX.Y.Z` tag; the post-release sync, `release/X.Y.Z` preparation on a second branch, `make release-preflight` and `publish_stable.py` are gone, and a development build reports its version through `esphome -s` instead of committing it, so no workflow pushes to a branch ([Release process](docs/develop/release.md#published-development-firmware)).
+- Device: a **Development** firmware build no longer changes the integration's installed version — it carries its own version in the image, so a panel on the **Development** channel updates firmware and display while the integration stays on the last stable release ([Release process](docs/develop/release.md#published-development-firmware)).
+
+### Fixed
+
+- Display: the hub holds every display command while a TFT install is in flight, so a page switch, a timer or a notification can no longer be written into the transfer; the panel stops acknowledging pages during an upload, which used to make the page-ack timeout redraw the whole panel into it ([Troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
 
 ## [0.5.4] — 2026-11-23
 
@@ -710,7 +714,7 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
-[0.5.5]: https://github.com/happydasch/nspanel_haui/compare/v0.5.4...dev
+[0.5.5]: https://github.com/happydasch/nspanel_haui/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/happydasch/nspanel_haui/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/happydasch/nspanel_haui/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/happydasch/nspanel_haui/compare/v0.5.1...v0.5.2

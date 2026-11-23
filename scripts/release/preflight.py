@@ -27,6 +27,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.release.dev_version import version_kind
 from scripts.release.publish_stable import REPO
 from scripts.verify_nextion.check_hmi_bump import read_tft_version
 
@@ -52,7 +53,7 @@ NOTE_HEADINGS = {
     "### Changed": "## Changed",
     "### Fixed": "## Fixed",
 }
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+BRANCH_RE = re.compile(r"^release/(\d+\.\d+\.\d+)$")
 
 PASSED = "passed"
 REGENERATE = "regenerate"
@@ -80,8 +81,8 @@ def git(*args: str) -> str:
 def release_version(branch: str, given: str | None) -> str | None:
     """The stable version this branch names, or None when it names none."""
     if given:
-        return given if VERSION_RE.match(given) else None
-    match = re.fullmatch(r"release/(\d+\.\d+\.\d+)", branch)
+        return given if version_kind(given) == "stable" else None
+    match = BRANCH_RE.fullmatch(branch)
     return match.group(1) if match else None
 
 

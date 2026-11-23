@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
+
+from scripts.release.dev_version import version_kind
 
 REPO = "happydasch/nspanel_haui"
 MASTER_REF = "refs/heads/master"
@@ -40,7 +41,7 @@ def publish(*, push: str | None) -> None:
         raise ValueError("origin has no master branch")
     command("git", "fetch", "--no-tags", remote, commit)
     version = json.loads(command("git", "show", f"{commit}:{MANIFEST}"))["version"]
-    if not isinstance(version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+    if not isinstance(version, str) or version_kind(version) != "stable":
         raise ValueError(f"master's manifest does not contain a stable version: {version!r}")
     tag = f"v{version}"
     tag_ref = f"refs/tags/{tag}"

@@ -1,6 +1,6 @@
 # Dependabot version updates.
 #
-# Pull requests target dev, the integration branch; master is release-only. Group related updates so one
+# Pull requests target master, the only long-lived branch. Group related updates so one
 # review updates a toolchain instead of opening a pull request per dependency.
 
 version: 2
@@ -8,7 +8,6 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -31,7 +30,6 @@ updates:
 
   - package-ecosystem: "pip"
     directory: "/"
-    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -51,7 +49,6 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/"
-    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"

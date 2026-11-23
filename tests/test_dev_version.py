@@ -51,17 +51,10 @@ def test_the_base_comes_from_the_newest_release_tag(tmp_path: Path):
         subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
 
     git("init", "-q")
-    git(
-        "-c",
-        "user.email=t@example.com",
-        "-c",
-        "user.name=t",
-        "commit",
-        "-q",
-        "--allow-empty",
-        "-m",
-        "one",
-    )
+    # An annotated tag needs an identity, which a CI runner's checkout does not have.
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    git("commit", "-q", "--allow-empty", "-m", "one")
     with pytest.raises(ValueError, match="no vX.Y.Z tag"):
         dev_version.base_from_tags(tmp_path)
 

@@ -534,6 +534,14 @@ class HAUINavigationController(HAUIBase):
         # The touch recovery calls this directly: the pending timer must not
         # fire on top of it.
         self._cancel_timer("_page_timeout")
+        # An upload owns the display: it stops acking a page change, and both
+        # the re-send and the render would be dropped by the command guard.
+        if self._display_busy():
+            self.log(
+                "Page ack timeout during a TFT install; the page is drawn once it ends",
+                level="DEBUG",
+            )
+            return
         # re-send goto_page and render without pushing a duplicate onto the stack.
         if self.page is not None and self.panel is not None:
             page_id = self.page.page_id

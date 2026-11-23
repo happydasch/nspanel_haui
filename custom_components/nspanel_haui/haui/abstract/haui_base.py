@@ -196,6 +196,17 @@ class HAUIBase(HAUIConfigAccess):
             return
         self.app.controller["esphome"].send_cmd(name, value, force)
 
+    def _display_busy(self) -> bool:
+        """Whether a running TFT install owns the display, so it takes no command.
+
+        The panel answers nothing once it accepted an upload: its page ack stops
+        and text writes are refused. A command sent then is written into the
+        transfer, so the hub holds every display command until the install ends
+        — the panel reboots afterwards and the page is drawn again on reconnect.
+        """
+        update = self.app.controller.get("update")
+        return update is not None and update.tft_install_active
+
     def _cmd_context(self) -> str:
         """Build a context string for command logs using navigation state.
 
@@ -230,6 +241,9 @@ class HAUIBase(HAUIConfigAccess):
         if self._recording:
             self._rec_cmd.append(cmd)
             return
+        if self._display_busy():
+            self.log(f"Dropped a display command during a TFT install: {cmd}", level="DEBUG")
+            return
         ctx = self._cmd_context()
         prefix = f"[{ctx}] " if ctx else ""
         self.log(f"{prefix}Command: {cmd}", level="DEBUG")
@@ -244,6 +258,11 @@ class HAUIBase(HAUIConfigAccess):
         Args:
             cmds: The commands to send.
         """
+        if not cmds:
+            return
+        if self._display_busy():
+            self.log(f"Dropped {len(cmds)} display command(s) during a TFT install", level="DEBUG")
+            return
         self.log(f"send_cmds: {len(cmds)} command(s)", level="DEBUG")
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.send_cmds(cmds)

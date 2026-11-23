@@ -75,17 +75,14 @@ jobs:
         run: |
           short="${GITHUB_SHA:0:7}"
           previous=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$previous" ]; then range="$previous..HEAD"; else range=HEAD; fi
           {
-            echo "Development firmware `$VERSION`"
-            echo
-            echo "Build commit: [`$short`](https://github.com/$REPO/commit/$GITHUB_SHA)"
-            echo "Firmware variant: `universal` (for universal test panels only)."
-            echo "Display TFT: `$TFT_VERSION`."
-            echo
-            echo "## Commits in this build"
-            range="$previous..HEAD"
-            [ -n "$previous" ] || range=HEAD
-            git log --reverse --format="- [`%h`](https://github.com/$REPO/commit/%H) %s" "$range"
+            printf 'Development firmware `%s`\n\n' "$VERSION"
+            printf 'Build commit: [`%s`](https://github.com/%s/commit/%s)\n' "$short" "$REPO" "$GITHUB_SHA"
+            printf 'Firmware variant: `universal` (for universal test panels only).\n'
+            printf 'Display TFT: `%s`.\n\n' "$TFT_VERSION"
+            printf '## Commits in this build\n'
+            git log --reverse --format='- [`%h`](https://github.com/'"$REPO"'/commit/%H) %s' "$range"
           } > dev-release-notes.md
 
       - name: Publish the development prerelease

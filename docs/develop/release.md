@@ -164,7 +164,7 @@ make hmi-check
 
 1. Update the user docs for behaviour changes (install, actions, display models).
 2. Write the `docs/user/update.md` entry and the CHANGELOG *Breaking changes* line for every breaking change.
-3. Prepare `.github/release-notes/vX.Y.Z.md` with `## Before updating` and the `## Added` / `## Changed` / `## Fixed` sections the changelog carries, and date the changelog section.
+3. Prepare `.github/release-notes/vX.Y.Z.md` with `## Before updating` and the `## Added` / `## Changed` / `## Fixed` sections the changelog carries, and give the top `## [Unreleased]` section its version and date.
 
 | Document | Holds |
 |----------|-------|

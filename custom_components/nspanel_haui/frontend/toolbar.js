@@ -75,11 +75,6 @@ export function isPrereleaseVersion(version) {
 
 const DOCS_URL = 'https://happydasch.github.io/nspanel_haui/';
 
-/** Return the docs for a version: prereleases are built from `dev`, published under `dev/`. */
-export function docsUrl(version) {
-  return version && isPrereleaseVersion(version) ? `${DOCS_URL}dev/` : DOCS_URL;
-}
-
 /** Render version information alongside the persistent editor links. */
 export function renderFooter(host, integrationVersion = INTEGRATION_VERSION) {
   return html`
@@ -96,7 +91,7 @@ export function renderFooter(host, integrationVersion = INTEGRATION_VERSION) {
         target="_blank" rel="noopener noreferrer" title=${t('GitHub')}>
         <ha-icon icon="mdi:github"></ha-icon><span>${t('GitHub')}</span>
       </a>
-      <a class="footer-link" href=${docsUrl(integrationVersion)} target="_blank"
+      <a class="footer-link" href=${DOCS_URL} target="_blank"
         rel="noopener noreferrer" title=${t('Documentation')}>
         <ha-icon icon="mdi:help-circle-outline"></ha-icon><span>${t('Documentation')}</span>
       </a>

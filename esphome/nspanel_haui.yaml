@@ -23,13 +23,14 @@ substitutions:
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
 # Vendored nextion override for installed setups (git source); remove it once
-# every fix in nextion_patch/README.md ships in a released ESPHome. Track this
-# repo's dev branch without caching.
+# every fix in nextion_patch/README.md ships in a released ESPHome. Follow this
+# repo's one long-lived branch, refreshed on every build so a compile never pairs
+# a new display.yaml with an older patch.
 external_components:
   - source:
       type: git
       url: https://github.com/happydasch/nspanel_haui
-      ref: dev
+      ref: master
       path: esphome/nextion_patch
     components: [nextion]
     refresh: 0s

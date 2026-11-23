@@ -6,7 +6,6 @@ import assert from 'node:assert/strict';
 import { render } from './support/render.mjs';
 import { byRole } from './support/queries.mjs';
 import {
-  docsUrl,
   getIntegrationVersion,
   isPrereleaseVersion,
   renderFooter,
@@ -41,11 +40,14 @@ test('PEP 440 prerelease versions are identified as development builds', () => {
   }
 });
 
-test('documentation links prereleases to the dev docs and releases to stable docs', () => {
-  assert.equal(docsUrl('0.4.5.dev31'), 'https://happydasch.github.io/nspanel_haui/dev/');
-  assert.equal(docsUrl('1.0.0rc1'), 'https://happydasch.github.io/nspanel_haui/dev/');
-  assert.equal(docsUrl('0.4.5'), 'https://happydasch.github.io/nspanel_haui/');
-  assert.equal(docsUrl(null), 'https://happydasch.github.io/nspanel_haui/');
+test('the documentation link is the one published site, whatever the version', () => {
+  // A deleted `dev` site took the prerelease link with it; the docs are published once.
+  for (const version of ['0.4.5.dev31', '1.0.0rc1', '0.4.5', null]) {
+    const documentation = byRole(render(renderFooter({}, version)), 'link', {
+      name: 'Documentation',
+    });
+    assert.equal(documentation.href, 'https://happydasch.github.io/nspanel_haui/', version);
+  }
 });
 
 test('the persistent footer keeps its external links when no version is available', () => {
@@ -60,11 +62,11 @@ test('the persistent footer keeps its external links when no version is availabl
   assert.equal(root.querySelectorAll('[title="Integration version"]').length, 0);
 });
 
-test('the footer shows version data and points prereleases at the development docs', () => {
+test('the footer shows version data and keeps the `Dev` badge for prereleases', () => {
   const root = render(renderFooter({}, '0.5.0.dev16'));
   const documentation = byRole(root, 'link', { name: 'Documentation' });
 
   assert.equal(root.querySelector('[title="Integration version"]')?.textContent, 'v0.5.0.dev16');
   assert.ok(root.querySelector('[title="Development prerelease"]'));
-  assert.equal(documentation.href, 'https://happydasch.github.io/nspanel_haui/dev/');
+  assert.equal(documentation.href, 'https://happydasch.github.io/nspanel_haui/');
 });

@@ -46,7 +46,7 @@ The titlebar is sticky and the page scrolls under it, so content that pins to th
 | Region | Holds | Contract |
 |---|---|---|
 | Titlebar | HAUI title, current screen or device, notification button and count, Home Assistant's narrow-sidebar toggle | Sticky; no hub or hub configured; no notifications or a nonzero count; narrow mode |
-| Global editor footer | `renderFooter()` (`toolbar.js`): integration version, `Dev` badge for prereleases only, GitHub, Documentation | `INTEGRATION_VERSION` is parsed from the hashed asset URL and `docsUrl()` targets `/dev/` on a prerelease, the stable docs root otherwise; the footer stays after the content on loading, error and empty states, and the links never move into a menu |
+| Global editor footer | `renderFooter()` (`toolbar.js`): integration version, `Dev` badge for prereleases only, GitHub, Documentation | `INTEGRATION_VERSION` is parsed from the hashed asset URL and both links point at the one published docs root; the footer stays after the content on loading, error and empty states, and the links never move into a menu |
 
 ## Fleet screen regions
 

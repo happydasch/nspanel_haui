@@ -276,7 +276,7 @@ def test_universal_image_keeps_its_wifi_across_firmware_updates():
 
 
 def test_nextion_patch_is_never_older_than_the_package():
-    """The package and the patch change together on dev.
+    """The package and the patch change together.
 
     With the default 1-day cache a build combined a fresh display.yaml with an
     older patch: "[tft_upload_http_buffer_size_tx] is an invalid option".
@@ -285,6 +285,21 @@ def test_nextion_patch_is_never_older_than_the_package():
     block = package.split("external_components:")[1].split("packages:")[0]
     assert "path: esphome/nextion_patch" in block
     assert "refresh: 0s" in block
+
+
+def test_every_git_source_names_the_live_branch():
+    """A ref naming a deleted branch fails every build with "couldn't find remote ref".
+
+    The vendored patch and install.yaml's remote package both fetch this repository
+    by branch, so they must name the one long-lived branch: `dev` was deleted and
+    every build pinning it stopped at config validation.
+    """
+    branch = "master"
+    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
+    source = package.split("external_components:")[1].split("packages:")[0]
+    assert f"ref: {branch}" in source
+    install = (ROOT.parent / "install.yaml").read_text()
+    assert f"ref: {branch}" in install.split("packages:")[1]
 
 
 def test_firmware_can_be_flashed_from_a_url():

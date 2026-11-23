@@ -136,6 +136,32 @@ If neither helps, [open an issue](https://github.com/happydasch/nspanel_haui/iss
 
 Saving in the editor applies device settings and panels right away. Restart Home Assistant only after updating the integration itself.
 
+## Firmware Build Problems
+
+### ESPHome stops with "couldn't find remote ref dev"
+
+Your device YAML fetches the firmware from a branch that no longer exists. Until
+0.5.5 the repository had a `dev` branch; `master` is its one long-lived branch now.
+
+1. Open your device's YAML in the ESPHome dashboard and find the `ref:` entries —
+   the `packages:` remote package and, inside `esphome/nspanel_haui.yaml`, the
+   `external_components:` git source.
+2. Point both at `master`:
+
+   ```yaml
+   packages:
+     remote_package:
+       url: https://github.com/happydasch/nspanel_haui
+       ref: master
+       files:
+         - esphome/nspanel_haui.yaml
+   ```
+
+3. Validate and install again.
+
+The prebuilt `nspanel_haui.bin` from the [latest release](https://github.com/happydasch/nspanel_haui/releases/latest)
+needs no build at all; [Installation](install.md) flashes it in a few steps.
+
 ## Still stuck?
 
 - Check the [FAQ](faq.md).

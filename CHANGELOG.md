@@ -9,6 +9,13 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Firmware: the vendored Nextion override is fetched from `master`, so building your own firmware works again — every ESPHome build used to stop at config validation with `couldn't find remote ref dev` ([Troubleshooting](docs/user/troubleshooting.md#esphome-stops-with-couldnt-find-remote-ref-dev)).
+- Editor: the footer's **Documentation** link points at the published docs instead of the deleted `/dev/` site, which answered 404 on a development build.
+
 ## [0.5.5] — 2026-11-23
 
 ### Changed
@@ -714,6 +721,7 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
+[Unreleased]: https://github.com/happydasch/nspanel_haui/compare/v0.5.5...master
 [0.5.5]: https://github.com/happydasch/nspanel_haui/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/happydasch/nspanel_haui/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/happydasch/nspanel_haui/compare/v0.5.2...v0.5.3

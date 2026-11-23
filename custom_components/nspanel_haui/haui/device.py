@@ -31,6 +31,10 @@ TOUCH_DUPLICATE_WINDOW: float = 1.5
 # uptime key (older firmware) plays anyway.
 STARTUP_SOUND_MAX_UPTIME_SECONDS = 120
 
+# The firmware's Display Model select options, landscape first
+# (esphome/nspanel_haui/select.yaml), indexed by HAUIDevice.is_portrait.
+DISPLAY_MODEL_OPTIONS: tuple[str, str] = ("Landscape", "Portrait")
+
 
 class HAUIDevice(HAUIBase):
     """A NSPanel device: device callbacks, physical buttons and gesture input."""
@@ -166,6 +170,20 @@ class HAUIDevice(HAUIBase):
             self.log(f"Syncing {entity_id} to {value}{detail}")
             item.set_state(state=value)
 
+    def _sync_select(self, option: str, entity_name: str, reason: str = "") -> None:
+        """Select an option on one of the device's ESPHome selects when it differs."""
+        entity_id = self._resolve_esp_entity("select", entity_name)
+        if not entity_id or not self.app.item_exists(entity_id):
+            return
+        item = self.app.get_item(entity_id)
+        current = item.get_state()
+        # An unknown or unavailable entity has no option to compare against yet.
+        if current in (None, "", "unknown", "unavailable") or current == option:
+            return
+        detail = f" ({reason})" if reason else ""
+        self.log(f"Syncing {entity_id} to {option}{detail}")
+        item.call_service("select_option", option=option)
+
     def _sync_button_interaction(self) -> None:
         """Keep ``reset_interaction_on_button`` aligned with its ESPHome switch."""
         self._sync_config_switch(
@@ -216,8 +234,8 @@ class HAUIDevice(HAUIBase):
 
     def _sync_display_model(self) -> None:
         """Sync the firmware's gesture size with the display model."""
-        self._sync_number(
-            1 if self.is_portrait else 0,
+        self._sync_select(
+            DISPLAY_MODEL_OPTIONS[self.is_portrait],
             "Display Model",
             reason=f"display_model={self.display_model!r}",
         )

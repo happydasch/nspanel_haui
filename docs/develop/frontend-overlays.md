@@ -22,7 +22,7 @@ Every sidebar opens 380px wide (`ui/sidebar.js`) and its inner edge resizes it: 
 | Device settings (`views/device-settings.js`) | Two levels: a landing grid of `settingsTile`s, one per group of `SETTINGS_SECTIONS` (`device-settings-sections.js`: general, home, hardware, buttons, screen, sounds, gestures, advanced), then the open group's page; the footer **Device Enabled** / Cancel / Save is the same on both levels |
 | Panel editor (`views/panel-editor.js`) | Panel identity, behaviour and roles, descriptor options grouped by `PageOption.section` with item counts in the headings, inline item editing; `option-rules.js` marks a broken rule as an error that blocks Save, an entity Home Assistant does not know as a warning, and a hub refusal (`serverErrors`) marks the field it names |
 | Panel catalog (`views/panel-catalog.js`) | Shared search, a Large/Compact preview toggle (`haui_panelCatalogCompact`), one card per descriptor, popup and copy |
-| Backups (`dialogs/backup.js`) | **Backup file** with Export and Import as one pair, then **Copy to other devices** with a `choiceList` per direction |
+| Backups (`dialogs/backup.js`) | **Backup file** with Export and Import as one pair, then **Copy to other devices** with a `choiceList` per direction; each card says what it replaces in an `ha-alert` warning banner |
 | Updates (`dialogs/updates.js`) | Status, a scheduled install with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version**, `updateProgress`, the firmware and display rows, **Check for updates** |
 | Theme (`dialogs/theme.js`) | Draft palette preview, one theme picker, the icon colours of the palette the background picks, New/Export/Import and Duplicate/Rename/Delete |
 | Logs (`dialogs/logs.js`) | The hub's recent lines newest first and grouped by day, a device selector, the shared search field, Copy |
@@ -36,6 +36,7 @@ The panel editor asks the hub to render the unsaved form (`crud.js:buildPanelCon
 | Overlay | Contents |
 |---|---|
 | Notification centre (`views/notifications.js`) | The queued notifications with per-item dismiss; the count is the queue length |
+| Fleet bar tip (`fleet-bar-tip`) | The device of one segment of the inventory's footer and how it is connected, anchored at that segment and opened by hovering or focusing it |
 | Panel preview popover | An enlarged thumb with the panel's name and key, opened on hover, focus or tap |
 | Toast (`toast.js`) | One transient success, error or info message, `role="status"`, no focus steal |
 | Confirmation dialog (`dialogs/confirm.js`) | Destructive confirmation on `HauiDialog`, opened by the action it guards |

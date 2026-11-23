@@ -73,6 +73,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `release/dev_release_notes.py` | CI helper: write the development prerelease notes |
 | `release/preflight.py` | Report what a stable release still needs, without changing anything |
 | `release/publish_stable.py` | Preview the next stable tag, or push it with `--push` |
+| `release/sync_branches.py` | After a stable release: merge it into `dev`, open the next changelog section and merge `dev` into `master` (preview unless `--apply`) |
 
 ### Tooling
 

@@ -6,6 +6,7 @@ full render pipeline runs (goto_page, page ack, settle, set_panel).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from functools import partial
@@ -23,6 +24,11 @@ if TYPE_CHECKING:
     from .hub.app import NSPanelHAUI
 
 _LOGGER = logging.getLogger(__name__)
+
+# How long a service waits for the controller's answer before it reports the
+# request as started: a URL pre-flight or a busy worker can take longer, and the
+# dispatch is queued either way, so waiting forever would fail a call that runs.
+ANSWER_TIMEOUT_SECONDS = 5.0
 
 # ── Service names ────────────────────────────────────────────
 SERVICE_OPEN_PANEL = "open_panel"
@@ -160,6 +166,31 @@ def _publish_action(
 # ── Shared dispatch helper ──────────────────────────────────
 
 
+def _resolve_required_targets(
+    hass: HomeAssistant, call: ServiceCall
+) -> list[tuple[str, NSPanelHAUI]]:
+    """Resolve the call's targets, refusing a call that matches no panel.
+
+    Returns:
+        list: (device_name, app) for every matching panel
+
+    Raises:
+        ServiceValidationError: When no panel matches ``device``; the call
+            then fails visibly instead of doing nothing.
+    """
+    from homeassistant.exceptions import ServiceValidationError
+
+    device_id: str | None = call.data.get("device")
+    targets = _resolve_target_apps(hass, device_id)
+
+    if not targets:
+        raise ServiceValidationError(
+            f"{call.service}: no NSPanel HAUI panel matches device {device_id}; select a "
+            "panel's NSPanel HAUI device or its ESPHome device"
+        )
+    return targets
+
+
 async def _device_action(
     hass: HomeAssistant,
     call: ServiceCall,
@@ -178,18 +209,7 @@ async def _device_action(
         ServiceValidationError: When no panel matches ``device``; the call
             then fails visibly instead of doing nothing.
     """
-    from homeassistant.exceptions import ServiceValidationError
-
-    device_id: str | None = call.data.get("device")
-    targets = _resolve_target_apps(hass, device_id)
-
-    if not targets:
-        raise ServiceValidationError(
-            f"{call.service}: no NSPanel HAUI panel matches device {device_id}; select a "
-            "panel's NSPanel HAUI device or its ESPHome device"
-        )
-
-    for dev_name, app in targets:
+    for dev_name, app in _resolve_required_targets(hass, call):
 
         def _do(app: Any = app, dev_name: str = dev_name) -> None:
             if wake_first:
@@ -203,6 +223,83 @@ async def _device_action(
         # blocked on this service call (e.g. an item action), and waiting for
         # the worker from here would deadlock it.
         app.dispatch(_do)
+
+
+class _InstallAnswer:
+    """A one-shot answer the app worker hands back to an awaiting service call."""
+
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._loop = loop
+        self._future: asyncio.Future[tuple[str, dict[str, Any]]] = loop.create_future()
+
+    def complete(self, device_name: str, result: dict[str, Any]) -> None:
+        """Hand the controller's answer to the event loop; the worker calls this."""
+
+        def _set() -> None:
+            if not self._future.done():
+                self._future.set_result((device_name, result))
+
+        self._loop.call_soon_threadsafe(_set)
+
+    async def wait(self, timeout: float) -> tuple[str, dict[str, Any]] | None:
+        """The answer, or None when the worker did not produce one in time."""
+        try:
+            return await asyncio.wait_for(asyncio.shield(self._future), timeout)
+        except TimeoutError:
+            return None
+
+
+async def _install_on_targets(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    start: Callable[[Any, Callable[[dict[str, Any]], None]], None],
+    error_of: Callable[[dict[str, Any]], str | None],
+) -> dict[str, Any]:
+    """Run an install on each target and answer with the controller's own state.
+
+    The worker's answer is awaited (bounded by ``ANSWER_TIMEOUT_SECONDS``) so a
+    refusal reaches Developer Tools and automations instead of only the log.
+
+    Raises:
+        HomeAssistantError: When a target's install did not start
+        ServiceValidationError: When no panel matches ``device``
+    """
+    from homeassistant.exceptions import HomeAssistantError
+
+    loop = asyncio.get_running_loop()
+    answers: list[_InstallAnswer] = []
+    for dev_name, app in _resolve_required_targets(hass, call):
+        answer = _InstallAnswer(loop)
+        answers.append(answer)
+
+        def _do(app: Any = app, dev_name: str = dev_name, answer: _InstallAnswer = answer) -> None:
+            def _on_complete(result: dict[str, Any]) -> None:
+                answer.complete(dev_name, result)
+
+            try:
+                start(app, _on_complete)
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.exception("%s: failed for '%s'", call.service, dev_name)
+                answer.complete(dev_name, {"state": "error", "last_error": str(exc)})
+
+        app.dispatch(_do)
+
+    answered = [
+        resolved
+        for resolved in await asyncio.gather(
+            *(answer.wait(ANSWER_TIMEOUT_SECONDS) for answer in answers)
+        )
+        if resolved is not None
+    ]
+    for dev_name, result in answered:
+        message = error_of(result)
+        if message:
+            raise HomeAssistantError(f"{call.service} failed for '{dev_name}': {message}")
+    if not answered:
+        # A worker busy with a panel action, or a pre-flight: the dispatch is
+        # queued and runs after this call, so this is a start, not a failure.
+        return {"state": "started"}
+    return answered[0][1]
 
 
 # ── Service call handlers ───────────────────────────────────
@@ -284,23 +381,49 @@ async def _handle_reset_last_interaction(hass: HomeAssistant, call: ServiceCall)
     await _device_action(hass, call, action=_reset_action)
 
 
-async def _handle_update_tft(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Install the TFT the device's firmware needs, another release, or the one at ``url``."""
+async def _check_tft_url(hass: HomeAssistant, url: str) -> None:
+    """Refuse a TFT URL Home Assistant cannot serve; a transport error only warns.
+
+    The panel's silent failures are mostly the URL itself (a 404, a server
+    without range support, a file the display's partition cannot hold), and
+    Home Assistant can see those before the panel is sent off to download.
+
+    Raises:
+        HomeAssistantError: When the URL is unreachable or unusable
+    """
+    from homeassistant.exceptions import HomeAssistantError
+
+    from .update_url import tft_url_problem
+
+    problem = await tft_url_problem(hass, url)
+    if problem:
+        raise HomeAssistantError(problem)
+
+
+async def _handle_update_tft(hass: HomeAssistant, call: ServiceCall) -> dict[str, Any]:
+    """Install the TFT the device's firmware needs, another release, or the one at ``url``.
+
+    Returns the update state the controller reported, so an automation can
+    branch on ``started``/``installing``.
+
+    Raises:
+        HomeAssistantError: When the install did not start (see ``_install_on_targets``)
+    """
     version: str | None = call.data.get("version")
     url: str | None = call.data.get("url")
+    if url is not None:
+        # A rejected URL raises before anything is dispatched.
+        await _check_tft_url(hass, url)
 
-    def _update_action(app: Any, dev_name: str) -> None:
-        def _on_complete(result: dict[str, Any]) -> None:
-            if result.get("state") == "error":
-                _LOGGER.error(
-                    "update_tft failed for '%s': %s",
-                    dev_name,
-                    result.get("last_error") or "TFT update failed",
-                )
+    def _start(app: Any, on_complete: Callable[[dict[str, Any]], None]) -> None:
+        app.start_async_tft_install(version, url, on_complete)
 
-        app.start_async_tft_install(version, url, _on_complete)
+    def _error_of(result: dict[str, Any]) -> str | None:
+        if result.get("state") == "error":
+            return result.get("last_error") or "TFT update failed"
+        return None
 
-    await _device_action(hass, call, action=_update_action)
+    return await _install_on_targets(hass, call, _start, _error_of)
 
 
 async def _handle_update_firmware(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -330,6 +453,12 @@ def async_register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_OPEN_PANEL):
         return  # all registered as one block
 
+    from homeassistant.core import SupportsResponse
+
+    # Only ``update_tft`` answers: it returns the controller's update state, so
+    # an automation can branch on ``started``/``installing``.
+    responses = {SERVICE_UPDATE_TFT: SupportsResponse.OPTIONAL}
+
     for name, schema, handler in (
         (SERVICE_OPEN_PANEL, SERVICE_OPEN_PANEL_SCHEMA, _handle_open_panel),
         (SERVICE_CLOSE_PANEL, SERVICE_DEVICE_ONLY_SCHEMA, _handle_close_panel),
@@ -344,4 +473,10 @@ def async_register_services(hass: HomeAssistant) -> None:
         (SERVICE_UPDATE_TFT, SERVICE_UPDATE_TFT_SCHEMA, _handle_update_tft),
         (SERVICE_UPDATE_FIRMWARE, SERVICE_UPDATE_FIRMWARE_SCHEMA, _handle_update_firmware),
     ):
-        hass.services.async_register(DOMAIN, name, partial(handler, hass), schema=schema)
+        hass.services.async_register(
+            DOMAIN,
+            name,
+            partial(handler, hass),
+            schema=schema,
+            supports_response=responses.get(name, SupportsResponse.NONE),
+        )

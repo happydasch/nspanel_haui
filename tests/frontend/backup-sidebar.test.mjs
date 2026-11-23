@@ -46,9 +46,11 @@ test('the backup file is one card with Export and Import as one pair', async () 
   assert.match(fileCard.textContent, /Backup file/);
   const exportButton = byRole(fileCard, 'button', { name: 'Export' });
   const importButton = byRole(fileCard, 'button', { name: 'Import' });
-  // Import is the destructive direction: the note it names says so before it is run.
-  assert.equal(importButton.getAttribute('aria-describedby'), 'backup-import-hint');
-  assert.match(fileCard.textContent, /no undo/);
+  // Import is the destructive direction: the banner it names says so before it is run.
+  const importBanner = fileCard.querySelector('ha-alert[alert-type="warning"]');
+  assert.ok(importBanner, 'the file card warns in a banner');
+  assert.match(importBanner.textContent, /no undo/);
+  assert.equal(importButton.getAttribute('aria-describedby'), importBanner.id);
   // The copy is its own card, not another row of the file's.
   assert.match(copyCard.textContent, /Copy to other devices/);
   assert.doesNotMatch(fileCard.textContent, /Copy to other devices/);
@@ -97,6 +99,11 @@ test('a copy takes the picked sections to the picked devices', async () => {
   };
   const { sidebar, emitted } = await openSidebar(api);
   const card = cards(sidebar)[1];
+
+  // What a copy replaces goes in a banner, above the action that replaces it.
+  const banner = card.querySelector('ha-alert[alert-type="warning"]');
+  assert.ok(banner, 'the copy card warns in a banner');
+  assert.match(banner.textContent, /no undo/);
 
   // Settings and panels are what makes a device look like this one; updates are not.
   assert.equal(pick(card, 'Device settings').checked, true);

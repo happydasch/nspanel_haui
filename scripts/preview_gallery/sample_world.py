@@ -33,7 +33,7 @@ FIRMWARE_ENTITIES: list[tuple[str, str, str]] = [
     ("sensor", "Brightness", "sensor.kitchen_brightness"),
     ("sensor", "Uptime", "sensor.kitchen_uptime"),
     ("sensor", "RSSI", "sensor.kitchen_rssi"),
-    ("number", "Display Model", "number.kitchen_display_model"),
+    ("select", "Display Model", "select.kitchen_display_model"),
     ("number", "Brightness Full", "number.kitchen_brightness_full"),
     ("number", "Brightness Dimmed", "number.kitchen_brightness_dimmed"),
     ("number", "Duration Dimming", "number.kitchen_duration_dimming"),

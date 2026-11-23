@@ -16,6 +16,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import (
     DEFAULT_CONFIG,
     ESPAction,
+    ESPEvent,
     ESPRequest,
     ESPResponse,
     PopupPanelKey,
@@ -202,6 +203,9 @@ class HAUIUpdateController(HAUIBase):
         self._last_install_version: str | None = None
         self._last_install_at: datetime.datetime | None = None
         self._last_install_confirmed = False
+        # What the panel was last handed, so the editor can say which file it
+        # is downloading when an upload never reports back.
+        self._last_install_url: str | None = None
         # yaml_version whose hand-installed TFT is kept; in memory only, lifted
         # by a restart or a new firmware.
         self._manual_tft_firmware: str | None = None
@@ -901,6 +905,7 @@ class HAUIUpdateController(HAUIBase):
                 error=self.translate("Cannot install TFT during a firmware update"),
             )
             return self.get_update_state()
+        self.log(f"Sending the TFT upload command for {url}")
         published = self.app.controller["esphome"].esphome.publish(ESPAction.UPLOAD_TFT_URL, url)
         if not published:
             msg = "Could not send the TFT upload command; check the ESPHome connection"
@@ -913,9 +918,27 @@ class HAUIUpdateController(HAUIBase):
         self._last_install_version = version
         self._last_install_at = datetime.datetime.now(tz=datetime.UTC)
         self._last_install_confirmed = False
+        self._last_install_url = url
         self._set_update_state(UPDATE_STATE_INSTALLING, version=version)
         self._start_install_timeout_timer()
+        self.log(f"The panel was sent the TFT upload command for {url}")
         return self.get_update_state()
+
+    def _answer_install_in_progress(self, version: str | None) -> dict[str, Any]:
+        """Answer an install request while one is already running.
+
+        The first upload owns the panel until it reboots or
+        ``INSTALL_TIMEOUT_SECONDS`` runs out. The answer says so without
+        touching the tracked state: the running install still has to verify.
+        """
+        started = self._update_started_at or self._last_install_at
+        msg = self.translate("A TFT install started at {started_at} is still running").replace(
+            "{started_at}", started.isoformat() if started else "an earlier attempt"
+        )
+        msg += ". "
+        msg += self.translate("Power-cycle the panel to clear an upload that never finishes")
+        self.log(msg, level="WARNING")
+        return {**self.get_update_state(), "state": UPDATE_STATE_ERROR, "last_error": msg}
 
     def install_tft(self, version: str | None = None) -> dict[str, Any]:
         """Install the TFT the firmware manifest ships for this display model."""
@@ -924,6 +947,9 @@ class HAUIUpdateController(HAUIBase):
                 UPDATE_STATE_ERROR, version=version, error="Updates are disabled for this device"
             )
             return self.get_update_state()
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            # A second upload would restart the transfer the panel is running.
+            return self._answer_install_in_progress(version)
         if not self.app.device.connected:
             self.log("Cannot install the TFT while the device is disconnected", level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, error="device disconnected")
@@ -966,11 +992,16 @@ class HAUIUpdateController(HAUIBase):
             )
             on_complete(self.get_update_state())
             return
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            on_complete(self._answer_install_in_progress(version))
+            return
+        if url is not None:
+            # A URL request is an answer of its own: deriving a manifest
+            # install instead installs a different TFT than the one asked for.
+            on_complete(self.install_tft_url(url))
+            return
         if not self.app.device.connected:
             on_complete(self.install_tft(version))
-            return
-        if self._update_state == UPDATE_STATE_INSTALLING:
-            on_complete(self.get_update_state())
             return
         if self._firmware_installing:
             self._set_update_state(
@@ -979,9 +1010,6 @@ class HAUIUpdateController(HAUIBase):
                 error=self.translate("Cannot install TFT during a firmware update"),
             )
             on_complete(self.get_update_state())
-            return
-        if url is not None:
-            on_complete(self.install_tft_url(url))
             return
         self.start_async_check(
             allow_auto_install=False,
@@ -1081,14 +1109,25 @@ class HAUIUpdateController(HAUIBase):
         return {"releases": releases, "required": required, "error": error}
 
     def install_tft_url(self, url: str) -> dict[str, Any]:
-        """Install the TFT file at ``url`` for custom or development builds."""
+        """Install the TFT file at ``url`` for custom or development builds.
+
+        The upload needs the panel's ESPHome API, not the display handshake:
+        refusing on ``connected`` (the HAUI handshake state) turned a URL
+        request into a manifest install or a silent failure on a panel that was
+        merely still handshaking.
+        """
         if not self.app.device.connected:
-            self.log("Cannot install the TFT while the device is disconnected", level="WARNING")
-            self._set_update_state(UPDATE_STATE_ERROR, error="device disconnected")
-            return self.get_update_state()
+            self.log(
+                f"The display has not handshaked yet; installing the TFT from {url} anyway",
+                level="WARNING",
+            )
         self.log(f"Installing TFT from {url}")
-        # _set_update_state keeps the previous version when given None; a URL
-        # install must not be confirmed against an earlier release's version.
+        # A URL install starts fresh like a manual manifest install: it bypasses
+        # the "not confirmed" guard and gives automatic installs their attempts
+        # back. ``_set_update_state`` keeps the previous version when given None,
+        # so a URL install must not be confirmed against an earlier release.
+        self._last_install_confirmed = False
+        self._last_install_at = None
         self._update_version = None
         self._auto_attempts.pop("tft", None)
         result = self._start_tft_upload(url, None)
@@ -1213,7 +1252,9 @@ class HAUIUpdateController(HAUIBase):
 
         Returns:
             dict: ``state`` (idle/checking/installing/error/done), ``version``,
-            ``started_at`` (ISO timestamp or None) and ``last_error``
+            ``started_at`` (ISO timestamp or None), ``last_error``, and what the
+            panel was last handed — ``tft_url`` and ``sent_at`` (None until an
+            upload command went out)
         """
         snapshot = self.get_update_snapshot()
         display = snapshot["display"]
@@ -1224,6 +1265,8 @@ class HAUIUpdateController(HAUIBase):
             "version": display["version"],
             "started_at": display["started_at"],
             "last_error": display["last_error"],
+            "tft_url": self._last_install_url,
+            "sent_at": self._last_install_at.isoformat() if self._last_install_at else None,
             "tft_update_reason": display["update_reason"],
             "tft_update_available": display["available"],
             "firmware_update_available": firmware["available"],
@@ -2252,12 +2295,47 @@ class HAUIUpdateController(HAUIBase):
 
     # event
 
+    def _on_tft_upload_started(self, event: HAUIEvent) -> None:
+        """The panel accepted the URL and started the transfer.
+
+        The upload command only proved the panel was reachable; the transfer
+        itself starts now, so the install timeout is re-armed here.
+        """
+        if self._update_state != UPDATE_STATE_INSTALLING:
+            return
+        self.log(f"The panel started the TFT upload from {event.value}")
+        self._start_install_timeout_timer()
+        self.publish_display_update()
+
+    def _on_tft_upload_failed(self, event: HAUIEvent) -> None:
+        """The panel could not install the TFT; it names the reason.
+
+        Only an in-flight install is failed here: a late event from an upload
+        the hub already gave up on must not overwrite a newer state. The retry
+        policy stays with ``_install_missing_tft``.
+        """
+        if self._update_state != UPDATE_STATE_INSTALLING:
+            return
+        msg = str(self.translate("The panel could not install the TFT"))
+        reason = str(event.value or "").strip()
+        if reason:
+            msg += f": {reason}"
+        self._set_install_failed(msg)
+
     def process_event(self, event: HAUIEvent) -> None:
         """Process events.
 
         Args:
             event (HAUIEvent): Event
         """
+
+        # tft upload events: the panel names the transfer it started or why it failed
+        if event.name == ESPEvent.TFT_UPLOAD_STARTED:
+            self._on_tft_upload_started(event)
+            return
+        if event.name == ESPEvent.TFT_UPLOAD_FAILED:
+            self._on_tft_upload_failed(event)
+            return
 
         # device state received (includes yaml_version, tft_required_version and tft_version)
         if event.name == ESPResponse.RES_DEVICE_STATE:

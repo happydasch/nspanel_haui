@@ -21,13 +21,18 @@ def remote_ref(remote: str, ref: str) -> str:
     return command("git", "ls-remote", "--refs", remote, ref).split("\t", 1)[0]
 
 
-def publish(*, push: str | None) -> None:
-    remote = command("git", "remote", "get-url", "--push", "origin")
-    if remote.lower().removesuffix(".git") not in {
+def remote_is_canonical(url: str) -> bool:
+    """Whether a remote URL pushes to the canonical repository."""
+    return url.lower().removesuffix(".git") in {
         f"https://github.com/{REPO}",
         f"git@github.com:{REPO}",
         f"ssh://git@github.com/{REPO}",
-    }:
+    }
+
+
+def publish(*, push: str | None) -> None:
+    remote = command("git", "remote", "get-url", "--push", "origin")
+    if not remote_is_canonical(remote):
         raise ValueError(f"origin must push to github.com/{REPO}")
 
     commit = remote_ref(remote, MASTER_REF)

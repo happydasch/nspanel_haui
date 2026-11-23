@@ -69,12 +69,19 @@ The hub validates the file before installing it. The panel downloads it from Hom
 ## If something goes wrong
 
 - **Try again.** Open the **Updates** sidebar, press **Install** beside **Firmware** or **Display (TFT)**, and choose an offered update, a release, **From URL** or **From local file**.
-- **Display update fails.** See [TFT Upload Failures](troubleshooting.md#tft-upload-failures).
+- **Display update fails.** The sidebar, the **HAUI Display** entity and `nspanel_haui.update_tft` say why: the panel's own reason (no network, the server's answer, a refused display) or the reason the hub would not start the install. See [TFT Upload Failures](troubleshooting.md#tft-upload-failures).
+- **An install that will not start.** A second install while one is running is refused with its start time instead of being reported as started; wait for it, or power-cycle the panel if the transfer never finishes.
 - **Go back to an older version.** The Marketplace does not downgrade. Restore a backup; see [Rollback](../develop/upgrading.md#rollback).
 
 ## Upgrading from older versions
 
 Breaking changes since 0.4.5, newest first. The full history, the 0.3.x migration and old-firmware steps are in [Upgrading](../develop/upgrading.md#upgrading).
+
+### Display Model is a dropdown
+
+The firmware's **Display Model** config entity is now a `select` with **Landscape** and **Portrait**, so the panel's device page in Home Assistant offers a dropdown instead of the number `0` (landscape) or `1` (portrait). `number.<device>_display_model` becomes `select.<device>_display_model`.
+
+Nothing to re-enter: the hub writes the option on every connect, and the editor's **Display Model** setting under **Device Settings → General** is unchanged. Flash the firmware that ships with this version together with the integration, and point automations that referenced the old number entity at the select.
 
 ### The theme picks its own icon colors
 

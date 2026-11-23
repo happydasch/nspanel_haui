@@ -28,6 +28,10 @@ class ESPEvent(StrEnum):
     RELAY_RIGHT = "esphome.relay_right"
     DISPLAY_STATE = "esphome.display_state"
     BUFFER_OVERFLOW = "esphome.buffer_overflow"
+    # TFT upload: the panel accepted the URL / could not install the file (its
+    # value is the reason). A successful upload reboots, so it fires no event.
+    TFT_UPLOAD_STARTED = "esphome.tft_upload_started"
+    TFT_UPLOAD_FAILED = "esphome.tft_upload_failed"
 
 
 # Touch gestures the display reports (the values of ``ESPEvent.GESTURE``).

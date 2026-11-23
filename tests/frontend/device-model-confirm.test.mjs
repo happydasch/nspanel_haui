@@ -93,7 +93,7 @@ test('confirming the question installs the matching TFT', async () => {
   assert.deepEqual(host.calls, [
     ['/api/nspanel_haui/update_tft/entry1', { device: 'kitchen' }],
   ]);
-  assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
+  assert.deepEqual(host.toasts.at(-1), ['info', 'Install started on "kitchen"']);
 });
 
 test('declining the question leaves the TFT alone', () => {

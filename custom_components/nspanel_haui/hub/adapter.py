@@ -344,7 +344,9 @@ class ESPHomeProxy:
                 )
                 return False
 
-            _LOGGER.info(
+            # Debug, not info: this fires once per display command chunk, and a
+            # render is one batch per chunk while a ticking page writes ~1/s.
+            _LOGGER.debug(
                 "→ ESPHome native: %s %s",
                 name,
                 service_data if service_data else "(no args)",

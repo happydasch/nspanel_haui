@@ -1,12 +1,14 @@
 import time
 from datetime import datetime
 from datetime import time as dt_time
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+import yaml
 
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.device import DISPLAY_MODEL_OPTIONS, HAUIDevice
 from custom_components.nspanel_haui.haui.mapping.const import ESPAction, ESPEvent
 
 
@@ -763,7 +765,7 @@ class _SwitchApp(DummyApp):
             ("switch", "Use Relay Right"): "use_relay_right",
             ("switch", "Relay Left"): "relay_left",
             ("switch", "Relay Right"): "relay_right",
-            ("number", "Display Model"): "display_model",
+            ("select", "Display Model"): "display_model",
             ("number", "Timeout Dimming"): "timeout_dimming",
             ("number", "Timeout Display-Off"): "timeout_display_off",
             ("number", "Brightness Full"): "brightness_full",
@@ -796,51 +798,64 @@ class _Number:
         self.state = state
 
 
-def test_display_model_syncs_to_the_firmware_display_model_entity() -> None:
-    """The firmware's \"Display Model\" number mirrors the hub's display_model."""
-    number = _Number("0")
-    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+class _Select:
+    def __init__(self, state):
+        self.state = state
+        self.calls = []
+
+    def get_state(self):
+        return self.state
+
+    def call_service(self, service, **kwargs):
+        self.calls.append((service, kwargs))
+        self.state = kwargs.get("option", self.state)
+
+
+def test_portrait_display_model_selects_the_portrait_gesture_size() -> None:
+    """The firmware's "Display Model" select mirrors the hub's portrait model."""
+    select = _Select("Landscape")
+    app = _SwitchApp({"select.nspanel_haui_display_model": select})
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
 
     device._sync_display_model()
 
-    assert number.state == 1
+    assert select.calls == [("select_option", {"option": "Portrait"})]
 
 
-def test_landscape_display_model_syncs_to_zero() -> None:
-    """EU use the landscape gesture dimensions (0)."""
-    number = _Number("1")
-    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+def test_landscape_display_model_selects_the_landscape_gesture_size() -> None:
+    """EU panels use the landscape gesture dimensions."""
+    select = _Select("Portrait")
+    app = _SwitchApp({"select.nspanel_haui_display_model": select})
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "eu"})
 
     device._sync_display_model()
 
-    assert number.state == 0
+    assert select.state == "Landscape"
 
 
 def test_display_model_sync_uses_the_registry_resolved_entity_id() -> None:
     """When the entity registry resolves a non-slug id (area-prefixed naming),
-    the sync writes that entity instead of guessing ``number.{slug}_...``."""
-    number = _Number("0")
-    app = _SwitchApp({"number.goscinny_nspanel_goscinny_display_model": number})
-    app._resolved_entity = "number.goscinny_nspanel_goscinny_display_model"
+    the sync writes that entity instead of guessing ``select.{slug}_...``."""
+    select = _Select("Landscape")
+    app = _SwitchApp({"select.goscinny_nspanel_goscinny_display_model": select})
+    app._resolved_entity = "select.goscinny_nspanel_goscinny_display_model"
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
 
     device._sync_display_model()
 
-    assert number.state == 1
+    assert select.state == "Portrait"
 
 
 def test_display_model_sync_does_not_guess_a_slug_id_without_a_resolver() -> None:
     """A missing registry match must not guess an ESPHome entity id."""
-    number = _Number("0")
-    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    select = _Select("Landscape")
+    app = _SwitchApp({"select.nspanel_haui_display_model": select})
     app.find_entity_id = None
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
 
     device._sync_display_model()
 
-    assert number.state == "0"
+    assert select.calls == []
 
 
 def test_display_model_sync_is_a_noop_when_no_entity_resolves() -> None:
@@ -855,33 +870,33 @@ def test_display_model_sync_is_a_noop_when_no_entity_resolves() -> None:
 
 @pytest.mark.parametrize("state", ["unknown", "unavailable"])
 def test_display_model_sync_skips_an_unresolved_firmware_state(state: str) -> None:
-    """A display model the panel has not reported yet is not written.
+    """A display model the panel has not restored yet is not written.
 
-    The device starts before its firmware published the number; "unknown" is a
-    Home Assistant state, not a model, so the start-up sync leaves it alone.
+    The device starts before its firmware published the select; "unknown" is a
+    Home Assistant state, not an option, so the start-up sync leaves it alone.
     """
-    number = _Number(state)
-    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    select = _Select(state)
+    app = _SwitchApp({"select.nspanel_haui_display_model": select})
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
 
     device.sync_config_to_device()
 
-    assert number.state == state
+    assert select.calls == []
 
 
 def test_display_model_sync_writes_once_the_firmware_reports_a_value() -> None:
-    """The sync after the panel reports its model applies the hub's orientation."""
-    number = _Number("unknown")
-    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    """The sync after the panel reports its option applies the hub's orientation."""
+    select = _Select("unknown")
+    app = _SwitchApp({"select.nspanel_haui_display_model": select})
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "us"})
 
     device.sync_config_to_device()
-    assert number.state == "unknown"
+    assert select.calls == []
 
-    number.state = "0"
+    select.state = "Landscape"
     device.sync_config_to_device()
 
-    assert number.state == 1
+    assert select.state == "Portrait"
 
 
 def test_display_model_defaults_to_the_landscape_panel() -> None:
@@ -892,15 +907,24 @@ def test_display_model_defaults_to_the_landscape_panel() -> None:
     assert device.is_portrait is False
 
 
+def test_the_firmware_select_offers_the_options_the_hub_writes() -> None:
+    """The firmware's Display Model options are the strings the hub syncs to it."""
+    path = Path(__file__).resolve().parent.parent / "esphome" / "nspanel_haui" / "select.yaml"
+    selects = yaml.safe_load(path.read_text())["select"]
+    model = next(select for select in selects if select.get("id") == "display_model")
+
+    assert tuple(model["options"]) == DISPLAY_MODEL_OPTIONS
+
+
 def test_the_firmware_display_model_is_written_for_a_device_without_the_setting() -> None:
     """A device whose store never set a model still tells the panel to be landscape."""
-    number = _Number("1")
-    app = _SwitchApp({"number.nspanel_haui_display_model": number})
+    select = _Select("Portrait")
+    app = _SwitchApp({"select.nspanel_haui_display_model": select})
     device = HAUIDevice(app, {"name": "nspanel_haui"})
 
     device.sync_config_to_device()
 
-    assert number.state == 0
+    assert select.state == "Landscape"
 
 
 def test_dimming_timeout_syncs_to_the_firmware_timeout_dimming_entity() -> None:

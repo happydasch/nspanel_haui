@@ -10,11 +10,14 @@ display:
     # concurrent updates without drops, and an RX overflow cannot pile up
     # orphaned entries and fragment the heap.
     max_queue_size: 800
-    # Spread allocations over loop iterations to reduce heap fragmentation;
-    # command_spacing below caps the actual output rate.
+    # Bounds how many queued commands are *sent* per loop, but the pacer below
+    # sends one per component phase anyway, so on the transmit path this only
+    # matters if command_spacing is removed. It still bounds how many replies
+    # the firmware parses from the display per loop.
     max_commands_per_loop: 50
-    # One command per loop iteration keeps bursts from overrunning the display's
-    # 1 KB RX buffer.
+    # One command per component phase keeps bursts from overrunning the
+    # display's 1 KB RX buffer; ``loop_interval`` in base.yaml is the pace this
+    # turns into (2 ms per command), so the two belong together.
     command_spacing: 2ms
     # Compile-time fallback only; the hub passes the URL of the TFT it installs
     # (upload_tft_url → prepare_tft_upload → set_tft_url()).

@@ -93,7 +93,7 @@ test('Redraw display calls the hub for the selected device', async () => {
   assert.deepEqual(host.toasts, [['success', 'Display refreshed for "kitchen"']]);
 });
 
-test('the install picker opens below the update settings in the sidebar', () => {
+test('the install picker opens above the update settings in the sidebar', () => {
   const { dlg } = dialog('nspanel-updates-sidebar', {
     open: true,
     deviceStatus: { device_info: {}, update: { enabled: true } },
@@ -111,7 +111,8 @@ test('the install picker opens below the update settings in the sidebar', () => 
   const settingsIndex = markup.indexOf('haui-update-settings');
   const pickerIndex = markup.indexOf('haui-update-picker');
   assert.ok(settingsIndex >= 0);
-  assert.ok(pickerIndex > settingsIndex);
+  assert.ok(pickerIndex >= 0);
+  assert.ok(pickerIndex < settingsIndex, 'the picker sits above the update settings');
 });
 
 function collectTemplateStrings(value, result = []) {

@@ -7,7 +7,8 @@ import { flush, render } from './support/render.mjs';
 import { renderFleetView, carouselEdgesFrom, carouselSlots, deviceSlotCount } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 import * as EditorPreferences from '../../custom_components/nspanel_haui/frontend/editor-preferences.js';
-import { makeHost } from './fake-host.mjs';
+import * as FleetScreen from '../../custom_components/nspanel_haui/frontend/fleet-screen.js';
+import { jsonResponse, makeHost } from './fake-host.mjs';
 
 test('a device without panels offers its setup instead of an empty screen', () => {
   const opened = [];
@@ -141,13 +142,40 @@ test('the summary strip reports health and the footer one segment per device', (
   assert.equal(heading.closest('.haui-fleet-inventory-heading')?.parentElement, count.parentElement);
   assert.ok(lead.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary?.querySelector('.haui-inventory-update'));
+  // The figures name themselves and take a tone from the data: nothing waiting reads healthy,
+  // a pending update warns, and so does a fleet on mixed integration versions.
+  const figureText = (root2) => [...root2.querySelectorAll('.haui-fleet-fact')].map((figure) => [
+    figure.querySelector('.haui-fleet-fact-label').textContent,
+    figure.querySelector('.haui-fleet-fact-value').textContent,
+    figure.className,
+  ]);
+  assert.deepEqual(figureText(summary), [
+    ['Updates', '0', 'haui-fleet-fact is-good'],
+    ['Integration version', '0.5.0', 'haui-fleet-fact is-neutral'],
+  ]);
+  const waiting = render(renderFleetView({
+    ...base,
+    devices: [
+      deviceFor('kitchen', { connected: true, update: { firmware_update_available: true } }),
+      deviceFor('office', { connected: true }),
+    ],
+    version: 'Mixed versions',
+    versionMixed: true,
+  }));
+  assert.deepEqual(figureText(waiting).map(([, , tone]) => tone),
+    ['haui-fleet-fact is-warn', 'haui-fleet-fact is-warn']);
   // The segments close the card: always drawn, in the inventory's footer under the table.
   const footer = inventory.querySelector('.haui-inventory-footer');
   const bar = footer?.querySelector('.haui-fleet-bar');
   assert.ok(bar && table.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING);
-  assert.deepEqual([...bar.querySelectorAll('span')].map(({ className }) => className),
-    ['is-online', 'is-online']);
+  const segments = [...bar.querySelectorAll('.haui-fleet-segment')];
+  assert.deepEqual(segments.map(({ className }) => className),
+    ['haui-fleet-segment is-online', 'haui-fleet-segment is-online']);
   assert.equal(bar.getAttribute('aria-label'), '2 of 2 devices connected');
+  // A segment only stands for its device, so its own name carries the device and its state.
+  assert.deepEqual(segments.map((segment) => segment.getAttribute('aria-label')),
+    ['kitchen: Connected', 'office: Connected']);
+  assert.equal(segments[0].getAttribute('data-overlay-anchor'), 'fleet-bar-tip:kitchen');
   assert.match(summary.textContent, /All devices connected/);
 
   const partial = render(renderFleetView({
@@ -161,6 +189,69 @@ test('the summary strip reports health and the footer one segment per device', (
     devices: [deviceFor('kitchen', null), deviceFor('office', { connected: false })],
   }));
   assert.match(none.textContent, /No device connected/);
+});
+
+test('a footer segment names its device in a tip on hover or focus', () => {
+  const shown = [];
+  const hidden = [];
+  const deviceFor = (name, friendlyName, status) => ({
+    name, device: { friendlyName, config: {}, panels: [] }, status, updates: false,
+  });
+  const root = render(renderFleetView({
+    devices: [deviceFor('kitchen', 'Kitchen', { connected: true }), deviceFor('office', 'Office', null)],
+    events: [], version: '0.5.0',
+    barTip: { name: 'kitchen', anchorKey: 'fleet-bar-tip:kitchen' },
+    onShowBarTip: (name) => shown.push(name),
+    onHideBarTip: (name) => hidden.push(name),
+    onOpenDevice() {}, onReorderDevices() {},
+  }));
+  // The tip names the device of the segment it is anchored at, and how it is connected.
+  const tip = root.querySelector('.haui-fleet-tip');
+  assert.ok(tip);
+  assert.equal(tip.getAttribute('role'), 'tooltip');
+  assert.equal(tip.getAttribute('data-popover-anchor'), 'fleet-bar-tip:kitchen');
+  assert.match(tip.textContent, /Kitchen/);
+  assert.match(tip.textContent, /Connected/);
+
+  const [kitchen, office] = [...root.querySelectorAll('.haui-fleet-segment')];
+  // A touch has no hover to end, so it opens the tip through the focus a tap sets.
+  kitchen.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'touch' }));
+  assert.deepEqual(shown, []);
+  kitchen.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+  assert.deepEqual(shown, ['kitchen']);
+  office.dispatchEvent(new Event('focus'));
+  assert.deepEqual(shown.at(-1), 'office');
+  kitchen.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+  assert.deepEqual(hidden, ['kitchen']);
+  office.dispatchEvent(new Event('blur'));
+  assert.deepEqual(hidden, ['kitchen', 'office']);
+
+  // No segment is hovered or focused, so no tip is drawn at all.
+  const quiet = render(renderFleetView({
+    devices: [deviceFor('kitchen', 'Kitchen', { connected: true })],
+    events: [], version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
+  }));
+  assert.equal(quiet.querySelector('.haui-fleet-tip'), null);
+});
+
+test('the bar tip replaces the tip of the last segment, never a menu the user opened', () => {
+  const host = makeHost({ device_order: [], devices: {} }, () => jsonResponse({}));
+  FleetScreen.showBarTip(host, 'kitchen');
+  assert.deepEqual(FleetScreen.barTip(host), { name: 'kitchen', anchorKey: 'fleet-bar-tip:kitchen' });
+  FleetScreen.showBarTip(host, 'office');
+  assert.deepEqual(FleetScreen.barTip(host), { name: 'office', anchorKey: 'fleet-bar-tip:office' });
+  // The pointer leaves the last segment after the next one took over.
+  FleetScreen.hideBarTip(host, 'kitchen');
+  assert.deepEqual(FleetScreen.barTip(host), { name: 'office', anchorKey: 'fleet-bar-tip:office' });
+  FleetScreen.hideBarTip(host, 'office');
+  assert.equal(FleetScreen.barTip(host), null);
+
+  host._store.actions.pushOverlay({
+    kind: 'device-menu', anchorKey: 'device-menu-row:kitchen', subject: 'kitchen', draft: null,
+  });
+  FleetScreen.showBarTip(host, 'office');
+  assert.equal(FleetScreen.barTip(host), null);
+  assert.equal(host._store.getState().ui.overlays.at(-1).kind, 'device-menu');
 });
 
 test('Fleet renders inventory and latest-event content', () => {

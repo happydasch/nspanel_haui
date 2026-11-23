@@ -2,20 +2,6 @@
 # Number Configuration
 number:
 
-  # Display orientation, synced by the hub (0 = landscape 450x320,
-  # 1 = portrait 320x480). The gesture script reads it for edge detection.
-  - platform: template
-    name: Display Model
-    id: display_model
-    mode: box
-    entity_category: config
-    min_value: 0
-    max_value: 1
-    step: 1
-    initial_value: 0
-    restore_value: true
-    optimistic: true
-
   # Full brightness
   - platform: template
     name: Brightness Full

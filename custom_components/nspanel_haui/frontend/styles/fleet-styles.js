@@ -205,15 +205,39 @@ export const fleetStyles = css`
   .haui-fleet-lead-heading { display: flex; align-items: center; gap: 16px; }
   .haui-fleet-lead strong { color: var(--secondary-text-color); font-size: var(--haui-text-label); font-variant-numeric: tabular-nums; font-weight: 500; line-height: var(--haui-line-height-tight); }
   .haui-fleet-lead > span { color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
-  /* The figures keep their labels above the values, so the strip reads as one row. */
-  .haui-fleet-facts { display: flex; gap: 20px; margin: 0 0 0 auto; }
-  .haui-fleet-facts > div { display: grid; gap: 4px; }
-  .haui-fleet-facts dt { color: var(--secondary-text-color); font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
-  .haui-fleet-facts dd { margin: 0; font-size: var(--haui-text-label); font-variant-numeric: tabular-nums; }
+  /* Each figure follows the diagnostics tile (13px label above a 14px/500 value) with a tone-tinted
+     glyph at its leading edge, so it reads value first and stays as quiet as the tiles elsewhere. */
+  .haui-fleet-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin: 0 0 0 auto; }
+  .haui-fleet-fact { display: flex; min-width: 0; align-items: center; gap: 8px; }
+  .haui-fleet-fact-icon {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: var(--haui-radius-round);
+    color: var(--secondary-text-color);
+    background: color-mix(in srgb, currentcolor 14%, transparent);
+    --mdc-icon-size: 14px;
+  }
+  .haui-fleet-fact.is-good .haui-fleet-fact-icon { color: var(--haui-good); }
+  .haui-fleet-fact.is-warn .haui-fleet-fact-icon { color: var(--haui-warn); }
+  .haui-fleet-fact-body { display: grid; min-width: 0; gap: 4px; }
+  .haui-fleet-fact-label { color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-tight); }
+  .haui-fleet-fact-value { color: var(--primary-text-color); font-size: var(--haui-text-label); font-variant-numeric: tabular-nums; font-weight: 500; line-height: var(--haui-line-height-tight); white-space: nowrap; }
+  /* A pending figure is a placeholder the size of its value, so the strip keeps its height. */
+  .haui-fleet-fact .haui-stat-placeholder { width: 48px; height: 15px; margin: 0; }
   .haui-fleet-bar { display: flex; gap: 4px; height: 6px; }
-  .haui-fleet-bar span { flex: 1; border-radius: var(--haui-radius-pill); background: var(--primary-color, #03a9f4); }
-  .haui-fleet-bar .is-offline { background: var(--haui-bad); }
-  .haui-fleet-bar .is-unknown { background: var(--secondary-text-color); }
+  .haui-fleet-bar .haui-fleet-segment { flex: 1; border-radius: var(--haui-radius-pill); background: var(--primary-color, #03a9f4); }
+  .haui-fleet-bar .haui-fleet-segment.is-offline { background: var(--haui-bad); }
+  .haui-fleet-bar .haui-fleet-segment.is-unknown { background: var(--secondary-text-color); }
+  /* A segment is a keyboard stop too: it names its device and opens the same tip on focus. */
+  .haui-fleet-bar .haui-fleet-segment:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 3px; }
+  /* The segment's tip: the device it stands for, above the state the segment shows as a colour. */
+  .haui-fleet-tip { display: grid; gap: 4px; padding: 8px 12px; }
+  .haui-fleet-tip strong { font-size: var(--haui-text-label); font-weight: 600; line-height: var(--haui-line-height-tight); }
+  .haui-fleet-tip-state { display: flex; align-items: center; gap: 4px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-fleet-tip-state ha-icon { --mdc-icon-size: 14px; }
   .haui-stat-placeholder { display: block; width: 64px; height: 15px; margin: 4px 0; border-radius: var(--haui-radius-control); background: var(--secondary-background-color); }
   .haui-device-inventory, .haui-event-list { min-width: 0; }
   /* The table is flush: its rows run to the card's edges. It takes the height the grid row gives

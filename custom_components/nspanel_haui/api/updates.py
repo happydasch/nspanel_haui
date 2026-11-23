@@ -24,6 +24,7 @@ from homeassistant.helpers.http import HomeAssistantView
 from ..const import DOMAIN
 from ..haui.controller.release_source import ESP_IMAGE_MAGIC, FIRMWARE_MAX_BYTES
 from ..hub.storage import empty_store, panel_store
+from ..update_url import tft_url_problem
 from .common import (
     ALL_DEVICES,
     ApiError,
@@ -369,6 +370,12 @@ class DeviceUpdateTftView(HomeAssistantView):
         optional ``url`` (single device only) installs that image instead.
         """
         install = _install_request(await json_object(request), "TFT")
+        if install.url is not None:
+            # A URL the panel cannot install is refused before the long
+            # transfer; a local upload stages bytes through its own view.
+            problem = await tft_url_problem(request.app["hass"], install.url)
+            if problem:
+                raise ApiError(problem, 502)
         apps = running_apps(request.app["hass"], entry_id)
         return await _install(
             self, apps, install, "install the TFT", _start_tft_install, _tft_install_error

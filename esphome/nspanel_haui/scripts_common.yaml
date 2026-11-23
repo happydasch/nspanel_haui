@@ -116,13 +116,20 @@ script:
           id(haui_rtttl).stop();
 
   # Start a TFT upload: suspend activities, set the URL, run the blocking upload.
+  # The upload reboots the panel on success (so there is no success event); a
+  # failure publishes why, so the Hub reports it instead of timing out.
   - id: prepare_tft_upload
     parameters:
       url: std::string
     then:
       - lambda: |-
           ESP_LOGI("haui", "Script prepare_tft_upload %s", url.c_str());
+          id(publish_event_native).execute("esphome.tft_upload_started", url);
       - script.execute: suspend_activities
       - lambda: |-
           id(haui_disp).set_tft_url(url.c_str());
-          id(haui_disp).upload_tft();
+          if (!id(haui_disp).upload_tft()) {
+            auto reason = id(haui_disp).tft_upload_error();
+            ESP_LOGE("haui", "TFT upload failed: %s", reason.c_str());
+            id(publish_event_native).execute("esphome.tft_upload_failed", reason);
+          }

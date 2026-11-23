@@ -166,7 +166,7 @@ Read the `docs/develop/frontend*.md` pages before a UI change; these are the rul
 
 ## Commits and pull requests
 
-Conventional Commits (`type(scope): message`); PR titles use the same format and stay under 100 characters. `dev` is the integration branch: branch off `dev`, PR with `--base dev`, hotfixes off `master`. `master` is release-only — `release/X.Y.Z` branches PRed into it, squash-merged with a clean body, tagged at that commit — so no commit message on that path may quote a CI-skip marker: GitHub scans the whole tagged message and the release workflow never starts. Full cycle: `docs/develop/release.md`.
+Conventional Commits (`type(scope): message`); PR titles use the same format and stay under 100 characters. `dev` is the integration branch: branch off `dev`, PR with `--base dev`, hotfixes off `master`. `master` is release-only — `release/X.Y.Z` branches PRed into it, squash-merged with a clean body, tagged at that commit — so no commit message on that path may quote a CI-skip marker: GitHub scans the whole tagged message and the release workflow never starts. The release workflow's `sync` job then puts `master` and `dev` on one commit (`scripts/release/sync_branches.py`); do not merge `master` into `dev` by hand unless that job failed. Full cycle: `docs/develop/release.md`.
 
 - Fill in `.github/pull_request_template.md` (what changed, why, how it was tested, unverified device checks); add a screenshot or recording for frontend or display changes; reference the issues involved.
 - All CI jobs must pass: `tests (3.14)`, `frontend`, `esphome`, `docs`, `hassfest`, `hacs`.

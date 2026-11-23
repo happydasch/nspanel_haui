@@ -729,8 +729,8 @@ class UpdatesSidebar extends HauiDialog {
       ${updateProgress({ progress: update.tft_progress, label: t('Display update') })}
       ${this._renderRetry(update)}
       ${this._checkError ? html`<p class="haui-update-error">${this._checkError}</p>` : nothing}
-      ${this._renderSettings()}
       ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : nothing}
+      ${this._renderSettings()}
     </div>`;
   }
 }

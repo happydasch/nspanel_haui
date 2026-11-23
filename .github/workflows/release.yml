@@ -75,7 +75,7 @@ jobs:
           fi
 
       - name: Attach assets to the GitHub release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
         with:
           files: |
             nspanel_haui.bin
@@ -85,3 +85,34 @@ jobs:
             firmware-manifest.json
           name: ${{ github.ref_name }}
           body_path: release-notes.md
+  sync:
+    # The tag carries the release commit only, so `dev` lacks the released files and
+    # `master` lacks the dev history. `scripts/release/sync_branches.py` merges the
+    # release into `dev`, opens the next changelog section and opens/merges the pull
+    # request that `master` requires; `dev` then fast-forwards to that commit. The
+    # release above is published even when this job fails: rerun it, or run
+    # `python -m scripts.release.sync_branches --apply` from a checkout.
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      # A pull request opened with GITHUB_TOKEN starts no workflow, so the script
+      # dispatches ci.yml to report master's required checks on its head commit.
+      actions: write
+    steps:
+      # Credentials persist here: the script pushes branches and the sync branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "3.14"
+
+      - name: Bring master and dev back in step
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m scripts.release.sync_branches --apply
+

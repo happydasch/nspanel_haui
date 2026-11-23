@@ -1,0 +1,17 @@
+---
+# Select Configuration
+select:
+
+  # Display orientation, synced by the hub from the device's `display_model`
+  # setting: landscape 450x320 or portrait 320x480. The gesture script reads it
+  # for edge detection.
+  - platform: template
+    name: Display Model
+    id: display_model
+    entity_category: config
+    options:
+      - Landscape
+      - Portrait
+    initial_option: Landscape
+    restore_value: true
+    optimistic: true

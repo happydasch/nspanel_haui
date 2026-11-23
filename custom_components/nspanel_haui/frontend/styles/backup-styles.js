@@ -27,13 +27,11 @@ export const backupStyles = css`
   /* A card's blocks sit one under the other, a step apart. */
   .haui-backup-sidebar .haui-surface-body { display: grid; gap: 12px; }
   .haui-backup-note { margin: 0; color: var(--secondary-text-color, #666); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }
-  /* The destructive note belongs to one action: the icon goes first, so the
-     sentence keeps its own wrapping. */
-  .haui-backup-note.is-warn { display: flex; align-items: start; gap: 4px; color: var(--haui-warn-text); }
-  .haui-backup-note.is-warn ha-icon { flex: 0 0 auto; margin-block-start: 2px; --mdc-icon-size: 16px; }
+  /* What an import or a copy replaces is a banner, not a note: the HA alert
+     brings its own icon, tone and frame, so this file styles nothing of it. */
   /* Export and Import work on the same file, so they are one pair: one row of
      the same width, and the sentence that explains the file is the card's
-     subtitle while the one warning that belongs to Import runs below both. */
+     subtitle while the warning that belongs to Import runs below both. */
   .haui-backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .haui-backup-actions .haui-button, .haui-backup-sidebar .haui-surface-body > .haui-button { width: 100%; }
   .haui-backup-error { margin: 0; color: var(--haui-bad-text); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); }

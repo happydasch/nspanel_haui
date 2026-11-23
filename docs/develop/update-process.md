@@ -222,10 +222,16 @@ sequenceDiagram
     Panel-->>Hub: reconnect with the new firmware
     Note over Hub: 60 s after the connect:<br/>check the TFT the new firmware requires
     Hub->>Panel: upload_tft_url (TFT)
+    Panel-->>Hub: tft_upload_started (the URL)
     Panel->>Display: write the TFT (several minutes)
-    Panel->>Panel: reboot
-    Panel-->>Hub: reconnect with the new TFT version
-    Hub->>Hub: install done
+    alt the transfer ended
+        Panel->>Panel: reboot
+        Panel-->>Hub: reconnect with the new TFT version
+        Hub->>Hub: install done
+    else the upload failed
+        Panel-->>Hub: tft_upload_failed (the reason)
+        Hub->>Hub: install failed with that reason
+    end
 ```
 
 ### Installing every device, one at a time
@@ -257,6 +263,15 @@ The editor shows the steps, the time the install has run and about how long is l
 - **Firmware**: the hub waits up to ten minutes (`FIRMWARE_INSTALL_TIMEOUT_SECONDS`) for the device to reboot. No reboot, a reconnect without a reboot, or a reboot into the old version is an error. A failed automatic install is retried after `retry_interval` (an hour), at most `max_attempts` (3) times per version.
 - **Display TFT**: the upload takes several minutes (about 13 on a portrait panel) and ends in a reboot; the hub waits up to 20 minutes (`INSTALL_TIMEOUT_SECONDS`). An upload that ends without a reboot, or a TFT the display does not report afterwards, is an error; the automatic install tries again after `retry_interval`, at most `max_attempts` times.
 
+| What the hub hears | Meaning | Install state |
+|--------------------|---------|---------------|
+| `esphome.tft_upload_started` | the panel accepted the URL and started the transfer; the timeout restarts here | stays `installing` |
+| `esphome.tft_upload_failed` | the panel could not install the file; the event carries its reason (no network, `HTTP 404`, a server without range support, a file size out of range, the display refusing the upload, a chunk the display rejected) | `error` with that reason |
+| no event, then the device reconnects without a reboot | an upload the panel never started, or one that died before reporting | `error`, "did not reboot" |
+| no event, no reconnect for 20 minutes | the transfer is still running, or the panel hangs | `error` on the timeout |
+
+The first two events need firmware from the release that introduced them; older firmware only reports through the reconnect check and the timeout, so its failures take up to 20 minutes to show. A successful upload reboots inside the uploader and never sends an event — the reboot is the success signal.
+
 Errors show in the **Updates** sidebar's status and in the update entity's release summary; a failed display update is also an issue on the device's **Diagnostics** card. See [Troubleshooting](../user/troubleshooting.md#tft-upload-failures) for the common causes.
 
 ### Home Assistant update entities
@@ -277,7 +292,7 @@ data:
 
 The sidebar leads with one status: **Up to date**, **Update available**, a running install, a failed one with the hub's error, or **No update available** with the reason the release does not fit the device. That reason also says when the hub could not read the firmware manifest, or has not checked since it started, so neither reads as **Up to date**; a check that could not read the release list shows its error under the versions. A failed firmware install stays until the next install starts or the panel reconnects with another firmware (flashed by other means), and a second install while one runs is refused with an error instead of reported as started.
 
-Below the status are the installed firmware and display versions, each with the latest release or the display version the firmware needs; an offered update turns the installed version into one badge with the version it updates to (`0.5.2 → 0.5.3`), and a narrow card shows only the target (`→ 0.5.3`). While the panel is offline, or the editor could not refresh its status, the sidebar says so and the **Install** buttons are off, the versions being the last ones read; **Install updates** on the dashboard is not offered then either. After an install request the editor reads the status at once. Whenever updates are enabled, each version row keeps its own **Install** button, even if no compatible update is offered.
+Below the status are the installed firmware and display versions, each with the latest release or the display version the firmware needs; an offered update turns the installed version into one badge with the version it updates to (`0.5.3 → 0.5.4`), and a narrow card shows only the target (`→ 0.5.4`). While the panel is offline, or the editor could not refresh its status, the sidebar says so and the **Install** buttons are off, the versions being the last ones read; **Install updates** on the dashboard is not offered then either. After an install request the editor reads the status at once. Whenever updates are enabled, each version row keeps its own **Install** button, even if no compatible update is offered.
 
 Under the status, a scheduled automatic firmware install shows when it starts with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version** (`POST /api/nspanel_haui/update_control/{entry_id}`); a running install shows its [steps](#progress); and after a failed automatic attempt a line says when the next one follows, or that the automatic install stopped. A skipped firmware version is marked **Skipped** on its row.
 
@@ -285,7 +300,7 @@ Under the status, a scheduled automatic firmware install shows when it starts wi
 
 ### What the Updates picker offers
 
-After pressing **Install** on the **Firmware** or **Display** row, choose what to install:
+After pressing **Install** on the **Firmware** or **Display** row, choose what to install in the picker that opens above the **Update settings** card:
 
 - **Firmware**: the offered update, another release that ships an OTA image (older ones included), **From URL**, or **From local file**: a release's `nspanel_haui_ota.bin` on a universal panel, your own build on a custom one, never a factory image such as the release's `nspanel_haui.bin`.
 - **Display (TFT)**: the version the firmware needs, the TFT the manifest ships when that differs, **From URL**, or **From local file** for a custom or development `.tft` file.
@@ -299,7 +314,9 @@ After pressing **Install** on the **Firmware** or **Display** row, choose what t
 
 A local file or URL is a manual override: a TFT stays installed until the firmware version changes or Home Assistant restarts, and a firmware install pauses automatic firmware updates until Home Assistant restarts, so the hub does not replace your choice on the next check. A TFT that does not match the firmware may lack pages or widgets the firmware uses, so use an image built for the target panel, especially for custom firmware.
 
-Both installs are also actions: `nspanel_haui.update_firmware` and `nspanel_haui.update_tft` take one device, optionally a given `version` or the file at a `url`. They suit automations; see [Actions](../user/actions.md#display-updates) for the fields and examples.
+Both installs are also actions: `nspanel_haui.update_firmware` and `nspanel_haui.update_tft` take one device, optionally a given `version` or the file at a `url`. They suit automations; see [Actions](../user/actions.md#display-updates) for the fields and examples. `nspanel_haui.update_tft` answers with the update state (`started`, `installing`, …) and raises with the controller's reason when the install does not start, so an automation never has to read the log.
+
+A TFT URL is checked before the panel is sent off to download it (`update_url.py`, in the editor and in the action): a non-`http(s)` URL, a `4xx`/`5xx` answer, a file over the display's 16 MiB partition, or a server that answers the whole file to a ranged request is refused with the reason. A transport error from Home Assistant is only a warning — its egress can differ from the panel's (a LAN address only the device resolves) — and the install continues. The upload itself needs the panel's ESPHome connection, not the display handshake: a panel that rebooted and is still handshaking takes a URL install, which the manifest path still refuses because it derives the version from the handshake.
 
 ## What the panel and the editor show
 

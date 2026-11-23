@@ -309,7 +309,7 @@ Every entry here needs a Nextion page, which is why they are the expensive items
 - **Rotation / flip display models** — Beyond `eu` / `us`: allow a flipped mount
   (a batch was assembled upside down) and a landscape US panel with the buttons
   on the left, instead of shipping a custom TFT per mounting variant. The
-  firmware `display_model` number and the Nextion direction byte already exist;
+  firmware `display_model` select and the Nextion direction byte already exist;
   needs verification on hardware.
 - **Byte-level TFT progress** — Report install progress in bytes instead of
   "uploading", which needs firmware-side events.

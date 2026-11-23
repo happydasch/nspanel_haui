@@ -4,7 +4,7 @@ import { t } from '../localize.js';
 import { deviceCard } from '../ui/device-card.js';
 import { deviceSlots } from '../ui/device-slot.js';
 import { deviceRow } from '../ui/device-row.js';
-import { fleetBar, fleetSummary } from '../ui/fleet-summary.js';
+import { fleetBar, fleetBarTip, fleetSummary } from '../ui/fleet-summary.js';
 import { eventList, eventsFrom, eventsInLast24Hours, latestEvents } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
 import { button, iconButton } from '../ui/button.js';
@@ -89,7 +89,8 @@ function revealCard(from, index) {
 
 /**
  * Build Fleet from prepared store data; all changes are sent back as callbacks.
- * @param {{ devices: any[], events: any[], version: string, statusPending?: boolean,
+ * @param {{ devices: any[], events: any[], version: string, versionMixed?: boolean,
+ *   statusPending?: boolean,
  *   carousel?: {atStart: boolean, atEnd: boolean}, menu?: any,
  *   slots?: {room: number, count: number, width: number, height: number, left: number, top: number},
  *   onCarouselScroll?: (edges: {atStart: boolean, atEnd: boolean}) => void,
@@ -103,7 +104,9 @@ function revealCard(from, index) {
  *   installable?: number, onInstallUpdates?: () => void,
  *   rollout?: any, onCancelRollout?: (device: string|null) => void, onDismissRollout?: () => void,
  *   eventsSince?: number|null, onResetEvents?: () => void, onShowAllEvents?: () => void,
- *   onOpenLogs?: () => void }} data
+ *   onOpenLogs?: () => void,
+ *   barTip?: {name: string, anchorKey: string}|null,
+ *   onShowBarTip?: (name: string) => void, onHideBarTip?: (name: string) => void }} data
  */
 export function renderFleetView(data) {
   const online = data.devices.filter(({ status }) => status?.connected === true).length;
@@ -193,6 +196,14 @@ export function renderFleetView(data) {
         }))),
     })
     : nothing;
+  // A footer segment identifies its device on hover or focus: its tip names the
+  // device and how it is connected, anchored at the segment.
+  const tipSegment = data.barTip
+    ? data.devices.find(({ name }) => name === data.barTip.name) || null
+    : null;
+  const barTip = tipSegment
+    ? fleetBarTip({ segment: tipSegment, anchorKey: data.barTip.anchorKey })
+    : nothing;
   // A selected device scopes Fleet's log surfaces to itself: its events here, and its
   // lines in the Logs sidebar, which the shell opens on the same device.
   const selected = data.selectedDevice
@@ -214,6 +225,7 @@ export function renderFleetView(data) {
         online,
         updates,
         version: data.version,
+        mixedVersions: data.versionMixed === true,
         heading: sectionHeading({
           title: t('Device inventory'),
           className: 'haui-section-heading haui-fleet-inventory-heading',
@@ -248,7 +260,10 @@ export function renderFleetView(data) {
       }))}
     </div>
     <footer class="haui-inventory-footer">
-      ${fleetBar({ devices: data.devices, total: data.devices.length, online })}
+      ${fleetBar({
+        devices: data.devices, total: data.devices.length, online,
+        onShowTip: data.onShowBarTip, onHideTip: data.onHideBarTip,
+      })}
     </footer>
   </section>`;
 
@@ -309,5 +324,6 @@ export function renderFleetView(data) {
       })}
     </div>` : ''}
     ${deviceMenu}
+    ${barTip}
   </main>`;
 }

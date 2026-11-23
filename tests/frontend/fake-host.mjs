@@ -80,6 +80,7 @@ export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
       return Crud.saveDeviceConfig(this, config, message, deviceName);
     },
     _selectDevice(name) { store.actions.selectDevice(name); },
+    _closeAnchoredPopover(kind) { store.actions.closeOverlay(kind); },
     requestUpdate() {},
   };
 

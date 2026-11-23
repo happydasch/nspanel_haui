@@ -2,7 +2,8 @@ import { css } from '../lit-import.js';
 
 export const updatesStyles = css`  /* ── Updates sidebar ────────────────────────────────────────────────
      Its body scrolls inside the sidebar's strip: a column of cards, the
-     status lead first, then the installed versions, then the settings. */
+     status lead first, then the installed versions, the install picker,
+     then the settings. */
   .haui-update-sidebar {
     display: flex;
     box-sizing: border-box;

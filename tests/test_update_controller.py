@@ -130,6 +130,7 @@ import types  # noqa: E402
 from custom_components.nspanel_haui.haui.mapping.const import (  # noqa: E402
     DEFAULT_CONFIG,
     ESPAction,
+    ESPEvent,
     ESPResponse,
     PopupPanelKey,
 )
@@ -1538,15 +1539,117 @@ def test_url_install_sends_the_url_without_a_release_lookup(monkeypatch):
     assert state["version"] is None
 
 
-def test_url_install_while_disconnected_moves_to_error(monkeypatch):
+def test_url_install_goes_through_while_the_display_has_not_handshaked(monkeypatch):
+    """The upload needs the ESPHome API, not the HAUI handshake.
+
+    Refusing here is what turned a URL install into a manifest install (or a
+    silent ``device disconnected``) on a panel that was merely still
+    handshaking after a reboot.
+    """
     ctrl, app, _ = _updater(
         monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, connected=False
     )
 
     state = ctrl.install_tft_url(DEV_TFT_URL)
 
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, DEV_TFT_URL)]
+    assert state["state"] == "installing"
+    assert state["tft_url"] == DEV_TFT_URL
+    assert state["sent_at"] is not None
+
+
+def test_an_async_url_install_never_becomes_a_manifest_install(monkeypatch):
+    """A URL request is answered with that URL, handshake or not."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.0"},
+        manifest="0.4.2",
+        connected=False,
+    )
+
+    state = _result(ctrl.start_async_tft_install, None, DEV_TFT_URL)
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, DEV_TFT_URL)]
+    assert state["state"] == "installing"
+
+
+def test_a_second_install_while_one_runs_names_the_start_and_keeps_the_state(monkeypatch):
+    """The guard protects the transfer; the running install still has to verify."""
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+    ctrl.install_tft_url(DEV_TFT_URL)
+    app.published.clear()
+    started = ctrl.get_update_state()["started_at"]
+
+    again = _result(ctrl.start_async_tft_install, None, "http://ha.local/other.tft")
+
+    assert again["state"] == "error"
+    assert started in again["last_error"]
+    assert app.published == []  # nothing was sent to the panel
+    # The answer is not kept: the upload in flight still owns the state.
+    assert ctrl.get_update_state()["state"] == "installing"
+    assert ctrl.get_update_state()["last_error"] is None
+
+
+def test_the_manifest_install_refuses_while_a_url_upload_runs(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, manifest="0.4.2"
+    )
+    ctrl.install_tft_url(DEV_TFT_URL)
+    app.published.clear()
+
+    result = ctrl.install_tft()
+
+    assert result["state"] == "error"
+    assert "still running" in result["last_error"]
     assert app.published == []
+    assert ctrl.get_update_state()["state"] == "installing"
+
+
+def _tft_event(name, value):
+    return types.SimpleNamespace(name=name, value=value)
+
+
+def test_the_panel_starting_the_upload_rearms_the_install_timeout(monkeypatch):
+    """The command only proved the panel was reachable; the transfer starts now."""
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+    ctrl.install_tft_url(DEV_TFT_URL)
+    armed = []
+    run_in = app.run_in
+    app.run_in = lambda callback, delay: armed.append(delay) or run_in(callback, delay)
+
+    ctrl.process_event(_tft_event(ESPEvent.TFT_UPLOAD_STARTED, DEV_TFT_URL))
+
+    assert armed == [update.INSTALL_TIMEOUT_SECONDS]
+    assert ctrl.get_update_state()["state"] == "installing"
+
+
+def test_the_panels_upload_failure_carries_its_reason(monkeypatch):
+    """The panel names why it could not install; the hub stops waiting for it."""
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+    ctrl.install_tft_url(DEV_TFT_URL)
+    timeout = ctrl._install_timeout_timer
+    ctrl._install_verify_timer = app.run_in(lambda kwargs: None, 60)
+
+    ctrl.process_event(_tft_event(ESPEvent.TFT_UPLOAD_FAILED, "the server answered HTTP 404"))
+
+    state = ctrl.get_update_state()
     assert state["state"] == "error"
+    assert "The panel could not install the TFT" in state["last_error"]
+    assert "HTTP 404" in state["last_error"]
+    assert ctrl._install_timeout_timer is None
+    assert ctrl._install_verify_timer is None
+    assert timeout not in app.timers
+
+
+def test_a_upload_failure_outside_an_install_changes_nothing(monkeypatch):
+    """A late event from an upload the hub gave up on must not overwrite state."""
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    ctrl.process_event(_tft_event(ESPEvent.TFT_UPLOAD_FAILED, "upstream broke"))
+
+    state = ctrl.get_update_state()
+    assert state["state"] == "idle"
+    assert state["last_error"] is None
 
 
 def test_url_install_is_not_done_before_the_upload_reboot(monkeypatch):
@@ -1673,6 +1776,8 @@ def test_installing_the_required_manifest_tft_ends_keeping_a_url_tft(monkeypatch
     )
     ctrl.install_tft_url(DEV_TFT_URL)
     assert ctrl._manual_tft_firmware == "0.4.2"
+    # The URL install ended; a manifest install may start again.
+    ctrl._update_state = update.UPDATE_STATE_IDLE
     ctrl.install_tft()
     assert ctrl._manual_tft_firmware is None
 

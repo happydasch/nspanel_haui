@@ -262,7 +262,6 @@ MANUAL_REMAINDER = (
     "  - the published-asset and hardware passes on a real EU and US panel",
     "  - squash-merge release/X.Y.Z into master with a clean body",
     "  - python -m scripts.release.publish_stable --push vX.Y.Z",
-    "  - merge master back into dev",
 )
 
 

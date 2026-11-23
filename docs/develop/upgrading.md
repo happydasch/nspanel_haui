@@ -10,10 +10,11 @@ Every released version that broke an existing installation is listed below with 
 | You come from | Read |
 |---------------|------|
 | 0.3.x or earlier | 0.3.x → 0.4.0, then every later section, plus Older firmware |
-| 0.4.0 – 0.4.4 | 0.4.5, then 0.5.0, 0.5.2 and 0.5.3, plus Older firmware |
-| 0.4.5 | 0.5.0, then 0.5.2 and 0.5.3 |
-| 0.5.0 – 0.5.1 | 0.5.2, then 0.5.3 |
-| 0.5.2 | 0.5.3 |
+| 0.4.0 – 0.4.4 | 0.4.5, then 0.5.0, 0.5.2, 0.5.3 and 0.5.4, plus Older firmware |
+| 0.4.5 | 0.5.0, then 0.5.2, 0.5.3 and 0.5.4 |
+| 0.5.0 – 0.5.1 | 0.5.2, then 0.5.3 and 0.5.4 |
+| 0.5.2 | 0.5.3, then 0.5.4 |
+| 0.5.3 | 0.5.4 |
 
 ## Breaking changes by version
 
@@ -128,6 +129,14 @@ web_server:
 | `req_connection` and `res_device_state` carry `hub_api_version` (`1.0` in `esphome/nspanel_haui/version.yaml`, mirrored by `HUB_API_VERSION` in `haui/version.py`). The hub compares the major part, logs a `WARNING` on a mismatch and reports `hub_api_compatible` in the device status; firmware that does not report the field stays compatible. | Nothing. Install the panel's firmware from its **Updates** sidebar when the log warns ([Version compatibility](../user/version-compatibility.md#firmware-contract-version)). |
 | Grid tiles: an item that is on takes its background and its power-button color from the selected theme on every render. A quick start used to write those colors into the panel, which pinned the tiles to the theme the setup was created in — after a theme change an on tile stayed a dark tint under a light page's dark text. The store loader clears a stored `back_color`/`power_color` that is one of the built-in themes' values and keeps a color you picked yourself. | Nothing; the tiles follow the theme ([Panel Grid](../user/panels/panel_grid.md#colors)). |
 
+### 0.5.4
+
+| Changed | What to do |
+|---------|------------|
+| The firmware's **Display Model** configuration entity is a `select` with **Landscape** and **Portrait**, so `number.<device>_display_model` (`0` / `1`) becomes `select.<device>_display_model`; `haui/device.py` reads the option, and the firmware's gesture script follows it. | Upgrade the integration and the firmware together and point automations that set the model at the select. The hub writes the option on every connect, so the panel keeps its orientation, and the editor's **Display Model** setting is unchanged ([Display Model is a dropdown](../user/update.md#display-model-is-a-dropdown)). |
+| `nspanel_haui.update_tft` raises with the hub's reason when an install does not start — no matching device, updates off, an install already running, an unusable URL — and answers with the update state when it does, where it used to return as if it had started and only log the refusal. | Give an automation that calls it an error path, or branch on the state with `response_variable`; the editor's **Install** button is unchanged ([Actions](../user/actions.md#nspanel_hauiupdate_tft)). |
+| The firmware publishes `esphome.tft_upload_started` and `esphome.tft_upload_failed`, so a failed TFT install reaches the hub within seconds instead of after the 20-minute timeout. Firmware from before this release sends neither and keeps the timeout-only report, and an older hub ignores both events. | Nothing. Install the matching firmware to get the fast failure report. |
+
 ## Older firmware
 
 Panels below 0.4.4 need one manual flash before the hub can update them:
@@ -138,6 +147,8 @@ Panels below 0.4.4 need one manual flash before the hub can update them:
 | 0.4.2 and older | It cannot install firmware from the hub. Flash the current firmware once through ESPHome. |
 
 After that one manual flash the hub updates a universal panel itself, and a custom panel continues as in [Custom firmware](update-process.md#custom-firmware).
+
+Firmware from the release that added them publishes `esphome.tft_upload_started` and `esphome.tft_upload_failed`, so a failed TFT install shows its reason within seconds. Older firmware sends neither: the hub only notices a failure when the panel reconnects without a reboot, or when the 20-minute install timeout expires. The two directions interoperate — an old hub ignores the events, an old firmware simply reports nothing — so rolling the firmware back only costs that fast failure report. `nspanel_haui.update_tft` raising with the hub's reason and answering with the update state needs this integration version, not new firmware.
 
 ## Rollback
 

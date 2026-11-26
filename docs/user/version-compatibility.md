@@ -68,9 +68,10 @@ is too old for a feature, install the current firmware from its **Updates** side
 
 ## Development releases
 
-Development releases use a PEP 440 version such as `0.5.6.dev42`. They are published as GitHub prereleases and
+Development releases use a PEP 440 version such as `0.5.7.dev42`. They are published as GitHub prereleases and
 are not supported for everyday use. To try one, set the device's **Update channel** to **Development** in the
-**Updates** sidebar; switch back to **Stable** to leave it.
+**Updates** sidebar; switch back to **Stable** to leave it. The editor footer shows the installed integration
+version with a **Dev** badge; the panel's About page lists the integration and firmware versions separately.
 
 Development firmware and development display assets are built together, so keep the panel on the same channel
 as the integration. A panel that reports an older development format may need one manual firmware install; see

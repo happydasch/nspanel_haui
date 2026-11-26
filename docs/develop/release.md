@@ -74,7 +74,7 @@ Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The bui
 base version   the newest vX.Y.Z tag as its next patch, or the `base` input (0.6.0)
 version        X.Y.(Z+1).dev<run>, one string for image, tag and manifest
 verified       the compiled OTA reports that version before anything is published
-committed      nothing — manifest.json keeps the released version
+committed      nothing by CI; the branch already carries X.Y.(Z+1).dev0
 published      prerelease, not marked latest, both firmware images + both TFTs + manifest
 pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stable
                release never leaves the Marketplace's or the hub's release lists
@@ -84,7 +84,7 @@ A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle
 
 A panel follows the channel through its **Update channel**: **Development** reads the cached GitHub release list and follows the `firmware-manifest.json` of the newest release in it that ships one, dev prereleases included; a stable release of the same version supersedes its dev builds. There is no fixed dev manifest URL. The CI image is `universal`, so it cannot replace firmware reporting `firmware_variant: custom`.
 
-Because the integration itself is not versioned by a dev build, a panel on the **Development** channel updates its firmware and display while the integration stays at the last stable version. That is deliberate: a development build never makes a stable version.
+Because the CI run does not version the integration, a panel on the **Development** channel updates its firmware and display while the integration stays at the last stable version. That is deliberate: a development build never makes a stable version. The `dev` branch itself carries `X.Y.(Z+1).dev0` in `manifest.json` and `version.yaml`, bumped once per cycle, so custom firmware built from the branch reports a development version instead of the last release; a CI build overrides only the image with its run number.
 
 ## Branches and cadence
 
@@ -241,5 +241,5 @@ gh release edit vX.Y.Z --draft     # withdraw it from the Marketplace and the pa
 - **~120 MB of Nextion binaries live in git** (`nextion/`: both HMIs, both TFTs, fonts and images), kept there so the HMI sources stay available to whoever rebuilds a TFT. They are marked `export-ignore` in `.gitattributes`, so GitHub's source archives — the zip HACS installs — carry none of them: an install or update downloads ~16 MB instead of ~74 MB. Raw URLs and release assets are unaffected, and a rewrite of the history would save little because git already delta-compresses successive HMI and TFT revisions. Do not move a file the integration reads into `nextion/`.
 - **The universal image bakes a shared API key**, which also encrypts native OTA. The MAC suffix gives each device a unique name and access point, but the credentials are public: anyone on the LAN can reflash the panel. Use `install.yaml` with secrets for a private build.
 - **The development channel is universal-only.** A panel running a `custom` build never receives a dev or stable CI image; rebuild it from `esphome/install.yaml` and serve it through its own manifest.
-- **A dev build versions the firmware, not the integration.** A panel on the **Development** channel updates its firmware and display; the integration stays at the last stable release until `dev` is promoted again.
+- **A dev build versions the firmware, not the installed integration.** A panel on the **Development** channel updates its firmware and display; the integration stays at the last stable release until `dev` is promoted again. The branch's `manifest.json` carries `X.Y.(Z+1).dev0` so a custom build from `dev` reports a development version.
 - **ESPHome is pinned.** `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in `requirements-esphome.txt` move together.

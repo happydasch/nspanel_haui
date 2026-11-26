@@ -145,6 +145,7 @@
  * @property {string} [tft_version]
  * @property {string} [tft_required_version]
  * @property {string} [yaml_version]
+ * @property {number|null} [display_baud] - bps the panel runs its display link at; 0 with no display answering
  * @property {string|null} [last_panel_update]
  * @property {string|null} [last_connection]
  * @property {number} [connection_uptime]

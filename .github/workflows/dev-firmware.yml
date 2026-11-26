@@ -57,6 +57,19 @@ jobs:
           YAML_VERSION: ${{ steps.version.outputs.version }}
         run: bash scripts/release/compile_firmware.sh
 
+      - name: Verify the image reports the build version
+        # A dev build must not publish an image that still reports the released
+        # version: `esphome -s` is the only place the dev version enters it.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -o pipefail
+          if ! strings nspanel_haui_ota.bin | grep -Fq "version $VERSION"; then
+            echo "nspanel_haui_ota.bin does not report $VERSION" >&2
+            exit 1
+          fi
+          echo "Image reports $VERSION"
+
       - name: Generate the firmware manifest
         # The same schema as a stable release, its tft block included.
         env:
@@ -78,6 +91,7 @@ jobs:
           if [ -n "$previous" ]; then range="$previous..HEAD"; else range=HEAD; fi
           {
             printf 'Development firmware `%s`\n\n' "$VERSION"
+            printf 'Firmware version: `%s` (reported by the image).\n' "$VERSION"
             printf 'Build commit: [`%s`](https://github.com/%s/commit/%s)\n' "$short" "$REPO" "$GITHUB_SHA"
             printf 'Firmware variant: `universal` (for universal test panels only).\n'
             printf 'Display TFT: `%s`.\n\n' "$TFT_VERSION"

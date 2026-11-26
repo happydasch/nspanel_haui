@@ -73,6 +73,7 @@ Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The bui
 ```text
 base version   the newest vX.Y.Z tag as its next patch, or the `base` input (0.6.0)
 version        X.Y.(Z+1).dev<run>, one string for image, tag and manifest
+verified       the compiled OTA reports that version before anything is published
 committed      nothing — manifest.json keeps the released version
 published      prerelease, not marked latest, both firmware images + both TFTs + manifest
 pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stable

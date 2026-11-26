@@ -299,16 +299,18 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-tile-info { position: relative; min-width: 0; }
   .haui-tile-info > .haui-diag-tile { width: 100%; height: 100%; }
   /* The card is capped at twice a tile, so its tracks are capped too: with only the width limited, a long
-     localized label or reading would spill over its edge instead of wrapping inside it. */
-  .haui-tile-card { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; grid-template-columns: minmax(0, 1fr); box-sizing: border-box; width: max-content; min-width: 100%; max-width: min(280px, calc(200% + 8px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
+     localized label or reading would spill over its edge instead of wrapping inside it. The cap leaves room
+     for a label beside a reading such as "921600 bps": the longest translation (Polish) needs 282px. */
+  .haui-tile-card { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; grid-template-columns: minmax(0, 1fr); box-sizing: border-box; width: max-content; min-width: 100%; max-width: min(320px, calc(200% + 8px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
   .haui-tile-info:nth-child(even) > .haui-tile-card { right: 0; left: auto; }
   .haui-tile-card > strong { font-size: var(--haui-text-label); font-weight: 500; overflow-wrap: anywhere; }
   .haui-tile-card dl { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
-  /* A fact keeps its label and value on one line while both fit; a long label wraps, and a value that still
-     does not fit moves to its own line, flush right, before it is cut off. */
+  /* A fact keeps its reading on its label's line: the label gives way first and wraps, holding on to the width
+     of its longest word (min-content). Only a reading that cannot share the line at all moves to one of its
+     own, flush right, before it is cut off. */
   .haui-tile-card dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-tile-card dl > div:last-child { border-bottom: 0; }
-  .haui-tile-card dt { min-width: 0; color: var(--secondary-text-color); }
+  .haui-tile-card dt { flex: 1 1 0; min-width: min-content; color: var(--secondary-text-color); overflow-wrap: break-word; }
   .haui-tile-card dd { overflow: hidden; min-width: 0; margin: 0; margin-inline-start: auto; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
   .haui-tile-card > p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-tile-info > .haui-diag-tile:focus-visible + .haui-tile-card, .haui-tile-info > .haui-diag-tile[aria-expanded="true"] + .haui-tile-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }

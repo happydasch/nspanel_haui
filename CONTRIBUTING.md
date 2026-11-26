@@ -14,8 +14,8 @@ Thanks for helping improve NSPanel HAUI. This page covers the contribution flow;
 `dev` is the integration branch. Commit small changes to `dev` directly, or branch from `dev` and open
 the pull request against it with `--base dev`.
 
-`master` is the repository default branch and release-only: a clone starts there, and the
-Home Assistant Marketplace reads it. A stable release promotes `dev` into `master` with a pull
+`master` is the repository default branch and release-only: a clone starts there and any
+request without a ref reads it. A stable release promotes `dev` into `master` with a pull
 request; hotfixes of a released version also branch from `master`. Do not open a pull request
 against `master` unless you are promoting or hotfixing a release.
 

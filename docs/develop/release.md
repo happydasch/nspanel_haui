@@ -6,7 +6,7 @@ description: Two branches, one tag, the development firmware channel, and the CI
 # Release process
 
 `dev` is the integration branch; `master` holds stable code only and is the repository
-default, so a clone, a new pull request and the Marketplace read released code.
+default, so a clone, a new pull request and any link without a ref read released code.
 Day-to-day work is committed to `dev`, directly or as a pull request whose six
 always-running checks are green. A stable release is a `dev` → `master` promotion pull
 request that the `Protect master` ruleset gates, plus a `vX.Y.Z` tag on the merge commit,
@@ -126,10 +126,9 @@ Commits and PR titles use [Conventional Commits](https://www.conventionalcommits
 
 Three settings are prerequisites, not conveniences, and none of them is visible from the code:
 
-- **`master` is the default branch**, so a clone, the pull request form and the Home
-  Assistant Marketplace read released code; **`dev`** accepts direct pushes and is the
-  base every feature or fix pull request names explicitly (`--base dev`), and only
-  `master` is gated.
+- **`master` is the default branch**, so a clone, the pull request form and any request
+  without a ref read released code; **`dev`** accepts direct pushes and is the base every
+  feature or fix pull request names explicitly (`--base dev`), and only `master` is gated.
 - **"Protect master (release-only)"** must keep the six status checks and stay free of bypass actors, so a promotion or hotfix reaches `master` only through a pull request whose checks ran.
 - **"Allow GitHub Actions to create and approve pull requests"** may stay **off**: no workflow opens a pull request. Turn it on only if a future job needs to.
 

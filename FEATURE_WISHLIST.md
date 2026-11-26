@@ -27,27 +27,45 @@ discussion it came from when there is one.
 
 ## v0.5.x — In development now
 
-Speed and weight: the display link runs at 921600, display installs take minutes
-rather than tens of minutes, the first render is cheaper, the vendored Nextion
-patch disappears, and the display assets stay out of every download.
+Speed and weight: the display link runs at 921600 and the display assets stay out
+of every download, both shipped in 0.5.7 — what is left in this cycle is the
+first render and the vendored Nextion patch.
 
-- **Predefined palettes for the first render** — Put the theme palettes into the
-  TFT so a page needs fewer colour commands on its first render — without
-  flashing the default palette first or showing a half-themed page, and with
-  editor cards still matching the device render. Needs a new TFT, so it ships
-  with the next TFT version. *Area: Theme rendering.*
+- **Body foregrounds in the first render** — A solid page paints its backgrounds
+  in `Preinitialize`; its body widgets keep the foreground compiled into them,
+  which is the dark theme's, so the hub sends one colour command per body widget
+  with the panel's first render. The row page has 35 of them: opening it costs 40
+  display commands instead of 9. The generator now emits the missing half — one
+  `<widget>.pco=<global>` per body widget, from four new `FOREGROUND_GLOBALS`
+  (`thmCompTxt`, `thmActive`, `thmActiveDk`, `thmTxt`) — and turns it on by
+  itself when an HMI's `Program.s` declares them, so a half-finished migration
+  fails `gen_virtual_layout --check` instead of painting half a theme
+  ([design](docs/develop/design.md#how-a-theme-reaches-the-display)). What is
+  left is the TFT: declare the four globals in both `Program.s` files, paste
+  `--theme-code` into both HMIs, compile both TFTs and advance `tft_version`,
+  then stop sending `THEME_FOREGROUNDS` and delete the generated table. The
+  editor needs nothing — its cards replay the hub's own render, so they match by
+  construction. *Area: Theme rendering.*
+  Ten palettes baked as literals were the other reading of this item and are
+  rejected: ~90 assignments per palette per page would be ~900 lines of compiled
+  code in the row page alone, and the page would still need the hub's colours for
+  a custom palette. Four role globals cover every palette, custom ones included.
 - **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
-  2026-11-18) carries two of the three fixes this patch used to add: the
+  2026-11-18) carries two of the fixes this patch used to add: the
   numeric-response delivery
   ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) and the TFT
   upload buffer option
   ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), both verified
-  in the tag's own `nextion` sources. The patch is now 2026.11.0 plus only the
-  TFT upload retry (`upload_first_chunk_sent_` is never reset upstream), so it
-  stays until that fix is filed upstream and merged into a release. After that:
-  bump `min_version` and `requirements-esphome.txt` together, delete the
-  directory and its `external_components` blocks and re-validate the firmware
-  config and a compile. *Area: Dependencies.*
+  in the tag's own `nextion` sources. Two local changes are left: the TFT upload
+  retry (`upload_first_chunk_sent_` is never reset upstream) and the per-upload
+  detail 0.5.4 and 0.5.7 report — the named `tft_upload_error_` reasons and the
+  `tft_upload_display_fault()` flag that decides whether a failure is worth
+  retrying at 115200 bps. The flag is worth filing upstream with the retry, since
+  a lower rate is a caller's decision; the error strings are ours either way.
+  After a release carries the retry: bump `min_version` and
+  `requirements-esphome.txt` together, delete the directory and its
+  `external_components` blocks and re-validate the firmware config and a
+  compile. *Area: Dependencies.*
 
 ## v0.6 — Next
 

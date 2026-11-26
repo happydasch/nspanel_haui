@@ -92,7 +92,12 @@ Themes are semantic colour roles. The library is shared by all devices of one co
    ```
 
    Re-paste it whenever a widget compiled with a theme colour is added, removed or recoloured; `gen_virtual_layout --check` fails while a page's code is missing or stale. Never hand-edit generated theme code.
-3. The TFT cannot paint a body widget's foreground that way, so the hub sends those colours from `haui/mapping/theme_foregrounds.py` with the panel's first render, ahead of the page's own state and settings colours.
+3. The body widgets' foregrounds are the second half of the same code, and it ships with a TFT: an HMI whose `Program.s` also declares the four `FOREGROUND_GLOBALS` globals (`thmCompTxt`, `thmActive`, `thmActiveDk`, `thmTxt`, defaults = the same palette) gets one `<widget>.pco=<global>` line per body widget, so the page paints those colours itself and the hub stops sending them. Until an HMI declares them, the code it demands is backgrounds only and the hub sends the foregrounds from `haui/mapping/theme_foregrounds.py` with the panel's first render, ahead of the page's own state and settings colours.
+
+   `declares_foregrounds()` is the switch, so a half-finished migration fails the check instead of shipping a page that paints half a theme. Why it is worth a TFT: the foregrounds are one serial command per body widget today, and the row page has 35 of them, so opening that panel costs 40 display commands (about 80 ms at the 2 ms command spacing) instead of 9 (about 18 ms). Painting ten palettes as literals was considered and rejected: at ~90 assignments per palette and page, the code of one page alone would be ~900 lines, and the display compiles that code into every page.
+
+   !!! note "Shipping it"
+       Four steps, in this order, and the check guards every one of them: declare the four globals in both `Program.s` files, paste `--theme-code` into both HMIs (it prints the foreground lines from then on), compile both TFTs and advance `tft_version`, then stop sending `THEME_FOREGROUNDS` and delete the generated table.
 
 !!! warning "A solid page paints its theme in Preinitialize, never afterwards"
     The hub writes `THEME_GLOBALS` to `Program.s` only before `goto_page`. A theme colour sent to a page that is already shown repaints part of a live screen, so the page must take its colours from the globals while it loads.

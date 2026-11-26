@@ -302,18 +302,26 @@ test('Fleet scans for devices and offers the ones it found', () => {
   press('Scan for devices');
   assert.deepEqual(calls, [['nspanel-office', 'nspanel-hall'], 'scan']);
 
-  const scanning = templateText(renderFleetView({
+  const scanning = render(renderFleetView({
     devices: [], events: [], version: 'Unknown', onOpenDevice() {}, onReorderDevices() {},
     scanning: true, scanError: 'Scan failed', onScan() {},
   }));
-  assert.match(scanning, /Scanning/);
-  assert.match(scanning, /Scan failed/);
+  assert.match(scanning.textContent, /Scanning/);
+  // A failure is a banner above the inventory, not a line of text under the carousel.
+  const failed = scanning.querySelector('.haui-fleet-notice');
+  assert.equal(failed.textContent.trim(), 'Scan failed');
+  assert.ok(failed.classList.contains('is-bad'));
+  assert.equal(failed.getAttribute('role'), 'alert');
 
-  const stale = templateText(renderFleetView({
+  const stale = render(renderFleetView({
     devices: [], events: [], version: 'Unknown', onOpenDevice() {}, onReorderDevices() {},
     statusError: 'offline',
   }));
-  assert.match(stale, /Device status could not be refreshed: offline/);
+  // A status that could not be refreshed is polled state: a banner, announced politely.
+  const refresh = stale.querySelector('.haui-fleet-notice');
+  assert.equal(refresh.textContent.trim(), 'Device status could not be refreshed: offline');
+  assert.ok(refresh.classList.contains('is-warn'));
+  assert.equal(refresh.getAttribute('role'), 'status');
 });
 
 test('the carousel arrows follow the scroll extents and the summary waits for statuses', () => {

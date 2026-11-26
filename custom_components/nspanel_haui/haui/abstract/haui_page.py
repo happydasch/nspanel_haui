@@ -16,6 +16,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.color import tft_supports_foreground_globals
 from ..mapping.const import NotifEvent, PopupPanelKey
 from ..utils.text import TextBox, fit_line, text_width
 from .mixins.component_mixin import ComponentMixin
@@ -168,8 +169,14 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         for fnc_id in self._fnc_items:
             self.update_function_component(fnc_id)
 
+    def _supports_theme_foreground_globals(self) -> bool:
+        """Whether the installed TFT declares the body foreground globals."""
+        return tft_supports_foreground_globals(self.app.device.device_info.get("tft_version"))
+
     def _apply_theme_foregrounds(self) -> None:
-        """Send the theme foreground of every body widget the TFT compiled with one."""
+        """Send body foregrounds only when the installed TFT cannot paint them itself."""
+        if self._supports_theme_foreground_globals():
+            return
         from ..mapping.panel import PAGE_MAPPING
         from ..mapping.theme_foregrounds import THEME_FOREGROUNDS
 
@@ -184,7 +191,9 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         # The panel's theme, not get_color(): own-palette pages read none of
         # it, and the globals outlive this page on the display.
-        return panel.theme.display_commands()
+        return panel.theme.display_commands(
+            foreground_globals=self._supports_theme_foreground_globals()
+        )
 
     def prepare_page_load(self, panel: HAUIPanel) -> None:
         """Send ``page_load_commands()``; call right before goto_page."""

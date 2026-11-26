@@ -148,7 +148,21 @@ export const fleetStyles = css`
     box-shadow: none;
   }
   .haui-device-menu { min-width: 220px; }
-  .haui-fleet-scan-error { margin: 8px 0 0; color: var(--haui-bad-text); font-size: var(--haui-text-label); }
+  /* A failure above the inventory is a banner, not a line of text: the tone tints its ground and the
+     glyph repeats what it says, so the colour is never the only cue. */
+  .haui-fleet-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding: 12px 16px;
+    border-radius: var(--haui-radius-control);
+    font-size: var(--haui-text-label);
+    line-height: var(--haui-line-height-copy);
+  }
+  .haui-fleet-notice.is-bad { background: var(--haui-bad-soft); color: var(--haui-bad-text); }
+  .haui-fleet-notice.is-warn { background: var(--haui-warn-soft); color: var(--haui-warn-text); }
+  .haui-fleet-notice ha-icon { flex: 0 0 auto; --mdc-icon-size: 18px; }
   .haui-discovered { margin-top: 8px; overflow: hidden; }
   .haui-discovered > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
   .haui-discovered h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }

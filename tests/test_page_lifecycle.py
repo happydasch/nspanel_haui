@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
 from custom_components.nspanel_haui.haui.mapping.color import (
     BUILTIN_THEMES,
@@ -11,6 +13,7 @@ from custom_components.nspanel_haui.haui.mapping.color import (
     THEME_GLOBALS,
     Theme,
 )
+from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING
 
 OVERRIDE = 1234
 
@@ -31,6 +34,9 @@ def _theme(background: int = OVERRIDE) -> Theme:
 
 
 class _Device:
+    def __init__(self) -> None:
+        self.device_info: dict[str, Any] = {}
+
     def get(self, key: str, default: Any = None) -> Any:
         return {}.get(key, default)
 
@@ -145,6 +151,27 @@ def test_each_panel_starts_from_the_page_defaults() -> None:
 
     assert page.mode_at_start == "default"
     assert page.mode == "default"
+
+
+@pytest.mark.parametrize(
+    ("tft_version", "hub_paints_foregrounds"),
+    [("0.4.6", True), ("0.4.7", False)],
+)
+def test_body_foregrounds_fall_back_only_for_older_tfts(
+    tft_version: str, hub_paints_foregrounds: bool
+) -> None:
+    app = _App()
+    app.device.device_info = {"tft_version": tft_version}
+    row_id = next(page_id for page_id, name in PAGE_MAPPING.items() if name == "row")
+    page = _SystemPalettePage(app, {"page_id": row_id})
+
+    page.set_panel(_Panel())
+
+    row_foregrounds = [cmd for cmd in _sent_commands(app) if cmd.startswith("r") and ".pco=" in cmd]
+    if hub_paints_foregrounds:
+        assert "r1Icon.pco=65535" in row_foregrounds
+    else:
+        assert row_foregrounds == []
 
 
 def test_panel_render_does_not_repaint_the_page() -> None:

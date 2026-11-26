@@ -69,6 +69,7 @@ class Device:
 
     def __init__(self, settings: dict[str, Any] | None = None) -> None:
         self._settings = settings or {}
+        self.device_info: dict[str, Any] = {}
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._settings.get(key, default)

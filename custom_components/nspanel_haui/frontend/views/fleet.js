@@ -10,6 +10,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { button, iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
 import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
+import { icon } from '../ui/icon.js';
 import { hasUpdateAvailable } from '../device-status.js';
 import { rolloutCard } from '../ui/rollout-card.js';
 
@@ -24,6 +25,18 @@ export function carouselEdgesFrom(carousel) {
 const CARD_GAP = 16;
 const ROW_PADDING = 4;
 const DEVICE_CARD_SELECTOR = '.haui-device-card:not(.haui-device-slot-card)';
+
+/**
+ * A failure above the inventory as a banner: its tone tints the ground under the glyph and the
+ * message, so the colour never stands alone. A scan the user started is an alert; a status that
+ * could not be refreshed is polled state, which is announced politely.
+ * @param {{ message: string, tone: 'bad'|'warn', role: 'alert'|'status' }} notice
+ */
+function fleetNotice({ message, tone, role }) {
+  return html`<p class=${`haui-fleet-notice is-${tone}`} role=${role}>
+    ${icon(tone === 'bad' ? 'alert-circle-outline' : 'alert')}<span>${message}</span>
+  </p>`;
+}
 
 /**
  * How many card-sized placeholders complete the visible row. A final slot may continue beyond its
@@ -290,9 +303,13 @@ export function renderFleetView(data) {
           iconName: 'devices', title: t('No devices yet'), message: t('Add a device to get started'),
           action: data.onScan, actionLabel: data.scanning ? t('Scanning...') : t('Scan for devices'),
         })}
-      ${data.scanError ? html`<p class="haui-fleet-scan-error" role="alert">${data.scanError}</p>` : nothing}
-      ${data.statusError ? html`<p class="haui-fleet-scan-error" role="status">${
-        t('Device status could not be refreshed: {error}').replace('{error}', data.statusError)}</p>` : nothing}
+      ${data.scanError ? fleetNotice({
+        message: data.scanError, tone: 'bad', role: 'alert',
+      }) : nothing}
+      ${data.statusError ? fleetNotice({
+        message: t('Device status could not be refreshed: {error}').replace('{error}', data.statusError),
+        tone: 'warn', role: 'status',
+      }) : nothing}
       ${discovered.length ? html`<section class="haui-discovered" aria-labelledby="haui-discovered-heading">
         <header>
           <div><h2 id="haui-discovered-heading">${t('Discovered Devices')}</h2>

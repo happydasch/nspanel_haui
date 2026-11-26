@@ -19,10 +19,13 @@ from custom_components.nspanel_haui.haui.mapping.color import (
     CLIMATE_COLORS,
     CLIMATE_COLORS_LIGHT,
     COLORS,
+    FOREGROUND_GLOBALS,
+    FOREGROUND_GLOBALS_TFT_VERSION,
     THEME_GLOBALS,
     WEATHER_COLORS,
     WEATHER_COLORS_LIGHT,
     Theme,
+    tft_supports_foreground_globals,
 )
 from custom_components.nspanel_haui.haui.utils.color import (
     contrast_ratio,
@@ -264,6 +267,42 @@ class TestTheme:
         assert "thmBg=0" in commands
         assert "thmPressed=1234" in commands
         assert f"thmHdrBg={COLORS['header_background']}" in commands
+
+    def test_display_commands_include_foreground_globals_when_supported(self) -> None:
+        """New TFTs receive the four body-role colours before loading the page."""
+        colors = {
+            **COLORS,
+            "component_text": 1001,
+            "component_active": 1002,
+            "component_active_dark": 1003,
+            "text": 1004,
+        }
+        theme = Theme("dark", {"colors": colors})
+
+        commands = theme.display_commands(foreground_globals=True)
+
+        assert commands == [
+            *(f"{name}={theme.get(key)}" for key, name in THEME_GLOBALS.items()),
+            *(f"{name}={theme.get(key)}" for key, name in FOREGROUND_GLOBALS.items()),
+        ]
+        assert len(commands) == 9
+
+    @pytest.mark.parametrize(
+        ("version", "supported"),
+        [
+            (None, False),
+            ("", False),
+            ("0.4.6", False),
+            (FOREGROUND_GLOBALS_TFT_VERSION, True),
+            ("0.4.8", True),
+            ("0.4.7.dev1", False),
+            ("unknown", False),
+        ],
+    )
+    def test_tft_foreground_capability_is_version_gated(
+        self, version: str | None, supported: bool
+    ) -> None:
+        assert tft_supports_foreground_globals(version) is supported
 
     def test_theme_globals_name_palette_keys(self) -> None:
         assert set(THEME_GLOBALS) <= COLORS.keys()

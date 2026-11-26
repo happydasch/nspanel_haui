@@ -21,8 +21,8 @@ in development, v0.6 next, then the open pool.
 
 | Horizon | Theme | What it means |
 |---|---|---|
-| **Now — v0.5.x** | Speed and weight | The display link runs at 921600, display installs take minutes rather than tens of minutes, the first render is cheaper, the vendored Nextion patch disappears, and the display assets stay out of every download. |
-| **Next — v0.6** | Recoverability and ownership | A damaged display is repaired from the editor; hub-scoped settings become editable in Home Assistant; the Nextion side is inventoried and cleaned up. |
+| **Now — v0.5.x** | Speed and weight | 0.5.7 lands the 921600 display link and keeps the display assets out of every download, so what is left in this cycle is a cheaper first render and the vendored Nextion patch. |
+| **Next — v0.6** | Recoverability and ownership | A damaged display is repaired from the editor — the boot scan and the install retry that 0.5.7 adds are insurance for the silent display, and no panel has needed either yet; hub-scoped settings become editable in Home Assistant; the Nextion side is inventoried and cleaned up. |
 | **After that** | Content and everyday use | The panels people keep asking for but do not have (a fan, a graph, free text) and the small options that decide whether a panel feels finished. |
 | **v1.0 — stable** | Trust | Bugs closed, documentation complete, listed in the Marketplace catalog, REST API documented and frozen. |
 
@@ -30,8 +30,9 @@ in development, v0.6 next, then the open pool.
 
 Every stable release passes the CI jobs (`tests (3.14)`, `frontend`, `esphome`,
 `docs`, `hassfest`, `hacs`) on the promotion pull request that carries it:
-`master` is stable-only and a release commit reaches it no other way. Two process gates are not automated and are proved once
-before a release may rely on them:
+`master` is stable-only and a release commit reaches it no other way. Three
+process gates are not automated and are proved once before a release may rely
+on them:
 
 - **Release-check recovery.** The documented recovery from a GitHub Actions run
   that failed before its jobs started — check githubstatus.com, close and reopen
@@ -45,6 +46,13 @@ before a release may rely on them:
   the TFT that follows, and how long it takes. Prove it once with
   `firmware_auto_update` and `auto_install` on before relying on unattended
   updates ([updates Q&A](https://github.com/happydasch/nspanel_haui/discussions/69)).
+- **Display recovery.** The boot scan's silent-display retries and the TFT
+  install retry at 115200 bps are insurance, not a repair anybody has watched:
+  the panel that came back on hardware did so on an ordinary fresh boot after a
+  firmware update. Prove both once — a display that answers nothing after the
+  first scan, and an install the display refuses at 921600 — before the
+  troubleshooting guide treats them as the cure
+  ([troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
 
 ## Prior releases
 

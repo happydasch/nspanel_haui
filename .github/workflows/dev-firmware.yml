@@ -1,11 +1,11 @@
 name: Development Firmware
 
-# Dispatched on `dev`, the development branch. Builds a universal image that reports
-# `X.Y.Z.dev<run>`, writes the same version into `manifest.json` and `version.yaml`,
-# commits that one bump back to `dev`, tags the commit, publishes it as a prerelease
-# and prunes the older ones. The branch version matters: an integration installed
-# from `dev` and custom firmware built from it report it, and the hub finds the
-# matching TFT manifest by that version.
+# Dispatched on `dev`, the development branch (not the repository default, which is
+# `master`). Builds a universal image that reports `X.Y.Z.dev<run>`, writes the same
+# version into `manifest.json` and `version.yaml`, commits that one bump back to `dev`,
+# tags the commit, publishes it as a prerelease and prunes the older ones. The branch
+# version matters: an integration installed from `dev` and custom firmware built from it
+# report it, and the hub finds the matching TFT manifest by that version.
 on:
   workflow_dispatch:
     inputs:
@@ -30,6 +30,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - name: Require the dev branch
+        # `master` is the repository default, so the dispatch form preselects it. A
+        # build anywhere else would commit a development version into stable code and
+        # tag it, so fail before the compile instead of after it.
+        if: github.ref_name != 'dev'
+        run: |
+          echo "Development Firmware builds on dev only; this run is on $GITHUB_REF_NAME." >&2
+          exit 1
+
       # Tags name the base version, so the full history is fetched. Credentials are
       # persisted because the version bump is pushed back to `dev`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7

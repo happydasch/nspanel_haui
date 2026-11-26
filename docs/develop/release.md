@@ -5,8 +5,9 @@ description: Two branches, one tag, the development firmware channel, and the CI
 
 # Release process
 
-`dev` is the integration branch and the repository default; `master` holds stable code
-only. Day-to-day work is committed to `dev`, directly or as a pull request whose six
+`dev` is the integration branch; `master` holds stable code only and is the repository
+default, so a clone, a new pull request and the Marketplace read released code.
+Day-to-day work is committed to `dev`, directly or as a pull request whose six
 always-running checks are green. A stable release is a `dev` → `master` promotion pull
 request that the `Protect master` ruleset gates, plus a `vX.Y.Z` tag on the merge commit,
 which `release.yml` turns into the published release; afterwards `master` is merged back
@@ -81,7 +82,7 @@ pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stabl
                release never leaves the Marketplace's or the hub's release lists
 ```
 
-A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev`, so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
+A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev` and fails before the compile on any other ref — pick `dev` in the dispatch form, which preselects `master`, the repository default — so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
 
 The bot commit is what makes a branch install work: the integration installed from `dev` (or from the tagged source) reports the same version as the firmware, and the hub finds the release's TFT manifest by that version. `pyproject.toml` and `tft_version` keep their released values until the stable prep, which moves them with the release.
 
@@ -93,8 +94,8 @@ Because the development build versions the branch, an integration installed from
 
 | Branch | Role | Rules |
 |--------|------|-------|
-| `dev` | the integration branch, the repository's default branch | direct commits and merges are allowed; `ci.yml` runs on every push and on pull requests to it, nothing is required |
-| `master` | stable code, docs at the site root | the "Protect master (release-only)" ruleset blocks direct and force pushes and branch deletion, and needs a pull request with the six always-running checks green |
+| `dev` | the integration branch, the base of every feature and fix pull request | direct commits and merges are allowed; `ci.yml` runs on every push and on pull requests to it, nothing is required |
+| `master` | stable code, the repository default branch, docs at the site root | the "Protect master (release-only)" ruleset blocks direct and force pushes and branch deletion, and needs a pull request with the six always-running checks green |
 | Feature and fix branches | one change, when a pull request is wanted | cut from `dev`, PR with `--base dev`, merged with a merge commit |
 | `release/X.Y.Z` | release prep: version bump, changelog, notes, TFTs | cut from `dev`, PR with `--base dev`, merged with a merge commit |
 | `hotfix/X.Y.Z` | a fix for a released version | cut from `master`, PR with `--base master`, merged, tagged, then merged back into `dev` |
@@ -116,7 +117,7 @@ Commits and PR titles use [Conventional Commits](https://www.conventionalcommits
 | `hassfest`, `hacs` | `ci.yml` | the same | Home Assistant integration and HACS repository validation |
 | `deploy-docs` | `ci.yml` | push to `master`, manual dispatch on `master` — never a PR or `dev` | publishes Pages from the `docs-site` artifact |
 | `Compile firmware` | `esphome-build.yml` | PRs touching `esphome/`, `requirements-esphome.txt`, `scripts/verify_firmware/`, the workflow or the setup action; manual, with the ESPHome channel | `make esphome-compile` and `make esphome-size`, which fails at 92 % of the app partition |
-| `build` | `dev-firmware.yml` | manual dispatch on `dev` | the versioned universal prerelease, the manifest, and the prune of old dev releases |
+| `build` | `dev-firmware.yml` | manual dispatch on `dev`; any other ref fails before the compile | the versioned universal prerelease, the manifest, and the prune of old dev releases |
 | `release` | `release.yml` | `v*` tag push; manual dispatch on a `v*` ref | the tag commit is reachable from `master`, tag equals the `manifest.json` version, ESPHome compile, manifest generation (refuses a TFT that does not embed `tft_version`), prepared notes, asset upload; the run is never cancelled |
 | `Validate title` | `pr-title.yml` | PR opened, edited, synchronized or reopened | Conventional Commits title, 100 characters at most |
 | `Shell scripts` | `shellcheck.yml` | PRs and pushes touching a `*.sh` file | shellcheck over the scripts |
@@ -125,7 +126,10 @@ Commits and PR titles use [Conventional Commits](https://www.conventionalcommits
 
 Three settings are prerequisites, not conveniences, and none of them is visible from the code:
 
-- **`dev` is the default branch** and accepts direct pushes: development lands there, and only `master` is gated.
+- **`master` is the default branch**, so a clone, the pull request form and the Home
+  Assistant Marketplace read released code; **`dev`** accepts direct pushes and is the
+  base every feature or fix pull request names explicitly (`--base dev`), and only
+  `master` is gated.
 - **"Protect master (release-only)"** must keep the six status checks and stay free of bypass actors, so a promotion or hotfix reaches `master` only through a pull request whose checks ran.
 - **"Allow GitHub Actions to create and approve pull requests"** may stay **off**: no workflow opens a pull request. Turn it on only if a future job needs to.
 

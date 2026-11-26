@@ -27,24 +27,15 @@ discussion it came from when there is one.
 
 ## v0.5.x — In development now
 
-Speed and weight: display installs take minutes rather than tens of minutes, the
-first render is cheaper, the vendored Nextion patch disappears, and the display
-assets stay out of every download.
+Speed and weight: the display link runs at 921600, display installs take minutes
+rather than tens of minutes, the first render is cheaper, the vendored Nextion
+patch disappears, and the display assets stay out of every download.
 
-- **Multiple TFT speed variants** — Keep the existing 115200 TFTs as the
-  known-good normal-speed default — asset names unchanged, so flashed panels keep
-  auto-updating — and add a 921600 variant per display model. That is 8× the baud
-  (~10× in practice), turning an ~11 MB TFT install from ~16 min into ~2 min.
-  Speed is chosen per device; a boot baud scan power-cycles `screen_power` and
-  probes each Nextion-supported rate, so a mismatch recovers without user action.
-  Done: both variants install and run on both display models and the universal
-  image, a mismatched panel recovers by itself, and no UART buffer overflow
-  appears under the update burst. *Area: Display install.*
 - **Predefined palettes for the first render** — Put the theme palettes into the
   TFT so a page needs fewer colour commands on its first render — without
   flashing the default palette first or showing a half-themed page, and with
   editor cards still matching the device render. Needs a new TFT, so it ships
-  with the speed variants. *Area: Theme rendering.*
+  with the next TFT version. *Area: Theme rendering.*
 - **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
   2026-11-18) carries two of the three fixes this patch used to add: the
   numeric-response delivery
@@ -69,8 +60,7 @@ inventoried and cleaned up.
   the normal TFT — reachable from the device's **Updates** sidebar even in a
   failed update state. That makes a broken, half-installed or wrong-baud TFT
   recoverable without a Nextion Editor session. Done: a damaged panel is restored
-  from the editor on both display models and both speed variants. *Area:
-  Recovery.*
+  from the editor on both display models. *Area: Recovery.*
 - **Nextion script inventory and cleanup** — Dump the event code of both HMIs
   (Nextion2Text), record what each script does and which hub command or firmware
   event it pairs with, document the instruction set and limits that matter

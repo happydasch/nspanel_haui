@@ -24,6 +24,10 @@ Integration and firmware should match; otherwise **Diagnostics** shows **Firmwar
 
 The firmware update can appear before you have updated the integration, because both ship with the same release. Update the integration first anyway.
 
+### The first boot after 0.5.7
+
+Both shipped TFTs now talk to the panel at 921600 bps. A panel that still runs the previous 0.4.5 TFT answers at 115200, so its first boot after the firmware update waits up to about 20 seconds while the firmware scans the display rates. The TFT update then switches the display to 921600, and the first boot after that can take as long again while the firmware finds the new rate. Leave the panel powered; both boots end on their own, and later boots are immediate.
+
 ## Other ways to update
 
 The four steps use the **universal firmware**, the `nspanel_haui.bin` every release includes. Two cases differ:

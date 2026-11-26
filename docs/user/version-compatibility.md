@@ -32,6 +32,7 @@ The firmware and the display are updated independently:
 - The **HAUI Firmware** update entity installs a newer firmware image.
 - The **HAUI Display** entity installs the TFT the firmware requires.
 - A firmware-only release keeps its display version, so the panel is not sent a TFT it does not need.
+- The shipped TFTs run the display link at 921600 bps, eight times the old 115200. Firmware 0.5.7 and later starts its UART there and scans the Nextion rates on boot, so a panel still on an older 115200 TFT keeps working until the display update installs 0.4.6.
 - The editor's device row shows both versions and marks a mismatch. The diagnostics card also shows the TFT
   version the firmware requires.
 

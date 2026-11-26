@@ -7,6 +7,8 @@
 # unreachable until the UART follows it. The boot check switches to the rate
 # remembered from the last boot; when that fails, it power-cycles the display,
 # probes the rates the Nextion supports and remembers the one that answered.
+# A scan that finds nothing leaves the link at 115200 - the rate every older or
+# stock TFT uses - and is retried a few times, keeping that fallback.
 # The ESP reboots after every successful TFT upload, so the new TFT's rate is
 # picked up by this same boot scan.
 globals:
@@ -30,6 +32,14 @@ esphome:
     # its connect while the display is still booting.
     priority: -100
     then:
+      # A panel that already found its display's older rate boots straight into
+      # it instead of waiting at the compile-time rate first. Only the boot
+      # applies the remembered rate: a retry keeps whatever the last scan
+      # settled on, or it would overwrite the 115200 fallback below before that
+      # rate got its window.
+      - lambda: |-
+          id(haui_uart).set_baud_rate(id(haui_display_baud));
+          id(haui_uart).load_settings(false);
       - script.execute: check_display_baud
 
 script:
@@ -38,11 +48,6 @@ script:
   - id: check_display_baud
     mode: single
     then:
-      # A panel that already found its display's older rate boots straight into
-      # it instead of waiting at the compile-time rate first.
-      - lambda: |-
-          id(haui_uart).set_baud_rate(id(haui_display_baud));
-          id(haui_uart).load_settings(false);
       - delay: 1s
       - wait_until:
           condition:

@@ -183,19 +183,19 @@ test('A collapsed Connection card shows only its heading', () => {
   assert.match(root.querySelector('.haui-details-actions button').textContent, /Themes/);
 });
 
-test('The side stack opens Themes, Updates and Backups below its cards', () => {
+test('The side stack opens Themes, Logs, Updates and Backups below its cards', () => {
   const opened = [];
   const view = deviceDetails({
     name: 'kitchen', device: { friendlyName: 'Kitchen' },
     status: { connected: true, integration_version: '0.5.0', device_info: { tft_version: '0.4.5' } },
-    onLogs() {},
+    onLogs: () => opened.push('logs'),
     onBackups: () => opened.push('backups'),
     onUpdates: () => opened.push('updates'), updatesDetail: 'Stable · Manual',
     onEditTheme: () => opened.push('theme'), themeDetail: 'Dark',
   });
   const root = render(view);
   const actions = root.querySelector('.haui-details-actions');
-  const [themes, updates, backups] = [...actions.querySelectorAll('button')];
+  const [themes, logs, updates, backups] = [...actions.querySelectorAll('button')];
 
   // Plain content at the end of the stack: no card or heading of its own, after the Connection and
   // Diagnostics cards.
@@ -205,20 +205,23 @@ test('The side stack opens Themes, Updates and Backups below its cards', () => {
   assert.equal(sideStack[1].classList.contains('haui-diagnostics-card'), true);
   assert.equal(sideStack.length, 3);
 
-  // Themes and Updates follow, each naming what its sidebar holds on its trailing edge; Backups
-  // closes the column, as the device's own export and import.
-  assert.match(updates.textContent, /Updates/);
-  assert.match(updates.textContent, /Stable · Manual/);
+  // Themes and Updates follow, each naming what its sidebar holds on their trailing edge; Logs sits
+  // between them, opening the log lines on this device; Backups closes the column, as the device's
+  // own export and import.
   assert.match(themes.textContent, /Themes/);
   assert.match(themes.textContent, /Dark/);
+  assert.match(logs.textContent, /Logs/);
+  assert.match(updates.textContent, /Updates/);
+  assert.match(updates.textContent, /Stable · Manual/);
   assert.match(backups.textContent, /Backups/);
   // The YAML buttons are not in the side stack any more: the Backups sidebar carries them.
   assert.equal(actions.querySelector('.haui-yaml-actions'), null);
 
-  updates.click();
   themes.click();
+  logs.click();
+  updates.click();
   backups.click();
-  assert.deepEqual(opened, ['updates', 'theme', 'backups']);
+  assert.deepEqual(opened, ['theme', 'logs', 'updates', 'backups']);
 });
 
 test('Device details mark reported values as stale while the device is offline', () => {
@@ -288,8 +291,8 @@ test('Device details carry the diagnostics sections and their actions', () => {
   assert.doesNotMatch(diagnosticsText, /Wi-Fi|HomeNet|-54 dBm/);
   assert.equal(templatesMatching(diagnosticsCard, 'haui-surface-body').length, 0);
   // Collapsed, the card has no buttons: the report is in the expanded Integration details.
-  assert.doesNotMatch(text, /Logs/);
-  assert.doesNotMatch(text, /Copy report/);
+  assert.doesNotMatch(diagnosticsText, /Logs/);
+  assert.doesNotMatch(diagnosticsText, /Copy report/);
   // Acting on the panel belongs to the live preview's tools.
   assert.doesNotMatch(text, /Reset interaction/);
   assert.doesNotMatch(text, /Redraw display/);

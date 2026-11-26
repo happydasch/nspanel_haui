@@ -196,6 +196,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
         if (recv_string.size() < 5) {
           ESP_LOGE(TAG, "Truncated 0x08 response: got %zu bytes within %" PRIu32 "ms", recv_string.size(),
                    NEXTION_UPLOAD_ACK_TIMEOUT_MS);
+          this->tft_upload_display_fault_ = true;
           allocator.deallocate(buffer, 4096);
           buffer = nullptr;
           return -1;
@@ -214,6 +215,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
       upload_first_chunk_sent_ = true;
       if (recv_string.empty()) {
         ESP_LOGW(TAG, "No response from display after %" PRIu32 "ms", NEXTION_UPLOAD_ACK_TIMEOUT_MS);
+        this->tft_upload_display_fault_ = true;
         allocator.deallocate(buffer, 4096);
         buffer = nullptr;
         return -1;
@@ -247,6 +249,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
             TAG, "Invalid response: [%s]",
             format_hex_pretty_to(hex_buf, reinterpret_cast<const uint8_t *>(recv_string.data()), recv_string.size()));
         this->tft_upload_error_ = "the display rejected a data chunk";
+        this->tft_upload_display_fault_ = true;
         // Deallocate buffer
         allocator.deallocate(buffer, 4096);
         buffer = nullptr;
@@ -275,6 +278,7 @@ int Nextion::upload_by_chunks_(esp_http_client_handle_t http_client, uint32_t &r
 bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   ESP_LOGD(TAG, "TFT upload requested, exit reparse: %s, URL: %s", YESNO(exit_reparse), this->tft_url_.c_str());
   this->tft_upload_error_.clear();
+  this->tft_upload_display_fault_ = false;
 
   if (this->connection_state_.is_updating_) {
     ESP_LOGW(TAG, "Upload in progress");
@@ -293,6 +297,12 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   auto fail = [this](const std::string &error) {
     this->tft_upload_error_ = error;
     return this->upload_end_(false);
+  };
+  // The display's side of the link failed: unlike a download or a heap error,
+  // a lower transfer rate can fix this, so the caller may retry the upload.
+  auto fail_display = [this, &fail](const std::string &error) {
+    this->tft_upload_display_fault_ = true;
+    return fail(error);
   };
 
   // Temporarily adjust watchdog timeout for the duration of the TFT upload
@@ -385,6 +395,11 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   this->connection_state_.ignore_is_setup_ = true;
   this->send_command_("sleep=0");
   this->send_command_("dim=100");
+  // A display that was power-cycled since the component connected - the retry
+  // in prepare_tft_upload does exactly that - is back on its power-on defaults,
+  // which return no command results (the boot scan's probe had to learn the
+  // same). Ask for them again with the other wake-up commands.
+  this->send_command_("bkcmd=3");
   vTaskDelay(pdMS_TO_TICKS(250));  // NOLINT
   ESP_LOGV(TAG, "Heap: %" PRIu32, esp_get_free_heap_size());
 
@@ -429,7 +444,7 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
     esp_http_client_close(http_client);
     esp_http_client_cleanup(http_client);
     ESP_LOGV(TAG, "Connection closed");
-    return fail("the display refused the upload (power-cycle it to recover)");
+    return fail_display("the display refused the upload (power-cycle it to recover)");
   }
 
   ESP_LOGV(TAG, "Set method to GET");

@@ -15,12 +15,12 @@ import { deviceConnectionState } from '../device-status.js';
 /**
  * The Device side stack of the Preview view: the connection and device facts,
  * Diagnostics, and below them the buttons that open a sidebar of their own
- * (Themes, Updates and Backups). Device facts and diagnostics come from the
- * real status payload: facts the device did not report stay "Unknown", and
+ * (Themes, Logs, Updates and Backups). Device facts and diagnostics come from
+ * the real status payload: facts the device did not report stay "Unknown", and
  * while it is offline they are marked stale.
  *
  * @param {{ name: string, status: any, hass?: any,
- *   onLogs: () => void, onBackups?: () => void, onUpdates: () => void, onEditTheme?: () => void,
+ *   onLogs?: () => void, onBackups?: () => void, onUpdates: () => void, onEditTheme?: () => void,
  *   onCopyReport?: () => void, detailsExpanded?: boolean, onToggleDetails?: () => void,
  *   updatesDetail?: string, themeDetail?: string,
  *   diagnosticsExpanded?: boolean, onToggleDiagnostics?: () => void,
@@ -87,7 +87,7 @@ export function deviceDetails({
       })
       : undefined,
   }) : nothing}${sideActions({
-    onBackups, onUpdates, onEditTheme, updatesDetail, themeDetail,
+    onLogs, onBackups, onUpdates, onEditTheme, updatesDetail, themeDetail,
   })}`;
 }
 
@@ -97,17 +97,20 @@ export function deviceDetails({
  * **Updates** also name what they open on their trailing edge — the selected
  * theme's name, what the update settings hold; **Backups** opens the device's
  * YAML export and import, **Themes** the theme library with the device's theme
- * selected.
+ * selected, **Logs** the hub's log lines with this device selected.
  *
- * @param {{ onBackups?: () => void, onUpdates: () => void, updatesDetail?: string,
- *   onEditTheme?: (() => void)|null, themeDetail?: string }} data
+ * @param {{ onLogs?: () => void, onBackups?: () => void, onUpdates: () => void,
+ *   updatesDetail?: string, onEditTheme?: (() => void)|null, themeDetail?: string }} data
  */
 function sideActions({
-  onBackups, onUpdates, onEditTheme, updatesDetail = '', themeDetail = '',
+  onLogs, onBackups, onUpdates, onEditTheme, updatesDetail = '', themeDetail = '',
 }) {
   return html`<div class="haui-details-actions">${onEditTheme ? button({
     label: t('Themes'), iconName: 'color', detail: themeDetail,
     onClick: onEditTheme,
+  }) : nothing}${onLogs ? button({
+    label: t('Logs'), iconName: 'log',
+    onClick: onLogs,
   }) : nothing}${button({
     label: t('Updates'), iconName: 'update', detail: updatesDetail,
     onClick: onUpdates,

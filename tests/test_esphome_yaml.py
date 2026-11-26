@@ -90,6 +90,20 @@ def test_the_uart_starts_at_the_tft_baud_and_scans_down():
     assert "display_baud: !include display_baud.yaml" in _read("packages.yaml")
 
 
+def test_only_the_boot_applies_the_remembered_baud():
+    """A retry must keep the rate the last scan settled on.
+
+    The boot check applies the remembered rate, so a panel that already found
+    its display's older rate starts there. A retry must not repeat that: it
+    would overwrite the 115200 fallback of a failed scan before that rate got
+    the retry's window, which is the one thing the fallback is for.
+    """
+    baud_script = _read("display_baud.yaml")
+    boot, _, scripts = baud_script.partition("script:\n")
+    assert "set_baud_rate(id(haui_display_baud))" in boot
+    assert "set_baud_rate(id(haui_display_baud))" not in scripts
+
+
 def test_firmware_reports_required_tft_version_separately():
     version = _read("version.yaml")
     state_script = _read("scripts_event.yaml")
@@ -253,6 +267,59 @@ def test_the_panel_reports_a_tft_upload_it_could_not_start():
     assert upload.index("upload_tft()") < upload.index('"esphome.tft_upload_failed"')
     # The reason the uploader recorded travels with the event.
     assert "tft_upload_error()" in upload
+
+
+def test_a_transfer_the_display_cannot_hold_falls_back_to_the_safe_baud():
+    """The 921600 link is fast; a display that cannot transfer at it is not lost.
+
+    A failed transfer leaves the Nextion waiting for data, so the retry has to
+    power-cycle it; a successful one reboots, which is why the fallback only
+    ever runs after a failure.
+    """
+    upload = _read("scripts_common.yaml").split("- id: prepare_tft_upload")[1]
+    assert upload.index("upload_tft()") < upload.index("upload_tft(115200)")
+    assert "switch.turn_off: screen_power" in upload
+    assert "switch.turn_on: screen_power" in upload
+    # The retry re-runs the transfer the hub is waiting on, so the install
+    # timeout is re-armed the same way the first attempt armed it.
+    assert upload.count('"esphome.tft_upload_started"') == 2
+    assert '"esphome.tft_upload_failed"' in upload
+
+
+def test_only_a_failure_the_display_caused_is_retried():
+    """A download or heap error repeats at any rate, and a retry costs a transfer."""
+    upload = _read("scripts_common.yaml").split("- id: prepare_tft_upload")[1]
+    guard = upload.split("- if:")[1].split("then:")[0]
+    assert "tft_upload_display_fault()" in guard
+    # Nothing to fall back to when the link already runs at the safe rate.
+    assert "get_baud_rate() > 115200" in guard
+
+    patch = ROOT.parent / "nextion_patch" / "nextion"
+    # The display's own failures are the ones a lower rate can fix; the vendor's
+    # other paths (a `404`, an exhausted heap) stay unmarked.
+    assert (
+        'return fail_display("the display refused the upload (power-cycle it to recover)");'
+        in (patch / "nextion_upload_esp32.cpp").read_text()
+    )
+    source = (patch / "nextion_upload_esp32.cpp").read_text()
+    assert "tft_upload_display_fault_ = true;" in source
+    # Cleared per attempt, so a stale mark cannot make a download error look
+    # like a rate the display cannot hold.
+    assert "tft_upload_display_fault_ = false;" in source
+    assert "bool tft_upload_display_fault() const" in (patch / "nextion.h").read_text()
+
+
+def test_a_tft_upload_asks_a_power_cycled_display_for_returns():
+    """The retry power-cycles the display, which resets it to no command results.
+
+    Same lesson as the boot scan's probe: a display that was just power-cycled
+    answers nothing without `bkcmd=3`, so the upload re-enables returns with its
+    other wake-up commands.
+    """
+    source = (ROOT.parent / "nextion_patch" / "nextion" / "nextion_upload_esp32.cpp").read_text()
+    upload = source.split("bool Nextion::upload_tft(")[1]
+    wake_up = upload[: upload.index("whmi-wris")]
+    assert 'this->send_command_("bkcmd=3");' in wake_up
 
 
 def test_native_ota_is_encrypted_with_the_api_key():

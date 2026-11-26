@@ -13,11 +13,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Added
 
+- Editor: the Device screen's side stack opens **Logs** for the device shown, between **Themes** and **Updates**, so a device's log lines no longer need the fleet overview ([Editor](docs/user/editor/README.md)).
 - Editor: the device's **Diagnostics** card names the **Display link** — the UART baud the panel runs at, 921600 bps with a current TFT and lower with an older one — in the Versions tile and in **Copy report**, so a panel that fell back to a slow display link is visible without the ESPHome log ([Editor](docs/user/editor/README.md)).
 
 ### Fixed
 
 - Display: the boot baud scan now recovers a display that stays silent instead of giving up for the rest of the boot — the probe re-enables the display's command returns (a just power-cycled Nextion answers nothing without it), a failed scan leaves the link at 115200 rather than at a rate nothing answers, and the scan is retried three times a minute apart. A panel that sat on the TFT's **Waiting for Initialization** page is brought back by a firmware update in the meantime; this keeps the scan from needing one.
+- Display: a **TFT install** the display cannot hold at 921600 bps is retried once at 115200 bps — the panel power-cycles the display first, because a failed transfer leaves it waiting for data, and reports the install as failed only if the retry fails too; a download or heap error is not retried, since another transfer would not fix it ([Troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
+- Display: a failed boot scan now keeps its 115200 bps fallback for the retries instead of switching back to the rate nothing answered at, so the fallback gets the window it exists for ([Display baud](docs/develop/esphome.md#display-baud)).
 
 ### Changed
 

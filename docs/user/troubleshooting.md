@@ -59,7 +59,7 @@ Since the firmware that reports upload failures, the hub shows the panel's own r
 | `the server does not support range requests` | The host answers the whole file to every request; the panel downloads a TFT in ranges | Serve the file from Home Assistant's own `www` folder (`/local/…`) or another host that supports ranges |
 | `the file size … is out of range` | The download is smaller than 4 KiB or bigger than 128 MiB — usually an HTML error page instead of a `.tft` | Point `url` at the `.tft` file itself |
 | `the panel has no network connection` | The panel lost Wi-Fi before the download started | Check the panel's Wi-Fi and try again |
-| `the display refused the upload` | The display is in a state where it will not take a file: a half-finished upload, or firmware running against a display that carries another program | Power-cycle the panel, then install again; if it refuses at once every time, see [The panel refuses every TFT upload](#the-panel-refuses-every-tft-upload) |
+| `the display refused the upload` | The display is in a state where it will not take a file: a half-finished upload, or firmware running against a display that carries another program. The panel has already power-cycled the display and retried the transfer at 115200 bps | Power-cycle the panel, then install again; if it refuses at once every time, see [The panel refuses every TFT upload](#the-panel-refuses-every-tft-upload) |
 | `an upload is already running` | A second request arrived while the first transfer was still running | Wait for it to finish; power-cycle the panel if it never does |
 | `A TFT install started at … is still running` | The hub refused a second install because one is in flight | Wait, or power-cycle the panel to clear an upload that never finishes |
 
@@ -71,7 +71,7 @@ A `url` that Home Assistant cannot read is **not** one of these: the hub warns a
 
 - `Checking installed version: required=0.4.5 installed=` — the display never delivered the text of `system.tftVersion`.
 - `Page event not received within timeout` — it never acknowledged a page change either. This appears **before** the install starts, which rules out an upload that went wrong.
-- `the display refused the upload (power-cycle it to recover)` on every attempt.
+- `the display refused the upload (power-cycle it to recover)` on every attempt, also after the panel's own retry at 115200 bps.
 
 Together they mean the display is not running the HAUI TFT — typically a panel still on the stock Sonoff firmware — or it is wedged in upload mode. Home Assistant cannot send it anything, including the file that would fix it.
 
@@ -134,7 +134,7 @@ If neither helps, [open an issue](https://github.com/happydasch/nspanel_haui/iss
 
 ### The panel stays on "Waiting for Initialization" after a firmware update
 
-Firmware 0.5.7 starts the display link at 921600. A panel still on the older 0.4.5 TFT answers at 115200, so its first boot power-cycles the display and scans the supported rates; that takes up to about half a minute. The same happens once after the TFT update switches the display to 921600. Leave the panel powered: a firmware update (the **HAUI Firmware** entity, or reinstalling the same release) brings a panel that stays on the TFT's system page back, because the upload reboots the ESP with a fresh scan. If a panel stays there after a few minutes and another update does not help, power-cycle it once and report the ESPHome log lines starting with `Display baud`, `Display detected` or `Display did not answer`.
+Firmware 0.5.7 starts the display link at 921600. A panel still on the older 0.4.5 TFT answers at 115200, so its first boot power-cycles the display and scans the supported rates; that takes up to about half a minute. The same happens once after the TFT update switches the display to 921600. A TFT install the display cannot hold at 921600 is retried once at 115200 after the panel power-cycles the display, so a slow display still gets its file. Leave the panel powered: a firmware update (the **HAUI Firmware** entity, or reinstalling the same release) brings a panel that stays on the TFT's system page back, because the upload reboots the ESP with a fresh scan. If a panel stays there after a few minutes and another update does not help, power-cycle it once and report the ESPHome log lines starting with `Display baud`, `Display detected` or `Display did not answer`.
 
 ### Changes in the editor do not need a restart
 

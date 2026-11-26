@@ -265,7 +265,7 @@ The editor shows the steps, the time the install has run and about how long is l
 
 | What the hub hears | Meaning | Install state |
 |--------------------|---------|---------------|
-| `esphome.tft_upload_started` | the panel accepted the URL and started the transfer; the timeout restarts here | stays `installing` |
+| `esphome.tft_upload_started` | the panel accepted the URL and started the transfer; the timeout restarts here. The firmware sends it a second time for the retry at 115200 bps, so a fallback that outlives the first window is still one install | stays `installing` |
 | `esphome.tft_upload_failed` | the panel could not install the file; the event carries its reason (no network, `HTTP 404`, a server without range support, a file size out of range, the display refusing the upload, a chunk the display rejected) | `error` with that reason |
 | no event, then the device reconnects without a reboot | an upload the panel never started, or one that died before reporting | `error`, "did not reboot" |
 | no event, no reconnect for 20 minutes | the transfer is still running, or the panel hangs | `error` on the timeout |

@@ -118,18 +118,52 @@ script:
   # Start a TFT upload: suspend activities, set the URL, run the blocking upload.
   # The upload reboots the panel on success (so there is no success event); a
   # failure publishes why, so the Hub reports it instead of timing out.
+  #
+  # The transfer runs at the rate the display link runs at, 921600 with a current
+  # TFT. A display that answers commands but cannot sustain a transfer at that
+  # rate is retried once at 115200, which every TFT before 0.4.6 and the stock
+  # one use: a failed transfer leaves the display waiting for data, so the retry
+  # power-cycles it first. Only the display's own failures are retried - a
+  # download or heap error repeats at any rate, and a retry costs another full
+  # transfer.
   - id: prepare_tft_upload
     parameters:
       url: std::string
     then:
       - lambda: |-
           ESP_LOGI("haui", "Script prepare_tft_upload %s", url.c_str());
+          id(haui_disp).set_tft_url(url.c_str());
           id(publish_event_native).execute("esphome.tft_upload_started", url);
       - script.execute: suspend_activities
       - lambda: |-
-          id(haui_disp).set_tft_url(url.c_str());
-          if (!id(haui_disp).upload_tft()) {
-            auto reason = id(haui_disp).tft_upload_error();
-            ESP_LOGE("haui", "TFT upload failed: %s", reason.c_str());
-            id(publish_event_native).execute("esphome.tft_upload_failed", reason);
-          }
+          id(haui_disp).upload_tft();
+      # Only a failure gets here: a successful upload reboots the panel.
+      - if:
+          condition:
+            lambda: |-
+              return id(haui_disp).tft_upload_display_fault() &&
+                     id(haui_uart).get_baud_rate() > 115200;
+          then:
+            - lambda: |-
+                ESP_LOGW("haui",
+                         "Transfer at %" PRIu32 " bps failed (%s); power-cycling "
+                         "the display and retrying at 115200 bps",
+                         id(haui_uart).get_baud_rate(),
+                         id(haui_disp).tft_upload_error().c_str());
+                // The Hub re-arms its install timeout on every start event, so a
+                // retry that outlives the first window is still an install.
+                id(publish_event_native).execute("esphome.tft_upload_started", url);
+            - switch.turn_off: screen_power
+            - delay: 2s
+            - switch.turn_on: screen_power
+            - delay: 3s
+            - lambda: |-
+                id(haui_disp).upload_tft(115200);
+      - if:
+          condition:
+            lambda: return !id(haui_disp).tft_upload_error().empty();
+          then:
+            - lambda: |-
+                auto reason = id(haui_disp).tft_upload_error();
+                ESP_LOGE("haui", "TFT upload failed: %s", reason.c_str());
+                id(publish_event_native).execute("esphome.tft_upload_failed", reason);

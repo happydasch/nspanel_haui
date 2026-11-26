@@ -21,7 +21,7 @@ Themes, display files, backups and logs have their own tools in the editor; this
 2. Select a device on the dashboard.
 3. A device opens on its **Device** view; a device without panels opens on **Panels**. **Panels** switches to its panel list.
 
-The highlighted action card holds the next actions: **Add panel**, and the **Settings** cog beside its title. Below the **Connection** and **Diagnostics** cards, the **Themes**, **Updates** and **Backups** buttons open their sidebars. In **Panels**, the cog sits in the list's action card.
+The highlighted action card holds the next actions: **Add panel**, and the **Settings** cog beside its title. Below the **Connection** and **Diagnostics** cards, the **Themes**, **Logs**, **Updates** and **Backups** buttons open their sidebars. In **Panels**, the cog sits in the list's action card.
 
 If the editor stays on its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 
@@ -55,7 +55,7 @@ The inventory card closes with one coloured segment per device, showing its conn
 
 ## Device view
 
-The device view holds the panel's screen beside its cards: **Connection**, **Diagnostics** and **Backups**, with the **Themes**, **Updates** and **Backups** sidebars below them.
+The device view holds the panel's screen beside its cards: **Connection**, **Diagnostics** and **Backups**, with the **Themes**, **Logs**, **Updates** and **Backups** sidebars below them.
 
 === "Light"
 
@@ -105,7 +105,7 @@ The **Backups** sidebar exports, imports and copies a device's settings and pane
 
 ### Logs
 
-The **Logs** sidebar shows the 50 most recent messages for a device, newest first and grouped by day. Open it from the **Integration log** tile or from **Logs** in the device's row menu. Filter by **All**, **Warnings** or **Errors**, or search; the copy button copies the lines shown.
+The **Logs** sidebar shows the 50 most recent messages for a device, newest first and grouped by day. Open it from the **Integration log** tile, from the **Logs** button below the device's **Connection** and **Diagnostics** cards, or from **Logs** in the device's row menu. Filter by **All**, **Warnings** or **Errors**, or search; the copy button copies the lines shown.
 
 On the dashboard, **Latest events** lists warnings and errors of the last 24 hours. **Logs** shows the full log and **Reset** restarts the window from now; **Last 24 hours** brings the default back. A reset is remembered in the browser, so reloading the editor keeps the shorter window. Both follow the selected device, or show all devices when none is selected.
 

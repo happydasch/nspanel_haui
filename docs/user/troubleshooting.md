@@ -149,9 +149,9 @@ usually because it names a branch that was renamed or deleted. Two branches stay
 `master` holds the released code — the one to build from — and `dev` the development
 code that has not been released yet.
 
-1. Open your device's YAML in the ESPHome dashboard and find the `ref:` entries —
-   the `packages:` remote package and, inside `esphome/nspanel_haui.yaml`, the
-   `external_components:` git source.
+1. Open your device's YAML in the ESPHome dashboard and find the `ref:` of the
+   `packages:` remote package. The `nextion` component patch travels with that
+   package, so there is no second ref to keep in step.
 2. Point both at `master`, or at `dev` when you deliberately build the development
    branch:
 

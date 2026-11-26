@@ -379,32 +379,43 @@ def test_universal_image_keeps_its_wifi_across_firmware_updates():
     assert "<nvs.h>" in universal["esphome"]["includes"]
 
 
-def test_nextion_patch_is_never_older_than_the_package():
-    """The package and the patch change together.
+def test_the_nextion_patch_travels_with_the_package_that_uses_it():
+    """The patch and the YAML that calls it are always one tree.
 
-    With the default 1-day cache a build combined a fresh display.yaml with an
-    older patch: "[tft_upload_http_buffer_size_tx] is an invalid option".
+    A git source let a build pair a fresh ``display.yaml`` with an older patch
+    ("[tft_upload_http_buffer_size_tx] is an invalid option"), and once the patch
+    grew C++ the YAML calls, a panel installed from ``dev`` failed to compile
+    against the patch of ``master``: "no member named
+    'tft_upload_display_fault'". A local path resolves against the config's own
+    directory, so a remote package compiles the patch fetched beside it.
     """
-    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
-    block = package.split("external_components:")[1].split("packages:")[0]
-    assert "path: esphome/nextion_patch" in block
-    assert "refresh: 0s" in block
+    for config in ("nspanel_haui.yaml", "nspanel_haui_dev.yaml", "nspanel_haui_universal.yaml"):
+        text = (ROOT.parent / config).read_text()
+        block = text.split("external_components:")[1].split("packages:")[0]
+        assert "type: local" in block, config
+        assert "path: nextion_patch" in block, config
+        # The path is relative to the config, so it must exist next to it.
+        assert (ROOT.parent / "nextion_patch" / "nextion" / "__init__.py").is_file(), config
+    # No config may fetch the patch by branch again.
+    for config in ("nspanel_haui.yaml", "nspanel_haui_dev.yaml", "nspanel_haui_universal.yaml"):
+        block = (
+            (ROOT.parent / config)
+            .read_text()
+            .split("external_components:")[1]
+            .split("packages:")[0]
+        )
+        assert "ref:" not in block, config
 
 
-def test_every_git_source_names_the_stable_branch():
+def test_the_installed_package_fetches_the_stable_branch():
     """A ref naming a branch that is not in the repository fails every build.
 
-    The vendored patch and install.yaml's remote package both fetch this repository
-    by branch, so they must name `master`, the stable one: an installed panel builds
-    the released firmware, while `dev` carries unreleased code for the development
-    channel.
+    ``install.yaml``'s remote package is the one remaining git source, so it must
+    name `master`, the stable one: an installed panel builds the released
+    firmware, while `dev` carries unreleased code for the development channel.
     """
-    branch = "master"
-    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
-    source = package.split("external_components:")[1].split("packages:")[0]
-    assert f"ref: {branch}" in source
     install = (ROOT.parent / "install.yaml").read_text()
-    assert f"ref: {branch}" in install.split("packages:")[1]
+    assert "ref: master" in install.split("packages:")[1]
 
 
 def test_firmware_can_be_flashed_from_a_url():

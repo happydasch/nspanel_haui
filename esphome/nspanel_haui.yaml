@@ -22,9 +22,11 @@ substitutions:
   # Display default only; the hub sends the URL of the TFT it installs
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
-# Vendored nextion override (local source, so CI and the release build validate
-# this checkout); remove it once every fix in nextion_patch/README.md ships in a
-# released ESPHome.
+# Vendored nextion override from the tree this package ships in; remove it once
+# every fix in nextion_patch/README.md ships in a released ESPHome. A local path
+# resolves against the config's directory, which for a remote package is the
+# fetched copy, so an installed panel always compiles the patch next to the YAML
+# that calls it instead of whatever a branch or a cached clone happens to hold.
 external_components:
   - source:
       type: local

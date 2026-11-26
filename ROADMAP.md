@@ -21,7 +21,7 @@ in development, v0.6 next, then the open pool.
 
 | Horizon | Theme | What it means |
 |---|---|---|
-| **Now — v0.5.x** | Speed and weight | Display installs take minutes rather than tens of minutes, the first render is cheaper, the vendored Nextion patch disappears, and the large TFT binaries leave the repository. |
+| **Now — v0.5.x** | Speed and weight | Display installs take minutes rather than tens of minutes, the first render is cheaper, the vendored Nextion patch disappears, and the display assets stay out of every download. |
 | **Next — v0.6** | Recoverability and ownership | A damaged display is repaired from the editor; hub-scoped settings become editable in Home Assistant; the Nextion side is inventoried and cleaned up. |
 | **After that** | Content and everyday use | The panels people keep asking for but do not have (a fan, a graph, free text) and the small options that decide whether a panel feels finished. |
 | **v1.0 — stable** | Trust | Bugs closed, documentation complete, listed in the Marketplace catalog, REST API documented and frozen. |

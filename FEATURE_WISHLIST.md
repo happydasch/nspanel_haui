@@ -28,16 +28,9 @@ discussion it came from when there is one.
 ## v0.5.x — In development now
 
 Speed and weight: display installs take minutes rather than tens of minutes, the
-first render is cheaper, the vendored Nextion patch disappears, and the large
-TFT binaries leave Git.
+first render is cheaper, the vendored Nextion patch disappears, and the display
+assets stay out of every download.
 
-- **Clean up the large files in GitHub** — *ASAP, before the rest of this
-  horizon.* The ~120 MB of compiled TFTs in git inflate the repository and every
-  Marketplace download. Decide the storage (release assets or Git LFS), rewrite
-  the history, keep the HMI sources in git, and point the install path at the
-  binaries' new home. Done: a fresh clone and a Marketplace download no longer
-  carry the TFTs, installed panels keep auto-updating, older releases still
-  resolve, and both layout gates stay green. *Area: Distribution.*
 - **Multiple TFT speed variants** — Keep the existing 115200 TFTs as the
   known-good normal-speed default — asset names unchanged, so flashed panels keep
   auto-updating — and add a 921600 variant per display model. That is 8× the baud
@@ -133,6 +126,19 @@ Every entry here needs a Nextion page, which is why they are the expensive items
 - **Calendar / agenda** — Upcoming calendar events with a lead time before each
   starts, as a list or as a compact block the clock panel can show. Overlaps the
   text panel; decide whether it is one feature or two.
+
+### Icons and images
+
+- **Custom full-color icons for GRID panels** — Let a grid item use a PNG icon
+  (ideally with transparency) instead of the built-in MDI font glyph, chosen in
+  the editor and kept across firmware updates, with an on/off pair where the
+  entity has two states. Needs picture assets in both HMIs and TFTs, an editor
+  image library or upload path, and a per-item mapping; the display's memory and
+  picture capacity decide how large a library is practical, so a small curated
+  set may be the first step. Done: a grid item shows a custom image on both
+  display models, survives an update, and falls back to its MDI icon when the
+  image is missing. *Area: Icons.*
+  ([#105](https://github.com/happydasch/nspanel_haui/issues/105))
 
 ### Small changes
 
@@ -357,11 +363,9 @@ Open items from the release-process review (runbook and known risks in
 
 ## Open decisions
 
-Only the questions that shape scope remain here. The distribution risks — the
-~120 MB of Nextion binaries in the Marketplace download and the shared
-credentials in the universal image — are tracked with the release risks in
-[Release process](docs/develop/release.md#guardrails-and-known-gaps); the
-binary cleanup is scheduled for v0.5.x.
+Only the questions that shape scope remain here. The shared credentials in the
+universal image are tracked with the release risks in
+[Release process](docs/develop/release.md#guardrails-and-known-gaps).
 
 - **Multiple hub entries** — One hub entry discovers and manages every eligible
   NSPanel, with settings scoped per device. No separate multi-hub use case is

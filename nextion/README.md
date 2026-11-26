@@ -22,4 +22,9 @@ from its `display_model` setting — see
 [Display Models](../docs/user/editor/display-models.md) and the
 [Nextion Editor guide](../docs/develop/nextion-editor.md).
 
+Everything here is a build input, not runtime data: `.gitattributes` marks
+`nextion/` `export-ignore`, so GitHub's source archives (the zip HACS installs)
+leave it out while `raw.githubusercontent.com` and the release assets keep serving
+the TFTs. Never put a file the integration reads at runtime in this directory.
+
 ESPHome device configuration lives in [`esphome/`](../esphome/README.md).

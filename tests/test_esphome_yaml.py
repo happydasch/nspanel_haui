@@ -101,7 +101,13 @@ def test_firmware_reports_required_tft_version_separately():
 def test_firmware_reports_the_display_link_rate() -> None:
     """The editor shows the display link's speed, so the state has to carry it."""
     state_script = _read("scripts_event.yaml")
-    assert "int display_baud_val = int(id(haui_uart).get_baud_rate());" in state_script
+    # Only a display that answers has a link: reporting the rate the UART sits
+    # at with nothing on the other end would look like a working slow panel.
+    assert re.search(
+        r"display_baud_val = id\(haui_disp\)\.is_detected\(\)\s*\?\s*"
+        r"int\(id\(haui_uart\)\.get_baud_rate\(\)\) : 0;",
+        state_script,
+    )
     assert 'root["display_baud"] = display_baud_val;' in state_script
     baud_script = _read("display_baud.yaml")
     # Both detection paths report it: the boot check (usually before the hub

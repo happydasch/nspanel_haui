@@ -97,9 +97,11 @@ script:
           auto tft_required_version = "$tft_version";
           auto firmware_variant = "$firmware_variant";
           // The rate the display answers at: 921600 with a current TFT, lower
-          // when the boot scan fell back to an older or stock one. The hub
-          // shows it, so a slow link is visible without the ESPHome log.
-          int display_baud_val = int(id(haui_uart).get_baud_rate());
+          // when the boot scan fell back to an older or stock one. 0 while no
+          // display answers, so the hub shows an unknown link instead of the
+          // rate the UART sits at with nothing on the other end.
+          int display_baud_val = id(haui_disp).is_detected()
+              ? int(id(haui_uart).get_baud_rate()) : 0;
           auto wifi_ssid_str = id(wifi_ssid).state;
           float wifi_rssi_val = id(wifi_rssi).state;
           const json::json_build_t payload = [

@@ -11,6 +11,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [Unreleased]
 
+### Fixed
+
+- Display: a panel whose TFT answers at another baud than the firmware boots with now recovers by itself — the baud probe re-enables the display's command returns (a just power-cycled Nextion answers nothing without it), a failed scan leaves the link at 115200 instead of 921600, and the scan is retried three times a minute apart instead of only once per boot. This is what stranded panels on **Waiting for Initialization** after a firmware update.
+
 ### Changed
 
 - Display: both TFTs (version 0.4.6) now boot the Nextion at 921600 bps, and the firmware starts its UART at the same rate, scanning down only for an older or stock TFT; there is still one TFT per display model, and existing panels get the faster link with their next display update ([Display baud](docs/develop/nextion.md#display-baud)).

@@ -17,6 +17,12 @@ globals:
     restore_value: true
     initial_value: '921600'
 
+  # Bounded, so a display that never answers cannot spin the scan forever.
+  - id: haui_baud_retries
+    type: int
+    restore_value: false
+    initial_value: '0'
+
 esphome:
   on_boot:
     # After every component's setup (the Nextion sends its reset there) and
@@ -51,6 +57,27 @@ script:
                          id(haui_uart).get_baud_rate());
           else:
             - script.execute: scan_display_baud
+            - script.execute: retry_display_baud
+
+  # A scan can miss the display (it only prints its power-on banner once, and
+  # the probe times out fast), so keep trying instead of leaving the link dead
+  # until the next power cycle. Bounded, because a wrong rate is not something
+  # retrying fixes.
+  - id: retry_display_baud
+    mode: single
+    then:
+      - delay: 60s
+      - if:
+          condition:
+            lambda: |-
+              return !id(haui_disp).is_detected() &&
+                     id(haui_baud_retries) < 3;
+          then:
+            - lambda: |-
+                id(haui_baud_retries) += 1;
+                ESP_LOGW("haui", "Display still silent; scan %d of 3",
+                         id(haui_baud_retries));
+            - script.execute: check_display_baud
 
   # Power-cycle the display, then probe each Nextion-supported rate. A wrong
   # rate is silent: the probe is written straight to the UART because the
@@ -96,14 +123,21 @@ script:
             }
 
             // Exit active reparse mode (a failed upload can leave a TFT
-            // there), restore passive mode, then ask for a value: any reply
-            // ends with three 0xFF bytes.
+            // there), restore passive mode, ask for command returns, then ask
+            // for a value: any reply ends with three 0xFF bytes.
+            //
+            // Returning returns is what makes the probe work at all: a display
+            // that was just power-cycled is back on its power-on defaults, and
+            // the Nextion sends no `get` reply then (the Nextion component
+            // itself flips `bkcmd=3` only after it connected).
             static const uint8_t WAKE[] =
                 "DRAKJHSUYDGBNCJHGJKSHBDN\xFF\xFF\xFF";
             static const uint8_t PASSIVE[] = "recmod=0\xFF\xFF\xFF";
+            static const uint8_t RETURNS[] = "bkcmd=3\xFF\xFF\xFF";
             static const uint8_t PROBE[] = "get sleep\xFF\xFF\xFF";
             id(haui_uart).write_array(WAKE, sizeof(WAKE) - 1);
             id(haui_uart).write_array(PASSIVE, sizeof(PASSIVE) - 1);
+            id(haui_uart).write_array(RETURNS, sizeof(RETURNS) - 1);
             id(haui_uart).write_array(PROBE, sizeof(PROBE) - 1);
             id(haui_uart).flush();
 
@@ -148,9 +182,11 @@ script:
             id(haui_display_baud) = found_rate;
             ESP_LOGI("haui", "Display baud: %" PRIu32 " bps", found_rate);
           } else {
-            // Leave the UART at the rate the shipped TFT expects so the next
-            // boot and the hub's logs start from a known state.
-            id(haui_uart).set_baud_rate(921600);
+            // Fall back to the rate every TFT before 0.4.6 and the stock one
+            // use, so the link can still come up and the retry above has
+            // something to build on: leaving 921600 here strands a panel whose
+            // display answers at 115200 until it is reflashed by hand.
+            id(haui_uart).set_baud_rate(115200);
             id(haui_uart).load_settings(false);
-            ESP_LOGE("haui", "Display did not answer at any baud; restore the TFT or power-cycle the panel");
+            ESP_LOGE("haui", "Display did not answer at any baud; leaving 115200 bps and retrying");
           }

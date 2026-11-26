@@ -78,7 +78,13 @@ def test_the_uart_starts_at_the_tft_baud_and_scans_down():
     assert "restore_value: true" in baud_script
     assert "921600" in baud_script
     assert "set_baud_rate(id(haui_display_baud))" in baud_script
-    assert "set_baud_rate(921600)" in baud_script
+    # A failed scan must not strand an older panel on the rate it did not answer
+    # at: 115200 is what every TFT before 0.4.6 and the stock one use.
+    assert "set_baud_rate(115200)" in baud_script
+    # A power-cycled display is back on its power-on defaults and returns no
+    # `get` reply, so the probe has to re-enable returns itself.
+    assert "bkcmd=3" in baud_script
+    assert "retry_display_baud" in baud_script
     assert "is_detected()" in baud_script
     assert "screen_power" in baud_script
     assert "display_baud: !include display_baud.yaml" in _read("packages.yaml")

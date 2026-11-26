@@ -1,10 +1,11 @@
 name: Development Firmware
 
 # Dispatched on `dev`, the development branch. Builds a universal image that reports
-# `X.Y.Z.dev<run>`, publishes it as a prerelease and prunes the older ones. Nothing is
-# committed and no branch is pushed: the version reaches the image through `esphome -s`,
-# and the release tag names it, so the integration keeps the released version and `dev`
-# never moves.
+# `X.Y.Z.dev<run>`, writes the same version into `manifest.json` and `version.yaml`,
+# commits that one bump back to `dev`, tags the commit, publishes it as a prerelease
+# and prunes the older ones. The branch version matters: an integration installed
+# from `dev` and custom firmware built from it report it, and the hub finds the
+# matching TFT manifest by that version.
 on:
   workflow_dispatch:
     inputs:
@@ -17,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: dev-firmware
@@ -28,11 +30,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      # Tags name the base version, so the full history is fetched.
+      # Tags name the base version, so the full history is fetched. Credentials are
+      # persisted because the version bump is pushed back to `dev`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - uses: ./.github/actions/setup
         with:
@@ -51,15 +53,19 @@ jobs:
             python -m scripts.release.dev_version "$GITHUB_RUN_NUMBER"
           fi
 
-      - name: Compile the universal firmware
-        # The image reports the dev version; the checked-in yaml_version stays put.
+      - name: Set the development version
+        # The image, the tag and the branch must all report this version: custom
+        # firmware built from `dev` uses it to find its TFT in the release manifest.
         env:
-          YAML_VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: python -m scripts.bump_version "$VERSION"
+
+      - name: Compile the universal firmware
         run: bash scripts/release/compile_firmware.sh
 
       - name: Verify the image reports the build version
         # A dev build must not publish an image that still reports the released
-        # version: `esphome -s` is the only place the dev version enters it.
+        # version: the version bump is the only place it enters the image.
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -99,8 +105,47 @@ jobs:
             git log --reverse --format='- [`%h`](https://github.com/'"$REPO"'/commit/%H) %s' "$range"
           } > dev-release-notes.md
 
+      - name: Commit the development version to dev
+        id: commit
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml
+          if git diff --cached --quiet; then
+            echo "The dev version is already ${VERSION}"
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "chore(release): development firmware ${VERSION}"
+          # Other commits may have landed while the build ran. The bump is two
+          # one-line edits, so rebase it and retry the push instead of losing it.
+          attempt=1
+          until git push origin HEAD:refs/heads/dev; do
+            if [ "$attempt" -ge 5 ]; then
+              echo "dev moved while building; the version commit was not pushed" >&2
+              exit 1
+            fi
+            git fetch origin dev
+            git rebase origin/dev
+            attempt=$((attempt + 1))
+          done
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Tag the development version
+        # The release tag points at the commit that carries the bumped manifest, so
+        # the source archive HACS installs reports the same version as the image.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          git tag -f "$VERSION" "$SHA"
+          # A rerun of the same run number must re-point its tag at the new commit.
+          git push --force origin "refs/tags/$VERSION"
+
       - name: Publish the development prerelease
-        # The action creates and pushes the tag itself, so no git push is needed.
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -114,6 +159,13 @@ jobs:
             nextion/nspanel_haui.tft
             nextion/nspanel_haui_portrait.tft
             firmware-manifest.json
+
+      - name: Run CI on the new dev commit
+        # A push with GITHUB_TOKEN starts no workflow, so CI is dispatched.
+        if: ${{ steps.commit.outputs.pushed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref dev
 
       - name: Prune old development prereleases
         # Keeps only the newest ones: too many would push the latest stable release

@@ -10,9 +10,10 @@ only. Day-to-day work is committed to `dev`, directly or as a pull request whose
 always-running checks are green. A stable release is a `dev` → `master` promotion pull
 request that the `Protect master` ruleset gates, plus a `vX.Y.Z` tag on the merge commit,
 which `release.yml` turns into the published release; afterwards `master` is merged back
-into `dev`, so the two branches converge and the next cycle starts even. **No workflow
-ever pushes to a branch**: a development build reports its own version through
-`esphome -s` instead of committing it, so nothing has to be reconciled after a release.
+into `dev`, so the two branches converge and the next cycle starts even. **No release
+workflow pushes to `master`**: the stable workflow only publishes a tag on the promotion
+merge; the development workflow alone commits one version bump to `dev` and dispatches
+CI, so the branch manifest, the release tag and the image stay in step.
 
 ## What a release ships
 
@@ -68,13 +69,13 @@ A TFT change that lands under no release needs its own bump before the next buil
 
 ## Published development firmware
 
-Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The build takes the run number as a PEP 440 dev version, compiles the universal image with `esphome -s yaml_version <version>`, publishes it as a prerelease and prunes the older ones:
+Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The build takes the run number as a PEP 440 dev version, writes it into `manifest.json` and `version.yaml`, compiles the universal image, commits that bump to `dev`, tags the commit, publishes it as a prerelease and prunes the older ones:
 
 ```text
 base version   the newest vX.Y.Z tag as its next patch, or the `base` input (0.6.0)
-version        X.Y.(Z+1).dev<run>, one string for image, tag and manifest
+version        X.Y.(Z+1).dev<run>, one string for branch, image, tag and manifest
 verified       the compiled OTA reports that version before anything is published
-committed      nothing by CI; the branch already carries X.Y.(Z+1).dev0
+committed      one bot commit on dev: manifest.json + version.yaml
 published      prerelease, not marked latest, both firmware images + both TFTs + manifest
 pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stable
                release never leaves the Marketplace's or the hub's release lists
@@ -82,9 +83,11 @@ pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stabl
 
 A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev`, so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
 
+The bot commit is what makes a branch install work: the integration installed from `dev` (or from the tagged source) reports the same version as the firmware, and the hub finds the release's TFT manifest by that version. `pyproject.toml` and `tft_version` keep their released values until the stable prep, which moves them with the release.
+
 A panel follows the channel through its **Update channel**: **Development** reads the cached GitHub release list and follows the `firmware-manifest.json` of the newest release in it that ships one, dev prereleases included; a stable release of the same version supersedes its dev builds. There is no fixed dev manifest URL. The CI image is `universal`, so it cannot replace firmware reporting `firmware_variant: custom`.
 
-Because the CI run does not version the integration, a panel on the **Development** channel updates its firmware and display while the integration stays at the last stable version. That is deliberate: a development build never makes a stable version. The `dev` branch itself carries `X.Y.(Z+1).dev0` in `manifest.json` and `version.yaml`, bumped once per cycle, so custom firmware built from the branch reports a development version instead of the last release; a CI build overrides only the image with its run number.
+Because the development build versions the branch, an integration installed from `dev` reports the dev version; a panel that only switches its **Update channel** keeps the integration it has, usually the last stable release. That is deliberate: a development build never makes a stable version, and the stable promotion still moves `master` through its pull request and tag.
 
 ## Branches and cadence
 
@@ -241,5 +244,5 @@ gh release edit vX.Y.Z --draft     # withdraw it from the Marketplace and the pa
 - **~120 MB of Nextion binaries live in git** (`nextion/`: both HMIs, both TFTs, fonts and images), kept there so the HMI sources stay available to whoever rebuilds a TFT. They are marked `export-ignore` in `.gitattributes`, so GitHub's source archives — the zip HACS installs — carry none of them: an install or update downloads ~16 MB instead of ~74 MB. Raw URLs and release assets are unaffected, and a rewrite of the history would save little because git already delta-compresses successive HMI and TFT revisions. Do not move a file the integration reads into `nextion/`.
 - **The universal image bakes a shared API key**, which also encrypts native OTA. The MAC suffix gives each device a unique name and access point, but the credentials are public: anyone on the LAN can reflash the panel. Use `install.yaml` with secrets for a private build.
 - **The development channel is universal-only.** A panel running a `custom` build never receives a dev or stable CI image; rebuild it from `esphome/install.yaml` and serve it through its own manifest.
-- **A dev build versions the firmware, not the installed integration.** A panel on the **Development** channel updates its firmware and display; the integration stays at the last stable release until `dev` is promoted again. The branch's `manifest.json` carries `X.Y.(Z+1).dev0` so a custom build from `dev` reports a development version.
+- **A dev build versions the branch, the tag and the firmware.** The dev workflow's one bot commit writes `manifest.json` and `version.yaml` on `dev`, then tags that commit; an integration installed from `dev` and custom firmware built from it report the same version and can find the release's TFT manifest. A panel that only follows the **Development** update channel keeps its installed integration.
 - **ESPHome is pinned.** `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in `requirements-esphome.txt` move together.

@@ -9,10 +9,11 @@ picture like this:
   and declined — plus the open scope decisions.
 - [`CHANGELOG.md`](CHANGELOG.md) — What has shipped.
 
-Sections follow the roadmap's horizons. A feature is listed under the version it
-is scheduled for — v0.5.x is in development now, v0.6 is next — or in the open
-pool for later. A candidate is promoted by moving it into a version section with
-a done-means sentence; when it ships it is recorded in `CHANGELOG.md` and the
+Sections follow the roadmap's horizons. v0.5.x is in development now, covering
+speed, recovery and ownership; v0.6 is next, focused on new panels and the options
+that make them feel finished. Everything else stays in the open pool until it is
+selected. A candidate is promoted by moving it into a version section with a
+done-means sentence; when it ships it is recorded in `CHANGELOG.md` and the
 entry is deleted, so nothing here describes something that already works.
 
 **HMI** means Nextion page or widget work in both `nextion/*.HMI` files and both
@@ -27,29 +28,12 @@ discussion it came from when there is one.
 
 ## v0.5.x — In development now
 
-Speed and weight: the display link runs at 921600 and the display assets stay out
-of every download, both shipped in 0.5.7 — what is left in this cycle is the
-first render and the vendored Nextion patch.
+Speed, recovery and ownership: the 921600 display link, smaller downloads and
+theme foreground globals all land in 0.5.7 — a solid page now paints its body
+foregrounds from the TFT itself, so the row page opens in 9 display commands
+instead of 40. Removing the vendored Nextion patch, display recovery,
+hub-scoped settings and Nextion cleanup belong to this cycle.
 
-- **Body foregrounds in the first render** — A solid page paints its backgrounds
-  in `Preinitialize`; its body widgets keep the foreground compiled into them,
-  which is the dark theme's, so the hub sends one colour command per body widget
-  with the panel's first render. The row page has 35 of them: opening it costs 40
-  display commands instead of 9. The generator now emits the missing half — one
-  `<widget>.pco=<global>` per body widget, from four new `FOREGROUND_GLOBALS`
-  (`thmCompTxt`, `thmActive`, `thmActiveDk`, `thmTxt`) — and turns it on by
-  itself when an HMI's `Program.s` declares them, so a half-finished migration
-  fails `gen_virtual_layout --check` instead of painting half a theme
-  ([design](docs/develop/design.md#how-a-theme-reaches-the-display)). What is
-  left is the TFT: declare the four globals in both `Program.s` files, paste
-  `--theme-code` into both HMIs, compile both TFTs and advance `tft_version`,
-  then stop sending `THEME_FOREGROUNDS` and delete the generated table. The
-  editor needs nothing — its cards replay the hub's own render, so they match by
-  construction. *Area: Theme rendering.*
-  Ten palettes baked as literals were the other reading of this item and are
-  rejected: ~90 assignments per palette per page would be ~900 lines of compiled
-  code in the row page alone, and the page would still need the hub's colours for
-  a custom palette. Four role globals cover every palette, custom ones included.
 - **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
   2026-11-18) carries two of the fixes this patch used to add: the
   numeric-response delivery
@@ -66,12 +50,6 @@ first render and the vendored Nextion patch.
   `requirements-esphome.txt` together, delete the directory and its
   `external_components` blocks and re-validate the firmware config and a
   compile. *Area: Dependencies.*
-
-## v0.6 — Next
-
-Recoverability and ownership: a damaged display is repaired from the editor,
-hub-scoped settings become editable in Home Assistant, and the Nextion side is
-inventoried and cleaned up.
 
 - **Display repair mode** — A minimal, self-contained repair TFT per display
   model plus a **Repair display** action in the editor that installs it and then
@@ -92,11 +70,16 @@ inventoried and cleaned up.
   be renamed and genuinely hub-scoped settings changed after setup, while
   per-device settings stay in the editor. *Area: Configuration.*
 
-## After that — Open pool
+## v0.6 — Next
+
+Content and everyday use: new panel types people keep asking for but do not have
+(a fan, a graph, free text), plus options that make panels feel finished. Other
+candidates remain in the open pool until selected for this cycle.
 
 ### Panels
 
-Every entry here needs a Nextion page, which is why they are the expensive items.
+New panel types need Nextion page work; the other entries extend existing panel
+experiences.
 
 - **Graph panel** — A line graph of a numeric sensor over a chosen window from
   Home Assistant history — house power, temperature, humidity, solar — with
@@ -135,20 +118,7 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   starts, as a list or as a compact block the clock panel can show. Overlaps the
   text panel; decide whether it is one feature or two.
 
-### Icons and images
-
-- **Custom full-color icons for GRID panels** — Let a grid item use a PNG icon
-  (ideally with transparency) instead of the built-in MDI font glyph, chosen in
-  the editor and kept across firmware updates, with an on/off pair where the
-  entity has two states. Needs picture assets in both HMIs and TFTs, an editor
-  image library or upload path, and a per-item mapping; the display's memory and
-  picture capacity decide how large a library is practical, so a small curated
-  set may be the first step. Done: a grid item shows a custom image on both
-  display models, survives an update, and falls back to its MDI icon when the
-  image is missing. *Area: Icons.*
-  ([#105](https://github.com/happydasch/nspanel_haui/issues/105))
-
-### Small changes
+### Panel options and interaction polish
 
 - **Confirm before acting** — A per-item confirmation (or hold-to-run) for actions
   that should not fire on a stray tap: garage door, alarm disarm, "all lights
@@ -169,10 +139,10 @@ Every entry here needs a Nextion page, which is why they are the expensive items
 - **Shrink to fit** — An option to reduce a long value's font instead of clipping
   it — bus times, calendar summaries, long sensor states. `fit_text` already
   exists for notifications to build on.
-- **Notification history and grouping** — Keep past notifications with a read-only
-  API and a view in the editor, and group or prioritise the queue instead of
-  playing it strictly in arrival order. The read/dismiss queue API and the
-  editor's queue view already shipped.
+- **Notification grouping and priority** — Group or prioritise pending
+  notifications instead of playing them strictly in arrival order, and keep past
+  notifications after they are dismissed, with a read-only API and a view in the
+  editor.
 - **A maximum notification text size** — `text_size` already picks a font per
   message and `auto` takes the largest that fits; a per-device maximum would let a
   short welcome be large while an alert stays small. (Discussion
@@ -217,9 +187,6 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   sunshine duration or thunderstorm probability. Reuse the existing forecast
   sub-value slot, format it with the entity's units, and fall back to the low
   temperature when the integration lacks the chosen field.
-
----
-
 - **Step buttons beside the sliders** — `–` / `+` at the ends of the brightness
   and position sliders, 10% per tap, so a value can be nudged precisely on a wall
   panel instead of dragged.
@@ -230,6 +197,23 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   What is missing is the user side: labels and an action per button (fire an
   event or call an action), so the panel can answer a question instead of only
   acknowledging it.
+
+## After that — Open pool
+
+Unscheduled candidates remain here until they are selected for a release.
+
+### Icons and images
+
+- **Custom full-color icons for GRID panels** — Let a grid item use a PNG icon
+  (ideally with transparency) instead of the built-in MDI font glyph, chosen in
+  the editor and kept across firmware updates, with an on/off pair where the
+  entity has two states. Needs picture assets in both HMIs and TFTs, an editor
+  image library or upload path, and a per-item mapping; the display's memory and
+  picture capacity decide how large a library is practical, so a small curated
+  set may be the first step. Done: a grid item shows a custom image on both
+  display models, survives an update, and falls back to its MDI icon when the
+  image is missing. *Area: Icons.*
+  ([#105](https://github.com/happydasch/nspanel_haui/issues/105))
 
 ### Display and idle behaviour
 
@@ -362,9 +346,6 @@ Open items from the release-process review (runbook and known risks in
   reference. The 30,432-line TFT listing and the decompiled sources matched; only page lock flags and a
   four-byte picture encoding detail differed. Next: choose the source layout, then verify/build TFTs in CI
   and stop committing the compiled display binaries.
-- **Scripted HMI patching for release-only edits** — `tftVersion` scripting landed
-  with the version-bump tooling; Send Component ID and other in-place edits still
-  need the Nextion Editor or an extended patch spec.
 - **Portrait as a build-time rotation** — Derive the portrait HMI from the
   landscape one instead of committing a second HMI and keeping both in sync by
   hand.

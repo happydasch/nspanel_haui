@@ -13,7 +13,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Fixed
 
-- Display: a panel whose TFT answers at another baud than the firmware boots with now recovers by itself — the baud probe re-enables the display's command returns (a just power-cycled Nextion answers nothing without it), a failed scan leaves the link at 115200 instead of 921600, and the scan is retried three times a minute apart instead of only once per boot. This is what stranded panels on **Waiting for Initialization** after a firmware update.
+- Display: the boot baud scan now recovers a display that stays silent instead of giving up for the rest of the boot — the probe re-enables the display's command returns (a just power-cycled Nextion answers nothing without it), a failed scan leaves the link at 115200 rather than at a rate nothing answers, and the scan is retried three times a minute apart. A panel that sat on the TFT's **Waiting for Initialization** page is brought back by a firmware update in the meantime; this keeps the scan from needing one.
 
 ### Changed
 

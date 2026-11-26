@@ -82,7 +82,7 @@ The header icon is a green check, or an alert with the number of issues:
 
 Expand the card for:
 
-- **Versions** and **Integration log** tiles; the log tile opens the logs.
+- **Versions** and **Integration log** tiles; the Versions tile also names the **Display link** — the speed of the panel's link to its display, 921600 bps with a current TFT and lower with an older one, **Unknown** until the firmware reports it. The log tile opens the logs.
 - **Integration details** — display state, idle page, disconnects, late heartbeats and the entities of the current page. Select an entity to open it in Home Assistant.
 - **Copy report** — a text report for a bug report, without network name, IP address or entity ids.
 - Preview tools, see [The Live Preview](#the-live-preview).

@@ -2482,6 +2482,7 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
                         "yaml_version": "0.9.0",
                         "tft_version": "0.4.2",
                         "tft_required_version": "0.4.3",
+                        "display_baud": 921600,
                     },
                 }
 
@@ -2517,6 +2518,8 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         # distinct from the installed TFT and the firmware ``yaml_version``.
         assert result["body"]["device_info"]["tft_version"] == "0.4.2"
         assert result["body"]["device_info"]["tft_required_version"] == "0.4.3"
+        # The editor's Diagnostics shows the display link's speed from here.
+        assert result["body"]["device_info"]["display_baud"] == 921600
 
 
 @pytest.mark.parametrize("state", ["unknown", "unavailable", "not-a-number", "NaN"])

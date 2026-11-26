@@ -55,6 +55,11 @@ script:
             - lambda: |-
                 ESP_LOGI("haui", "Display detected at %" PRIu32 " bps",
                          id(haui_uart).get_baud_rate());
+                // The hub shows the link rate: a retry can be what finally
+                // finds the display, long after the boot handshake.
+                if (id(hub_connection)) {
+                  id(publish_device_state).execute();
+                }
           else:
             - script.execute: scan_display_baud
             - script.execute: retry_display_baud
@@ -181,6 +186,11 @@ script:
           if (found) {
             id(haui_display_baud) = found_rate;
             ESP_LOGI("haui", "Display baud: %" PRIu32 " bps", found_rate);
+            // The hub shows the link rate; the boot handshake usually ran
+            // before this scan settled on one.
+            if (id(hub_connection)) {
+              id(publish_device_state).execute();
+            }
           } else {
             // Fall back to the rate every TFT before 0.4.6 and the stock one
             // use, so the link can still come up and the retry above has

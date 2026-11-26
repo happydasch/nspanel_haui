@@ -253,6 +253,7 @@ The fields of the status response that the editor's **Connection** and **Diagnos
 | `disconnected_since` | When the device went offline that last time |
 | `yaml_version` | ESPHome firmware version reported by the panel |
 | `tft_version` / `tft_required_version` | Display TFT version installed vs the version required by firmware |
+| `display_baud` | Speed of the display link in bps: the UART rate the firmware runs at, which the boot scan lowers for an older or stock TFT; `null` until the firmware reports it (before 0.5.7 it does not) |
 | `update` | TFT update state while an install runs: `checking`, `installing`, `done`, or `error` (with `version`, `started_at`, `last_error`) |
 
 The display state (`on`, `dim`, `off`) is what the firmware reports; the idle page is a hub-side page switch, so it has states of its own (`HAUINavigationController.idle_status()`).

@@ -98,6 +98,17 @@ def test_firmware_reports_required_tft_version_separately():
     assert 'root["tft_required_version"] = tft_required_version;' in state_script
 
 
+def test_firmware_reports_the_display_link_rate() -> None:
+    """The editor shows the display link's speed, so the state has to carry it."""
+    state_script = _read("scripts_event.yaml")
+    assert "int display_baud_val = int(id(haui_uart).get_baud_rate());" in state_script
+    assert 'root["display_baud"] = display_baud_val;' in state_script
+    baud_script = _read("display_baud.yaml")
+    # Both detection paths report it: the boot check (usually before the hub
+    # connected) and the scan, which may settle on a rate much later.
+    assert baud_script.count("id(publish_device_state).execute();") == 2
+
+
 def test_http_request_buffers_fit_github_redirect_headers():
     """The firmware update entity needs room for GitHub's ~5.4 KB headers."""
     base = _read("base.yaml")

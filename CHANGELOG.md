@@ -11,6 +11,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [Unreleased]
 
+### Added
+
+- Editor: the device's **Diagnostics** card names the **Display link** — the UART baud the panel runs at, 921600 bps with a current TFT and lower with an older one — in the Versions tile and in **Copy report**, so a panel that fell back to a slow display link is visible without the ESPHome log ([Editor](docs/user/editor/README.md)).
+
 ### Fixed
 
 - Display: the boot baud scan now recovers a display that stays silent instead of giving up for the rest of the boot — the probe re-enables the display's command returns (a just power-cycled Nextion answers nothing without it), a failed scan leaves the link at 115200 rather than at a rate nothing answers, and the scan is retried three times a minute apart. A panel that sat on the TFT's **Waiting for Initialization** page is brought back by a firmware update in the meantime; this keeps the scan from needing one.

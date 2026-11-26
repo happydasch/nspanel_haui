@@ -247,6 +247,14 @@ def test_committed_display_assets_carry_the_configured_tft_version():
     assert bump_tft.shipped_tft_version() == configured
 
 
+def test_both_hmis_boot_the_display_at_the_firmware_baud():
+    """A TFT at another boot rate leaves the panel unreachable until a scan."""
+    for name in ("nspanel_haui.HMI", "nspanel_haui_portrait.HMI"):
+        raw = (NEXTION / name).read_bytes()
+        assert b"bauds=921600" in raw, name
+        assert b"bauds=115200" not in raw, name
+
+
 def test_shipped_tft_version_rejects_disagreeing_hmis(hmi_copies):
     landscape, _ = hmi_copies
     new_version = _other_same_length_version(_current_hmi_version(landscape))

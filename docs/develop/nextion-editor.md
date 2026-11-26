@@ -53,7 +53,7 @@ If the HMI page `clock` has widget `tTime` with id `3`, Python has `t_time=Compo
 
 | File | Holds |
 |------|-------|
-| `nextion/nspanel_haui.HMI`, `nextion/nspanel_haui_portrait.HMI` | the layout and the page-scoped event code that must run on the display; `Program.s` declares the theme globals; `system.tftVersion` carries the TFT version |
+| `nextion/nspanel_haui.HMI`, `nextion/nspanel_haui_portrait.HMI` | the layout and the page-scoped event code that must run on the display; `Program.s` declares the theme globals and the 921600 boot baud; `system.tftVersion` carries the TFT version |
 | `scripts/hmi_layout/landscape_layout.py`, `portrait_layout.py` | the widget geometry and attribute overrides `gen_layout.py` writes |
 | `scripts/hmi_layout/theme.py` | the theme colours compiled into solid widgets on both TFTs |
 | `custom_components/nspanel_haui/haui/page/*.py` | behaviour: `COMPONENTS`, `DESCRIPTOR`, render and touch handlers |
@@ -61,6 +61,7 @@ If the HMI page `clock` has widget `tTime` with id `3`, Python has `t_time=Compo
 
 ### Hard rules
 
+- **`Program.s` sets `bauds=921600` in both HMIs.** The firmware starts its UART at that rate and only scans down as a fallback; a TFT compiled at another rate would need a rescan after every boot. `tests/test_bump_version.py` checks both HMIs.
 - **Every page sends `sendme` in its `Preinitialize` event.** The hub waits for the `esphome.page` event before rendering; a page without it is never rendered.
 - **Prepare the page in `Preinitialize`**: hide unused widgets, set picture backgrounds, clear text. The hub cannot touch the display before the page is shown.
 - **A solid-colour page paints itself in the theme in `Preinitialize`.** The hub writes the theme globals declared in `Program.s` (`thmBg`, `thmHdrBg`, `thmHdrTxt`, `thmPressed`, `thmCompBg`; defaults = the `COLORS` palette) before every page switch, and the page assigns them to its own `bco` and to every widget colour compiled with a theme colour. Generate the code from the page's widgets and paste it right after `sendme` in both HMIs:

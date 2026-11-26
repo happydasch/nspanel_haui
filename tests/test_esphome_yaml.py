@@ -70,6 +70,20 @@ def test_web_server_is_optional_and_off_by_default():
     assert "web_username" not in universal
 
 
+def test_the_uart_starts_at_the_tft_baud_and_scans_down():
+    """The shipped TFT boots at 921600; older TFTs are found by the boot scan."""
+    hardware = _read("hardware.yaml")
+    assert re.search(r"^\s+baud_rate:\s*921600\s*$", hardware, re.MULTILINE)
+    baud_script = _read("display_baud.yaml")
+    assert "restore_value: true" in baud_script
+    assert "921600" in baud_script
+    assert "set_baud_rate(id(haui_display_baud))" in baud_script
+    assert "set_baud_rate(921600)" in baud_script
+    assert "is_detected()" in baud_script
+    assert "screen_power" in baud_script
+    assert "display_baud: !include display_baud.yaml" in _read("packages.yaml")
+
+
 def test_firmware_reports_required_tft_version_separately():
     version = _read("version.yaml")
     state_script = _read("scripts_event.yaml")

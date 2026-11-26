@@ -47,6 +47,10 @@ Once the device is in Home Assistant, install the TFT with **Install** on its **
 
 `esphome: loop_interval` is set to `2ms` instead of ESPHome's 16 ms default: the nextion pacer leaves at most one command per component phase, so the loop interval is the display's command spacing ([Nextion component](nextion.md#command-pacing-costs-one-component-phase-per-command)).
 
+### Display baud
+
+The UART starts at 921600, the rate both shipped TFTs set in `Program.s`, or at the rate found on the previous boot. After boot the firmware waits 8 s for the Nextion; when it does not answer, `display_baud.yaml` power-cycles the display and probes the remembered rate, 921600, 115200, 9600 and the remaining Nextion rates, then stores the rate that answered. This is what lets a panel with an older 115200 TFT update over the air, and what makes the new rate survive a TFT upload (the upload reboots the ESP, so the same scan runs again). Do not lower `baud_rate` in `hardware.yaml` without rebuilding both TFTs; the scan is a fallback, not a substitute for matching rates.
+
 ### Encrypted native OTA
 
 Wireless installs (dashboard **Install → Wirelessly**, `esphome run`, `esphome upload`) use native OTA, encrypted with the device's API key: `base.yaml` sets a bare `encryption:` block that inherits `api_encryption_key`. There is no OTA password — next to an API key ESPHome warns that one wastes significant flash and RAM. The `on_begin` hook that suspends device activities still runs before every OTA, and the separate `http_request` OTA platform behind the hub's **HAUI Firmware** entity stays; wired flashing and hub firmware updates do not use native OTA.

@@ -4,7 +4,7 @@ substitutions:
   yaml_version: '0.5.6'
   # Display TFT version required by this firmware; bump only with --tft-update.
   # Dev builds copy it from the HMIs' system.tftVersion (dev-firmware.yml).
-  tft_version: '0.4.5'
+  tft_version: '0.4.6'
   # Contract version between this firmware and the hub. Bump the major version
   # only for an incompatible change to the handshake or the event payloads.
   hub_api_version: '1.0'

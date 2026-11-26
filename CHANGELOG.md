@@ -13,6 +13,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
+- Display: both TFTs now boot the Nextion at 921600 bps, and the firmware starts its UART at the same rate, scanning down only for an older or stock TFT; there is still one TFT per display model, and existing panels get the faster link with their next display update ([Display baud](docs/develop/nextion.md#display-baud)).
 - Release: `dev` is the integration branch again and `master` stays stable-only, so a **Development** firmware build carries unreleased code while a stable release still arrives through a promotion pull request and a `vX.Y.Z` tag ([Release process](docs/develop/release.md)).
 - Repo: GitHub's source archives leave out `nextion/`, so a HACS or Marketplace install downloads ~16 MB instead of ~74 MB; the raw TFT URLs, the release assets and a fresh clone are unchanged, and git already delta-compresses successive HMI and TFT revisions, so a history rewrite would save little ([Release process](docs/develop/release.md#guardrails-and-known-gaps)).
 

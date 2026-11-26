@@ -1,0 +1,156 @@
+---
+# Display baud detection
+#
+# The TFT sets the display's boot baud (``Program.s``'s ``bauds``, 921600 in
+# the shipped TFTs), while the UART starts at the same compile-time rate. A
+# panel still running an older or stock TFT boots at another rate and stays
+# unreachable until the UART follows it. The boot check switches to the rate
+# remembered from the last boot; when that fails, it power-cycles the display,
+# probes the rates the Nextion supports and remembers the one that answered.
+# The ESP reboots after every successful TFT upload, so the new TFT's rate is
+# picked up by this same boot scan.
+globals:
+
+  # Last baud the display answered at; 921600 until a scan finds another.
+  - id: haui_display_baud
+    type: uint32_t
+    restore_value: true
+    initial_value: '921600'
+
+esphome:
+  on_boot:
+    # After every component's setup (the Nextion sends its reset there) and
+    # before the first loop; the script yields, so the Nextion loop can retry
+    # its connect while the display is still booting.
+    priority: -100
+    then:
+      - script.execute: check_display_baud
+
+script:
+
+  # Wait for the normal handshake; scan only when the display never answers.
+  - id: check_display_baud
+    mode: single
+    then:
+      # A panel that already found its display's older rate boots straight into
+      # it instead of waiting at the compile-time rate first.
+      - lambda: |-
+          id(haui_uart).set_baud_rate(id(haui_display_baud));
+          id(haui_uart).load_settings(false);
+      - delay: 1s
+      - wait_until:
+          condition:
+            lambda: return id(haui_disp).is_detected();
+          timeout: 8s
+      - if:
+          condition:
+            lambda: return id(haui_disp).is_detected();
+          then:
+            - lambda: |-
+                ESP_LOGI("haui", "Display detected at %" PRIu32 " bps",
+                         id(haui_uart).get_baud_rate());
+          else:
+            - script.execute: scan_display_baud
+
+  # Power-cycle the display, then probe each Nextion-supported rate. A wrong
+  # rate is silent: the probe is written straight to the UART because the
+  # Nextion queue is not drained while this lambda blocks the main loop.
+  - id: scan_display_baud
+    mode: single
+    then:
+      - lambda: |-
+          ESP_LOGW("haui", "Display not detected at %" PRIu32 " bps; scanning",
+                   id(haui_uart).get_baud_rate());
+      - switch.turn_off: screen_power
+      - delay: 2s
+      - switch.turn_on: screen_power
+      - delay: 2s
+      - lambda: |-
+          static constexpr uint32_t NEXTION_BAUD_RATES[] = {
+              921600, 115200, 9600,   57600,  38400,  19200, 256000,
+              512000, 4800,   2400,   230400, 250000, 31250};
+          const uint32_t stored = id(haui_display_baud);
+          const size_t rate_count =
+              sizeof(NEXTION_BAUD_RATES) / sizeof(NEXTION_BAUD_RATES[0]);
+
+          bool found = false;
+          uint32_t found_rate = 0;
+          // The remembered rate first, then every known rate once.
+          for (size_t i = 0; i <= rate_count; i++) {
+            const uint32_t rate = (i == 0) ? stored : NEXTION_BAUD_RATES[i - 1];
+            if (i > 0 && rate == stored) {
+              continue;
+            }
+            id(haui_uart).set_baud_rate(rate);
+            id(haui_uart).load_settings(false);
+
+            // Drop bytes left over from the previous rate.
+            const uint32_t flush_until = millis() + 100;
+            while (millis() < flush_until) {
+              while (id(haui_uart).available()) {
+                uint8_t discard;
+                id(haui_uart).read_byte(&discard);
+              }
+              delay(1);
+              App.feed_wdt();
+            }
+
+            // Exit active reparse mode (a failed upload can leave a TFT
+            // there), restore passive mode, then ask for a value: any reply
+            // ends with three 0xFF bytes.
+            static const uint8_t WAKE[] =
+                "DRAKJHSUYDGBNCJHGJKSHBDN\xFF\xFF\xFF";
+            static const uint8_t PASSIVE[] = "recmod=0\xFF\xFF\xFF";
+            static const uint8_t PROBE[] = "get sleep\xFF\xFF\xFF";
+            id(haui_uart).write_array(WAKE, sizeof(WAKE) - 1);
+            id(haui_uart).write_array(PASSIVE, sizeof(PASSIVE) - 1);
+            id(haui_uart).write_array(PROBE, sizeof(PROBE) - 1);
+            id(haui_uart).flush();
+
+            bool answered = false;
+            uint8_t consecutive_ff = 0;
+            const uint32_t probe_until = millis() + 1500;
+            while (millis() < probe_until) {
+              while (id(haui_uart).available()) {
+                uint8_t byte;
+                if (!id(haui_uart).read_byte(&byte)) {
+                  break;
+                }
+                if (byte == 0xFF) {
+                  if (++consecutive_ff >= 3) {
+                    answered = true;
+                    break;
+                  }
+                } else {
+                  consecutive_ff = 0;
+                }
+              }
+              if (answered) {
+                break;
+              }
+              delay(1);
+              App.feed_wdt();
+            }
+            while (id(haui_uart).available()) {
+              uint8_t discard;
+              id(haui_uart).read_byte(&discard);
+            }
+            ESP_LOGI("haui", "Baud probe %" PRIu32 ": %s", rate,
+                     answered ? "answered" : "no response");
+            if (answered) {
+              found = true;
+              found_rate = rate;
+              break;
+            }
+          }
+
+          if (found) {
+            id(haui_display_baud) = found_rate;
+            ESP_LOGI("haui", "Display baud: %" PRIu32 " bps", found_rate);
+          } else {
+            // Leave the UART at the rate the shipped TFT expects so the next
+            // boot and the hub's logs start from a known state.
+            id(haui_uart).set_baud_rate(921600);
+            id(haui_uart).load_settings(false);
+            ESP_LOGE("haui", "Display did not answer at any baud; restore the TFT or power-cycle the panel");
+          }

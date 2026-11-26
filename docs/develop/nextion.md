@@ -39,6 +39,10 @@ These live in `esphome/nspanel_haui/display.yaml`:
 | `on_setup`, `on_page`, `on_touch` | — | triggers after the firmware connects to the display, on a page change, and on a touch |
 | `on_buffer_overflow` | — | logs the warning and publishes a `buffer_overflow` event, which starts [buffer overflow recovery](#buffer-overflow-recovery) |
 
+### Display baud
+
+`Program.s` in both HMIs sets `bauds=921600`, and `hardware.yaml` starts the UART at the same rate. A panel still running an older or stock TFT boots at another rate and is unreachable, so `display_baud.yaml` waits 8 s for the display, power-cycles it and probes the remembered rate, 921600, 115200, 9600 and the remaining Nextion rates. The rate that answers is stored in flash and tried first on the next boot. A successful TFT upload reboots the ESP, so the new TFT's rate is picked up by the same scan. Keep `bauds` identical in both HMIs; `tests/test_bump_version.py` checks it.
+
 ## Panel rendering and refresh
 
 The HA layer batches commands to keep the native API payload small, ESPHome queues them and the `command_spacing` pacer writes them to the UART. The pacer, not HA batching, is what protects the Nextion's 1 KB RX buffer.
@@ -63,7 +67,7 @@ Measured against the hub's own renders (`tests/page_commands_golden.json`, and a
 | One `next_page` on a grid | 23 | 0.37 s | 0.05 s |
 | One `next_page` on a row | 32 | 0.51 s | 0.06 s |
 
-Those counts are flat in the number of panel items (only the visible tiles render), so the cost is set by the pacing alone. The headroom check: an average command is ~14 characters plus the three `0xFF` terminators, so 2 ms per command is ~8.6 KB/s of the UART's 11.5 KB/s — the display keeps up while it is idle, and its 1 KB RX buffer covers ~60 commands (120 ms) while it is busy drawing a page. `4ms` is the safer fallback if overflows appear on a slow display: ~4.3 KB/s, still 4× faster than the old behaviour.
+Those counts are flat in the number of panel items (only the visible tiles render), so the cost is set by the pacing alone. The headroom check: an average command is ~14 characters plus the three `0xFF` terminators, so 2 ms per command is ~8.6 KB/s, well under the 921600 UART's ~92 KB/s — the display keeps up while it is idle, and its 1 KB RX buffer covers ~60 commands (120 ms) while it is busy drawing a page. `4ms` is the safer fallback if overflows appear on a slow display: ~4.3 KB/s, still 4× faster than the old behaviour.
 
 ### The pacing also sets the queue's drain rate
 

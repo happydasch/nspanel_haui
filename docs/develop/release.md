@@ -27,7 +27,7 @@ ever pushes to a branch**: a development build reports its own version through
 | Release notes | `.github/release-notes/<tag>.md`, otherwise a pointer to `CHANGELOG.md` | `release.yml`; dev notes are written by the workflow | the body of the GitHub release |
 | Screen overview (`docs/screens.html`, `docs/assets/screens/`) | `scripts/preview_gallery/gen_preview_gallery.py --docs` | a pull request that changes what a screen draws | the screen gallery of the docs site |
 
-The five attached asset names are a frozen contract: `nspanel_haui.bin`, `nspanel_haui_ota.bin`, `firmware-manifest.json`, `nspanel_haui.tft` and `nspanel_haui_portrait.tft`. Renaming one breaks automatic updates for already-flashed panels; adding a variant is safe while the existing names stay unchanged.
+The five attached asset names are a frozen contract: `nspanel_haui.bin`, `nspanel_haui_ota.bin`, `firmware-manifest.json`, `nspanel_haui.tft` and `nspanel_haui_portrait.tft`. Renaming one breaks automatic updates for already-flashed panels; adding a variant is safe while the existing names stay unchanged. Both TFTs boot the display at 921600; the firmware starts its UART at the same rate and scans down only for an older TFT, so the two sides realign after every TFT upload.
 
 The universal image needs no per-device build: `name_add_mac_suffix: true` appends the last six MAC digits at runtime, so every panel draws a unique hostname, mDNS name and setup access point from the same `.bin`. A build with your own credentials comes from `esphome/install.yaml` and the git-ignored `esphome/secrets.yaml` instead ([ESPHome Component](esphome.md#installation)).
 

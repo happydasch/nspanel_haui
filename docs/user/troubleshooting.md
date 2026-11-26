@@ -132,6 +132,10 @@ If neither helps, [open an issue](https://github.com/happydasch/nspanel_haui/iss
 2. Check that the panel has a stable power supply.
 3. Check the ESPHome logs for errors.
 
+### The panel stays on "Waiting for Initialization" after a firmware update
+
+Firmware 0.5.7 starts the display link at 921600. A panel still on the older 0.4.5 TFT answers at 115200, so its first boot waits up to about 20 seconds while the firmware scans the supported rates. The same happens once after the TFT update switches the display to 921600. Leave the panel powered; if the System page is still showing after a minute, power-cycle it once. Later boots skip the scan.
+
 ### Changes in the editor do not need a restart
 
 Saving in the editor applies device settings and panels right away. Restart Home Assistant only after updating the integration itself.

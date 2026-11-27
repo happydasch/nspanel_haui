@@ -132,7 +132,7 @@ Two actions do this:
 | `w` | yes | — | Width of the rectangle, in display pixels |
 | `h` | yes | — | Height of the rectangle, in display pixels |
 | `progressive` | no | `true` | Draw a coarse version first, so the image appears at once and then sharpens |
-| `quality` | no | `300` | How many rectangles the image may use, 60–769. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
+| `quality` | no | `300` | How many rectangles the image may use, 60–1153. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
 
 ```yaml
 action: nspanel_haui.show_image
@@ -190,9 +190,11 @@ data:
   A logo, an icon, a QR code or a chart comes out crisp; a photo comes out as a
   coarse mosaic.
 - **It takes about half a second.** Every rectangle is one instruction the panel
-  draws in turn. `quality` trades that time for detail: `60` is about 0.12 s and
-  `300` about 0.6 s, and the top of its range is as fine as the panel's
-  20 000-character program allows — about 1.5 s.
+  draws in turn, at about 500 a second. `quality` trades that time for detail:
+  `60` is about 0.12 s, `300` about 0.6 s, and the top of its range about 2.5 s.
+  The ceiling is that instruction rate, not the size of the image: a full page
+  needs tens of thousands of rectangles, which would take minutes, so it stays a
+  mosaic however high `quality` goes.
 - **The rectangle decides the detail.** The block never gets finer than one
   display pixel, so a rectangle of a few hundred pixels is drawn at the screen's
   own resolution, while the same budget over the whole page gives a coarse mosaic
@@ -206,8 +208,8 @@ data:
 - **`clear_image` only paints a flat colour.** On a page whose background is a
   picture (clock, clock two, weather) the rectangle stays a visible block; change
   the page instead.
-- **It needs firmware 0.6.0** or later: the panel's firmware draws the program
-  the hub prepares. On older firmware the action fails with the version it needs
+- **It needs firmware 0.5.9 or later:** the panel's firmware draws the program the
+  hub prepares. On older firmware the action fails with the version it needs
   instead of silently drawing nothing.
 - **It is not drawn during a display update.** While a TFT install is running the
   action is refused; the panel is rebooting its display anyway.

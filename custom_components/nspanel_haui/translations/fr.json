@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Qualité",
-          "description": "Nombre de rectangles que l'image peut utiliser ; plus il y en a, plus l'image est nette et lente (0,12 s jusqu'à environ 1,5 s), jusqu'à un rectangle par pixel de l'écran dans un petit rectangle."
+          "description": "Nombre de rectangles que l'image peut utiliser ; plus il y en a, plus l'image est nette et lente (0,12 s jusqu'à environ 2,5 s), jusqu'à un rectangle par pixel de l'écran dans un petit rectangle."
         }
       }
     },

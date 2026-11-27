@@ -9,7 +9,7 @@ of Nextion `fill` rectangles (`custom_components/nspanel_haui/haui/utils/image_p
 and the firmware streams that through the pacer. The run count is therefore the
 latency (`runs * COMMAND_SPACING_MS`), and the cell size the rasteriser settles
 on is the detail — it is never finer than one display pixel, and for a large
-rectangle the panel's 20 000-character program limit decides how close to that
+rectangle the panel's 30 000-character program limit decides how close to that
 it gets. This script runs the real rasteriser over a local file and draws every
 `fill` onto a canvas the size of the display, beside the ideal fit.
 
@@ -31,7 +31,7 @@ wrote .dev/image-preview.png — tiles: ideal fit | coarse | full
 | `image` | — | Path or `http(s)` URL of the image |
 | `--x`, `--y` | `20`, `20` | Top left of the rectangle, in display pixels |
 | `--w`, `--h` | `160`, `160` | Size of the rectangle, in display pixels |
-| `--budget` | `300` | The service's `quality` option, 60 up to the 769 a program can carry |
+| `--budget` | `300` | The service's `quality` option, 60 up to the 1153 a program can carry |
 | `--progressive` | off | Render the coarse pass first, the way the action does |
 | `--portrait` | off | 320x480 instead of 480x320 |
 | `--background` | `4226` | Page background as RGB565 (`4226` is the default theme's) |

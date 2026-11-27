@@ -762,11 +762,11 @@ def test_a_draw_program_the_hub_builds_is_never_over_the_firmware_limit():
     assert firmware_max >= IMAGE_PROGRAM_MAX
 
 
-def test_a_draw_batch_drains_before_the_queued_runs_expire():
-    """A batch is enqueued at once, so its oldest entry must not expire first."""
+def test_a_draw_queue_fill_drains_before_the_queued_runs_expire():
+    """The queue is filled at once, so its oldest entry must not expire first."""
     image = _read("image.yaml")
     display = _read("display.yaml")
-    runs = int(_substitution(image, "draw_batch_runs"))
+    runs = int(_substitution(image, "draw_queue_level"))
     spacing = _ms(display, "command_spacing")
     age = _ms(display, "max_queue_age")
     if age is None:
@@ -775,13 +775,13 @@ def test_a_draw_batch_drains_before_the_queued_runs_expire():
     assert runs * spacing <= age, f"{runs} runs at {spacing} ms deep, age {age} ms"
 
 
-def test_the_draw_batch_fits_the_command_queue():
-    """Every run of one pass is queued at once, so it must fit the queue."""
+def test_the_draw_queue_fill_fits_the_command_queue():
+    """The queue is filled at once, so it must stay inside the component's limit."""
     image = _read("image.yaml")
     size = _count(_read("display.yaml"), "max_queue_size")
-    runs = int(_substitution(image, "draw_batch_runs"))
+    level = int(_substitution(image, "draw_queue_level"))
     assert size is not None
-    assert runs <= size
+    assert level <= size
 
 
 def test_a_buffer_overflow_re_sends_the_draw_program():

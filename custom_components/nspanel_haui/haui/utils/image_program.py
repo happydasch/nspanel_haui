@@ -36,10 +36,13 @@ RUN_BUDGET: Final = TARGET_DRAW_MS // COMMAND_SPACING_MS
 # as an image can be.
 MIN_RUN_BUDGET: Final = 60
 # A run is at most ~26 characters ("fill 480,320,480,320,65535"), and the
-# firmware refuses a program over IMAGE_PROGRAM_MAX, so the program - not a time
-# budget - is what caps how fine the grid may be. ``_compile`` verifies both, so
-# the largest budget can still never build a program the device drops.
-IMAGE_PROGRAM_MAX: Final = 20000
+# firmware stages the whole program in RAM, so its length - not a time budget -
+# is what caps how fine the grid may be. 30 000 characters is what the panel can
+# hold twice over (the action's argument and the program it stages) while its
+# largest free block still has room for the run queue; the firmware refuses a
+# program that would not leave that headroom. ``_compile`` verifies both limits,
+# so the largest budget can still never build a program the device drops.
+IMAGE_PROGRAM_MAX: Final = 30000
 MAX_RUN_CHARS: Final = 26
 MAX_RUN_BUDGET: Final = IMAGE_PROGRAM_MAX // MAX_RUN_CHARS
 # Per-channel delta that still merges into one run. Flat art, gradients and

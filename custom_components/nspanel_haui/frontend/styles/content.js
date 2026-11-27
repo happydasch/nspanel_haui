@@ -67,7 +67,7 @@ export const contentStyles = css`
     border-radius: var(--haui-radius-control);
     background: var(--error-color);
     color: var(--text-primary-color);
-    font-size: var(--haui-text-caption);
+    font-size: var(--haui-text-badge);
     font-weight: 400;
     line-height: 20px;
     text-align: center;
@@ -264,7 +264,7 @@ export const contentStyles = css`
     border-radius: var(--haui-radius-pill);
     background: var(--warning-color, #ffa600);
     color: var(--primary-text-color, #212121);
-    font-size: var(--haui-text-caption);
+    font-size: var(--haui-text-badge);
     font-weight: 400;
   }
   .footer-link {

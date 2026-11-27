@@ -92,7 +92,7 @@ export const panelListStyles = css`
     font-size: var(--haui-text-caption);
     white-space: nowrap;
   }
-  .haui-panel-row-count { color: var(--secondary-text-color); font-size: var(--haui-text-caption); white-space: nowrap; }
+  .haui-panel-row-items { color: var(--secondary-text-color); font-size: var(--haui-text-caption); white-space: nowrap; }
   /* Wide enough for Edit and More, so More lines up in rows that only have it. */
   .haui-panel-row-actions { display: flex; min-width: 66px; align-items: center; justify-content: flex-end; gap: 4px; }
   .haui-panel-thumb {
@@ -137,7 +137,7 @@ export const panelListStyles = css`
   .haui-panel-menu { min-width: 220px; }
   @container haui-editor (max-width: 720px) {
     .haui-panel-row { grid-template-columns: 18px auto minmax(0, 1fr) auto; }
-    .haui-panel-row-key, .haui-panel-row-count, .haui-panel-row-sub,
+    .haui-panel-row-key, .haui-panel-row-items, .haui-panel-row-sub,
     .haui-panel-group-heading > span { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {

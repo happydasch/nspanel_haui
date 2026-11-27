@@ -10,6 +10,9 @@ export const dashboardTokens = css`
        is 15px to HA's 16px), so the dense screens read a little tighter; every step follows HA's
        font size setting, which is what the scale multiplies. */
     --haui-text-eyebrow: calc(10px * var(--ha-font-size-scale, 1));
+    /* A pill's own step, one below the caption: a label on a tinted ground sits inside the row's
+       text, so it reads smaller than the meta line beside it. */
+    --haui-text-badge: calc(11px * var(--ha-font-size-scale, 1));
     --haui-text-caption: calc(12px * var(--ha-font-size-scale, 1));
     --haui-text-label: calc(13px * var(--ha-font-size-scale, 1));
     /* Between a name and a card's own title: a thing that opens a card but is not its heading,

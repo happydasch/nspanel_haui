@@ -9,6 +9,12 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Editor: badges, count bubbles, the repeat count and the item type chip take their own type step one below the caption — `--haui-text-badge` at 11px — so a pill sits inside the row's text instead of competing with the meta line beside it ([Visual foundations](docs/develop/frontend-visuals.md#text-sizes)).
+
 ## [0.5.8] — 2026-11-27
 
 ### Added

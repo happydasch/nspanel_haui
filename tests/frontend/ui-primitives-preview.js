@@ -78,7 +78,8 @@ const TEXT_LEVELS = [
   ['--haui-text-body', 500, 'card and section title', 'Connection & device'],
   ['--haui-text-label', 500, 'name, value, label', 'Brightness full (%)'],
   ['--haui-text-label', 400, 'text, inputs, buttons', 'Add a panel or change the settings.'],
-  ['--haui-text-caption', 400, 'hint, meta, badge', '30 seconds ago · grid_0'],
+  ['--haui-text-caption', 400, 'hint, meta, compact control', '30 seconds ago · grid_0'],
+  ['--haui-text-badge', 400, 'badge, chip, count', 'Update available'],
   ['--haui-text-eyebrow', 600, 'column head', 'Device'],
 ];
 

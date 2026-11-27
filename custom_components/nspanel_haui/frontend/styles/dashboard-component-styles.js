@@ -87,7 +87,7 @@ export const dashboardComponentStyles = css`
     padding: 4px 8px;
     border-radius: var(--haui-radius-pill);
     background: var(--secondary-background-color, #f5f5f5);
-    font-size: var(--haui-text-caption);
+    font-size: var(--haui-text-badge);
     font-weight: 400;
     line-height: var(--haui-line-height-tight);
   }

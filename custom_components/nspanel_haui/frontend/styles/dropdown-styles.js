@@ -125,7 +125,7 @@ export const dropdownStyles = css`
     border: 1px solid var(--divider-color, #e0e0e0);
     background: transparent;
     cursor: pointer;
-    font-size: var(--haui-text-caption);
+    font-size: var(--haui-text-badge);
     font-family: inherit;
     font-weight: 400;
     color: var(--secondary-text-color, #666);

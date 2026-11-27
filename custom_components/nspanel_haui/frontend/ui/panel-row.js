@@ -83,7 +83,7 @@ export function panelRow({
       ${isNew ? badge(t('New'), 'success', 'haui-panel-row-new') : nothing}
     </div>
     <code class="haui-panel-row-key">${keyLabel || key || t('Auto key')}</code>
-    <span class="haui-panel-row-count">${countLabel}</span>
+    <span class="haui-panel-row-items">${countLabel}</span>
     <div class="haui-panel-row-actions">${actions}</div>
     ${menu}
   </div>`;

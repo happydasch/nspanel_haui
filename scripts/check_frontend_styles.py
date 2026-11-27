@@ -19,7 +19,7 @@ PX = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))px\b")
 NON_PX_LENGTH = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))(?:rem|em)\b")
 TYPE_TOKEN = "var(--haui-text-"
 EYEBROW_SIZE = "var(--haui-text-eyebrow)"
-BADGE_SIZE = "var(--haui-text-caption)"
+BADGE_SIZE = "var(--haui-text-badge)"
 # A pill is a label on a tinted ground, never emphasis: it keeps the size as its only distinction.
 BADGE_WEIGHT = "400"
 EYEBROW_TRACKING = ".05em"

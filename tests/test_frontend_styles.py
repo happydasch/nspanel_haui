@@ -115,12 +115,19 @@ def test_guard_keeps_a_badge_on_the_badge_step(tmp_path: Path) -> None:
         ".haui-device-row-actions .haui-badge { font-size: var(--haui-text-eyebrow);"
         " font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }"
         ".haui-item-row-chip { font-size: var(--haui-text-label); }"
+        ".haui-panel-row-badge { font-size: var(--haui-text-caption); }"
     )
 
     errors = check_css_sources([(style, css)], frontend, root)
 
     assert any("is a badge, chip or count" in error for error in errors)
     assert any("haui-item-row-chip" in error for error in errors)
+    # The caption is the step a pill used to borrow; a pill has its own one below it.
+    assert any(
+        "haui-panel-row-badge is a badge, chip or count, so its text is"
+        " var(--haui-text-badge) at 400" in error
+        for error in errors
+    )
 
 
 def test_guard_keeps_a_pill_out_of_emphasis(tmp_path: Path) -> None:
@@ -128,7 +135,7 @@ def test_guard_keeps_a_pill_out_of_emphasis(tmp_path: Path) -> None:
     frontend = root / "frontend"
     style = frontend / "styles" / "badges.js"
     css = (
-        ".haui-badge { font-size: var(--haui-text-caption); font-weight: 500; }"
+        ".haui-badge { font-size: var(--haui-text-badge); font-weight: 500; }"
         ".haui-item-row-chip { font-weight: 500; }"
     )
 
@@ -145,7 +152,7 @@ def test_guard_accepts_a_quiet_pill(tmp_path: Path) -> None:
     frontend = root / "frontend"
     style = frontend / "styles" / "badges.js"
     css = (
-        ".haui-badge { font-size: var(--haui-text-caption); font-weight: 400; }"
+        ".haui-badge { font-size: var(--haui-text-badge); font-weight: 400; }"
         ".haui-badge-danger { color: var(--haui-bad-text); }"
     )
 

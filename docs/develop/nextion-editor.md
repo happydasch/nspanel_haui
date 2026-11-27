@@ -14,6 +14,7 @@ The display UI is a Nextion Editor project — `nextion/nspanel_haui.HMI` and it
 - Adding fonts or images: icons, backgrounds, the spinner.
 - Maintaining both TFT layouts: landscape (EU and US mounted landscape) and rotated portrait (US mounted portrait). A release ships both assets together.
 - Releasing a version with new TFTs: both `.tft` files and both `.HMI` sources go in the same release ([release process](release.md)).
+- Turning an HMI change into a device-ready file: [compiling a TFT](#compiling-a-tft).
 - Debugging a page that renders nothing, ignores touches or shows stale content: [when something does not work](#when-something-does-not-work).
 
 ## Tools and prerequisites
@@ -26,6 +27,8 @@ The display UI is a Nextion Editor project — `nextion/nspanel_haui.HMI` and it
 | `scripts/nextion_vnc/nextion_vnc.sh` | Reach the editor on a Windows VM from a browser through noVNC |
 
 When the editor runs in a Windows VM, `scripts/nextion_vnc/nextion_vnc.sh` bridges the VM's VNC server to a noVNC page and prints its URL (`http://127.0.0.1:6080/vnc.html?…`). The first run installs websockify and noVNC under `build/novnc/`. The VM defaults to `192.168.65.2:5900`; set `NEXTION_VNC_HOST`, `NEXTION_VNC_PORT` or `NOVNC_PORT` to change the VM or the local port. The page listens on `127.0.0.1` only and the VM's VNC password still applies; stop the bridge with `Ctrl+C`.
+
+In this repository's development setup that VM maps the repository's `nextion/` folder as drive `Z:`, so the editor opens the committed `.HMI` and `File → TFT file output` writes the committed `.tft` in place — there is no copy step in either direction. The editor's start screen lists both projects under *Recent projects* with that path; [compiling a TFT](#compiling-a-tft) is the two-button cycle on top of it.
 
 Dump either project before you map widgets, and again whenever ids may have moved:
 
@@ -179,6 +182,60 @@ The portrait spec follows these layout rules:
 - Touch coordinates differ from landscape, but the hub maps touches by page, component id and name, so matching ids and names make the controls work. Verify every button on real hardware.
 - A release that ships only the landscape TFT leaves `display_model: us` devices on an old one: the update flow finds no matching asset.
 
+## Compiling a TFT
+
+Only the Nextion Editor turns an `.HMI` into a `.tft`; no script can. It takes two commands and the second one is the one that gets forgotten: **Compile** builds the image in memory and reports it, `File → TFT file output` writes it to disk. A successful compile with an unchanged artifact on disk looks like a finished job and is not one.
+
+1. **Open the project.** *Recent projects* on the start screen lists each project with its path — `Z:\nspanel_haui.HMI` and `Z:\nspanel_haui_portrait.HMI` in the setup above. A single click only selects an entry; double-click opens it. Give it 30–50 seconds over the SMB share: the title bar reads `Nextion Editor` until the project is in and switches to `Nextion Editor(Z:\nspanel_haui.HMI)` when it is, so wait for that rather than clicking again. `File → Open` reaches the same thing through a normal Windows file dialog filtered to `HMI Files`, where a full path typed into *File name* (`Z:\nspanel_haui_portrait.HMI`) plus `Enter` opens it directly. The recent list is a history, not the folder: an entry stays listed after its file is gone (`zz_probe.HMI` was still there after that probe was deleted), and opening it fails.
+2. **Compile.** The **Compile** button on the toolbar, between *Save* and *Debug*. The Output pane at the bottom of the window fills with the memory report — `Available Memory:3584`, `Global Memory:432`, `Total size of picture`, `Total size of font` and one `Page:<name> Memory Occupied:432+…` line per page — and ends with the verdict:
+
+   ```
+   File Check Finish
+   Compile Successful! 0 Errors, 10 Warnings.File Size:11,520,228
+   ```
+
+   `File Size` is the size of the image it just built. Note it: it is how you recognise the file that lands in `nextion/`.
+3. **Write the image.** `File → TFT file output` is the **first** entry of the File menu; it opens a small dialog with the name prefilled (`nspanel_haui.tft`), the project's own drive in a dropdown (`Z:`), one **Output** button and the `only open the output folder` link, which does nothing but look. **Output** writes the file without asking — an existing `.tft` is replaced silently — and then opens the folder in Explorer, so the name in that field is the file you get.
+4. **Repeat for the other project**, then check what you produced — below. Compiling does not mark a project as modified: `File → Close Project` right after it asks nothing about saving, and nothing is written.
+
+`Compile` on its own changes nothing on disk; the `.tft` keeps its timestamp until `TFT file output` runs.
+
+### What the compile should say
+
+`0 Errors` is not negotiable, and every warning either project reports is of one kind: `Warning:Component overlap: <page>.<widget>&<widget>`. There are only three pairs behind it:
+
+- **A transparent hotspot on the button it lights up** — `grid.g1Btn&g1Overlay` … `grid.g6Btn&g6Overlay`, and the media tiles' `m1Btn&m1Overlay`, `m2Btn&m2Overlay`, `m3Btn&m3Overlay`. The overlay is the touch area drawn over the visible button, so the two boxes are meant to coincide.
+- **A header bar behind its page title** — in portrait only, because only the portrait layout has `tHeader`: a full-width 50 px bar with `tTitle` on top of it (`alarm.tHeader&tTitle`, `cover.tHeader&tTitle`, and the same pair on every page whose header carries the title). The landscape project has no `tHeader` at all, which is why it reports none of these.
+- **The light page's two sliders sharing one slot** — `light.hBrightness&hColorTemp` sit at identical geometry on purpose: one slot on the page that shows brightness or colour temperature, never both. `scripts/hmi_layout/landscape_layout.py` and `portrait_layout.py` set both to the same `(x, y, w, h)`; if that ever stops being true, the warning disappears and a slider has moved.
+
+Anything else is new — fix it before you write the TFT.
+
+The 0.4.8 projects report 10 of these in landscape (six grid, three media, one light) and 20 in portrait (the same pairs plus the header ones). The count moves with the layout; the pairs should not.
+
+The verdict is easy to miss: the Output pane is a few lines tall and scrolls, the warnings and the `Page:` lines come first, and the bar along the bottom of the window (`Encoding:utf-8|Model:NX4832F035_011…`) does not repeat it. Scroll the pane to its last line.
+
+### Proving an artifact belongs to its source
+
+The compiler is deterministic: compiling an unchanged project and writing it out reproduces the committed `.tft` byte for byte. That held for both 0.4.8 artifacts (`nspanel_haui.tft` 11,520,228 bytes and `nspanel_haui_portrait.tft` 11,323,456 bytes, same SHA-256 before and after the recompile).
+
+`git status --short nextion/` is therefore the honest answer to *is this TFT the compile of these HMIs*:
+
+| After a recompile | Means |
+|---|---|
+| no diff | the artifact was already current — nothing to commit |
+| the `.tft` you just compiled | the HMI changed since the artifact was written, and this is that change |
+| both `.tft` files | the landscape image went into the portrait file or the other way round — look at the name in the dialog |
+
+Do not predict the outcome; let the diff decide. A comment is not part of the image at all: adding `// probe` to the system page's `Preinitialize` and recompiling produced a byte-identical `.tft` (same size, same SHA-256). An attribute the page draws is part of it — a colour, a font, geometry, `tftVersion`; `tests/test_bump_version.py` reads that text back out of the compiled file. So a cleanup that only removes comments needs no rebuild, and a rebuild made anyway leaves the artifact unchanged — which is what the commit should say.
+
+The same check answers "does this cleanup change what a panel draws": an artifact that compiles back byte-identical to the one installed cannot draw a page differently, which is a stronger statement than a look at one page on one panel.
+
+### What compiling does not touch
+
+Compiling, and switching projects with `File → Open`, does not rewrite either `.HMI` while the project has no unsaved edits — verified by hash across a full landscape and portrait compile, and by `File → Close Project` asking nothing and writing nothing right after one. The editor writes a project on **Save**, **Save as**, or the **Yes** it offers on close and on a project switch once there are unsaved edits, which is the window [step 2 of the checklist](#after-any-hmi-change) closes before a script writes the file.
+
+The folder itself carries Windows leftovers — `nextion/.DS_Store` and one in each subfolder — which the repository's `.gitignore` covers, so they never show up in `git status` and never belong in a commit.
+
 ## After any HMI change
 
 Run these from the repository root with `source .venv/bin/activate`, in this order: the layout specs write the HMIs, the editor compiles them, everything after that is generated from the HMIs. A step with nothing to do reports so (`wrote 0 widgets`, `already '…'`), so the whole sequence is safe to run.
@@ -201,7 +258,7 @@ Run these from the repository root with `source .venv/bin/activate`, in this ord
    | `python -m scripts.backgrounds.gen_backgrounds` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | a source picture in `nextion/src_images/bkg/` changed |
    | `python -m scripts.spinner.gen_spinner` | `nextion/images/spinner_<orientation>_1.png`, `_2.png` (pictures 11 and 12) | the `system` tile changed or `hSpinner` moved |
 
-5. **Re-open, check and compile both projects.** Each must open without "Version mismatch". Compile and write `nextion/nspanel_haui.tft` and `nextion/nspanel_haui_portrait.tft` whenever step 2 or 3 wrote either HMI: an HMI change alone never reaches a device.
+5. **Re-open, check and compile both projects.** Each must open without "Version mismatch". Compile and write `nextion/nspanel_haui.tft` and `nextion/nspanel_haui_portrait.tft` whenever step 2 or 3 wrote either HMI — [compiling a TFT](#compiling-a-tft) has the buttons, the expected warnings and the artifact check that follows. An HMI change alone never reaches a device.
 6. **Regenerate the hub and preview assets** from both HMIs:
 
    ```bash
@@ -238,6 +295,9 @@ The pre-commit hook regenerates the virtual layouts and stages them, then checks
 | A widget does not react to touch | `Send Component ID` is off for it, or its id changed after a reorder and `COMPONENTS` still holds the old one |
 | A card or the docs screen shows an outdated page | The generated layouts are stale: run `gen_virtual_layout`, then `pytest tests/test_card_renders.py` |
 | A portrait device shows landscape geometry | The portrait HMI was not recompiled, or the widget is missing from `PORTRAIT_LAYOUT` |
+| **Compile** reports success but `nextion/*.tft` keeps its old timestamp | `Compile` only builds the image in memory — `File → TFT file output → Output` writes the file ([compiling a TFT](#compiling-a-tft)) |
+| The editor looks hung after opening a project from the share | it is still loading the 19 MB project: the title bar only becomes `Nextion Editor(Z:\…HMI)` when it is in — wait rather than clicking again |
+| The written `.tft` is not the compile you just ran | the `File Size` in the Output pane and the file's size must be the same number; if they differ, the compile ran before the last change or the dialog wrote the other project's name |
 
 ## The `.HMI` file format
 

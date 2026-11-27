@@ -31,8 +31,8 @@ discussion it came from when there is one.
 Speed, recovery and ownership: the 921600 display link, smaller downloads and
 theme foreground globals all land in 0.5.7 — a solid page now paints its body
 foregrounds from the TFT itself, so the row page opens in 9 display commands
-instead of 40. Removing the vendored Nextion patch, display recovery,
-hub-scoped settings and the Nextion script cleanup belong to this cycle.
+instead of 40. Removing the vendored Nextion patch, display recovery and
+hub-scoped settings belong to this cycle.
 
 - **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
   2026-11-18) carries two of the fixes this patch used to add: the
@@ -57,19 +57,6 @@ hub-scoped settings and the Nextion script cleanup belong to this cycle.
   failed update state. That makes a broken, half-installed or wrong-baud TFT
   recoverable without a Nextion Editor session. Done: a damaged panel is restored
   from the editor on both display models. *Area: Recovery.*
-- **Nextion script cleanup** — The inventory is written:
-  [HMI event scripts](docs/develop/nextion-scripts.md) records every event block
-  in both projects, what it does, the hub command or firmware event it pairs with,
-  and the instruction-set limits that matter (one page-scoped timer, page-local
-  state, no sleep or wake hooks, the largest block). What is left is the removal,
-  which needs the Nextion Editor, and nothing it removes changes a page: a stray
-  `sys1` assignment and a comment in the landscape weather and row pages, and a
-  stale `sys0` comment on the system page. The one code difference that does reach
-  a pixel — the landscape clocktwo loop skipping the top-left dot — is answered by
-  `ClockTwoPage.start_panel()` and pinned by a test, so both orientations already
-  paint the same page. Done: no unused event code, both layout gates green, pages
-  unchanged on hardware. This is the groundwork for moving any behaviour onto the
-  display deliberately rather than by accident. *Area: Display behaviour.*
 - **Hub settings in Home Assistant** — An integration options flow so the hub can
   be renamed and genuinely hub-scoped settings changed after setup, while
   per-device settings stay in the editor. *Area: Configuration.*
@@ -446,6 +433,14 @@ Kept for the record, so the same idea is not re-evaluated every few months.
   though it is the ceiling behind most display limitations.
 - **Automatic dithering / fake transparency** — An HMI technique worth
   remembering if translucent tiles are ever wanted; not worth it on its own.
+- **Separate high-speed and normal-speed TFTs** — Shipping a 921600 bps build
+  next to a 115200 one, as the v0.5 plan once considered. Dropped: the rate is
+  set inside the TFT, so one file per display model serves both, the firmware
+  starts its UART at 921600 and scans down only for an older or stock TFT, and a
+  display that cannot hold a transfer gets the same install once more at
+  115200 bps. A second artifact would double every display build and every
+  install for a link the single file already sets, and leave a panel on the
+  "slow" one with nothing it can do about it.
 - **Camera or doorbell video on the panel** — The Nextion draws static pictures
   only; there is no video path, and refreshing frames over the serial link would
   be unusable.

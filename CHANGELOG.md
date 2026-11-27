@@ -9,6 +9,12 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Docs: the display-side script cleanup is recorded as shipped instead of pending — both TFTs (0.4.8) already carry it and recompiling the committed HMIs reproduces them byte for byte — and [Editing the HMI](docs/develop/nextion-editor.md#compiling-a-tft) now walks through turning an `.HMI` into a `.tft` in the Nextion Editor: the two steps that make a compile, the `Component overlap` warnings that are by design, and the artifact check that proves a TFT belongs to its source ([HMI event scripts](docs/develop/nextion-scripts.md#cleanup-applied)).
+
 ## [0.5.7] — 2026-11-27
 
 ### Added

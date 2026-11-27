@@ -1,7 +1,7 @@
 ---
 substitutions:
   # Version of this yaml config file (source of truth: manifest.json)
-  yaml_version: '0.5.9.dev95'
+  yaml_version: '0.6.0.dev97'
   # Display TFT version required by this firmware; bump only with --tft-update.
   # Dev builds copy it from the HMIs' system.tftVersion (dev-firmware.yml).
   tft_version: '1.1.0'

@@ -14,6 +14,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 ### Changed
 
 - Editor: badges, count bubbles, the repeat count and the item type chip take their own type step one below the caption — `--haui-text-badge` at 11px — so a pill sits inside the row's text instead of competing with the meta line beside it ([Visual foundations](docs/develop/frontend-visuals.md#text-sizes)).
+- Editor: the inventory footer's update and integration-version figures line up at the card's end, the way the events footer's actions close the card beside it
 
 ## [0.5.8] — 2026-11-27
 

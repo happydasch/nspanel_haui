@@ -41,7 +41,7 @@ export const fleetStyles = css`
      fleet reads quieter than a device name, since it is the list's scope and not one of its
      devices. */
   .haui-event-list > header .haui-event-bar { display: flex; min-width: 0; flex: 1 1 100%; align-items: baseline; gap: var(--haui-space-2); line-height: var(--haui-line-height-tight); }
-  .haui-event-list > header .haui-event-scope { min-width: 0; flex: 1 1 0; overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-event-list > header .haui-event-scope { min-width: 0; flex: 1 1 0; overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); text-overflow: ellipsis; white-space: nowrap; }
   .haui-event-list > header .haui-event-scope.is-all { color: var(--secondary-text-color); }
   .haui-event-list > header .haui-event-window { flex: 0 1 auto; min-width: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-device-inventory h2,
@@ -217,8 +217,9 @@ export const fleetStyles = css`
     padding: 20px 28px 16px;
   }
   /* The figures that need acting on close the card under the table, so the header keeps the fleet's
-     health and the numbers a user works from stay at hand however many devices there are. */
-  .haui-inventory-footer { flex: 0 0 auto; padding: 12px 20px; border-top: 1px solid var(--divider-color); }
+     health and the numbers a user works from stay at hand however many devices there are. They line
+     up at the strip's end, the way the events footer's actions close the card beside it. */
+  .haui-inventory-footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid var(--divider-color); }
   /* On a phone the title line gives way — it ellipsizes — so the update button keeps its place at
      the end of that line instead of dropping onto a row of its own. */
   .haui-fleet-inventory-heading { min-width: 0; flex: 0 1 auto; }

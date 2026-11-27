@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import copy
+import json
 import sys
 import types
 from pathlib import Path
@@ -943,17 +944,44 @@ class TestHubOptionsFlow:
 
     def test_the_form_offers_the_editor_s_locale_date_layouts(self):
         """The editor's per-device dropdown and this form offer the same layouts."""
-        source = (
-            Path(__file__).parent.parent
-            / "custom_components"
-            / "nspanel_haui"
-            / "frontend"
-            / "views"
-            / "device-settings.js"
-        ).read_text(encoding="utf-8")
+        integration = Path(__file__).parent.parent / "custom_components" / "nspanel_haui"
+        source = (integration / "frontend" / "views" / "device-settings.js").read_text(
+            encoding="utf-8"
+        )
 
         missing = [
             value for value in DATE_FORMAT_LOCALE_OPTIONS if f'value: "{value}"' not in source
+        ]
+        assert missing == []
+
+        # The selector's option values are translation keys, so every catalog the
+        # form is served in has to name exactly these layouts: one left behind
+        # renders a blank choice in that language.
+        catalogs = [
+            integration / "strings.json",
+            *sorted((integration / "translations").glob("*.json")),
+        ]
+        for catalog in catalogs:
+            options = (
+                json.loads(catalog.read_text(encoding="utf-8"))
+                .get("selector", {})
+                .get("date_format_locale", {})
+                .get("options", {})
+            )
+            assert sorted(options) == sorted(DATE_FORMAT_LOCALE_OPTIONS), catalog.name
+
+    def test_every_offered_layout_has_a_pattern_in_every_locale(self):
+        """An offered layout renders, instead of falling back to the strftime format."""
+        from custom_components.nspanel_haui.haui.utils.locale_data import (
+            LOCALE_PATTERNS,
+            get_pattern,
+        )
+
+        missing = [
+            (locale, name)
+            for locale in LOCALE_PATTERNS
+            for name in DATE_FORMAT_LOCALE_OPTIONS
+            if get_pattern(locale, name) is None
         ]
         assert missing == []
 

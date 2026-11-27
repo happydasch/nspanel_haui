@@ -152,6 +152,7 @@ The preview is interactive: tap, drag sliders and swipe from the screen edges. I
 
 - **Nothing real changes.** Taps only change a simulated state; entities and automations are not touched.
 - It opens on the home panel with the real entity states.
+- Simulated states end with the preview: leaving it — another device, the **Panels** view, Fleet, or a closed browser tab — drops them, so the next preview starts from the real states again.
 - It follows every save immediately.
 - Notifications waiting on the real panel appear here; dismissing one here does not dismiss it on the panel.
 - It never checks for or installs updates.
@@ -175,7 +176,7 @@ The **Live** button above the screen switches to the real panel and back. Live i
 | **Left button**, **Right button** | Below the screen | The two hardware buttons. The light is blue for a relay, yellow for an entity. |
 | **Show entities in the preview** | Diagnostics card | Hover over a tile or button to see its entity |
 | **Current page** | Connection card, Simulated | Opens the page the real panel is on in the preview; an idle panel opens its idle page |
-| **Reset sandbox** | Diagnostics card, Simulated | Drops simulated states and reloads the real ones; shown after the first simulated change |
+| **Reset sandbox** | Diagnostics card, Simulated | Drops simulated states now and reloads the real ones, without closing the preview; shown after the first simulated change |
 | **Reset interaction** | Diagnostics card, Live | Restarts the panel's inactivity timer without restarting the panel |
 | **Redraw display** | Diagnostics card, Live | Redraws the current page |
 

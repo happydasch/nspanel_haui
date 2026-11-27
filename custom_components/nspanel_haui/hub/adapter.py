@@ -268,6 +268,9 @@ class ESPHomeProxy:
             service_data["name"] = value
         elif name == ESPAction.RESET_LAST_INTERACTION:
             service_data["offset"] = int(value) if value else 0
+        elif name == ESPAction.DRAW_RUNS:
+            # One program string, runs joined with ';' (image.yaml).
+            service_data["program"] = ";".join(value) if isinstance(value, list) else str(value)
         else:
             service_data["value"] = value
 

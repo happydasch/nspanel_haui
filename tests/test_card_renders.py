@@ -195,3 +195,28 @@ def test_demo_entity_panels_show_the_controls_their_sample_entity_supports(hub_l
     vacuum = renders["vacuum"]["commands"]
     for widget in ("bFan", "bAction", "bHome", "bLocate"):
         assert f"vis {widget},1" in vacuum
+
+
+@pytest.mark.parametrize(
+    ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
+)
+def test_a_draw_program_replays_on_the_card(hub_loop, tmp_path, display_model, orientation):
+    """A hub draw program (nspanel_haui.show_image) must replay in the simulator.
+
+    The program is not part of a page render: the hub appends it to the commands
+    of the page it was drawn over, which is exactly the shape a card viewer gets.
+    """
+    renders = sample_world.render_every_card(hub_loop, display_model)
+    grid = renders["grid"]
+    program = [
+        "fill 20,20,40,40,63488",
+        "fill 60,20,20,20,2016",
+    ]
+
+    renders["grid_after_show_image"] = {
+        "page": grid["page"],
+        "before": grid["before"],
+        "commands": [*grid["commands"], *program],
+    }
+
+    _replay(tmp_path, orientation, renders)

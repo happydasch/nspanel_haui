@@ -38,7 +38,7 @@ from homeassistant.components import websocket_api
 
 from ...const import DOMAIN
 from ...haui.abstract.haui_event import HAUIEvent
-from ...haui.mapping.const import GESTURES, ESPEvent
+from ...haui.mapping.const import GESTURES, ESPAction, ESPEvent
 from .button_entities import (
     RELAY_ENTITY_NAMES,
     ButtonEntities,
@@ -178,11 +178,14 @@ class LivePanel:
             self._sink({"type": "page", "page": int(state["page"])})
 
     def _on_output(self, command: str, value: Any) -> None:
-        if command == "send_command":
+        if command == ESPAction.SEND_COMMAND:
             self._sink({"type": "commands", "commands": [value]})
-        elif command == "send_commands":
+        elif command == ESPAction.SEND_COMMANDS:
             self._sink({"type": "commands", "commands": list(value)})
-        elif command == "goto_page":
+        elif command == ESPAction.DRAW_RUNS:
+            # An image program is just more display commands to the viewer.
+            self._sink({"type": "commands", "commands": list(value)})
+        elif command == ESPAction.GOTO_PAGE:
             self._sink({"type": "page", "page": int(value)})
         self._report_entities()
 

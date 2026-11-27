@@ -10,7 +10,8 @@ has commands of its own (``preview/live_panel.py``).
   subscription is closed. The first message is ``{"type": "started", ...}``;
   the others are the messages of ``virtual_panel.VirtualESPHomeProxy`` and the
   hardware buttons' lights. From then on the app mirrors the device's
-  notification queue.
+  notification queue, and the last subscription closing drops the simulated
+  states with it.
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
   button.
 - ``nspanel_haui/virtual_panel/home`` starts the sandbox over for an opening

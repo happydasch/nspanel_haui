@@ -224,6 +224,8 @@ class VirtualESPHomeProxy:
             self._sink({"type": "commands", "commands": [value]})
         elif name == "send_commands":
             self._sink({"type": "commands", "commands": list(value)})
+        elif name == "draw_runs":
+            self._sink({"type": "commands", "commands": list(value)})
         elif name == "goto_page":
             self._page = int(value)
             self._sink({"type": "page", "page": self._page})
@@ -1144,9 +1146,23 @@ class VirtualPanelHost:
             self.app.virtual_esphome.connect()
 
     def detach(self, viewer_id: str) -> bool:
-        """Remove a viewer; returns whether it was attached."""
+        """Remove a viewer; returns whether it was attached.
+
+        The last viewer leaving ends the sandbox: a preview that closes,
+        navigates away or loses its connection leaves no simulated state
+        behind in the shared app, where a card render would read it.
+        """
         with self._viewers_lock:
-            return self._viewers.pop(viewer_id, None) is not None
+            removed = self._viewers.pop(viewer_id, None) is not None
+            last = removed and not self._viewers
+        if last:
+            self.app.dispatch(self._drop_sandbox)
+        return removed
+
+    def _drop_sandbox(self) -> None:
+        """Drop the app's simulated states, if it has any (on its worker)."""
+        if self.app.sandbox.has_changes:
+            self.app.reset_sandbox()
 
     def _broadcast(self, message: dict[str, Any]) -> None:
         with self._viewers_lock:

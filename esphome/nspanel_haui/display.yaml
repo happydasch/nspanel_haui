@@ -68,3 +68,6 @@ display:
         - lambda: |-
             ESP_LOGW("haui", "Nextion buffer overflow detected");
             id(publish_event_native).execute("esphome.buffer_overflow", "1");
+        # A 0x24 loses the instructions in flight; re-send a draw program once
+        # so a burst of ``fill`` commands does not leave half an image behind.
+        - script.execute: haui_draw_retry

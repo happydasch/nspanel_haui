@@ -28,6 +28,8 @@ class ESPEvent(StrEnum):
     RELAY_RIGHT = "esphome.relay_right"
     DISPLAY_STATE = "esphome.display_state"
     BUFFER_OVERFLOW = "esphome.buffer_overflow"
+    # A draw program finished (or was refused): ``{runs, ok, elapsed_ms}``.
+    RES_DRAW = "esphome.res_draw"
     # TFT upload: the panel accepted the URL / could not install the file (its
     # value is the reason). A successful upload reboots, so it fires no event.
     TFT_UPLOAD_STARTED = "esphome.tft_upload_started"
@@ -69,6 +71,7 @@ class ESPAction(StrEnum):
     PLAY_RTTTL = "play_rtttl"
     PLAY_SOUND = "play_sound"
     RESET_LAST_INTERACTION = "reset_last_interaction"
+    DRAW_RUNS = "draw_runs"
 
 
 class SysPanelKey(StrEnum):
@@ -135,6 +138,8 @@ class ESPCommand(StrEnum):
     SEND_COMMAND = "esphome.send_command"
     SEND_COMMANDS = "esphome.send_commands"
     GOTO_PAGE = "esphome.goto_page"
+    # One draw program of ``fill`` instructions (see ``ESPAction.DRAW_RUNS``).
+    DRAW_RUNS = "esphome.draw_runs"
 
 
 class FirmwareUpdateChannel(StrEnum):

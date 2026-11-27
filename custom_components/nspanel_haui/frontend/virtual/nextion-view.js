@@ -202,6 +202,12 @@ function renderDrawing(d, ctx) {
   if (d.kind === 'xpic') {
     return html`<div class="vp-widget" style="left:${d.x}px;top:${d.y}px;width:${d.w}px;height:${d.h}px;background:url(${ctx.pictureUrl(d.pic)}) -${d.sx}px -${d.sy}px no-repeat;"></div>`;
   }
+  if (d.kind === 'fill') {
+    // What a hub draw program paints (nspanel_haui.show_image). The real display
+    // writes into its framebuffer, so a later widget repaint erases it too — the
+    // simulator keeps the last fill until the page changes.
+    return html`<div class="vp-widget" data-fill=${d.color} style="left:${d.x}px;top:${d.y}px;width:${d.w}px;height:${d.h}px;background:${color(d.color)};"></div>`;
+  }
   return html`<div class="vp-widget vp-circle" style="left:${d.x - d.r}px;top:${d.y - d.r}px;width:${d.r * 2}px;height:${d.r * 2}px;background:${color(d.color)};"></div>`;
 }
 

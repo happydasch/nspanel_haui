@@ -41,6 +41,13 @@ def _load_tagged(path: Path) -> dict:
     return yaml.load(path.read_text(), Loader=Loader)  # noqa: S506 - SafeLoader subclass
 
 
+def _substitution(text: str, key: str) -> str:
+    """A "substitutions:" entry of a package file, as written."""
+    match = re.search(rf"^\s+{key}:\s*'([^']*)'", text, re.MULTILINE)
+    assert match is not None, f"{key} is not a substitution"
+    return match.group(1)
+
+
 def test_hub_availability_reset_on_last_client_disconnect():
     api = _read("api.yaml")
     disconnected = api.split("on_client_disconnected:")[1].split("actions:")[0]
@@ -690,3 +697,58 @@ def test_relays_restore_their_state_after_a_firmware_update():
     switches = {switch["id"]: switch for switch in yaml.safe_load(_read("switch.yaml"))["switch"]}
     for relay in ("relay_left", "relay_right"):
         assert switches[relay]["restore_mode"] == "RESTORE_DEFAULT_OFF"
+
+
+def test_packages_include_the_image_drawing_config():
+    assert "image: !include image.yaml" in _read("packages.yaml")
+
+
+def test_the_firmware_declares_the_draw_runs_action():
+    """The hub can only paint an image through this action's program variable."""
+    api = _load_tagged(ROOT / "api.yaml")
+    actions = {action["action"]: action for action in api["api"]["actions"]}
+    assert "draw_runs" in actions
+    assert actions["draw_runs"]["variables"] == {"program": "string"}
+    assert "id: haui_draw_runs" in _read("api.yaml")
+
+
+def test_a_draw_program_the_hub_builds_is_never_over_the_firmware_limit():
+    """The rasteriser caps its own program; the device's cap must be above it."""
+    from custom_components.nspanel_haui.haui.utils.image_program import IMAGE_PROGRAM_MAX
+
+    firmware_max = int(_substitution(_read("image.yaml"), "draw_program_max"))
+    assert firmware_max >= IMAGE_PROGRAM_MAX
+
+
+def test_a_draw_batch_drains_before_the_queued_runs_expire():
+    """A batch is enqueued at once, so its oldest entry must not expire first."""
+    image = _read("image.yaml")
+    display = _read("display.yaml")
+    runs = int(_substitution(image, "draw_batch_runs"))
+    spacing = _ms(display, "command_spacing")
+    age = _ms(display, "max_queue_age")
+    if age is None:
+        age = _component_default_ms("max_queue_age")
+    assert spacing is not None and age is not None
+    assert runs * spacing <= age, f"{runs} runs at {spacing} ms deep, age {age} ms"
+
+
+def test_the_draw_batch_fits_the_command_queue():
+    """Every run of one pass is queued at once, so it must fit the queue."""
+    image = _read("image.yaml")
+    size = _count(_read("display.yaml"), "max_queue_size")
+    runs = int(_substitution(image, "draw_batch_runs"))
+    assert size is not None
+    assert runs <= size
+
+
+def test_a_buffer_overflow_re_sends_the_draw_program():
+    """A 0x24 loses the runs in flight; the image must not vanish mid-burst."""
+    assert "script.execute: haui_draw_retry" in _read("display.yaml")
+    assert "id: haui_draw_retry" in _read("image.yaml")
+
+
+def test_the_draw_fence_reads_the_same_variable_as_the_res_val_sensor():
+    """The fence reply can only arrive after the program's last run was sent."""
+    assert "component_name: system.resVal" in _read("image.yaml")
+    assert "component_name: system.resVal" in _read("sensor.yaml")

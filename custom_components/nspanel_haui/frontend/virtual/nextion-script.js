@@ -8,8 +8,8 @@
  *   `sysN` globals, page-qualified `page.obj.attr` and indexed `b[expr].attr`
  * - `if(...)` / `else` and `for(init;cond;step)` blocks with braces on their own
  *   lines
- * - the commands `vis`, `click`, `tsw`, `ref`, `xpic`, `cirs`, `cls`, `covx`,
- *   `page`, `sendme`, `doevents`
+ * - the commands `vis`, `click`, `tsw`, `ref`, `xpic`, `cirs`, `fill`, `cls`,
+ *   `covx`, `page`, `sendme`, `doevents`
  *
  * Arithmetic is integer and strictly left to right, as on the Nextion.
  * Anything else is reported through `host.warn()`, never silently skipped.
@@ -23,7 +23,7 @@ const COMMAND_RE = /^([a-z_]\w*)(?:\s+(.*))?$/;
 
 /** Commands handled by the host; their arguments are evaluated first. */
 const COMMANDS = new Set([
-  'vis', 'click', 'tsw', 'ref', 'xpic', 'cirs', 'cls', 'covx', 'page',
+  'vis', 'click', 'tsw', 'ref', 'xpic', 'cirs', 'fill', 'cls', 'covx', 'page',
   'sendme', 'doevents', 'printh', 'prints',
 ]);
 

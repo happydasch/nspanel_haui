@@ -263,7 +263,7 @@ class TestRegisterServices:
     def test_registers_all_services(self, mock_hass):
         """All services are registered."""
         async_register_services(mock_hass)
-        assert mock_hass.services.async_register.call_count == 8
+        assert mock_hass.services.async_register.call_count == 10
 
     def test_idempotent(self, mock_hass):
         """Second call skips registration (has_service returns True)."""
@@ -855,3 +855,252 @@ async def test_service_action_is_queued_on_the_app_worker(mock_hass, mock_nav, m
     (action,) = queued
     action()
     mock_nav.close_panel.assert_called_once()
+
+
+# show_image / clear_image
+
+
+def _png_bytes() -> bytes:
+    """A tiny real PNG, so the rasteriser runs for real in these tests."""
+    import io
+
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", (8, 8), (255, 255, 255))
+    ImageDraw.Draw(image).rectangle((0, 0, 3, 7), fill=(200, 30, 30))
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+def _make_drawable_app(mock_nav, mock_esphome_ctrl, **kwargs):
+    """An app whose panel can draw: known display, new firmware, no install running."""
+    from custom_components.nspanel_haui.haui.version import DRAW_RUNS_FIRMWARE_VERSION
+
+    app = _make_app(mock_nav, mock_esphome_ctrl, **kwargs)
+    app.device = MagicMock()
+    app.device.is_portrait = False
+    app.device.device_info = {"yaml_version": DRAW_RUNS_FIRMWARE_VERSION}
+    app.theme = MagicMock()
+    app.theme.get = MagicMock(return_value=0x0000)
+    mock_nav.page = MagicMock()
+    mock_nav.page.get_color = MagicMock(return_value=0x1234)
+    return app
+
+
+def _image_call(**overrides) -> Any:
+    """A show_image call with the schema's defaults filled in."""
+    call = MagicMock()
+    call.service = "show_image"
+    call.data = {
+        "device": None,
+        "url": "https://example.test/logo.png",
+        "x": 10,
+        "y": 10,
+        "w": 40,
+        "h": 40,
+        "progressive": False,
+        "quality": 300,
+    }
+    call.data.update(overrides)
+    return call
+
+
+@pytest.fixture
+def png_fetch(monkeypatch):
+    """Serve the test PNG instead of downloading it."""
+    from custom_components.nspanel_haui import services
+
+    async def _fetch(_hass, _url):
+        return _png_bytes()
+
+    monkeypatch.setattr(services, "_fetch_image", _fetch)
+    return _fetch
+
+
+def test_both_image_services_are_registered(mock_hass):
+    async_register_services(mock_hass)
+
+    names = {call.args[1] for call in mock_hass.services.async_register.call_args_list}
+    assert {"show_image", "clear_image"} <= names
+
+
+def test_the_image_schema_takes_its_documented_defaults():
+    from custom_components.nspanel_haui.services import SERVICE_SHOW_IMAGE_SCHEMA
+
+    result = SERVICE_SHOW_IMAGE_SCHEMA(
+        {"url": "https://example.test/a.png", "x": 0, "y": 0, "w": 10, "h": 10}
+    )
+
+    # ``cv`` is a stub here, so only the probatio-validated entries are asserted.
+    assert result["quality"] == 300
+    assert result["device"] is None
+
+
+@pytest.mark.parametrize("quality", [59, 601])
+def test_the_image_schema_refuses_a_quality_outside_its_range(quality):
+    from custom_components.nspanel_haui.services import SERVICE_SHOW_IMAGE_SCHEMA
+
+    with pytest.raises(vol.Invalid):
+        SERVICE_SHOW_IMAGE_SCHEMA(
+            {
+                "url": "https://example.test/a.png",
+                "x": 0,
+                "y": 0,
+                "w": 10,
+                "h": 10,
+                "quality": quality,
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_show_image_refuses_a_rect_off_the_display(
+    mock_hass, mock_nav, mock_esphome_ctrl, monkeypatch
+):
+    """A rectangle the display cannot show fails before anything is downloaded."""
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+    from custom_components.nspanel_haui import services
+
+    fetched: list[str] = []
+
+    async def _fetch(_hass, url):
+        fetched.append(url)
+        return _png_bytes()
+
+    monkeypatch.setattr(services, "_fetch_image", _fetch)
+
+    with pytest.raises(_ServiceValidationError, match="does not fit"):
+        await services._handle_show_image(mock_hass, _image_call(x=470, w=40))
+
+    assert fetched == []
+    mock_esphome_ctrl.draw_runs.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_show_image_refuses_old_firmware_and_names_the_upgrade(
+    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+):
+    """An unknown action only logs a warning, so the service must refuse first."""
+    from custom_components.nspanel_haui.haui.version import DRAW_RUNS_FIRMWARE_VERSION
+    from custom_components.nspanel_haui.services import _handle_show_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    app.device.device_info = {"yaml_version": "0.5.8"}
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    with pytest.raises(_ServiceValidationError, match=DRAW_RUNS_FIRMWARE_VERSION):
+        await _handle_show_image(mock_hass, _image_call())
+
+    mock_esphome_ctrl.draw_runs.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_show_image_refuses_while_a_tft_install_runs(
+    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+):
+    from custom_components.nspanel_haui.services import _handle_show_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    update = MagicMock()
+    update.tft_install_active = True
+    app.controller = {**app.controller, "update": update}
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    with pytest.raises(_ServiceValidationError, match="installing a TFT"):
+        await _handle_show_image(mock_hass, _image_call())
+
+    mock_esphome_ctrl.draw_runs.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_show_image_surfaces_a_fetch_failure(
+    mock_hass, mock_nav, mock_esphome_ctrl, monkeypatch
+):
+    from custom_components.nspanel_haui import services
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    async def _fetch(_hass, url):
+        raise _HomeAssistantError(f"{url} answered HTTP 404")
+
+    monkeypatch.setattr(services, "_fetch_image", _fetch)
+
+    with pytest.raises(_HomeAssistantError, match="404"):
+        await services._handle_show_image(mock_hass, _image_call())
+
+    mock_esphome_ctrl.draw_runs.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_show_image_surfaces_an_undecodable_image(
+    mock_hass, mock_nav, mock_esphome_ctrl, monkeypatch
+):
+    from custom_components.nspanel_haui import services
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    async def _fetch(_hass, _url):
+        return b"not an image"
+
+    monkeypatch.setattr(services, "_fetch_image", _fetch)
+
+    with pytest.raises(_ServiceValidationError, match="could not be decoded"):
+        await services._handle_show_image(mock_hass, _image_call())
+
+    mock_esphome_ctrl.draw_runs.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_show_image_draws_the_program_on_the_panel(
+    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+):
+    """The pixels reach the display as one program of fill instructions."""
+    from custom_components.nspanel_haui.services import _handle_show_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    await _handle_show_image(mock_hass, _image_call())
+
+    (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    assert runs and all(run.startswith("fill ") for run in runs)
+    assert len(runs) <= 300
+    mock_hass.async_add_executor_job.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_show_image_sends_the_coarse_pass_then_the_full_one(
+    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+):
+    """Progressive painting: two programs, the coarse one capped at 60 runs."""
+    from custom_components.nspanel_haui.haui.utils.image_program import PROGRESSIVE_RUNS
+    from custom_components.nspanel_haui.services import _handle_show_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    await _handle_show_image(mock_hass, _image_call(progressive=True))
+
+    sent = [call.args[0] for call in mock_esphome_ctrl.draw_runs.call_args_list]
+    assert len(sent) == 2
+    assert 0 < len(sent[0]) <= PROGRESSIVE_RUNS
+
+
+@pytest.mark.asyncio
+async def test_clear_image_paints_the_page_background(mock_hass, mock_nav, mock_esphome_ctrl):
+    """One fill in the page's own colour: no image, no program."""
+    from custom_components.nspanel_haui.services import _handle_clear_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+    call = MagicMock()
+    call.service = "clear_image"
+    call.data = {"device": None, "x": 10, "y": 20, "w": 30, "h": 40}
+
+    await _handle_clear_image(mock_hass, call)
+
+    mock_esphome_ctrl.draw_runs.assert_called_once_with(["fill 10,20,30,40,4660"])

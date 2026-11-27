@@ -212,6 +212,31 @@
           "description": "Optionale http(s)-URL eines Firmware-OTA-Images (firmware.ota.bin, nicht das Factory-Image). Nicht mit Version kombinierbar."
         }
       }
+    },
+    "show_image": {
+      "name": "Bild anzeigen",
+      "description": "Ein Bild in ein Rechteck auf der gerade angezeigten Seite zeichnen. Das Bild wird auf höchstens 16 Farben und wenige hundert Rechtecke reduziert, in etwa einer halben Sekunde gezeichnet, und verschwindet beim nächsten Seitenwechsel. Ideal für Logos, Symbole und Grafiken; ein ganzseitiges Foto wird zum Mosaik.",
+      "fields": {
+        "device": "NSPanel-Gerät, auf dem gezeichnet wird. Wenn nicht angegeben, gilt für alle Geräte.",
+        "url": "http(s)-URL des Bildes (PNG, JPEG, GIF, BMP, WebP).",
+        "x": "Linke Kante des Rechtecks in Display-Pixeln.",
+        "y": "Obere Kante des Rechtecks in Display-Pixeln.",
+        "w": "Breite des Rechtecks in Display-Pixeln.",
+        "h": "Höhe des Rechtecks in Display-Pixeln.",
+        "progressive": "Zuerst eine grobe Fassung zeichnen, damit das Bild fast sofort erscheint und danach schärfer wird.",
+        "quality": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis 1,2 s)."
+      }
+    },
+    "clear_image": {
+      "name": "Bild löschen",
+      "description": "Ein Rechteck wieder in der Hintergrundfarbe der angezeigten Seite malen. Nur eine Volltonfarbe: auf einer Seite mit Bildhintergrund bleibt das Rechteck ein Block — wechsle stattdessen die Seite.",
+      "fields": {
+        "device": "NSPanel-Gerät, dessen Rechteck geleert wird. Wenn nicht angegeben, gilt für alle Geräte.",
+        "x": "Linke Kante des Rechtecks in Display-Pixeln.",
+        "y": "Obere Kante des Rechtecks in Display-Pixeln.",
+        "w": "Breite des Rechtecks in Display-Pixeln.",
+        "h": "Höhe des Rechtecks in Display-Pixeln."
+      }
     }
   }
 }

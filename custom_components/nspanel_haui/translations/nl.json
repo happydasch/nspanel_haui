@@ -212,6 +212,31 @@
           "description": "Optionele http(s)-URL van een firmware-OTA-image (firmware.ota.bin, niet de fabrieksimage). Kan niet worden gecombineerd met Versie."
         }
       }
+    },
+    "show_image": {
+      "name": "Afbeelding tonen",
+      "description": "Teken een afbeelding in een rechthoek op de pagina die het paneel toont. De afbeelding wordt teruggebracht tot hoogstens 16 kleuren en een paar honderd rechthoeken, in ongeveer een halve seconde getekend, en verdwijnt bij de volgende paginawissel. Geschikt voor logo's, pictogrammen en grafieken; een foto over het hele scherm wordt een mozaïek.",
+      "fields": {
+        "device": "NSPanel-apparaat om op te tekenen. Als het weggelaten wordt, geldt het voor alle apparaten.",
+        "url": "http(s)-URL van de afbeelding (PNG, JPEG, GIF, BMP, WebP).",
+        "x": "Linkerrand van de rechthoek, in beeldpunten van het scherm.",
+        "y": "Bovenrand van de rechthoek, in beeldpunten van het scherm.",
+        "w": "Breedte van de rechthoek, in beeldpunten van het scherm.",
+        "h": "Hoogte van de rechthoek, in beeldpunten van het scherm.",
+        "progressive": "Eerst een grove versie tekenen, zodat de afbeelding bijna meteen verschijnt en daarna scherper wordt.",
+        "quality": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot 1,2 s)."
+      }
+    },
+    "clear_image": {
+      "name": "Afbeelding wissen",
+      "description": "Schilder een rechthoek terug in de achtergrondkleur van de getoonde pagina. Alleen een effen kleur: op een pagina met een afbeelding als achtergrond blijft de rechthoek een blok — wissel liever van pagina.",
+      "fields": {
+        "device": "NSPanel-apparaat waarvan de rechthoek gewist wordt. Als het weggelaten wordt, geldt het voor alle apparaten.",
+        "x": "Linkerrand van de rechthoek, in beeldpunten van het scherm.",
+        "y": "Bovenrand van de rechthoek, in beeldpunten van het scherm.",
+        "w": "Breedte van de rechthoek, in beeldpunten van het scherm.",
+        "h": "Hoogte van de rechthoek, in beeldpunten van het scherm."
+      }
     }
   }
 }

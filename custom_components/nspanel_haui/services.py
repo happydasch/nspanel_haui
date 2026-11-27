@@ -17,6 +17,18 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
 from .haui.mapping.const import DEFAULT_NOTIFICATION_SOUND, SOUND_NAMES
+from .haui.utils.image_program import (
+    MAX_RECOMMENDED_CELL_PX,
+    MAX_RUN_BUDGET,
+    MIN_RUN_BUDGET,
+    RUN_BUDGET,
+    ImageProgramError,
+    Rect,
+    display_size,
+    estimated_cell_px,
+    image_runs,
+)
+from .haui.version import DRAW_RUNS_FIRMWARE_VERSION, firmware_supports_draw_runs
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -30,6 +42,12 @@ _LOGGER = logging.getLogger(__name__)
 # dispatch is queued either way, so waiting forever would fail a call that runs.
 ANSWER_TIMEOUT_SECONDS = 5.0
 
+# An image is downloaded once, on the event loop, and rasterised per panel. The
+# caps keep a mistyped URL from filling memory: a 4 MiB PNG is 4000x4000, far
+# past anything the display can show.
+IMAGE_MAX_BYTES = 4 * 1024 * 1024
+IMAGE_FETCH_TIMEOUT_SECONDS = 15
+
 # ── Service names ────────────────────────────────────────────
 SERVICE_OPEN_PANEL = "open_panel"
 SERVICE_CLOSE_PANEL = "close_panel"
@@ -39,6 +57,8 @@ SERVICE_SEND_NOTIFICATION = "send_notification"
 SERVICE_RESET_LAST_INTERACTION = "reset_last_interaction"
 SERVICE_UPDATE_TFT = "update_tft"
 SERVICE_UPDATE_FIRMWARE = "update_firmware"
+SERVICE_SHOW_IMAGE = "show_image"
+SERVICE_CLEAR_IMAGE = "clear_image"
 
 # ── Service schemas ─────────────────────────────────────────
 SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
@@ -100,6 +120,31 @@ SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
     {
         vol.Optional("device", default=None): vol.Any(str, None),
         vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    }
+)
+# The rectangle a draw call paints is required: an image has no default place,
+# and a guessed one would paint over a panel's widgets.
+SERVICE_SHOW_IMAGE_SCHEMA = vol.Schema(
+    {
+        vol.Optional("device", default=None): vol.Any(str, None),
+        vol.Required("url"): cv.url,
+        vol.Required("x"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Required("y"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Required("w"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Required("h"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional("progressive", default=True): cv.boolean,
+        vol.Optional("quality", default=RUN_BUDGET): vol.All(
+            vol.Coerce(int), vol.Range(min=MIN_RUN_BUDGET, max=MAX_RUN_BUDGET)
+        ),
+    }
+)
+SERVICE_CLEAR_IMAGE_SCHEMA = vol.Schema(
+    {
+        vol.Optional("device", default=None): vol.Any(str, None),
+        vol.Required("x"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Required("y"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Required("w"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Required("h"): vol.All(vol.Coerce(int), vol.Range(min=1)),
     }
 )
 
@@ -445,6 +490,195 @@ async def _handle_update_firmware(hass: HomeAssistant, call: ServiceCall) -> Non
     await _device_action(hass, call, action=_update_action)
 
 
+# ── Images on the panel ─────────────────────────────────────
+
+
+def _image_rect(app: NSPanelHAUI, call: ServiceCall) -> Rect:
+    """The rectangle to draw into, refused when this panel cannot draw it.
+
+    Read on the event loop, like ``_resolve_target_apps``: the display model, the
+    firmware version the panel reported and the update controller's install flag
+    are plain reads of state the worker owns, not calls into it.
+
+    Raises:
+        ServiceValidationError: When the rectangle is off the display, the
+            firmware has no ``draw_runs`` action, or a TFT install owns the display.
+    """
+    from homeassistant.exceptions import ServiceValidationError
+
+    try:
+        rect = Rect(
+            int(call.data["x"]),
+            int(call.data["y"]),
+            int(call.data["w"]),
+            int(call.data["h"]),
+        )
+    except ImageProgramError as exc:
+        raise ServiceValidationError(f"{call.service}: {exc}") from exc
+
+    width, height = display_size(app.device.is_portrait)
+    if rect.right > width or rect.bottom > height:
+        raise ServiceValidationError(
+            f"{call.service}: a {rect.w}x{rect.h} rectangle at ({rect.x}, {rect.y}) does not fit "
+            f"the {width}x{height} display of '{app.name}'"
+        )
+
+    version = (app.device.device_info or {}).get("yaml_version")
+    if not firmware_supports_draw_runs(version):
+        raise ServiceValidationError(
+            f"{call.service}: '{app.name}' runs firmware {version or 'unknown'}, which cannot "
+            f"draw an image; update it to {DRAW_RUNS_FIRMWARE_VERSION} or newer"
+        )
+
+    update = app.controller.get("update")
+    if update is not None and update.tft_install_active:
+        raise ServiceValidationError(
+            f"{call.service}: '{app.name}' is installing a TFT — try again when it has finished"
+        )
+    return rect
+
+
+def _page_background(app: NSPanelHAUI) -> int:
+    """The RGB565 colour the panel's current page shows behind its widgets.
+
+    The rasteriser letterboxes onto it and skips cells that already match it, so
+    a logo costs nothing outside its own shape.
+    """
+    nav = app.controller.get("navigation")
+    page = getattr(nav, "page", None) if nav is not None else None
+    if page is not None:
+        return int(page.get_color("background"))
+    # No page drawn yet: the device theme is what the next repaint paints anyway.
+    return int(app.theme.get("background"))
+
+
+async def _fetch_image(hass: HomeAssistant, url: str) -> bytes:
+    """Download an image for drawing, bounded in size and in time.
+
+    Raises:
+        HomeAssistantError: When the URL fails, times out or serves too much.
+    """
+    from aiohttp import ClientError, ClientTimeout
+    from homeassistant.exceptions import HomeAssistantError
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    session = async_get_clientsession(hass)
+    try:
+        async with session.get(
+            url, timeout=ClientTimeout(total=IMAGE_FETCH_TIMEOUT_SECONDS)
+        ) as response:
+            if response.status >= 400:
+                raise HomeAssistantError(f"{url} answered HTTP {response.status}")
+            # One byte over the cap is enough to know it is too large without
+            # holding the whole file in memory first.
+            data = await response.content.read(IMAGE_MAX_BYTES + 1)
+    except TimeoutError as exc:
+        raise HomeAssistantError(
+            f"{url} did not answer within {IMAGE_FETCH_TIMEOUT_SECONDS} s"
+        ) from exc
+    except (ClientError, OSError) as exc:
+        raise HomeAssistantError(f"{url} could not be fetched: {exc}") from exc
+
+    if len(data) > IMAGE_MAX_BYTES:
+        raise HomeAssistantError(
+            f"{url} is larger than the {IMAGE_MAX_BYTES // (1024 * 1024)} MiB an image may be"
+        )
+    return data
+
+
+def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]]) -> None:
+    """Send each draw program to the panel, coarse pass first.
+
+    Runs on the app's worker: the display path records the program for the page
+    replay, which is worker-owned state.
+    """
+    esp_ctrl = app.controller.get("esphome")
+    if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
+        _LOGGER.warning("%s: no ESPHome controller — the image was not drawn", dev_name)
+        return
+    for runs in programs:
+        if runs:
+            esp_ctrl.draw_runs(runs)
+
+
+def _clear_rect(app: NSPanelHAUI, dev_name: str, rect: Rect) -> None:
+    """Paint the rectangle in the page's background colour: a single ``fill``."""
+    esp_ctrl = app.controller.get("esphome")
+    if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
+        _LOGGER.warning("%s: no ESPHome controller — the image was not cleared", dev_name)
+        return
+    background = _page_background(app)
+    esp_ctrl.draw_runs([f"fill {rect.x},{rect.y},{rect.w},{rect.h},{background}"])
+
+
+async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Paint an image into a rectangle on whatever page the panel is showing.
+
+    The download happens once for all targets, the rasterising runs in the
+    executor (a pure function over the image bytes — ``app.run_off_worker`` waits
+    for the worker and would block this loop), and only the send is dispatched
+    to the panel's worker.
+
+    Raises:
+        ServiceValidationError: When no panel matches, the rectangle is off the
+            display, the image cannot be decoded, or a panel cannot draw yet.
+        HomeAssistantError: When the image URL cannot be fetched.
+    """
+    from homeassistant.exceptions import ServiceValidationError
+
+    targets = _resolve_required_targets(hass, call)
+    # Every target's rectangle is checked before anything is downloaded.
+    rects = {dev_name: _image_rect(app, call) for dev_name, app in targets}
+    data = await _fetch_image(hass, str(call.data["url"]))
+    budget: int = call.data.get("quality", RUN_BUDGET)
+    progressive: bool = call.data.get("progressive", True)
+
+    for dev_name, app in targets:
+        rect = rects[dev_name]
+        background = _page_background(app)
+        try:
+            programs = await hass.async_add_executor_job(
+                partial(
+                    image_runs,
+                    data,
+                    rect,
+                    background=background,
+                    budget=budget,
+                    progressive=progressive,
+                )
+            )
+        except ImageProgramError as exc:
+            raise ServiceValidationError(f"{call.service} for '{dev_name}': {exc}") from exc
+
+        cell = estimated_cell_px(rect, budget)
+        if cell > MAX_RECOMMENDED_CELL_PX:
+            _LOGGER.warning(
+                "%s: a %sx%s rectangle at %d runs is a ~%.0f px mosaic; draw it smaller or raise "
+                "quality, or use a picture background for a full-page image",
+                dev_name,
+                rect.w,
+                rect.h,
+                budget,
+                cell,
+            )
+        app.dispatch(partial(_draw_programs, app, dev_name, programs))
+
+
+async def _handle_clear_image(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Paint a rectangle back to the page background colour.
+
+    Only the flat colour the theme defines: on a page whose background is a
+    picture the fill leaves a block, so navigating away is the way to restore it.
+
+    Raises:
+        ServiceValidationError: When no panel matches or the rectangle is off the
+            display, or the firmware cannot draw.
+    """
+    for dev_name, app in _resolve_required_targets(hass, call):
+        rect = _image_rect(app, call)
+        app.dispatch(partial(_clear_rect, app, dev_name, rect))
+
+
 # ── Registration ─────────────────────────────────────────────
 
 
@@ -472,6 +706,8 @@ def async_register_services(hass: HomeAssistant) -> None:
         ),
         (SERVICE_UPDATE_TFT, SERVICE_UPDATE_TFT_SCHEMA, _handle_update_tft),
         (SERVICE_UPDATE_FIRMWARE, SERVICE_UPDATE_FIRMWARE_SCHEMA, _handle_update_firmware),
+        (SERVICE_SHOW_IMAGE, SERVICE_SHOW_IMAGE_SCHEMA, _handle_show_image),
+        (SERVICE_CLEAR_IMAGE, SERVICE_CLEAR_IMAGE_SCHEMA, _handle_clear_image),
     ):
         hass.services.async_register(
             DOMAIN,

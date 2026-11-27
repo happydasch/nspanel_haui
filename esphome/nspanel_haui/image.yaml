@@ -1,0 +1,219 @@
+---
+# Drawing over the current page
+#
+# ``draw_runs`` streams a program of Nextion ``fill`` instructions that the hub
+# rasterised from an image (``haui/utils/image_program.py``). One program is one
+# pass: the pacer sends one command per component phase (``command_spacing: 2ms``,
+# display.yaml), so the latency of an image is its run count, and enqueueing the
+# whole program up front puts any hub command that follows *behind* it in the
+# queue - the image completes first instead of interleaving with a page render
+# or a clock tick.
+#
+# The Nextion queues serial instructions and executes them one at a time
+# (instruction set, general rule 20), so there is no "stop updating while
+# painting" on the display side: ``com_stop`` would stop our own fills too and
+# the docs warn it overflows the buffer, and ``code_c`` discards commands rather
+# than delaying them. Ordering is the safe lever.
+#
+# ``fill`` takes x,y,w,h - width and height, not a second corner - and is
+# available on every Nextion model (instruction set section 4, `sAll`).
+substitutions:
+  # Runs enqueued per pass. A default program (300 runs) is one pass; a fuller
+  # one waits for the queue to drain between passes. 300 entries is well inside
+  # the 800 the display component already allows for a config+render burst.
+  draw_batch_runs: '300'
+  # Released between passes: at 2 ms of pacing a pass drains in ~0.6 s, far
+  # inside ``max_queue_age`` (8 s), so no entry expires before it is sent.
+  draw_batch_delay: '300ms'
+  # Longest program accepted (characters of runs joined with ';'). The hub caps
+  # its own program at the same number; 600 runs worst case.
+  draw_program_max: '20000'
+  # Marker written into the Nextion's ``system.resVal`` as the fence that ends a
+  # program. The hub reads resVal too, so only this value ends a draw.
+  draw_fence_marker: '31337'
+
+globals:
+  # The program being streamed, and how far it got
+  - id: haui_draw_program
+    type: std::string
+    restore_value: false
+  - id: haui_draw_cursor
+    type: size_t
+    restore_value: false
+    initial_value: '0'
+  # Runs in the program, and how many the display accepted
+  - id: haui_draw_run_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: haui_draw_sent
+    type: int
+    restore_value: false
+    initial_value: '0'
+  # millis() of the first pass; the fence reply turns it into elapsed_ms
+  - id: haui_draw_started_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+  # The fence readback is queued and its reply not seen yet
+  - id: haui_draw_awaiting
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # The current program was accepted, and already re-sent after an overflow
+  - id: haui_draw_ok
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: haui_draw_resent
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+sensor:
+  # Fence: the reply to this read can only arrive after the program's last run
+  # was sent, which is the only "everything before this is out" signal the
+  # transport offers. It reads the same variable as ``res_val`` (sensor.yaml).
+  - platform: nextion
+    nextion_id: haui_disp
+    name: Draw fence
+    id: haui_draw_fence
+    component_name: system.resVal
+    update_interval: never
+    accuracy_decimals: 0
+    internal: true
+    on_value:
+      - lambda: |-
+          if (!id(haui_draw_awaiting) || int(x) != ${draw_fence_marker}) return;
+          id(haui_draw_awaiting) = false;
+          id(haui_draw_report).execute(
+              id(haui_draw_sent) == id(haui_draw_run_count),
+              int(millis() - id(haui_draw_started_ms)));
+
+script:
+  # Accept a program and stream it. ``mode: restart`` cancels a program still in
+  # flight: a second image should replace the first, not queue behind it.
+  - id: haui_draw_runs
+    mode: restart
+    parameters:
+      program: std::string
+    then:
+      # Validate and stage the program; a refusal leaves haui_draw_ok false and
+      # the tail of this script reports it instead of drawing.
+      - lambda: |-
+          id(haui_draw_cursor) = 0;
+          id(haui_draw_run_count) = 0;
+          id(haui_draw_sent) = 0;
+          id(haui_draw_awaiting) = false;
+          id(haui_draw_resent) = false;
+          id(haui_draw_ok) = false;
+          id(haui_draw_program) = "";
+          if (program.empty()) {
+            ESP_LOGW("haui", "draw_runs: empty program");
+            return;
+          }
+          if (program.size() > ${draw_program_max}) {
+            ESP_LOGE("haui", "draw_runs: %zu characters, over the %s limit",
+                     program.size(), "${draw_program_max}");
+            return;
+          }
+          if (id(haui_disp).is_updating()) {
+            ESP_LOGW("haui", "draw_runs: refused, a TFT upload is running");
+            return;
+          }
+          if (!id(haui_disp).is_setup()) {
+            ESP_LOGW("haui", "draw_runs: refused, the display does not answer");
+            return;
+          }
+          id(haui_draw_program) = program;
+          id(haui_draw_run_count) = 1;
+          for (char c : program) {
+            if (c == ';') id(haui_draw_run_count)++;
+          }
+          id(haui_draw_ok) = true;
+      # A sleeping display silently drops every command (send_command()); wake
+      # it and give the wake command a moment before the first run.
+      - if:
+          condition:
+            lambda: return id(haui_draw_ok) && id(haui_disp).is_sleeping();
+          then:
+            - script.execute: display_on
+            - delay: 300ms
+      - if:
+          condition:
+            lambda: return id(haui_draw_ok);
+          then:
+            - lambda: id(haui_draw_started_ms) = millis();
+            - script.execute: haui_draw_enqueue_batch
+      - if:
+          condition:
+            lambda: return !id(haui_draw_ok);
+          then:
+            - lambda: id(haui_draw_report).execute(false, 0);
+
+  # Enqueue the next ``draw_batch_runs`` runs, then either wait out the queue
+  # and continue, or fence the program and let its reply report the drain time.
+  # ``mode: restart``: a new program restarts this chain instead of leaving a
+  # stale one enqueuing the previous image behind it.
+  - id: haui_draw_enqueue_batch
+    mode: restart
+    then:
+      - lambda: |-
+          const std::string &program = id(haui_draw_program);
+          size_t cursor = id(haui_draw_cursor);
+          int enqueued = 0;
+          while (cursor < program.size() && enqueued < ${draw_batch_runs}) {
+            size_t end = program.find(';', cursor);
+            if (end == std::string::npos) end = program.size();
+            std::string run = program.substr(cursor, end - cursor);
+            if (!run.empty()) {
+              if (id(haui_disp).send_command(run.c_str())) {
+                id(haui_draw_sent)++;
+              } else {
+                ESP_LOGW("haui", "draw_runs: the display refused a command");
+              }
+              enqueued++;
+            }
+            cursor = end + 1;
+          }
+          id(haui_draw_cursor) = cursor;
+      - if:
+          condition:
+            lambda: return id(haui_draw_cursor) < id(haui_draw_program).size();
+          then:
+            - delay: ${draw_batch_delay}
+            - script.execute: haui_draw_enqueue_batch
+          else:
+            # The fence readback can only answer after every run above was sent.
+            - lambda: |-
+                id(haui_draw_awaiting) = true;
+                id(haui_disp).send_command_printf("system.resVal.val=%d", ${draw_fence_marker});
+                id(haui_draw_fence).update();
+                ESP_LOGD("haui", "draw_runs: %d runs queued", id(haui_draw_run_count));
+
+  # Re-send the current program once after a buffer overflow: a 0x24 loses the
+  # instructions in flight, which would leave half an image on the screen.
+  - id: haui_draw_retry
+    then:
+      - lambda: |-
+          if (!id(haui_draw_ok) || id(haui_draw_resent) || id(haui_draw_program).empty()) return;
+          id(haui_draw_resent) = true;
+          ESP_LOGW("haui", "draw_runs: re-sending %d runs after a buffer overflow",
+                   id(haui_draw_run_count));
+          id(haui_draw_runs).execute(id(haui_draw_program));
+
+  # Report a finished or refused draw; the hub logs ok and elapsed_ms.
+  - id: haui_draw_report
+    parameters:
+      ok: bool
+      elapsed_ms: int
+    then:
+      - lambda: |-
+          const json::json_build_t payload = [ok, elapsed_ms](JsonObject root) {
+            root["runs"] = id(haui_draw_sent);
+            root["ok"] = ok;
+            root["elapsed_ms"] = elapsed_ms;
+          };
+          ESP_LOGD("haui", "draw_runs: %d runs, ok=%d, %d ms", id(haui_draw_sent),
+                   ok ? 1 : 0, elapsed_ms);
+          id(publish_event_native).execute("esphome.res_draw", json::build_json(payload));

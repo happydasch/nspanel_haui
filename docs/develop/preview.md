@@ -24,7 +24,7 @@ One second `NSPanelHAUI` per device, built from the device's stored config the w
 |------|------|------|
 | `VirtualNSPanelHAUI` | `web/preview/virtual_panel.py` | Reads states through the sandbox, routes service calls, suppresses HA bus events, uses an inert update controller |
 | `VirtualESPHomeProxy` | `web/preview/virtual_panel.py` | Stands in for `ESPHomeProxy` and the firmware: answers the connection handshake, sends heartbeats, forwards display commands, page changes, brightness and sounds to the browser; refuses TFT and firmware uploads |
-| `VirtualPanelHost` | `web/preview/virtual_panel.py` | Owns a device's virtual app: fans its display output out to every Simulated viewer (a late viewer gets the current panel redrawn), renders panel cards, keeps the home stream |
+| `VirtualPanelHost` | `web/preview/virtual_panel.py` | Owns a device's virtual app: fans its display output out to every Simulated viewer (a late viewer gets the current panel redrawn), drops the simulated states when the last viewer leaves, renders panel cards, keeps the home stream |
 | `Sandbox` | `web/preview/sandbox.py` | Simulated entity states over the real ones; simulates the common services |
 | Sample data | `web/preview/sample_data.py` | Representative entities shared by the editor previews and the card gallery |
 | `ButtonEntities` | `web/preview/button_entities.py` | The entities behind the frame's two hardware buttons, shared by the Simulated and Live previews and the dashboard card |
@@ -32,6 +32,8 @@ One second `NSPanelHAUI` per device, built from the device's stored config the w
 | `HomeStream` | `web/preview/home_stream.py` | The device's home panel kept running on the virtual app for the [dashboard card](../user/dashboard-card.md), with real states only |
 
 A sandbox lays simulated states over Home Assistant's real ones: a read returns the simulated state when there is one, and a simulated service call changes only the simulated state. It simulates the common services (on/off, light brightness and colour, cover position, climate setpoints and modes, media playback, locks, alarm panels, vacuums, number/select/text values, timers); any other service leaves the state untouched and reports that to the caller.
+
+The simulated states live exactly as long as a Simulated preview: the last viewer of that app leaving (`VirtualPanelHost.detach`) drops them, so switching to Live, another device, the **Panels** view or Fleet, and closing the tab all leave nothing behind — a card render reads the same app and would otherwise draw a simulated state as the panel's own. **Reset sandbox** in the Diagnostics card sends `/reset_sandbox`, which drops them while the preview stays open.
 
 In Simulated mode every non-query service call of the virtual app is simulated; queries with `return_response` (such as `weather.get_forecasts`) always reach Home Assistant. The virtual app also performs the relay switch action that ESPHome performs when a hardware button is pressed in relay mode.
 
@@ -45,7 +47,7 @@ All admin only, like the editor itself.
 
 | Command | Does |
 |---------|------|
-| `nspanel_haui/virtual_panel/subscribe` | Attaches a Simulated viewer to the device's app and streams its display output until the subscription closes; the first message is `{"type": "started", ...}` |
+| `nspanel_haui/virtual_panel/subscribe` | Attaches a Simulated viewer to the device's app and streams its display output until the subscription closes; the first message is `{"type": "started", ...}`, and the last subscription closing drops the simulated states |
 | `nspanel_haui/virtual_panel/event` | Injects a touch, swipe or hardware button |
 | `nspanel_haui/virtual_panel/home` | Starts the sandbox over: drops the simulated states, leaves the idle page, restarts the inactivity clock and opens the home panel |
 | `nspanel_haui/virtual_panel/open` | Opens one of the device's panels by key, as its idle page when `idle` is set (the Current page tile) |
@@ -75,7 +77,7 @@ A new viewer gets the current page as the panel shows it: the page's `load_comma
 
 **Idle** and **Reset interaction** are explicit live actions. **Idle** toggles the idle page: it opens it, or wakes the panel back to the panel it covered or home, and restarts its interaction timer. **Reset interaction** only restarts the inactivity clock of the firmware's dim/off timer, without changing the current page or resetting the hub's separate idle-page timer.
 
-Live viewers are independent of each other and of the Simulated previews. A preview switching to Live first sends `/reset_sandbox` when the sandbox has simulated states.
+Live viewers are independent of each other and of the Simulated previews. A preview switching to Live first sends `/reset_sandbox` when the sandbox has simulated states, and the sandbox viewer it leaves behind drops them as the last one leaving.
 
 Live lasts exactly as long as the editor keeps showing that preview. Switching device, opening the **Panels** view, going back to Fleet, or opening any sidebar — the panel editor, the catalog, device settings, the theme library, Updates, Logs, Backups — ends it as the change lands, so an edit never runs against the panel on screen. Every commit is checked against the route and sidebars Live started on (`settleLive()` in `store/store.js`, so no caller has to remember), and `views/workspace.js` never starts a live session for a device it was not already showing. Coming back to the preview therefore shows the sandbox again: Live is not resumed on its own.
 

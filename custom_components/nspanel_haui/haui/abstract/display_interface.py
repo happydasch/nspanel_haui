@@ -86,3 +86,12 @@ class DisplayInterface:
                     exc_info=True,
                 )
                 raise
+
+    def draw_runs(self, runs: list[str]) -> None:
+        """Paint an image: a program of ``fill`` instructions in one call.
+
+        The runs go to the firmware's ``draw_runs`` action, which paces them out
+        one command per component phase; a batch of ``send_cmds`` would be
+        dropped by the transport's chunk size long before a full image fits.
+        """
+        self.transport.send(ESPCommand.DRAW_RUNS, runs)

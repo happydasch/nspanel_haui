@@ -212,6 +212,31 @@
           "description": "Opcjonalny adres http(s) obrazu OTA firmware (firmware.ota.bin, nie obraz factory). Nie można łączyć z wersją."
         }
       }
+    },
+    "show_image": {
+      "name": "Pokaż obraz",
+      "description": "Narysuj obraz w prostokącie na stronie wyświetlanej przez panel. Obraz jest redukowany do najwyżej 16 kolorów i kilkuset prostokątów, rysowany w około pół sekundy, i znika przy następnej zmianie strony. Najlepszy dla logo, ikon i grafiki; zdjęcie na cały ekran staje się mozaiką.",
+      "fields": {
+        "device": "Urządzenie NSPanel, na którym ma być rysowany obraz. Jeśli pominięte, dotyczy wszystkich urządzeń.",
+        "url": "Adres http(s) obrazu (PNG, JPEG, GIF, BMP, WebP).",
+        "x": "Lewa krawędź prostokąta w pikselach ekranu.",
+        "y": "Górna krawędź prostokąta w pikselach ekranu.",
+        "w": "Szerokość prostokąta w pikselach ekranu.",
+        "h": "Wysokość prostokąta w pikselach ekranu.",
+        "progressive": "Najpierw narysuj zgrubną wersję, aby obraz pojawił się niemal natychmiast, a potem się wyostrzył.",
+        "quality": "Liczba prostokątów, których może użyć obraz; więcej oznacza ostrzej i wolniej (0,12 s do 1,2 s)."
+      }
+    },
+    "clear_image": {
+      "name": "Wyczyść obraz",
+      "description": "Pomaluj prostokąt kolorem tła wyświetlanej strony. Tylko jednolity kolor: na stronie z tłem obrazkowym prostokąt pozostanie blokiem — zamiast tego zmień stronę.",
+      "fields": {
+        "device": "Urządzenie NSPanel, którego prostokąt ma zostać wyczyszczony. Jeśli pominięte, dotyczy wszystkich urządzeń.",
+        "x": "Lewa krawędź prostokąta w pikselach ekranu.",
+        "y": "Górna krawędź prostokąta w pikselach ekranu.",
+        "w": "Szerokość prostokąta w pikselach ekranu.",
+        "h": "Wysokość prostokąta w pikselach ekranu."
+      }
     }
   }
 }

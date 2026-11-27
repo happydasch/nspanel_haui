@@ -15,6 +15,8 @@ NSPanel HAUI adds actions to Home Assistant, so automations and scripts can cont
 | [`nspanel_haui.wakeup`](#nspanel_hauiwakeup) | Wake the display |
 | [`nspanel_haui.idle`](#nspanel_hauiidle) | Open the idle page |
 | [`nspanel_haui.reset_last_interaction`](#nspanel_hauireset_last_interaction) | Keep the display awake |
+| [`nspanel_haui.show_image`](#nspanel_hauishow_image) | Draw an image on the panel |
+| [`nspanel_haui.clear_image`](#nspanel_hauiclear_image) | Paint an image's rectangle away |
 | [`nspanel_haui.update_tft`](#nspanel_hauiupdate_tft) | Install a display file (TFT) |
 | [`nspanel_haui.update_firmware`](#nspanel_hauiupdate_firmware) | Install firmware |
 
@@ -103,6 +105,92 @@ action: nspanel_haui.reset_last_interaction
 data:
   device: "abc123..."
 ```
+
+## Images on the panel
+
+The panel can show an image that is not part of a panel: a logo, a QR code, a
+weather radar, a small photo. The image is drawn **over the page that is
+currently shown** — it is not a panel of its own, and it is not stored on the
+panel.
+
+Two actions do this:
+
+| Action | What it does |
+|--------|--------------|
+| `nspanel_haui.show_image` | Downloads an image and draws it into a rectangle |
+| `nspanel_haui.clear_image` | Paints that rectangle back to the page's background colour |
+
+### `nspanel_haui.show_image`
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `device` | no | all devices | The panel to draw on |
+| `url` | yes | — | The http(s) address of the image: PNG, JPEG, GIF, BMP or WebP, up to 4 MiB |
+| `x` | yes | — | Left edge of the rectangle, in display pixels |
+| `y` | yes | — | Top edge of the rectangle, in display pixels |
+| `w` | yes | — | Width of the rectangle, in display pixels |
+| `h` | yes | — | Height of the rectangle, in display pixels |
+| `progressive` | no | `true` | Draw a coarse version first, so the image appears at once and then sharpens |
+| `quality` | no | `300` | How many rectangles the image may use, 60–600. More is sharper and slower. |
+
+```yaml
+action: nspanel_haui.show_image
+data:
+  device: "abc123..."
+  url: "https://example.com/logo.png"
+  x: 20
+  y: 60
+  w: 120
+  h: 120
+```
+
+### `nspanel_haui.clear_image`
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `device` | no | all devices | The panel to clear |
+| `x` | yes | — | Left edge of the rectangle, in display pixels |
+| `y` | yes | — | Top edge of the rectangle, in display pixels |
+| `w` | yes | — | Width of the rectangle, in display pixels |
+| `h` | yes | — | Height of the rectangle, in display pixels |
+
+```yaml
+action: nspanel_haui.clear_image
+data:
+  device: "abc123..."
+  x: 20
+  y: 60
+  w: 120
+  h: 120
+```
+
+### What the image looks like
+
+- **It is posterised.** The display link is fast enough for a few hundred
+  rectangles, not for a photograph's pixels, so the image is reduced to at most
+  16 colours and rebuilt from colour blocks. A logo, an icon, a QR code or a
+  chart comes out crisp; a photo comes out as a coarse mosaic.
+- **It takes about half a second.** Every rectangle is one instruction the panel
+  draws in turn. `quality` trades that time for detail: `60` is about 0.12 s and
+  `600` about 1.2 s.
+- **The rectangle decides the detail.** The same budget gives a sharp
+  thumbnail and a coarse full-page mosaic. For a full-page picture, use a panel
+  with a picture background instead. A rectangle of a few hundred pixels is what
+  this is for; if the image is much larger than that, Home Assistant logs a
+  warning that it will look blocky.
+- **The image keeps its aspect ratio.** It is fitted into the rectangle and the
+  margins are filled with the page's background colour.
+- **It disappears on the next page change** — opening a panel, going to the idle
+  page, a notification, any re-render of that page. Call the action again if the
+  image should stay.
+- **`clear_image` only paints a flat colour.** On a page whose background is a
+  picture (clock, clock two, weather) the rectangle stays a visible block; change
+  the page instead.
+- **It needs firmware 0.6.0** or later: the panel's firmware draws the program
+  the hub prepares. On older firmware the action fails with the version it needs
+  instead of silently drawing nothing.
+- **It is not drawn during a display update.** While a TFT install is running the
+  action is refused; the panel is rebooting its display anyway.
 
 ## Notifications
 

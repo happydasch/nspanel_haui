@@ -100,7 +100,11 @@ class HAUIESPHomeController(HAUIBase):
         # Dedup only single commands; batches are deduped in haui_base and
         # transport dedup would drop chunks.
         dedup_key = (bare_cmd, value if isinstance(value, str) else str(value))
-        if bare_cmd != "send_commands" and not force and self.prev_cmd == dedup_key:
+        if (
+            bare_cmd not in (ESPAction.SEND_COMMANDS, ESPAction.DRAW_RUNS)
+            and not force
+            and self.prev_cmd == dedup_key
+        ):
             self.log(
                 f"Dropping identical consecutive message: {bare_cmd}/{value}",
                 level="WARNING",
@@ -117,10 +121,14 @@ class HAUIESPHomeController(HAUIBase):
         elif published and bare_cmd == ESPAction.SEND_COMMANDS:
             for command in value if isinstance(value, list) else [value]:
                 self._record_page_command(str(command))
+        elif published and bare_cmd == ESPAction.DRAW_RUNS:
+            runs = value if isinstance(value, list) else [value]
+            self._record_draw_program([str(run) for run in runs])
         if published and bare_cmd in (
             ESPAction.SEND_COMMAND,
             ESPAction.SEND_COMMANDS,
             ESPAction.GOTO_PAGE,
+            ESPAction.DRAW_RUNS,
         ):
             self.app.publish_preview_output(bare_cmd, value)
         # Only a command the device got may hold back the same one next time.
@@ -160,6 +168,19 @@ class HAUIESPHomeController(HAUIBase):
         target = command_target(command)
         self._page_commands.pop(target, None)
         self._page_commands[target] = command
+
+    def _record_draw_program(self, runs: list[str]) -> None:
+        """Replace the replayable image program with ``runs``.
+
+        Each ``fill`` is its own target (it sets no attribute), so the previous
+        program would otherwise stay in the replay and paint over — or under —
+        the new one. One image program on the page is the whole point: a viewer
+        that attaches late sees the same picture the panel shows.
+        """
+        for target in [t for t in self._page_commands if t.startswith("fill ")]:
+            del self._page_commands[target]
+        for run in runs:
+            self._record_page_command(str(run))
 
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.

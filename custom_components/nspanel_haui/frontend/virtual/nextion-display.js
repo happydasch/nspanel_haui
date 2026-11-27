@@ -267,6 +267,21 @@ export class NextionDisplay {
         this._changed();
         return;
       }
+      case 'fill': {
+        // The hub's image program: `fill x,y,w,h,color` — width and height, not
+        // a second corner (the Nextion instruction set's own example:
+        // `fill 20,20,150,50,1024` paints 150x50 from (20,20)). Painting the
+        // same rectangle again replaces the previous fill, so a refined image
+        // does not accumulate runs.
+        const [x, y, w, h, color] = args;
+        const fill = { kind: 'fill', x, y, w, h, color };
+        this.drawings = this.drawings.filter(
+          d => d.kind !== 'fill' || d.x !== x || d.y !== y || d.w !== w || d.h !== h,
+        );
+        this.drawings.push(fill);
+        this._changed();
+        return;
+      }
       case 'ref': {
         // Redrawing a widget paints over shapes drawn on top of it.
         const { x, y, w, h } = this._commandTarget(args[0]).attrs;

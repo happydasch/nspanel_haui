@@ -157,6 +157,31 @@ test('timers stop when the page changes', () => {
   assert.equal(scheduler.timers.size, 0);
 });
 
+test('a hub draw program paints fills and a repeated rectangle replaces itself', () => {
+  const { display } = makeDisplay();
+  display.gotoPage('grid');
+  // `fill x,y,w,h,color` — width/height, as the Nextion instruction set defines it.
+  display.exec('fill 10,20,20,20,65535');
+  assert.deepEqual(display.drawings.map(d => d.kind), ['fill']);
+  const drawn = display.drawings[0];
+  assert.deepEqual([drawn.x, drawn.y, drawn.w, drawn.h, drawn.color], [10, 20, 20, 20, 65535]);
+  // The progressive pass paints the same cells again at the same geometry.
+  display.exec('fill 10,20,20,20,65535');
+  assert.equal(display.drawings.length, 1);
+  // A different rectangle is a second fill, not a replacement.
+  display.exec('fill 30,20,20,20,2016');
+  assert.equal(display.drawings.length, 2);
+});
+
+test('a fill survives a page command batch but not the next page', () => {
+  const { display } = makeDisplay();
+  display.gotoPage('clock');
+  display.exec(['fill 0,0,480,320,4226', 'tTime.txt="12:00"']);
+  assert.equal(display.drawings.length, 1);
+  display.gotoPage('grid');
+  assert.equal(display.drawings.length, 0);
+});
+
 test('ref clears shapes drawn over a widget', () => {
   const { display } = makeDisplay();
   display.gotoPage('light');

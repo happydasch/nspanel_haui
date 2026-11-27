@@ -197,7 +197,11 @@ Unscheduled candidates remain here until they are selected for a release.
   set may be the first step. Done: a grid item shows a custom image on both
   display models, survives an update, and falls back to its MDI icon when the
   image is missing. *Area: Icons.*
-  ([#105](https://github.com/happydasch/nspanel_haui/issues/105))
+  ([#105](https://github.com/happydasch/nspanel_haui/issues/105)) — the live
+  path for an arbitrary image is separate and shipped (
+  [Images on the panel](docs/user/actions.md#images-on-the-panel)): it draws
+  over the page instead of replacing an item's icon, and stays a mosaic at
+  icon size, so crisp per-item assets are still wanted.
 
 ### Display and idle behaviour
 

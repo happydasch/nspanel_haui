@@ -212,6 +212,31 @@
           "description": "Optional http(s) URL of a firmware OTA image (firmware.ota.bin, not the factory image). Cannot be combined with Version."
         }
       }
+    },
+    "show_image": {
+      "name": "Show image",
+      "description": "Draw an image into a rectangle on the page the panel is showing. The image is reduced to at most 16 colours and a few hundred rectangles, drawn in about half a second, and it disappears on the next page change. Best for logos, icons and graphics; a full-screen photo becomes a mosaic.",
+      "fields": {
+        "device": "NSPanel device to draw on. If omitted, applies to all devices.",
+        "url": "http(s) URL of the image (PNG, JPEG, GIF, BMP, WebP).",
+        "x": "Left edge of the rectangle, in display pixels.",
+        "y": "Top edge of the rectangle, in display pixels.",
+        "w": "Width of the rectangle, in display pixels.",
+        "h": "Height of the rectangle, in display pixels.",
+        "progressive": "Draw a coarse version first, so the image appears almost at once and then sharpens.",
+        "quality": "How many rectangles the image may use; more is sharper and slower (0.12 s to 1.2 s)."
+      }
+    },
+    "clear_image": {
+      "name": "Clear image",
+      "description": "Paint a rectangle back to the background colour of the page the panel is showing. Only a flat colour: on a page whose background is a picture the rectangle stays a block, so change the page instead.",
+      "fields": {
+        "device": "NSPanel device whose rectangle is cleared. If omitted, applies to all devices.",
+        "x": "Left edge of the rectangle, in display pixels.",
+        "y": "Top edge of the rectangle, in display pixels.",
+        "w": "Width of the rectangle, in display pixels.",
+        "h": "Height of the rectangle, in display pixels."
+      }
     }
   }
 }

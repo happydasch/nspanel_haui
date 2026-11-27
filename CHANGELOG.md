@@ -11,11 +11,19 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [Unreleased]
 
+### Added
+
+- Hub: `nspanel_haui.show_image` draws an image into a rectangle on whatever page the panel is showing — the hub downloads it, reduces it to at most 16 colours and a few hundred `fill` rectangles and hands that program to a new firmware action (`draw_runs`), which streams it through the display pacer in about half a second — and `nspanel_haui.clear_image` paints the rectangle back to the page's background colour; a logo, an icon, a QR code or a chart comes out crisp, a photograph as a coarse mosaic, and neither the HMI nor the TFT changes ([Images on the panel](docs/user/actions.md#images-on-the-panel), [firmware surface](docs/develop/esphome.md#actions)).
+
 ### Changed
 
 - Editor: badges, count bubbles, the repeat count and the item type chip take their own type step one below the caption — `--haui-text-badge` at 11px — so a pill sits inside the row's text instead of competing with the meta line beside it ([Visual foundations](docs/develop/frontend-visuals.md#text-sizes)).
 - Editor: the inventory footer's update and integration-version figures line up at the card's end, the way the events footer's actions close the card beside it
 - Editor: **Live** ends by itself the moment the editor moves away from the preview it belongs to — switching device, opening the **Panels** view or Fleet, or any sidebar such as **Edit panel** — so an edit never runs against the panel on screen, and returning to the preview shows Simulated again instead of resuming a live session behind a sidebar ([The Live Preview](docs/user/editor/README.md#the-live-preview)).
+
+### Fixed
+
+- Editor: a Simulated preview's states end with the preview itself — leaving it for another device, the **Panels** view, Fleet or a sidebar, or closing the browser tab, drops them instead of leaving them on the device's virtual app for the next ten idle minutes, where a card render drew a simulated state as the panel's own; **Reset sandbox** in the Diagnostics card still does the same while the preview stays open ([The Live Preview](docs/user/editor/README.md#the-live-preview)).
 
 ## [0.5.8] — 2026-11-27
 

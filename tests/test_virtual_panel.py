@@ -519,6 +519,32 @@ def test_reset_sandbox_drops_simulated_states(session, env):
     assert session.app.sandbox.get("light.lamp").state == "off"
 
 
+def test_the_last_preview_closing_drops_the_simulated_states(session, env):
+    _tap_power(session)
+    _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))
+
+    env.loop.call_soon_threadsafe(lambda: session.detach("viewer"))
+
+    # Nothing shows the sandbox any more, and a card render reading the shared
+    # app would show the simulated state as the panel's own.
+    _wait(lambda: not session.app.sandbox.has_changes)
+    assert session.app.sandbox.get("light.lamp").state == "off"
+
+
+def test_a_preview_closing_keeps_the_states_another_one_shows(session, env):
+    _tap_power(session)
+    _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))
+
+    late: list[dict] = []
+    env.loop.call_soon_threadsafe(lambda: session.attach("late", late.append))
+    _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in late)
+
+    assert session.detach("late")
+    # The device's previews share one sandbox: it goes with the last one only.
+    _run(env, session.app.async_run_on_worker(lambda: None))
+    assert session.app.sandbox.is_simulated("light.lamp")
+
+
 def test_no_bus_events_reach_automations(session, env):
     _tap_power(session)
     _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))

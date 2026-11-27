@@ -1024,6 +1024,7 @@ class HAUINavigationController(HAUIBase):
             ESPEvent.DISPLAY_ON: self._handle_display_on_event,
             ESPEvent.DISPLAY_OFF: self._handle_display_off_event,
             ESPEvent.BUFFER_OVERFLOW: self._handle_buffer_overflow_event,
+            ESPEvent.RES_DRAW: self._handle_res_draw_event,
         }
         handler = handlers.get(event.name)
         if handler is not None:
@@ -1107,6 +1108,19 @@ class HAUINavigationController(HAUIBase):
         """
         if self.page:
             self.unset_page()
+
+    def _handle_res_draw_event(self, event: HAUIEvent) -> None:
+        """esphome.res_draw — a draw program ended, with its drained time.
+
+        The firmware measures from the first run it queued to the readback that
+        can only answer after the last one was sent, so this is the figure to
+        tune the pacing from (``runs * command_spacing``) instead of a guess.
+        """
+        payload = event.as_json()
+        self.log(
+            f"Draw program finished: {payload.get('runs', 0)} runs, "
+            f"ok={payload.get('ok', False)}, {payload.get('elapsed_ms', 0)} ms"
+        )
 
     def _handle_buffer_overflow_event(self, _event: HAUIEvent) -> None:
         """esphome.buffer_overflow — Nextion RX buffer overflowed, commands lost.

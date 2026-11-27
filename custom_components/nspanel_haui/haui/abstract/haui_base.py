@@ -267,6 +267,26 @@ class HAUIBase(HAUIConfigAccess):
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.send_cmds(cmds)
 
+    def draw_runs(self, runs: list[str]) -> None:
+        """Paint an image: one program of ``fill`` instructions.
+
+        A program is not a command batch: the firmware's ``draw_runs`` action
+        streams it to the display through the pacer, which a ``send_cmds`` chunk
+        would blow past. Refused during a TFT install for the same reason every
+        other display command is.
+
+        Args:
+            runs: ``fill`` instructions, in the order they are painted.
+        """
+        if not runs:
+            return
+        if self._display_busy():
+            self.log(f"Dropped {len(runs)} draw run(s) during a TFT install", level="DEBUG")
+            return
+        self.log(f"draw_runs: {len(runs)} instruction(s)", level="DEBUG")
+        self.app._last_panel_update = datetime.now(UTC).isoformat()
+        self.display.draw_runs(runs)
+
     def set_component_text(self, component: Component, text: str) -> None:
         """Sends a command to set the text of a component.
 

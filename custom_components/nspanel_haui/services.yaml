@@ -306,3 +306,155 @@ reset_last_interaction:
           max: 3600
           unit_of_measurement: "s"
           mode: box
+
+# ── nspanel_haui.show_image ──────────────────────────────────
+show_image:
+  name: Show image
+  description: >-
+    Draw an image into a rectangle on the page the panel is showing.  The
+    image is reduced to at most 16 colours and a few hundred rectangles,
+    drawn in about half a second, and it disappears on the next page change.
+    Best for logos, icons and graphics; a full-screen photo becomes a mosaic.
+  fields:
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
+      selector:
+        device:
+          integration: nspanel_haui
+    url:
+      name: "URL"
+      description: "http(s) URL of the image (PNG, JPEG, GIF, BMP, WebP)."
+      required: true
+      example: "https://www.home-assistant.io/images/favicon-192x192.png"
+      selector:
+        text:
+          type: url
+    x:
+      name: "X"
+      description: "Left edge of the rectangle, in display pixels."
+      required: true
+      example: 20
+      selector:
+        number:
+          min: 0
+          max: 479
+          unit_of_measurement: "px"
+          mode: box
+    y:
+      name: "Y"
+      description: "Top edge of the rectangle, in display pixels."
+      required: true
+      example: 20
+      selector:
+        number:
+          min: 0
+          max: 319
+          unit_of_measurement: "px"
+          mode: box
+    w:
+      name: "Width"
+      description: "Width of the rectangle, in display pixels."
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: "px"
+          mode: box
+    h:
+      name: "Height"
+      description: "Height of the rectangle, in display pixels."
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: "px"
+          mode: box
+    progressive:
+      name: "Progressive"
+      description: >-
+        When on, a coarse version of the image is drawn first, so it appears
+        almost at once and then sharpens.
+      required: false
+      default: true
+      selector:
+        boolean:
+    quality:
+      name: "Quality"
+      description: >-
+        How many rectangles the image may use.  More is sharper and slower:
+        60 runs take about 0.12 s, 600 about 1.2 s.
+      required: false
+      default: 300
+      selector:
+        number:
+          min: 60
+          max: 600
+          unit_of_measurement: "runs"
+          mode: slider
+
+# ── nspanel_haui.clear_image ─────────────────────────────────
+clear_image:
+  name: Clear image
+  description: >-
+    Paint a rectangle back to the background colour of the page the panel is
+    showing.  Only a flat colour: on a page whose background is a picture the
+    rectangle stays a block, so change the page instead.
+  fields:
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
+      selector:
+        device:
+          integration: nspanel_haui
+    x:
+      name: "X"
+      description: "Left edge of the rectangle, in display pixels."
+      required: true
+      example: 20
+      selector:
+        number:
+          min: 0
+          max: 479
+          unit_of_measurement: "px"
+          mode: box
+    y:
+      name: "Y"
+      description: "Top edge of the rectangle, in display pixels."
+      required: true
+      example: 20
+      selector:
+        number:
+          min: 0
+          max: 319
+          unit_of_measurement: "px"
+          mode: box
+    w:
+      name: "Width"
+      description: "Width of the rectangle, in display pixels."
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: "px"
+          mode: box
+    h:
+      name: "Height"
+      description: "Height of the rectangle, in display pixels."
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: "px"
+          mode: box
+

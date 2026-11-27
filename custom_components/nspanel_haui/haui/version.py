@@ -4,6 +4,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from packaging.version import InvalidVersion, Version
+
 # Contract version between the firmware and the hub. The firmware reports its
 # own copy in the handshake and the device state. Bump the major version only
 # for an incompatible change to the handshake or the event payloads.
@@ -52,3 +54,25 @@ def integration_version_mismatch(
     if not integration_version or not firmware_version:
         return None
     return integration_version != firmware_version
+
+
+# The first firmware whose yaml config carries the ``draw_runs`` action
+# (``esphome/nspanel_haui/image.yaml``), i.e. the first one that can paint an
+# image. A version below it names no service on the device, and ``publish()``
+# only logs a warning for an unknown action — the image would silently not
+# appear, so the service refuses instead.
+DRAW_RUNS_FIRMWARE_VERSION = "0.6.0.dev1"
+
+
+def firmware_supports_draw_runs(version: str | None) -> bool:
+    """Whether a panel's firmware can stream a draw program.
+
+    Empty or unparseable means unknown, which is refused: an older build cannot
+    paint, and the user needs the firmware upgrade message instead of a no-op.
+    """
+    if not isinstance(version, str) or not version:
+        return False
+    try:
+        return Version(version) >= Version(DRAW_RUNS_FIRMWARE_VERSION)
+    except InvalidVersion:
+        return False

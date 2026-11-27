@@ -11,6 +11,7 @@ packages:
   scripts_interaction: !include scripts_interaction.yaml
   scripts_display: !include scripts_display.yaml
   scripts_event: !include scripts_event.yaml
+  image: !include image.yaml
   api: !include api.yaml
   button: !include button.yaml
   number: !include number.yaml

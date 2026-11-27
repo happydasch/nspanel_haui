@@ -25,6 +25,9 @@ _spec.loader.exec_module(dev_version)
 def test_derives_dev_version_from_stable_and_previous_dev():
     assert dev_version.derive_dev_version("0.4.4", 17) == "0.4.5.dev17"
     assert dev_version.derive_dev_version("0.4.5.dev16", 17) == "0.4.5.dev17"
+    # A new cycle starts from its own first dev version, so its builds stay below
+    # the release they work toward instead of sorting above it.
+    assert dev_version.derive_dev_version("0.6.0.dev0", 17) == "0.6.0.dev17"
 
 
 def test_rejects_unsupported_branch_version():

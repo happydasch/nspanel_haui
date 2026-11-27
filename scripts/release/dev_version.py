@@ -9,11 +9,13 @@ from ``dev`` all report the same version.
 The base advances with the release: the newest ``vX.Y.Z`` tag reachable from HEAD
 gives ``X.Y.(Z+1)``, so the first build after a release is that release's
 successor and a patch cycle needs no bump commit. A minor or major cycle passes
-its base explicitly (``--base 0.6.0``).
+its base explicitly, as that cycle's first dev version (``--base 0.6.0.dev0``),
+because a dev base keeps its own ``X.Y.Z`` while a stable one is read as its next
+patch.
 
 Usage:
-    python -m scripts.release.dev_version 77                # from the newest tag
-    python -m scripts.release.dev_version 77 --base 0.6.0    # a new cycle
+    python -m scripts.release.dev_version 77                     # from the newest tag
+    python -m scripts.release.dev_version 77 --base 0.6.0.dev0    # a new cycle
 """
 
 from __future__ import annotations

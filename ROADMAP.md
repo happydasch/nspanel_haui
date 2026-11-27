@@ -1,7 +1,8 @@
 # Roadmap
 
-Development trajectory from **v0.5** toward **v1.0**. The last stable release is
-**v0.5.8** (2026-11-27).
+Development trajectory from **v0.6** toward **v1.0**. The last stable release is
+**v0.5.8** (2026-11-27); the **v0.5** cycle it closed is recorded in the
+[changelog](CHANGELOG.md).
 
 This file is the project's **direction**, not its backlog: the horizons it is
 moving through and what every stable release must prove. Concrete features —
@@ -16,14 +17,13 @@ architectural invariants it holds are in
 ## Horizons
 
 Each horizon is a theme, not a list. The concrete features behind them are in
-the [feature wishlist](FEATURE_WISHLIST.md), grouped in the same order: v0.5.x
-in development, v0.6 next, then reaching a stable v1.0.
+the [feature wishlist](FEATURE_WISHLIST.md), grouped in the same order: v0.6 in
+development, then reaching a stable v1.0.
 
 | Horizon | Theme | What it means |
 |---|---|---|
-| **Now — v0.5.x** | Speed and weight, Recoverability and ownership | 0.5.7 lands the 921600 display link, keeps the display assets out of every download and paints body foregrounds from the TFT; the Nextion side is inventoried and cleaned up. The **Repair display** action, its manifest `repair` block and both one-page repair TFTs shipped in 0.5.8, so a release installs the minimal file first and the TFT the firmware needs right after it, and a display that takes no ordinary file is recovered from the editor — though the run on a display that refuses its ordinary TFT is still the gate it shipped ahead of (see *Release gates*). Hub-scoped settings are editable in Home Assistant now: **Configure** on the integration card renames the hub and sets the display defaults every panel inherits, while per-device settings stay in the editor ([Hub settings](../user/hub-settings.md)). The boot scan and the install retry that 0.5.7 adds stay insurance for the silent display, and no panel has needed either yet. Removing the vendored Nextion patch waits on an ESPHome release that carries the TFT upload retry, so it left the cycle for the wishlist's *Firmware and dependencies*. |
-| **Next — v0.6** | Content and everyday use | The panels people keep asking for but do not have (a fan, a graph, free text), a refreshed and larger background set, and the small options that decide whether a panel feels finished. |
-| **v1.0 — stable** | Trust | Bugs closed, documentation complete, listed in the Marketplace catalog, REST API documented and frozen. |
+| **Now — v0.6** | Content and everyday use | 0.5 closed with v0.5.8, which shipped the 921600 display link, kept the display assets out of every download, painted body foregrounds from the TFT, added the hub's own settings on the integration card and the display repair path; the four hardware gates it opened stay listed below until they are proved. 0.6 turns to content: the panels people keep asking for but do not have (a fan, a graph, free text), a refreshed and larger background set, and the small options that decide whether a panel feels finished, each with its done-means sentence in the [feature wishlist](FEATURE_WISHLIST.md). |
+| **v1.0 — stable** | Trust | Bugs closed, documentation complete, listed in the Marketplace catalog, REST API documented and frozen. The cycles between 0.6 and it are set one at a time, each when the one before it closes. |
 
 ## One TFT per display model
 

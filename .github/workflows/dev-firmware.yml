@@ -11,7 +11,8 @@ on:
     inputs:
       base:
         description: >-
-          Base version for a new minor or major cycle (for example 0.6.0). Empty
+          Base version for a new minor or major cycle, as that cycle's first dev
+          version (for example 0.6.0.dev0, which builds 0.6.0.dev<run>). Empty
           continues the newest vX.Y.Z tag as its next patch.
         type: string
         default: ""

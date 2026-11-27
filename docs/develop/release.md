@@ -60,7 +60,7 @@ Semantic Versioning, and every version string the tooling writes must parse as P
 | `nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft` | the embedded `system.tftVersion` | recompiled in the Nextion Editor |
 
 - `yaml_version` and `tft_version` are independent serials. The firmware reports the latter as `tft_required_version`, so a display fix can require a newer TFT than the firmware it ships with. Never rewrite the TFT version to match the firmware version.
-- `--tft-update` writes the **release** version into `tft_version`, so it is the wrong tool once the display serial has run ahead of the integration: both TFTs carry `1.1.0` while the integration is `0.5.8`, and running `python -m scripts.bump_version 0.5.9 --tft-update` would require the older `0.5.9` and send every panel an 11.5 MB download whose version counts backwards. Bump the display serial forward with `python -m scripts.bump_tft_version --version <serial>`, set `tft_version` to the same value by hand, and leave `--tft-update` for a release whose display serial is still the release version.
+- `--tft-update` writes the **release** version into `tft_version`, so it is the wrong tool once the display serial has run ahead of the integration: both TFTs carry `1.1.0`, and running `python -m scripts.bump_version 0.6.0 --tft-update` would require the older `0.6.0` and send every panel an 11.5 MB download whose version counts backwards. Bump the display serial forward with `python -m scripts.bump_tft_version --version <serial>`, set `tft_version` to the same value by hand, and leave `--tft-update` for a release whose display serial is still the release version.
 - `hub_api_version` is a third, separate number (currently `1.0`, in `esphome/nspanel_haui/version.yaml` and `haui/version.py`). It describes the handshake and event contract, and only an incompatible change to either bumps its major part.
 - A TFT change committed under an unchanged `tft_version` never reaches a panel that already reports that version. `scripts/verify_nextion/check_hmi_bump.py` fails the `tests (3.14)` job when an HMI or a TFT changed against the PR base and `tft_version` did not advance.
 - Stable tags are `vX.Y.Z`, and the prepared notes file is named after the tag. `release.yml` fires on any `v*` tag and its preflight refuses one whose commit is not reachable from `master`, so a tag on a development commit can never become the latest stable release. A manual dispatch works only on a `v*` ref.
@@ -74,8 +74,10 @@ A TFT change that lands under no release needs its own bump before the next buil
 Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The build takes the run number as a PEP 440 dev version, writes it into `manifest.json` and `version.yaml`, compiles the universal image, commits that bump to `dev`, tags the commit, publishes it as a prerelease and prunes the older ones:
 
 ```text
-base version   the newest vX.Y.Z tag as its next patch, or the `base` input (0.6.0)
-version        X.Y.(Z+1).dev<run>, one string for branch, image, tag and manifest
+base version   the newest vX.Y.Z tag as its next patch, or the `base` input for a
+               new cycle (0.6.0.dev0)
+version        the base as a dev version: X.Y.Z.dev<run>, one string for branch,
+               image, tag and manifest
 verified       the compiled OTA reports that version before anything is published
 committed      one bot commit on dev: manifest.json + version.yaml
 published      prerelease, not marked latest, both firmware images + both TFTs + manifest
@@ -83,7 +85,9 @@ pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stabl
                release never leaves the Marketplace's or the hub's release lists
 ```
 
-A minor or major cycle passes its base explicitly (`base: 0.6.0`); a patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev` and fails before the compile on any other ref — pick `dev` in the dispatch form, which preselects `master`, the repository default — so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
+A minor or major cycle passes its base explicitly, as that cycle's first dev version: `base: 0.6.0.dev0` builds `0.6.0.dev<run>`, the way every dev build of the cycle stays below the `0.6.0` it targets. A stable base is read as *its* next patch, so `base: 0.6.0` would build `0.6.1.dev<run>` and sort above the release the cycle is working toward. A patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev` and fails before the compile on any other ref — pick `dev` in the dispatch form, which preselects `master`, the repository default — so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
+
+Opening a cycle is one commit on `dev` before its first dispatch: `ROADMAP.md` and `FEATURE_WISHLIST.md` name the new horizon, and `python -m scripts.bump_version X.Y.0.dev0` starts the version, so an integration installed from `dev` already reports the new cycle and no panel sees the closing patch's next number. Every later build repeats that branch version with its own run number.
 
 The bot commit is what makes a branch install work: the integration installed from `dev` (or from the tagged source) reports the same version as the firmware, and the hub finds the release's TFT manifest by that version. `pyproject.toml` and `tft_version` keep their released values until the stable prep, which moves them with the release.
 
@@ -155,10 +159,10 @@ make esphome-config     # CONFIG defaults to esphome/nspanel_haui_universal.yaml
 
 ```bash
 git switch dev && git pull
-git switch -c release/0.5.8
-python -m scripts.bump_version 0.5.8                      # firmware-only release
-python -m scripts.bump_version 0.5.8 --tft-update         # release with a new TFT
-python -m scripts.bump_version 0.5.8 --check --tft-update # dry run
+git switch -c release/0.6.0
+python -m scripts.bump_version 0.6.0                      # firmware-only release
+python -m scripts.bump_version 0.6.0 --tft-update         # release with a new TFT
+python -m scripts.bump_version 0.6.0 --check --tft-update # dry run
 ```
 
 Every run updates `manifest.json`, `pyproject.toml` and `yaml_version`; only `--tft-update` also writes ESPHome `tft_version` and both HMI `system.tftVersion` values, which is legal only for a same-length version — a length-changing bump needs the Nextion Editor. Recompile both TFTs after `--tft-update`. Merge the prep branch into `dev` (`gh pr create --base dev`, merge commit) so the promotion carries the bump.
@@ -200,8 +204,8 @@ Then tag the merge commit from a checkout of the canonical repository:
 
 ```bash
 git switch master && git pull
-git tag -a v0.5.8 -m "NSPanel HAUI 0.5.8"
-git push origin v0.5.8
+git tag -a v0.6.0 -m "NSPanel HAUI 0.6.0"
+git push origin v0.6.0
 ```
 
 `release.yml` refuses a `v*` tag whose commit is not on `master`, so a tag pushed to a development commit fails its preflight instead of publishing.

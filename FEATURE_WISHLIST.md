@@ -9,10 +9,10 @@ picture like this:
   and declined — plus the open scope decisions.
 - [`CHANGELOG.md`](CHANGELOG.md) — What has shipped.
 
-Sections follow the roadmap's horizons. v0.5.x is in development now, covering
-speed, recovery and ownership; v0.6 is next, focused on new panels and the options
-that make them feel finished. Everything else stays in the open pool until it is
-selected. A candidate is promoted by moving it into a version section with a
+Sections follow the roadmap's horizons. v0.6 is in development now, focused on
+new panels, a bigger background set and the options that make them feel
+finished. Everything else stays in the open pool until it is selected. A
+candidate is promoted by moving it into a version section with a
 done-means sentence; when it ships it is recorded in `CHANGELOG.md` and the
 entry is deleted, so nothing here describes something that already works.
 
@@ -26,20 +26,7 @@ Requests arrive as GitHub issues and in
 the pool does not depend on a thread staying visible — with a pointer back to the
 discussion it came from when there is one.
 
-## v0.5.x — In development now
-
-Speed, recovery and ownership: the 921600 display link, smaller downloads and
-theme foreground globals all land in 0.5.7 — a solid page now paints its body
-foregrounds from the TFT itself, so the row page opens in 9 display commands
-instead of 40. Hub-scoped settings landed with the options flow, so a hub is
-renamed in Home Assistant and the display defaults every panel inherits are set
-there too. Display repair landed with the cycle: 0.5.8 installs a one-page
-repair TFT for the panel's display model and then the normal file. Removing the
-vendored Nextion patch needs an ESPHome release that carries the TFT upload
-retry, so it is not tied to a horizon
-([Firmware and dependencies](#firmware-and-dependencies)).
-
-## v0.6 — Next
+## v0.6 — In development now
 
 Content and everyday use: new panel types people keep asking for but do not have
 (a fan, a graph, free text), a refreshed and larger background set, plus options
@@ -347,9 +334,9 @@ capacity allows, not tied to a horizon.
   `tft_upload_display_fault()` flag that decides whether a failure is worth
   retrying at 115200 bps. The flag is worth filing upstream with the retry, since
   a lower rate is a caller's decision; the error strings are ours either way.
-  Deferred from v0.5.x, since no released ESPHome carries the retry yet; after
-  one does: bump `min_version` and `requirements-esphome.txt` together, delete
-  the directory and its `external_components` blocks and re-validate the
+  Left open by the v0.5 cycle, since no released ESPHome carries the retry yet;
+  after one does: bump `min_version` and `requirements-esphome.txt` together,
+  delete the directory and its `external_components` blocks and re-validate the
   firmware config and a compile. *Area: Dependencies.*
 
 ### Release tooling

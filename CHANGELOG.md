@@ -775,6 +775,7 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
+[0.5.8]: https://github.com/happydasch/nspanel_haui/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/happydasch/nspanel_haui/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/happydasch/nspanel_haui/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/happydasch/nspanel_haui/compare/v0.5.4...v0.5.5

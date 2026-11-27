@@ -9,7 +9,7 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-## [Unreleased]
+## [0.5.8] — 2026-11-27
 
 ### Added
 

@@ -117,7 +117,7 @@ Two actions do this:
 
 | Action | What it does |
 |--------|--------------|
-| `nspanel_haui.show_image` | Downloads an image and draws it into a rectangle |
+| `nspanel_haui.show_image` | Draws an image from a URL or from a file into a rectangle |
 | `nspanel_haui.clear_image` | Paints that rectangle back to the page's background colour |
 
 ### `nspanel_haui.show_image`
@@ -125,13 +125,14 @@ Two actions do this:
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `device` | no | all devices | The panel to draw on |
-| `url` | yes | — | The http(s) address of the image: PNG, JPEG, GIF, BMP or WebP, up to 4 MiB |
+| `url` | one of the two | — | The http(s) address of the image: PNG, JPEG, GIF, BMP or WebP, up to 4 MiB |
+| `path` | one of the two | — | The image as a file in the `www` folder of your configuration, for example `logo.png` for `www/logo.png` |
 | `x` | yes | — | Left edge of the rectangle, in display pixels |
 | `y` | yes | — | Top edge of the rectangle, in display pixels |
 | `w` | yes | — | Width of the rectangle, in display pixels |
 | `h` | yes | — | Height of the rectangle, in display pixels |
 | `progressive` | no | `true` | Draw a coarse version first, so the image appears at once and then sharpens |
-| `quality` | no | `300` | How many rectangles the image may use, 60–600. More is sharper and slower. |
+| `quality` | no | `300` | How many rectangles the image may use, 60–769. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
 
 ```yaml
 action: nspanel_haui.show_image
@@ -143,6 +144,23 @@ data:
   w: 120
   h: 120
 ```
+
+```yaml
+action: nspanel_haui.show_image
+data:
+  device: "abc123..."
+  path: "logo.png"    # the file www/logo.png in your configuration
+  x: 20
+  y: 60
+  w: 120
+  h: 120
+```
+
+Give exactly one of `url` and `path`. `path` needs no web server: put the file
+in the `www` folder of your configuration folder (create it if it is not there)
+and name it relative to that folder — the same file Home Assistant already
+publishes at `/local/logo.png`. A `www/` prefix is accepted, and anything that
+points outside the folder is refused.
 
 ### `nspanel_haui.clear_image`
 
@@ -166,18 +184,20 @@ data:
 
 ### What the image looks like
 
-- **It is posterised.** The display link is fast enough for a few hundred
-  rectangles, not for a photograph's pixels, so the image is reduced to at most
-  16 colours and rebuilt from colour blocks. A logo, an icon, a QR code or a
-  chart comes out crisp; a photo comes out as a coarse mosaic.
+- **It is rebuilt from rectangles, not pixels.** The display link is fast enough
+  for a few hundred rectangles, not for a photograph's pixels, so the image is
+  drawn as blocks in the display's own 65 536 colours — gradients stay gradients.
+  A logo, an icon, a QR code or a chart comes out crisp; a photo comes out as a
+  coarse mosaic.
 - **It takes about half a second.** Every rectangle is one instruction the panel
   draws in turn. `quality` trades that time for detail: `60` is about 0.12 s and
-  `600` about 1.2 s.
-- **The rectangle decides the detail.** The same budget gives a sharp
-  thumbnail and a coarse full-page mosaic. For a full-page picture, use a panel
-  with a picture background instead. A rectangle of a few hundred pixels is what
-  this is for; if the image is much larger than that, Home Assistant logs a
-  warning that it will look blocky.
+  `300` about 0.6 s, and the top of its range is as fine as the panel's
+  20 000-character program allows — about 1.5 s.
+- **The rectangle decides the detail.** The block never gets finer than one
+  display pixel, so a rectangle of a few hundred pixels is drawn at the screen's
+  own resolution, while the same budget over the whole page gives a coarse mosaic
+  (that is what a panel with a picture background is for). If the image comes out
+  blocky, Home Assistant logs a warning with the block size it reached.
 - **The image keeps its aspect ratio.** It is fitted into the rectangle and the
   margins are filled with the page's background colour.
 - **It disappears on the next page change** — opening a panel, going to the idle

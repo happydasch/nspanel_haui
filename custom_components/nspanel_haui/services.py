@@ -10,6 +10,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import probatio as vol
@@ -25,8 +26,7 @@ from .haui.utils.image_program import (
     ImageProgramError,
     Rect,
     display_size,
-    estimated_cell_px,
-    image_runs,
+    image_plan,
 )
 from .haui.version import DRAW_RUNS_FIRMWARE_VERSION, firmware_supports_draw_runs
 
@@ -47,6 +47,11 @@ ANSWER_TIMEOUT_SECONDS = 5.0
 # past anything the display can show.
 IMAGE_MAX_BYTES = 4 * 1024 * 1024
 IMAGE_FETCH_TIMEOUT_SECONDS = 15
+# A local image is read from the folder Home Assistant already serves at
+# ``/local``, so a file dropped in ``<config>/www`` needs no web server — and
+# nothing outside that folder is reachable, so a path cannot read the rest of
+# the configuration directory.
+IMAGE_LOCAL_ROOT = "www"
 
 # ── Service names ────────────────────────────────────────────
 SERVICE_OPEN_PANEL = "open_panel"
@@ -122,21 +127,48 @@ SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
         vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     }
 )
-# The rectangle a draw call paints is required: an image has no default place,
-# and a guessed one would paint over a panel's widgets.
-SERVICE_SHOW_IMAGE_SCHEMA = vol.Schema(
-    {
-        vol.Optional("device", default=None): vol.Any(str, None),
-        vol.Required("url"): cv.url,
-        vol.Required("x"): vol.All(vol.Coerce(int), vol.Range(min=0)),
-        vol.Required("y"): vol.All(vol.Coerce(int), vol.Range(min=0)),
-        vol.Required("w"): vol.All(vol.Coerce(int), vol.Range(min=1)),
-        vol.Required("h"): vol.All(vol.Coerce(int), vol.Range(min=1)),
-        vol.Optional("progressive", default=True): cv.boolean,
-        vol.Optional("quality", default=RUN_BUDGET): vol.All(
-            vol.Coerce(int), vol.Range(min=MIN_RUN_BUDGET, max=MAX_RUN_BUDGET)
-        ),
-    }
+
+
+# An image has no default source or place: the rectangle must be given, and the
+# image comes from a URL or from a file in ``<config>/www`` — exactly one of the
+# two, so a call can never guess.
+def _one_image_source(value: dict[str, Any]) -> dict[str, Any]:
+    """Refuse a draw call that names no image at all.
+
+    ``vol.Exclusive`` already refuses both sources; this refuses neither, which
+    would otherwise get as far as fetching nothing.
+
+    Args:
+        value: The validated service call data.
+
+    Returns:
+        The same data, for the next validator.
+
+    Raises:
+        vol.Invalid: When neither ``url`` nor ``path`` is given.
+    """
+    if "url" not in value and "path" not in value:
+        raise vol.Invalid("give url or path: the image to draw")
+    return value
+
+
+SERVICE_SHOW_IMAGE_SCHEMA = vol.All(
+    vol.Schema(
+        {
+            vol.Optional("device", default=None): vol.Any(str, None),
+            vol.Exclusive("url", "image_source"): cv.url,
+            vol.Exclusive("path", "image_source"): cv.string,
+            vol.Required("x"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+            vol.Required("y"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+            vol.Required("w"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            vol.Required("h"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            vol.Optional("progressive", default=True): cv.boolean,
+            vol.Optional("quality", default=RUN_BUDGET): vol.All(
+                vol.Coerce(int), vol.Range(min=MIN_RUN_BUDGET, max=MAX_RUN_BUDGET)
+            ),
+        }
+    ),
+    _one_image_source,
 )
 SERVICE_CLEAR_IMAGE_SCHEMA = vol.Schema(
     {
@@ -586,6 +618,89 @@ async def _fetch_image(hass: HomeAssistant, url: str) -> bytes:
     return data
 
 
+def _image_file(hass: HomeAssistant, path: str, *, service: str) -> Path:
+    """The file a ``path`` names, resolved inside ``<config>/www``.
+
+    The folder Home Assistant serves at ``/local``, so a file dropped there needs
+    no URL. ``path`` is relative to it and a leading ``www/`` is accepted, because
+    both spellings appear in the documentation. Anything that resolves outside it
+    — ``..``, a symlink to elsewhere — is refused: a service call must not be able
+    to read the rest of the configuration directory.
+
+    Args:
+        hass: Home Assistant, for the configuration directory.
+        path: The value of the call's ``path`` field.
+        service: The service name, for the error message.
+
+    Returns:
+        The resolved path, which need not exist.
+
+    Raises:
+        ServiceValidationError: When the path is absolute or leaves the folder.
+    """
+    from homeassistant.exceptions import ServiceValidationError
+
+    root = Path(hass.config.path(IMAGE_LOCAL_ROOT))
+    raw = Path(path)
+    if raw.is_absolute():
+        raise ServiceValidationError(
+            f"{service}: '{path}' is absolute; give a path inside {IMAGE_LOCAL_ROOT}/, "
+            "for example 'logo.png'"
+        )
+    parts = raw.parts[1:] if raw.parts and raw.parts[0] == IMAGE_LOCAL_ROOT else raw.parts
+    resolved = (root / Path(*parts)).resolve()
+    if not resolved.is_relative_to(root.resolve()):
+        raise ServiceValidationError(
+            f"{service}: '{path}' points outside {IMAGE_LOCAL_ROOT}/, which is the only "
+            "folder an image may be read from"
+        )
+    return resolved
+
+
+async def _read_image_file(hass: HomeAssistant, path: str, *, service: str) -> bytes:
+    """Read a local image for drawing, bounded like a download.
+
+    Args:
+        hass: Home Assistant, for the configuration directory and the executor.
+        path: The value of the call's ``path`` field.
+        service: The service name, for the error messages.
+
+    Returns:
+        The image file's bytes.
+
+    Raises:
+        ServiceValidationError: When the path is refused or names no file.
+        HomeAssistantError: When the file is larger than an image may be.
+    """
+    from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+
+    target = _image_file(hass, path, service=service)
+    if not target.is_file():
+        raise ServiceValidationError(
+            f"{service}: '{path}' does not exist in {hass.config.path(IMAGE_LOCAL_ROOT)}"
+        )
+    size = target.stat().st_size
+    if size > IMAGE_MAX_BYTES:
+        raise HomeAssistantError(
+            f"{path} is {size // 1024} KiB, larger than the "
+            f"{IMAGE_MAX_BYTES // (1024 * 1024)} MiB an image may be"
+        )
+    return await hass.async_add_executor_job(target.read_bytes)
+
+
+async def _read_image(hass: HomeAssistant, call: ServiceCall) -> bytes:
+    """The image a draw call asks for: the file it names or the URL it fetches.
+
+    Raises:
+        ServiceValidationError: When the path is refused or names no file.
+        HomeAssistantError: When the URL or the file cannot be read.
+    """
+    path = call.data.get("path")
+    if path:
+        return await _read_image_file(hass, str(path), service=call.service)
+    return await _fetch_image(hass, str(call.data["url"]))
+
+
 def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]]) -> None:
     """Send each draw program to the panel, coarse pass first.
 
@@ -614,22 +729,24 @@ def _clear_rect(app: NSPanelHAUI, dev_name: str, rect: Rect) -> None:
 async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
     """Paint an image into a rectangle on whatever page the panel is showing.
 
-    The download happens once for all targets, the rasterising runs in the
-    executor (a pure function over the image bytes — ``app.run_off_worker`` waits
-    for the worker and would block this loop), and only the send is dispatched
-    to the panel's worker.
+    The image is read once for all targets — downloaded, or read from
+    ``<config>/www`` — the rasterising runs in the executor (a pure function over
+    the image bytes — ``app.run_off_worker`` waits for the worker and would block
+    this loop), and only the send is dispatched to the panel's worker.
 
     Raises:
         ServiceValidationError: When no panel matches, the rectangle is off the
-            display, the image cannot be decoded, or a panel cannot draw yet.
-        HomeAssistantError: When the image URL cannot be fetched.
+            display, the image cannot be decoded, the path is refused or names no
+            file, or a panel cannot draw yet.
+        HomeAssistantError: When the image URL cannot be fetched or the file is
+            too large.
     """
     from homeassistant.exceptions import ServiceValidationError
 
     targets = _resolve_required_targets(hass, call)
-    # Every target's rectangle is checked before anything is downloaded.
+    # Every target's rectangle is checked before anything is read.
     rects = {dev_name: _image_rect(app, call) for dev_name, app in targets}
-    data = await _fetch_image(hass, str(call.data["url"]))
+    data = await _read_image(hass, call)
     budget: int = call.data.get("quality", RUN_BUDGET)
     progressive: bool = call.data.get("progressive", True)
 
@@ -637,9 +754,9 @@ async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
         rect = rects[dev_name]
         background = _page_background(app)
         try:
-            programs = await hass.async_add_executor_job(
+            programs, cell = await hass.async_add_executor_job(
                 partial(
-                    image_runs,
+                    image_plan,
                     data,
                     rect,
                     background=background,
@@ -650,11 +767,10 @@ async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
         except ImageProgramError as exc:
             raise ServiceValidationError(f"{call.service} for '{dev_name}': {exc}") from exc
 
-        cell = estimated_cell_px(rect, budget)
         if cell > MAX_RECOMMENDED_CELL_PX:
             _LOGGER.warning(
-                "%s: a %sx%s rectangle at %d runs is a ~%.0f px mosaic; draw it smaller or raise "
-                "quality, or use a picture background for a full-page image",
+                "%s: a %sx%s rectangle at %d runs draws in %d px blocks, a mosaic; draw it "
+                "smaller, or use a picture background for a full-page image",
                 dev_name,
                 rect.w,
                 rect.h,

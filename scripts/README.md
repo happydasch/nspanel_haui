@@ -39,6 +39,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `design_grid/gen_grid.py` | Render the editor-only design-grid images |
 | `spinner/gen_spinner.py` | Render the spinner sprite sheets |
 | `rgb565_image/image_convert.py` | Print a PNG as a Nextion `pixelData~…` string |
+| `image_program/gen_image_preview.py` | Render what `nspanel_haui.show_image` would paint for a file, tile by tile ([README](image_program/README.md)) |
 | `rgb565_image/palette_generate.py` | Render the RGB565 palette image |
 | `color_wheel/gen_color_wheel.py` | Render an HSV colour wheel |
 | `color_palette/gen_color_palette.ipynb`, `rgb_conversion/rgb_conv.ipynb` | Colour experiments |

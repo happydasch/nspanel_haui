@@ -215,16 +215,17 @@
     },
     "show_image": {
       "name": "Show image",
-      "description": "Draw an image into a rectangle on the page the panel is showing. The image is reduced to at most 16 colours and a few hundred rectangles, drawn in about half a second, and it disappears on the next page change. Best for logos, icons and graphics; a full-screen photo becomes a mosaic.",
+      "description": "Draw an image into a rectangle on the page the panel is showing. The image is rebuilt from a few hundred rectangles in the display's own 65 536 colours, drawn in about half a second, and it disappears on the next page change. Best for logos, icons and graphics; a full-screen photo becomes a mosaic.",
       "fields": {
         "device": "NSPanel device to draw on. If omitted, applies to all devices.",
-        "url": "http(s) URL of the image (PNG, JPEG, GIF, BMP, WebP).",
+        "url": "http(s) URL of the image (PNG, JPEG, GIF, BMP, WebP). Cannot be combined with Path.",
+        "path": "The image as a file in the \"www\" folder of the Home Assistant configuration, for example \"logo.png\" for \"www/logo.png\". Cannot be combined with URL.",
         "x": "Left edge of the rectangle, in display pixels.",
         "y": "Top edge of the rectangle, in display pixels.",
         "w": "Width of the rectangle, in display pixels.",
         "h": "Height of the rectangle, in display pixels.",
         "progressive": "Draw a coarse version first, so the image appears almost at once and then sharpens.",
-        "quality": "How many rectangles the image may use; more is sharper and slower (0.12 s to 1.2 s)."
+        "quality": "How many rectangles the image may use; more is sharper and slower (0.12 s to about 1.5 s), down to one rectangle per display pixel in a small rectangle."
       }
     },
     "clear_image": {

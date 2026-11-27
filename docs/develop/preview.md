@@ -41,6 +41,8 @@ The browser can inject only the events a person causes on a panel: component tou
 
 Once a Simulated preview has opened, the virtual app mirrors the device's notification queue: the device's app reports every change of its queue (`publish_preview_state`), and `VirtualPanelHost` copies it into the virtual queue, read-only.
 
+An image is display output, not state, so it arrives the other way: `nspanel_haui.show_image` draws through the device's app, whose output also reaches its preview subscribers (`subscribe_preview_output`), and `VirtualPanelHost` paints that program on the virtual display while both show the same page — the fill reaches the browser's Nextion simulator and a viewer attaching later gets it from the page replay. A draw made on another page than the preview shows is left out, because that is where the panel put it.
+
 ### Virtual panel commands
 
 All admin only, like the editor itself.

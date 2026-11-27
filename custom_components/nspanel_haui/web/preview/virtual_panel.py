@@ -37,6 +37,7 @@ from ...haui.controller.update import HAUIUpdateController
 from ...haui.device import HAUIDevice
 from ...haui.mapping.const import (
     ESP_NS_EVENT,
+    ESPAction,
     ESPCommand,
     ESPEvent,
     ESPResponse,
@@ -983,6 +984,7 @@ class VirtualPanelHost:
         # The device's running app as followed for the cards (async_follow_panel).
         self._panel_source: Any | None = None
         self._unfollow_panel: Callable[[], None] | None = None
+        self._unfollow_output: Callable[[], None] | None = None
         # The hardware buttons, as the cards' frame draws them (real states).
         self._buttons: ButtonEntities | None = None
         self._viewers_lock = threading.Lock()
@@ -1056,6 +1058,10 @@ class VirtualPanelHost:
         how many notifications it has queued, told to the home-panel cards. One
         subscription per device serves every card.
 
+        An image the panel draws (`nspanel_haui.show_image`) is display output,
+        not state, so it arrives through the panel's output subscription and is
+        painted on the virtual display while both show the same page.
+
         The hardware buttons come from Home Assistant's real entity states, so
         a preview's simulated states never reach the cards.
         """
@@ -1072,11 +1078,39 @@ class VirtualPanelHost:
             loop.call_soon_threadsafe(self.app.dispatch, self._sync_notifications, queued)
             loop.call_soon_threadsafe(self.app.dispatch, self.home.set_panel, state, len(queued))
 
+        def _output(command: str, value: Any) -> None:
+            # Also on the physical app's worker: its page is read there.
+            if command != ESPAction.DRAW_RUNS:
+                return
+            navigation = running.controller["navigation"]
+            page = navigation.page
+            runs = [str(run) for run in (value if isinstance(value, list) else [value])]
+            self.app.hass.loop.call_soon_threadsafe(
+                self.app.dispatch,
+                self._mirror_draw,
+                page.page_id if page is not None else None,
+                runs,
+            )
+
         self._unfollow_panel = running.subscribe_preview_state(_changed)
+        self._unfollow_output = running.subscribe_preview_output(_output)
         state, snapshot = await running.async_run_on_worker(_read_panel, running, controller)
         await self.app.async_run_on_worker(self._sync_notifications, snapshot)
         await self.app.async_run_on_worker(self.home.set_panel, state, len(snapshot))
         await self.async_follow_buttons(running)
+
+    def _mirror_draw(self, page_id: str | None, runs: list[str]) -> None:
+        """Paint an image the panel drew on the virtual display (its worker).
+
+        Only while the virtual app shows the page the panel drew on: the panel's
+        image belongs to that page and would otherwise appear over a different
+        one. Like the real panel's, it is gone on the next page change.
+        """
+        navigation = self.app.controller["navigation"]
+        page = navigation.page
+        if page is None or page.page_id != page_id:
+            return
+        self.app.controller["esphome"].draw_runs(runs)
 
     async def async_follow_buttons(self, running: Any) -> None:
         """Track the entities of the device's hardware buttons for the cards' frame."""
@@ -1098,6 +1132,9 @@ class VirtualPanelHost:
         if self._unfollow_panel is not None:
             self._unfollow_panel()
             self._unfollow_panel = None
+        if self._unfollow_output is not None:
+            self._unfollow_output()
+            self._unfollow_output = None
         if self._buttons is not None:
             self._buttons.stop()
             self._buttons = None

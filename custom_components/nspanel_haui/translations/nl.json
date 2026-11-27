@@ -215,16 +215,17 @@
     },
     "show_image": {
       "name": "Afbeelding tonen",
-      "description": "Teken een afbeelding in een rechthoek op de pagina die het paneel toont. De afbeelding wordt teruggebracht tot hoogstens 16 kleuren en een paar honderd rechthoeken, in ongeveer een halve seconde getekend, en verdwijnt bij de volgende paginawissel. Geschikt voor logo's, pictogrammen en grafieken; een foto over het hele scherm wordt een mozaïek.",
+      "description": "Teken een afbeelding in een rechthoek op de pagina die het paneel toont. De afbeelding wordt opgebouwd uit een paar honderd rechthoeken in de 65 536 kleuren van het scherm, in ongeveer een halve seconde getekend, en verdwijnt bij de volgende paginawissel. Geschikt voor logo's, pictogrammen en grafieken; een foto over het hele scherm wordt een mozaïek.",
       "fields": {
         "device": "NSPanel-apparaat om op te tekenen. Als het weggelaten wordt, geldt het voor alle apparaten.",
-        "url": "http(s)-URL van de afbeelding (PNG, JPEG, GIF, BMP, WebP).",
+        "url": "http(s)-URL van de afbeelding (PNG, JPEG, GIF, BMP, WebP). Kan niet met Pad worden gecombineerd.",
+        "path": "De afbeelding als bestand in de map \"www\" van de Home Assistant-configuratie, bijvoorbeeld \"logo.png\" voor \"www/logo.png\". Kan niet met URL worden gecombineerd.",
         "x": "Linkerrand van de rechthoek, in beeldpunten van het scherm.",
         "y": "Bovenrand van de rechthoek, in beeldpunten van het scherm.",
         "w": "Breedte van de rechthoek, in beeldpunten van het scherm.",
         "h": "Hoogte van de rechthoek, in beeldpunten van het scherm.",
         "progressive": "Eerst een grove versie tekenen, zodat de afbeelding bijna meteen verschijnt en daarna scherper wordt.",
-        "quality": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot 1,2 s)."
+        "quality": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot ongeveer 1,5 s), in een kleine rechthoek tot één rechthoek per beeldpunt."
       }
     },
     "clear_image": {

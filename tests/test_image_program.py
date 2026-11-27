@@ -13,6 +13,7 @@ import random
 import pytest
 from PIL import Image, ImageDraw
 
+from custom_components.nspanel_haui.haui.utils.color import rgb_to_rgb565
 from custom_components.nspanel_haui.haui.utils.image_program import (
     COLOUR_TOLERANCE,
     IMAGE_PROGRAM_MAX,
@@ -26,18 +27,16 @@ from custom_components.nspanel_haui.haui.utils.image_program import (
     ImageProgramError,
     Rect,
     display_size,
-    estimated_cell_px,
+    image_plan,
     image_runs,
     program_length,
-    rgb565,
-    to_rgb565,
 )
 
-RED = to_rgb565((255, 0, 0))
-GREEN = to_rgb565((0, 255, 0))
-BLUE = to_rgb565((0, 0, 255))
-WHITE = to_rgb565((255, 255, 255))
-BLACK = to_rgb565((0, 0, 0))
+RED = rgb_to_rgb565((255, 0, 0))
+GREEN = rgb_to_rgb565((0, 255, 0))
+BLUE = rgb_to_rgb565((0, 0, 255))
+WHITE = rgb_to_rgb565((255, 255, 255))
+BLACK = rgb_to_rgb565((0, 0, 0))
 
 
 def _png(image: Image.Image) -> bytes:
@@ -163,7 +162,7 @@ def test_neighbouring_colours_within_the_tolerance_become_one_run():
 
     (program,) = image_runs(_png(image), Rect(0, 0, 8, 4), background=BLACK)
 
-    assert program == [f"fill 0,0,8,4,{to_rgb565((100, 100, 100))}"]
+    assert program == [f"fill 0,0,8,4,{rgb_to_rgb565((100, 100, 100))}"]
 
 
 def test_a_real_difference_is_kept_as_two_runs():
@@ -246,14 +245,44 @@ def test_every_run_stays_inside_its_rectangle():
         assert rect.y <= y and y + h <= rect.bottom
 
 
-def test_rgb565_packing_round_trips_through_the_display_colour():
-    for rgb in [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255), (0, 0, 0)]:
-        assert rgb565(to_rgb565(rgb)) == rgb
+def test_a_gradient_keeps_the_colours_the_display_can_show():
+    """65 536 colours, not a 16-colour poster: the banding was the palette's."""
+    image = Image.new("RGB", (64, 1))
+    pixels = image.load()
+    assert pixels is not None
+    for x in range(64):
+        # Ten steps over a 16-colour palette would collapse these; RGB565 keeps them.
+        pixels[x, 0] = (x * 4, 0, 0)
+
+    (program,) = image_runs(_png(image), Rect(0, 0, 64, 1), background=BLACK, budget=MIN_RUN_BUDGET)
+
+    colours = {int(run.rsplit(",", 1)[1]) for run in program}
+    assert len(colours) == len(program)
 
 
-def test_rgb565_masks_the_low_bits_the_display_cannot_show():
-    assert to_rgb565((255, 255, 255)) == 0xFFFF
-    assert to_rgb565((0, 0, 0)) == 0
+def test_the_top_of_the_range_draws_at_the_displays_own_resolution():
+    """The finest cell is one pixel, so a diagonal keeps every pixel of its 40."""
+    image = Image.new("RGB", (40, 40), (250, 250, 250))
+    drawing = ImageDraw.Draw(image)
+    for step in range(40):
+        drawing.point((step, step), fill=(0, 0, 255))
+    data = _png(image)
+
+    def rows(budget: int) -> set[str]:
+        (program,) = image_runs(data, Rect(0, 0, 40, 40), background=BLACK, budget=budget)
+        return {run.split(" ")[1].split(",")[1] for run in program}
+
+    # One row per cell: a coarse grid averages the diagonal away.
+    assert len(rows(MAX_RUN_BUDGET)) == 40
+    assert len(rows(MIN_RUN_BUDGET)) < 40
+
+
+def test_the_top_of_the_range_stays_inside_the_firmware_program():
+    """However fine ``quality`` asks for, the device gets a program it accepts."""
+    (program,) = image_runs(_photo(), Rect(0, 0, 480, 320), background=BLACK, budget=MAX_RUN_BUDGET)
+
+    assert len(program) <= MAX_RUN_BUDGET
+    assert program_length(program) <= IMAGE_PROGRAM_MAX
 
 
 def test_the_display_size_follows_the_orientation():
@@ -261,7 +290,12 @@ def test_the_display_size_follows_the_orientation():
     assert display_size(portrait=True) == PORTRAIT_SIZE
 
 
-def test_the_estimated_cell_reports_a_mosaic_for_a_full_page():
+def test_the_plan_reports_the_cell_the_image_is_drawn_in():
     """The service warns from this figure instead of promising a photograph."""
-    assert estimated_cell_px(Rect(0, 0, 480, 320), RUN_BUDGET) > MAX_RECOMMENDED_CELL_PX
-    assert estimated_cell_px(Rect(0, 0, 100, 100), RUN_BUDGET) < MAX_RECOMMENDED_CELL_PX
+    (_coarse, _full), cell = image_plan(
+        _photo(), Rect(0, 0, 480, 320), background=BLACK, budget=MIN_RUN_BUDGET, progressive=True
+    )
+    (_only,), fine = image_plan(_photo(), Rect(0, 0, 100, 100), background=BLACK, budget=RUN_BUDGET)
+
+    assert cell >= MAX_RECOMMENDED_CELL_PX
+    assert fine < MAX_RECOMMENDED_CELL_PX

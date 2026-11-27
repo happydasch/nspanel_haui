@@ -143,6 +143,7 @@ class _Panel:
             "tft": "1.0.4",
         }
         self.subscribers: list = []
+        self.output_subscribers: list = []
         self.notifications = _Notifications(self)
         self.controller = {"notification": self.notifications}
         self.device = types.SimpleNamespace(
@@ -159,6 +160,15 @@ class _Panel:
 
         def unsubscribe():
             self.subscribers.remove(callback)
+
+        return unsubscribe
+
+    def subscribe_preview_output(self, callback):
+        """Display output (an image program), which the cards' feed does not use."""
+        self.output_subscribers.append(callback)
+
+        def unsubscribe():
+            self.output_subscribers.remove(callback)
 
         return unsubscribe
 

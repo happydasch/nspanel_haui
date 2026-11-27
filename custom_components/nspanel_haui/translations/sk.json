@@ -215,16 +215,17 @@
     },
     "show_image": {
       "name": "Zobraziť obrázok",
-      "description": "Nakresli obrázok do obdĺžnika na stránke, ktorú panel práve zobrazuje. Obrázok sa zredukuje na najviac 16 farieb a niekoľko stoviek obdĺžnikov, kreslí sa približne pol sekundy a zmizne pri ďalšej zmene stránky. Vhodné pre logá, ikony a grafiku; fotografia na celú obrazovku sa zmení na mozaiku.",
+      "description": "Nakresli obrázok do obdĺžnika na stránke, ktorú panel práve zobrazuje. Obrázok sa poskladá z niekoľko stoviek obdĺžnikov v 65 536 farbách displeja, kreslí sa približne pol sekundy a zmizne pri ďalšej zmene stránky. Vhodné pre logá, ikony a grafiku; fotografia na celú obrazovku sa zmení na mozaiku.",
       "fields": {
         "device": "Zariadenie NSPanel, na ktoré sa má kresliť. Ak nie je uvedené, platí pre všetky zariadenia.",
-        "url": "http(s) adresa obrázka (PNG, JPEG, GIF, BMP, WebP).",
+        "url": "http(s) adresa obrázka (PNG, JPEG, GIF, BMP, WebP). Nemožno kombinovať s cestou.",
+        "path": "Obrázok ako súbor v priečinku \"www\" konfigurácie Home Assistant, napríklad \"logo.png\" pre \"www/logo.png\". Nemožno kombinovať s URL.",
         "x": "Ľavý okraj obdĺžnika v pixeloch obrazovky.",
         "y": "Horný okraj obdĺžnika v pixeloch obrazovky.",
         "w": "Šírka obdĺžnika v pixeloch obrazovky.",
         "h": "Výška obdĺžnika v pixeloch obrazovky.",
         "progressive": "Najprv nakresliť hrubú verziu, aby sa obrázok objavil takmer okamžite a potom sa zostril.",
-        "quality": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až 1,2 s)."
+        "quality": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až približne 1,5 s), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
       }
     },
     "clear_image": {

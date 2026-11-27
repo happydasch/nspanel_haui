@@ -215,16 +215,17 @@
     },
     "show_image": {
       "name": "Afficher une image",
-      "description": "Dessiner une image dans un rectangle de la page affichée par le panneau. L'image est réduite à 16 couleurs au plus et à quelques centaines de rectangles, dessinée en une demi-seconde environ, et disparaît au changement de page suivant. Idéal pour des logos, des icônes et des graphiques ; une photo plein écran devient une mosaïque.",
+      "description": "Dessiner une image dans un rectangle de la page affichée par le panneau. L'image est reconstruite à partir de quelques centaines de rectangles dans les 65 536 couleurs de l'écran, dessinée en une demi-seconde environ, et disparaît au changement de page suivant. Idéal pour des logos, des icônes et des graphiques ; une photo plein écran devient une mosaïque.",
       "fields": {
         "device": "Appareil NSPanel sur lequel dessiner. Si omis, s'applique à tous les appareils.",
-        "url": "URL http(s) de l'image (PNG, JPEG, GIF, BMP, WebP).",
+        "url": "URL http(s) de l'image (PNG, JPEG, GIF, BMP, WebP). Non combinable avec Chemin.",
+        "path": "L'image sous forme de fichier dans le dossier \"www\" de la configuration de Home Assistant, par exemple \"logo.png\" pour \"www/logo.png\". Non combinable avec URL.",
         "x": "Bord gauche du rectangle, en pixels de l'écran.",
         "y": "Bord supérieur du rectangle, en pixels de l'écran.",
         "w": "Largeur du rectangle, en pixels de l'écran.",
         "h": "Hauteur du rectangle, en pixels de l'écran.",
         "progressive": "Dessiner d'abord une version grossière : l'image apparaît presque aussitôt puis s'affine.",
-        "quality": "Nombre de rectangles que l'image peut utiliser ; plus il y en a, plus l'image est nette et lente (0,12 s à 1,2 s)."
+        "quality": "Nombre de rectangles que l'image peut utiliser ; plus il y en a, plus l'image est nette et lente (0,12 s jusqu'à environ 1,5 s), jusqu'à un rectangle par pixel de l'écran dans un petit rectangle."
       }
     },
     "clear_image": {

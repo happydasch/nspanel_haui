@@ -50,6 +50,13 @@ globals:
     type: int
     restore_value: false
     initial_value: '0'
+  # Runs that are not ``fill`` instructions. A program of anything else paints
+  # nothing, and a display that accepts the text reports success - so this is
+  # what keeps a wrong program from looking like a drawn image.
+  - id: haui_draw_rejected
+    type: int
+    restore_value: false
+    initial_value: '0'
   # millis() of the first pass; the fence reply turns it into elapsed_ms
   - id: haui_draw_started_ms
     type: uint32_t
@@ -87,7 +94,7 @@ sensor:
           if (!id(haui_draw_awaiting) || int(x) != ${draw_fence_marker}) return;
           id(haui_draw_awaiting) = false;
           id(haui_draw_report).execute(
-              id(haui_draw_sent) == id(haui_draw_run_count),
+              id(haui_draw_sent) == id(haui_draw_run_count) && id(haui_draw_rejected) == 0,
               int(millis() - id(haui_draw_started_ms)));
 
 script:
@@ -104,6 +111,7 @@ script:
           id(haui_draw_cursor) = 0;
           id(haui_draw_run_count) = 0;
           id(haui_draw_sent) = 0;
+          id(haui_draw_rejected) = 0;
           id(haui_draw_awaiting) = false;
           id(haui_draw_resent) = false;
           id(haui_draw_ok) = false;
@@ -167,7 +175,10 @@ script:
             if (end == std::string::npos) end = program.size();
             std::string run = program.substr(cursor, end - cursor);
             if (!run.empty()) {
-              if (id(haui_disp).send_command(run.c_str())) {
+              if (run.compare(0, 5, "fill ") != 0) {
+                ESP_LOGE("haui", "draw_runs: '%.40s' is not a fill instruction", run.c_str());
+                id(haui_draw_rejected)++;
+              } else if (id(haui_disp).send_command(run.c_str())) {
                 id(haui_draw_sent)++;
               } else {
                 ESP_LOGW("haui", "draw_runs: the display refused a command");
@@ -214,6 +225,6 @@ script:
             root["ok"] = ok;
             root["elapsed_ms"] = elapsed_ms;
           };
-          ESP_LOGD("haui", "draw_runs: %d runs, ok=%d, %d ms", id(haui_draw_sent),
-                   ok ? 1 : 0, elapsed_ms);
+          ESP_LOGD("haui", "draw_runs: %d runs, %d rejected, ok=%d, %d ms", id(haui_draw_sent),
+                   id(haui_draw_rejected), ok ? 1 : 0, elapsed_ms);
           id(publish_event_native).execute("esphome.res_draw", json::build_json(payload));

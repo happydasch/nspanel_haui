@@ -144,6 +144,15 @@ def _commands(messages):
     return [c for m in messages if m["type"] == "commands" for c in m["commands"]]
 
 
+def _drawn_commands(app) -> list[str]:
+    """The image program recorded for the page replay (runs on the app's worker)."""
+    return [
+        command
+        for command in app.controller["esphome"].page_commands()
+        if command.startswith("fill ")
+    ]
+
+
 def _button(messages, side):
     """One hardware button as last reported, or None before the first report.
 
@@ -1250,6 +1259,61 @@ def test_the_virtual_queue_mirrors_the_physical_notifications(session, env):
         _wait(lambda: len(controller.get_notifications()) == 2)
         _run(env, source.app.async_run_on_worker(physical.clear_notifications))
         _wait(lambda: not controller.get_notifications())
+    finally:
+        _run(env, source.async_stop())
+
+
+def _page_id(env, app) -> str | None:
+    """The page an app shows, read on its own worker."""
+    page = _run(env, app.async_run_on_worker(lambda: app.controller["navigation"].page))
+    return None if page is None else page.page_id
+
+
+def test_an_image_the_panel_draws_shows_in_the_simulated_preview(session, env):
+    """``show_image`` is display output, not state: it must reach the preview too."""
+    source = _open(env, _config(), lambda _message: None)
+    program = ["fill 10,10,20,20,63488", "fill 30,10,20,20,2016"]
+
+    try:
+        _run(env, session.async_follow_panel(source.app))
+        # Both boot to the same page; the panel's image belongs to it.
+        _wait(lambda: _page_id(env, source.app) == _page_id(env, session.app) is not None)
+        _run(
+            env,
+            source.app.async_run_on_worker(
+                lambda: source.app.controller["esphome"].draw_runs(program)
+            ),
+        )
+
+        _wait(lambda: all(run in _commands(session.messages) for run in program))
+        # Recorded like the page's own output, so a late viewer gets it too.
+        _wait(
+            lambda: all(
+                run in _run(env, session.app.async_run_on_worker(_drawn_commands, session.app))
+                for run in program
+            )
+        )
+    finally:
+        _run(env, source.async_stop())
+
+
+def test_an_image_drawn_on_another_page_stays_out_of_the_preview(session, env):
+    """The image belongs to the page the panel drew it on."""
+    source = _open(env, _config(), lambda _message: None)
+    program = ["fill 10,10,20,20,63488"]
+
+    try:
+        _run(env, session.async_follow_panel(source.app))
+        shown = _page_id(env, session.app)
+        session.messages.clear()
+        _run(
+            env,
+            source.app.async_run_on_worker(
+                lambda: session._mirror_draw(f"{shown}-elsewhere", program)
+            ),
+        )
+
+        assert program[0] not in _commands(session.messages)
     finally:
         _run(env, source.async_stop())
 

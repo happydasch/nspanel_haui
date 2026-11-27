@@ -48,6 +48,26 @@ def _substitution(text: str, key: str) -> str:
     return match.group(1)
 
 
+def _script_parameters(steps: object) -> list[tuple[str, str, object]]:
+    """Every ``script.execute`` parameter in ``steps``: (script id, name, value)."""
+
+    found: list[tuple[str, str, object]] = []
+    if isinstance(steps, list):
+        for step in steps:
+            found += _script_parameters(step)
+    elif isinstance(steps, dict):
+        for key, value in steps.items():
+            if key == "script.execute" and isinstance(value, dict):
+                found += [
+                    (str(value.get("id")), str(name), parameter)
+                    for name, parameter in value.items()
+                    if name != "id"
+                ]
+            else:
+                found += _script_parameters(value)
+    return found
+
+
 def test_hub_availability_reset_on_last_client_disconnect():
     api = _read("api.yaml")
     disconnected = api.split("on_client_disconnected:")[1].split("actions:")[0]
@@ -710,6 +730,28 @@ def test_the_firmware_declares_the_draw_runs_action():
     assert "draw_runs" in actions
     assert actions["draw_runs"]["variables"] == {"program": "string"}
     assert "id: haui_draw_runs" in _read("api.yaml")
+    # A bare ``program: program`` is compiled as the literal word "program".
+    executed = actions["draw_runs"]["then"][0]["script.execute"]
+    assert executed["program"] == "!lambda"
+
+
+def test_no_api_action_passes_one_of_its_variables_as_a_bare_word():
+    """ESPHome compiles a script parameter outside a lambda as a literal string.
+
+    ``program: program`` therefore handed the display the seven characters
+    "program": it was queued as one bogus command and reported as a drawn image,
+    so every variable goes through ``!lambda`` (as ``goto_page``, ``req_val`` and
+    ``req_txt`` always have).
+    """
+    offenders = []
+    for action in _load_tagged(ROOT / "api.yaml")["api"]["actions"]:
+        variables = set(action.get("variables") or {})
+        offenders += [
+            f"{action['action']}: {script}({name}={value})"
+            for script, name, value in _script_parameters(action.get("then"))
+            if isinstance(value, str) and value in variables
+        ]
+    assert not offenders, f"wrap the value in !lambda 'return x;': {offenders}"
 
 
 def test_a_draw_program_the_hub_builds_is_never_over_the_firmware_limit():

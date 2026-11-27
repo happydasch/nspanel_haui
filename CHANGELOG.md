@@ -13,7 +13,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Added
 
-- Hub: `nspanel_haui.show_image` draws an image into a rectangle on whatever page the panel is showing — the hub downloads it, reduces it to at most 16 colours and a few hundred `fill` rectangles and hands that program to a new firmware action (`draw_runs`), which streams it through the display pacer in about half a second — and `nspanel_haui.clear_image` paints the rectangle back to the page's background colour; a logo, an icon, a QR code or a chart comes out crisp, a photograph as a coarse mosaic, and neither the HMI nor the TFT changes ([Images on the panel](docs/user/actions.md#images-on-the-panel), [firmware surface](docs/develop/esphome.md#actions)).
+- Hub: `nspanel_haui.show_image` draws an image into a rectangle on whatever page the panel is showing — the hub downloads it, rebuilds it from a few hundred `fill` rectangles in the display's own 65 536 colours and hands that program to a new firmware action (`draw_runs`), which streams it through the display pacer in about half a second — and `nspanel_haui.clear_image` paints the rectangle back to the page's background colour; a logo, an icon, a QR code or a chart comes out crisp, a photograph as a coarse mosaic, the editor's **Simulated** preview shows the same image while it shows that page, and neither the HMI nor the TFT changes ([Images on the panel](docs/user/actions.md#images-on-the-panel), [firmware surface](docs/develop/esphome.md#actions)).
+- Hub: `nspanel_haui.show_image` also takes `path` instead of `url` — a file in the `www` folder of the configuration, the one Home Assistant already publishes at `/local`, so an image you have as a file needs no web server to reach the panel ([Images on the panel](docs/user/actions.md#images-on-the-panel)).
 
 ### Changed
 

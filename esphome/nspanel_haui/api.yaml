@@ -60,9 +60,13 @@ api:
       variables:
         program: string
       then:
+        # A bare `program: program` is not the variable: ESPHome compiles the
+        # value as a literal, so the display was sent the word "program", queued
+        # one bogus command and reported a successful draw of one run. The other
+        # actions below pass every string variable the same way.
         - script.execute:
             id: haui_draw_runs
-            program: program
+            program: !lambda 'return program;'
 
     # Batch: send every command, then flush once
     - action: send_commands

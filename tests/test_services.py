@@ -44,6 +44,10 @@ import probatio as vol  # noqa: E402
 import pytest  # noqa: E402
 
 from custom_components.nspanel_haui.haui.mapping.const import SOUND_NAMES  # noqa: E402
+from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E402
+    MAX_RUN_BUDGET,
+    MIN_RUN_BUDGET,
+)
 from custom_components.nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
@@ -67,13 +71,16 @@ from custom_components.nspanel_haui.services import (  # noqa: E402
 @pytest.fixture
 def mock_hass():
     """Create a mock HomeAssistant with the HAUI apps dict."""
-    hass = MagicMock(spec_set=["data", "services", "async_create_task", "async_add_executor_job"])
+    hass = MagicMock(
+        spec_set=["data", "services", "async_create_task", "async_add_executor_job", "config"]
+    )
     hass.data = {}
     hass.services = MagicMock()
     hass.services.has_service = MagicMock(return_value=False)
     hass.services.async_register = MagicMock()
     hass.async_create_task = MagicMock(side_effect=lambda coro_or_future: MagicMock())
     hass.async_add_executor_job = AsyncMock(side_effect=lambda fn, *a, **kw: fn(*a, **kw))
+    hass.config = MagicMock()
     return hass
 
 
@@ -937,7 +944,7 @@ def test_the_image_schema_takes_its_documented_defaults():
     assert result["device"] is None
 
 
-@pytest.mark.parametrize("quality", [59, 601])
+@pytest.mark.parametrize("quality", [MIN_RUN_BUDGET - 1, MAX_RUN_BUDGET + 1])
 def test_the_image_schema_refuses_a_quality_outside_its_range(quality):
     from custom_components.nspanel_haui.services import SERVICE_SHOW_IMAGE_SCHEMA
 
@@ -1088,6 +1095,146 @@ async def test_show_image_sends_the_coarse_pass_then_the_full_one(
     sent = [call.args[0] for call in mock_esphome_ctrl.draw_runs.call_args_list]
     assert len(sent) == 2
     assert 0 < len(sent[0]) <= PROGRESSIVE_RUNS
+
+
+# A file from ``<config>/www`` instead of a URL (the ``path`` field).
+
+
+def _file_call(path: str = "logo.png", **overrides) -> Any:
+    """A show_image call that names a file with the schema's defaults."""
+    call = MagicMock()
+    call.service = "show_image"
+    call.data = {
+        "device": None,
+        "path": path,
+        "x": 10,
+        "y": 10,
+        "w": 40,
+        "h": 40,
+        "progressive": False,
+        "quality": 300,
+        **overrides,
+    }
+    return call
+
+
+@pytest.fixture
+def config_www(mock_hass, tmp_path):
+    """A configuration directory whose ``www`` holds the test PNG as logo.png."""
+    www = tmp_path / "www"
+    www.mkdir()
+    (www / "logo.png").write_bytes(_png_bytes())
+    mock_hass.config.path = MagicMock(return_value=str(www))
+    return www
+
+
+@pytest.mark.asyncio
+async def test_show_image_draws_a_file_without_fetching_anything(
+    mock_hass, mock_nav, mock_esphome_ctrl, config_www, monkeypatch
+):
+    """``path`` reads the file: a panel needs no web server to draw an image."""
+    from custom_components.nspanel_haui import services
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    async def _unreachable(_hass, url):
+        raise AssertionError(f"a path must not download {url}")
+
+    monkeypatch.setattr(services, "_fetch_image", _unreachable)
+
+    await services._handle_show_image(mock_hass, _file_call())
+
+    (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    assert runs and all(run.startswith("fill ") for run in runs)
+
+
+@pytest.mark.parametrize("path", ["logo.png", "www/logo.png"])
+@pytest.mark.asyncio
+async def test_a_path_reads_from_the_www_folder_with_or_without_its_name(
+    mock_hass, config_www, path
+):
+    """Both spellings the documentation uses name the same file."""
+    from custom_components.nspanel_haui.services import _read_image
+
+    assert await _read_image(mock_hass, _file_call(path)) == _png_bytes()
+
+
+@pytest.mark.parametrize(
+    ("path", "reason"),
+    [("../secrets.yaml", "outside"), ("/config/www/logo.png", "absolute")],
+)
+@pytest.mark.asyncio
+async def test_a_path_outside_the_www_folder_is_refused(mock_hass, config_www, path, reason):
+    """The configuration directory is not a readable image store."""
+    from custom_components.nspanel_haui.services import _read_image
+
+    with pytest.raises(_ServiceValidationError, match=reason):
+        await _read_image(mock_hass, _file_call(path))
+
+
+@pytest.mark.asyncio
+async def test_a_missing_file_names_the_folder_it_looked_in(mock_hass, config_www):
+    from custom_components.nspanel_haui.services import _read_image
+
+    with pytest.raises(_ServiceValidationError, match=f"{config_www}"):
+        await _read_image(mock_hass, _file_call("missing.png"))
+
+
+@pytest.mark.asyncio
+async def test_a_file_over_the_image_cap_is_refused(mock_hass, config_www):
+    from custom_components.nspanel_haui.services import IMAGE_MAX_BYTES, _read_image
+
+    (config_www / "big.png").write_bytes(b"\0" * (IMAGE_MAX_BYTES + 1))
+
+    with pytest.raises(_HomeAssistantError, match="larger than"):
+        await _read_image(mock_hass, _file_call("big.png"))
+
+
+def test_the_image_schema_refuses_both_sources_at_once():
+    from custom_components.nspanel_haui.services import SERVICE_SHOW_IMAGE_SCHEMA
+
+    with pytest.raises(vol.Invalid):
+        SERVICE_SHOW_IMAGE_SCHEMA(
+            {
+                "url": "https://example.test/a.png",
+                "path": "logo.png",
+                "x": 0,
+                "y": 0,
+                "w": 10,
+                "h": 10,
+            }
+        )
+
+
+def test_the_image_schema_refuses_a_call_that_names_no_image():
+    from custom_components.nspanel_haui.services import SERVICE_SHOW_IMAGE_SCHEMA
+
+    with pytest.raises(vol.Invalid, match="url or path"):
+        SERVICE_SHOW_IMAGE_SCHEMA({"x": 0, "y": 0, "w": 10, "h": 10})
+
+
+def test_show_image_service_metadata_and_schema_agree():
+    """services.yaml and SERVICE_SHOW_IMAGE_SCHEMA must not drift.
+
+    Both sources are documented, so the action's form offers the file a user has
+    without a URL to serve it from.
+    """
+    from pathlib import Path
+
+    import yaml
+
+    from custom_components.nspanel_haui.services import SERVICE_SHOW_IMAGE_SCHEMA
+
+    services = (
+        Path(__file__).resolve().parent.parent
+        / "custom_components"
+        / "nspanel_haui"
+        / "services.yaml"
+    )
+    metadata = yaml.safe_load(services.read_text())["show_image"]
+    schema = SERVICE_SHOW_IMAGE_SCHEMA.validators[0]
+    assert set(metadata["fields"]) == {marker.schema for marker in schema.schema}
 
 
 @pytest.mark.asyncio

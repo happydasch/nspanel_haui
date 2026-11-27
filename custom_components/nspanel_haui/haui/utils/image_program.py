@@ -7,6 +7,10 @@ equal colour, and this module's job is to keep that count inside a time budget
 without pretending the result is a photograph: runs buy detail, so the same
 budget gives a sharp icon and a coarse mosaic for a full page.
 
+The grid is never finer than one pixel per cell, so the best a rectangle can get
+is the image at the display's own resolution - and the firmware's program length,
+not the time budget, is what caps how close a large rectangle gets to it.
+
 Pure and synchronous, no Home Assistant and no asyncio: the service calls it in
 the executor, the firmware streams what it returns.
 """
@@ -21,19 +25,23 @@ from typing import Final, cast
 
 from PIL import Image, UnidentifiedImageError
 
+from .color import rgb565_to_rgb, rgb_to_rgb565
+
 # Latency is ``runs * command_spacing`` (``esphome/nspanel_haui/display.yaml``),
 # so the run budget *is* a time budget.
 TARGET_DRAW_MS: Final = 600
 COMMAND_SPACING_MS: Final = 2
 RUN_BUDGET: Final = TARGET_DRAW_MS // COMMAND_SPACING_MS
-# The ``quality`` service option's range: a coarser image in 0.12 s, or a finer
-# one in 1.2 s.
+# The ``quality`` service option's range: a coarser image in 0.12 s, or as fine
+# as an image can be.
 MIN_RUN_BUDGET: Final = 60
-MAX_RUN_BUDGET: Final = 600
-# A run is ~26 characters, and the firmware refuses a longer program
-# (``draw_program_max`` in ``esphome/nspanel_haui/image.yaml``); the two must
-# agree, so a full budget can never build a program the device drops.
+# A run is at most ~26 characters ("fill 480,320,480,320,65535"), and the
+# firmware refuses a program over IMAGE_PROGRAM_MAX, so the program - not a time
+# budget - is what caps how fine the grid may be. ``_compile`` verifies both, so
+# the largest budget can still never build a program the device drops.
 IMAGE_PROGRAM_MAX: Final = 20000
+MAX_RUN_CHARS: Final = 26
+MAX_RUN_BUDGET: Final = IMAGE_PROGRAM_MAX // MAX_RUN_CHARS
 # Per-channel delta that still merges into one run. Flat art, gradients and
 # anti-aliased edges are where the runs are, and this is cheap detail to lose.
 COLOUR_TOLERANCE: Final = 8
@@ -42,8 +50,6 @@ COLOUR_TOLERANCE: Final = 8
 MAX_RECOMMENDED_CELL_PX: Final = 12
 # The progressive pass: a coarse version in ~0.12 s, then the full program.
 PROGRESSIVE_RUNS: Final = 60
-# Palette sizes searched per cell size, best fidelity first.
-PALETTE_SIZES: Final[tuple[int, ...]] = (16, 12, 8, 6, 4)
 
 # Display geometry of the two TFTs (``nextion/nspanel_haui*.HMI``).
 LANDSCAPE_SIZE: Final = (480, 320)
@@ -83,21 +89,6 @@ class Rect:
 def display_size(portrait: bool) -> tuple[int, int]:
     """The visible area of a panel's display, in its own orientation."""
     return PORTRAIT_SIZE if portrait else LANDSCAPE_SIZE
-
-
-def rgb565(color: int) -> tuple[int, int, int]:
-    """Unpack an RGB565 value into the RGB triple the display would show."""
-    return (
-        ((color >> 11) & 0x1F) * 255 // 31,
-        ((color >> 5) & 0x3F) * 255 // 63,
-        (color & 0x1F) * 255 // 31,
-    )
-
-
-def to_rgb565(rgb: tuple[int, int, int]) -> int:
-    """Pack an RGB triple into RGB565."""
-    r, g, b = rgb
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
 
 @dataclass(slots=True)
@@ -158,18 +149,15 @@ def _fit(image: Image.Image, rect: Rect, background: tuple[int, int, int]) -> Im
     return canvas
 
 
-def _cells(
-    canvas: Image.Image, cols: int, rows: int, palette: int
-) -> list[list[tuple[int, int, int]]]:
+def _cells(canvas: Image.Image, cols: int, rows: int) -> list[list[tuple[int, int, int]]]:
     """Average the canvas down to one colour per grid cell.
 
-    ``BOX`` averages each cell, so 1-px noise cannot cost a run of its own; the
-    palette then collapses near-identical averages, which is what keeps a
-    gradient at a few runs instead of hundreds.
+    ``BOX`` averages each cell, so 1-px noise cannot cost a run of its own, and
+    the averages are kept as they are: the display shows 65 536 colours, so a
+    gradient stays a gradient instead of banding into a poster. The run budget is
+    spent on cell size alone (``_compile``).
     """
     small = canvas.resize((cols, rows), Image.Resampling.BOX)
-    if cols * rows > palette:
-        small = small.quantize(colors=palette, method=Image.Quantize.MEDIANCUT).convert("RGB")
     return [
         [cast("tuple[int, int, int]", small.getpixel((col, row))) for col in range(cols)]
         for row in range(rows)
@@ -240,7 +228,7 @@ def _program(spans: Iterable[_Span]) -> list[str]:
     second corner (``fill 20,20,150,50,1024`` paints 150x50 from (20,20), per
     the instruction set). ``draw`` and ``line`` use corners; ``fill`` does not.
     """
-    return [f"fill {span.x},{span.y},{span.w},{span.h},{to_rgb565(span.rgb)}" for span in spans]
+    return [f"fill {span.x},{span.y},{span.w},{span.h},{rgb_to_rgb565(span.rgb)}" for span in spans]
 
 
 def _compile(
@@ -250,13 +238,15 @@ def _compile(
     budget: int,
     background: tuple[int, int, int],
 ) -> tuple[list[str], int]:
-    """Find the finest grid whose program fits ``budget`` runs.
+    """Find the finest grid whose program fits ``budget`` runs and the firmware.
 
     Cell size is searched by bisection - the coarsest limit is a single cell, so
-    a fitting size always exists - and within a cell size the largest palette
-    that fits wins, because that is where the remaining detail is. The result is
-    verified, never truncated: a program that would exceed the budget is made
-    coarser instead.
+    a fitting size always exists - and the search floor is one display pixel: the
+    grid is never finer than the rectangle, so the best possible result is the
+    image at the screen's own resolution. Every cell keeps the colour the display
+    can show, which is where the remaining detail is. The result is verified,
+    never truncated: a program over the budget, or over ``IMAGE_PROGRAM_MAX``
+    characters, is made coarser instead.
 
     Returns:
         The ``fill`` instructions and the cell size in display pixels.
@@ -269,14 +259,10 @@ def _compile(
             cols = math.ceil(rect.w / cell)
             rows = math.ceil(rect.h / cell)
             cache[cell] = None
-            for palette in PALETTE_SIZES:
-                spans = _spans(
-                    _cells(canvas, cols, rows, palette), rect, cell, background, COLOUR_TOLERANCE
-                )
-                program = _program(spans)
-                if len(program) <= budget:
-                    cache[cell] = (program, cell)
-                    break
+            spans = _spans(_cells(canvas, cols, rows), rect, cell, background, COLOUR_TOLERANCE)
+            program = _program(spans)
+            if len(program) <= budget and program_length(program) <= IMAGE_PROGRAM_MAX:
+                cache[cell] = (program, cell)
         return cache[cell]
 
     low, high = 1, worst
@@ -292,7 +278,7 @@ def _compile(
     return found
 
 
-def image_runs(
+def image_plan(
     data: bytes,
     rect: Rect,
     *,
@@ -300,24 +286,27 @@ def image_runs(
     budget: int = RUN_BUDGET,
     progressive: bool = False,
     tolerance: int = COLOUR_TOLERANCE,
-) -> list[list[str]]:
-    """Draw programs that paint ``data`` into ``rect``.
+) -> tuple[list[list[str]], int]:
+    """The draw programs for ``data`` and the cell size the finest one is drawn at.
 
     Args:
         data: The encoded image (any format Pillow decodes).
         rect: Where to paint, in display pixels.
         background: The page's background as RGB565; used for the letterbox
             margins and skipped when a cell already shows it.
-        budget: Run budget; latency is ``budget * COMMAND_SPACING_MS``.
+        budget: Run budget; latency is ``budget * COMMAND_SPACING_MS``. The
+            grid never gets finer than one pixel per cell, so at the top of the
+            range a small rectangle is drawn at the display's own resolution.
         progressive: Also return a coarse pass, so the image appears in ~0.12 s
             and sharpens. Its cells are larger than the full program's, so it is
             not a prefix of it - the full pass paints over it.
         tolerance: Per-channel delta that still merges into one run.
 
     Returns:
-        ``[full]``, or ``[coarse, full]`` with ``progressive``. Every entry is a
-        list of ``fill`` instructions, possibly empty when the image is the
-        background colour only.
+        The programs (``[full]``, or ``[coarse, full]`` with ``progressive``,
+        each a list of ``fill`` instructions, possibly empty when the image is
+        the background colour only) and the cell size of the full pass in display
+        pixels.
 
     Raises:
         ImageProgramError: When the image cannot be decoded, the rect has no
@@ -327,25 +316,36 @@ def image_runs(
         raise ImageProgramError(
             f"budget {budget} is outside the {MIN_RUN_BUDGET}-{MAX_RUN_BUDGET} run range"
         )
-    background_rgb = rgb565(background)
+    background_rgb = rgb565_to_rgb(background)
     canvas = _fit(_decode(data), rect, background_rgb)
-    full, _cell = _compile(canvas, rect, budget=budget, background=background_rgb)
+    full, cell = _compile(canvas, rect, budget=budget, background=background_rgb)
     if not progressive:
-        return [full]
+        return [full], cell
     coarse, _coarse_cell = _compile(
         canvas, rect, budget=min(PROGRESSIVE_RUNS, budget), background=background_rgb
     )
-    return [coarse, full]
+    return [coarse, full], cell
 
 
-def estimated_cell_px(rect: Rect, budget: int) -> float:
-    """How large one painted cell is at ``budget`` runs, roughly.
-
-    A program spends its runs on cells, so the cell area is the rectangle's area
-    divided by the budget. The service warns past ``MAX_RECOMMENDED_CELL_PX``
-    instead of pretending a full-page photograph is supported.
-    """
-    return math.sqrt(rect.w * rect.h / max(1, budget))
+def image_runs(
+    data: bytes,
+    rect: Rect,
+    *,
+    background: int,
+    budget: int = RUN_BUDGET,
+    progressive: bool = False,
+    tolerance: int = COLOUR_TOLERANCE,
+) -> list[list[str]]:
+    """Draw programs that paint ``data`` into ``rect``; ``image_plan`` adds the cell."""
+    programs, _cell = image_plan(
+        data,
+        rect,
+        background=background,
+        budget=budget,
+        progressive=progressive,
+        tolerance=tolerance,
+    )
+    return programs
 
 
 def program_length(runs: Iterable[str]) -> int:

@@ -312,9 +312,10 @@ show_image:
   name: Show image
   description: >-
     Draw an image into a rectangle on the page the panel is showing.  The
-    image is reduced to at most 16 colours and a few hundred rectangles,
-    drawn in about half a second, and it disappears on the next page change.
-    Best for logos, icons and graphics; a full-screen photo becomes a mosaic.
+    image is rebuilt from a few hundred rectangles in the display's own 65 536
+    colours, drawn in about half a second, and it disappears on the next page
+    change. Best for logos, icons and graphics; a full-screen photo becomes a
+    mosaic.
   fields:
     device:
       name: "Device"
@@ -325,12 +326,23 @@ show_image:
           integration: nspanel_haui
     url:
       name: "URL"
-      description: "http(s) URL of the image (PNG, JPEG, GIF, BMP, WebP)."
-      required: true
+      description: "http(s) URL of the image (PNG, JPEG, GIF, BMP, WebP). Cannot be combined with Path."
+      required: false
       example: "https://www.home-assistant.io/images/favicon-192x192.png"
       selector:
         text:
           type: url
+    path:
+      name: "Path"
+      description: >-
+        The image as a file in the "www" folder of the Home Assistant
+        configuration, for example "logo.png" for the file "www/logo.png".
+        Cannot be combined with URL.
+      required: false
+      example: "logo.png"
+      selector:
+        text:
+          type: text
     x:
       name: "X"
       description: "Left edge of the rectangle, in display pixels."
@@ -388,13 +400,15 @@ show_image:
       name: "Quality"
       description: >-
         How many rectangles the image may use.  More is sharper and slower:
-        60 runs take about 0.12 s, 600 about 1.2 s.
+        60 runs take about 0.12 s, 300 about 0.6 s.  A small rectangle reaches
+        one rectangle per display pixel; a large one stops where the panel's
+        20 000-character program limit does.
       required: false
       default: 300
       selector:
         number:
           min: 60
-          max: 600
+          max: 769
           unit_of_measurement: "runs"
           mode: slider
 

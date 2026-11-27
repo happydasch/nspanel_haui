@@ -933,6 +933,14 @@ class TestHubOptionsFlow:
         assert values["time_format"] == "%I:%M %p"
         assert values["date_format_locale"] == "long"
 
+    def test_the_form_prefills_a_layout_saved_before_the_rename(self):
+        """A hub saved with the old weekday layout keeps it, under its new name."""
+        entry = _OptionsEntry(options={"date_format_locale": "E"})
+
+        result = self._run(self._make_flow(entry).async_step_init())
+
+        assert _form_values(result)["date_format_locale"] == "weekday_short"
+
     def test_the_form_offers_the_editor_s_locale_date_layouts(self):
         """The editor's per-device dropdown and this form offer the same layouts."""
         source = (

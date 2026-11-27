@@ -63,8 +63,8 @@
         "long": "Długi",
         "medium": "Średni",
         "short": "Krótki",
-        "E": "Dzień tygodnia (krótki)",
-        "EEEE": "Dzień tygodnia (pełny)"
+        "weekday_short": "Dzień tygodnia (krótki)",
+        "weekday_full": "Dzień tygodnia (pełny)"
       }
     }
   },

@@ -63,8 +63,8 @@
         "long": "Dlhý",
         "medium": "Stredný",
         "short": "Krátky",
-        "E": "Deň v týždni (krátky)",
-        "EEEE": "Deň v týždni (plný)"
+        "weekday_short": "Deň v týždni (krátky)",
+        "weekday_full": "Deň v týždni (plný)"
       }
     }
   },

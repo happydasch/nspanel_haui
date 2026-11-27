@@ -26,14 +26,24 @@ from homeassistant.helpers.selector import (
 from .const import DOMAIN
 from .haui.device_config import HUB_OPTION_KEYS, hub_options
 from .haui.mapping.const import DEFAULT_CONFIG
+from .haui.utils.locale_data import normalize_pattern_name
 from .hub.esphome_helpers import discover_esphome_devices as _discover_esphome_devices
 from .hub.esphome_helpers import hub_device_entry
 
 _LOGGER = logging.getLogger(__name__)
 
 # Locale date layouts a panel can inherit; the same values the editor offers,
-# where the selected layout follows the device language.
-DATE_FORMAT_LOCALE_OPTIONS: tuple[str, ...] = ("full", "long", "medium", "short", "E", "EEEE")
+# where the selected layout follows the device language.  Each one is a selector
+# option value, so it has to be a valid translation key (see
+# ``haui/utils/locale_data.py``).
+DATE_FORMAT_LOCALE_OPTIONS: tuple[str, ...] = (
+    "full",
+    "long",
+    "medium",
+    "short",
+    "weekday_short",
+    "weekday_full",
+)
 
 # A longer strftime pattern is a paste accident, not a format.
 MAX_FORMAT_LENGTH = 64
@@ -56,13 +66,13 @@ def _hub_settings_schema(values: Mapping[str, Any]) -> vol.Schema:
     }
     for key in FORMAT_OPTION_KEYS:
         schema[vol.Required(key, default=values.get(key, ""))] = TextSelector()
-    schema[vol.Required("date_format_locale", default=values.get("date_format_locale", ""))] = (
-        SelectSelector(
-            SelectSelectorConfig(
-                options=list(DATE_FORMAT_LOCALE_OPTIONS),
-                mode=SelectSelectorMode.DROPDOWN,
-                translation_key="date_format_locale",
-            )
+    # A layout stored before the rename is offered under its current name.
+    stored_layout = normalize_pattern_name(values.get("date_format_locale", ""))
+    schema[vol.Required("date_format_locale", default=stored_layout)] = SelectSelector(
+        SelectSelectorConfig(
+            options=list(DATE_FORMAT_LOCALE_OPTIONS),
+            mode=SelectSelectorMode.DROPDOWN,
+            translation_key="date_format_locale",
         )
     )
     return vol.Schema(schema)

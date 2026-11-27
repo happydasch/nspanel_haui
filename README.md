@@ -83,10 +83,10 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
 <table>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with device cards showing their home screens, the device inventory and latest events" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme with device cards showing their home screens and a footer bar with the device's name and status, the device inventory and latest events" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with device cards showing their home screens, the device inventory and latest events" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme with device cards showing their home screens and a footer bar with the device's name and status, the device inventory and latest events" width="100%">
     </td>
   </tr>
   <tr>
@@ -195,10 +195,10 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, home and idle, hardware buttons, screen buttons, screen, sounds, gestures and advanced" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme, opened on a tile per group: general, home and idle, hardware buttons, screen buttons, screen, sounds, gestures and advanced" width="100%">
     </td>
   </tr>
   <tr>

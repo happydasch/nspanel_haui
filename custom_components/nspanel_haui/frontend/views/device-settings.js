@@ -22,6 +22,12 @@ import { scheduleSection } from '../ui/schedule-section.js';
 import { settingsTile } from '../ui/settings-tile.js';
 
 /**
+ * The CLDR names of the weekday-only layouts, stored before they became the
+ * selector's translation keys `weekday_short` and `weekday_full`.
+ */
+const LEGACY_DATE_FORMAT_LOCALES = { E: "weekday_short", EEEE: "weekday_full" };
+
+/**
  * Render a toggle row used within the device config form.
  * Uses native toggle checkbox via renderToggle.
  */
@@ -345,14 +351,17 @@ class DeviceSettings extends HauiDialog {
         t("US 12-hour shows e.g. 2:30 PM. Custom strftime directives: %H = hour (24h), %I = hour (12h), %M = minutes, %p = AM/PM."))}
       ${formatSelectField(this, "dc-date_format", "date_format", cfg, t("Date format"), dateFormatOptions(),
         t("US numeric shows e.g. 03/14/2026. Empty keeps the locale-based layout from the Language setting."))}
-      ${selectField(this, "dc-date_format_locale", "date_format_locale", cfg, t("Locale-aware date layout"), [
+      ${selectField(this, "dc-date_format_locale", "date_format_locale", {
+        ...cfg,
+        date_format_locale: LEGACY_DATE_FORMAT_LOCALES[cfg.date_format_locale] ?? cfg.date_format_locale,
+      }, t("Locale-aware date layout"), [
         { value: "", label: t("Use hub default") },
         { value: "full", label: t("Full") },
         { value: "long", label: t("Long") },
         { value: "medium", label: t("Medium") },
         { value: "short", label: t("Short") },
-        { value: "E", label: t("Weekday (short)") },
-        { value: "EEEE", label: t("Weekday (full)") },
+        { value: "weekday_short", label: t("Weekday (short)") },
+        { value: "weekday_full", label: t("Weekday (full)") },
       ], (v) => v, t("Used when Date format is Default. The selected layout follows the device language."))}
       ${this._themeField(cfg)}
     `;

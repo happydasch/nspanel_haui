@@ -42,8 +42,8 @@ The rules are short:
 - **Empty means the built-in default.** Clearing a field keeps the default the integration ships with rather than
   blanking the panels.
 - **The layout and the format are not the same thing.** Set **Default date format** for the exact pattern every panel
-  should show, or leave it empty and pick a layout — `full`, `long`, `medium`, `short`, `E` or `EEEE` —
-  which the panel fills in with its own language.
+  should show, or leave it empty and pick a layout — `full`, `long`, `medium`, `short`, `weekday_short` or
+  `weekday_full` — which the panel fills in with its own language.
 
 ## Saving restarts the panels
 

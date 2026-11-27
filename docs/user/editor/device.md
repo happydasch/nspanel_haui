@@ -15,11 +15,11 @@ Everything here belongs to this panel. The hub's own name, and the formats a pan
 
 === "Light"
 
-    <img src="../../assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="800" height="500">
+    <img src="../../assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, home and idle, hardware buttons, screen buttons, screen, sounds, gestures and advanced" width="800" height="500">
 
 === "Dark"
 
-    <img src="../../assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="800" height="500">
+    <img src="../../assets/readme/editor-settings-dark.png" alt="Device settings in the dark theme, opened on a tile per group: general, home and idle, hardware buttons, screen buttons, screen, sounds, gestures and advanced" width="800" height="500">
 
 ## General
 

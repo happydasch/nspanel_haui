@@ -63,8 +63,8 @@
         "long": "Long",
         "medium": "Medium",
         "short": "Short",
-        "E": "Weekday (short)",
-        "EEEE": "Weekday (full)"
+        "weekday_short": "Weekday (short)",
+        "weekday_full": "Weekday (full)"
       }
     }
   },

@@ -5,7 +5,7 @@ description: Working in the Nextion Editor on both HMI projects and keeping them
 
 # Editing the HMI
 
-The display UI is a Nextion Editor project — `nextion/nspanel_haui.HMI` and its portrait sibling `nextion/nspanel_haui_portrait.HMI` — compiled to `nspanel_haui.tft` and `nspanel_haui_portrait.tft`. Layout changes, new widgets, new pages and the portrait variant are hand work in that application; this page is the procedure and the contract that keeps the HMI and the Python pages in step. The hub side of the same cycle is [Nextion component](nextion.md).
+The display UI is a Nextion Editor project — `nextion/nspanel_haui.HMI` and its portrait sibling `nextion/nspanel_haui_portrait.HMI` — compiled to `nspanel_haui.tft` and `nspanel_haui_portrait.tft`. Layout changes, new widgets, new pages and the portrait variant are hand work in that application; this page is the procedure and the contract that keeps the HMI and the Python pages in step. The hub side of the same cycle is [Nextion component](nextion.md), and [HMI event scripts](nextion-scripts.md) inventories the event code both projects carry.
 
 ## When you need this page
 
@@ -53,7 +53,7 @@ If the HMI page `clock` has widget `tTime` with id `3`, Python has `t_time=Compo
 
 | File | Holds |
 |------|-------|
-| `nextion/nspanel_haui.HMI`, `nextion/nspanel_haui_portrait.HMI` | the layout and the page-scoped event code that must run on the display; `Program.s` declares the theme globals; `system.tftVersion` carries the TFT version |
+| `nextion/nspanel_haui.HMI`, `nextion/nspanel_haui_portrait.HMI` | the layout and the page-scoped event code that must run on the display; `Program.s` declares the theme globals and the 921600 boot baud; `system.tftVersion` carries the TFT version |
 | `scripts/hmi_layout/landscape_layout.py`, `portrait_layout.py` | the widget geometry and attribute overrides `gen_layout.py` writes |
 | `scripts/hmi_layout/theme.py` | the theme colours compiled into solid widgets on both TFTs |
 | `custom_components/nspanel_haui/haui/page/*.py` | behaviour: `COMPONENTS`, `DESCRIPTOR`, render and touch handlers |
@@ -61,22 +61,23 @@ If the HMI page `clock` has widget `tTime` with id `3`, Python has `t_time=Compo
 
 ### Hard rules
 
+- **`Program.s` sets `bauds=921600` in both HMIs.** The firmware starts its UART at that rate and only scans down as a fallback; a TFT compiled at another rate would need a rescan after every boot. `tests/test_bump_version.py` checks both HMIs.
 - **Every page sends `sendme` in its `Preinitialize` event.** The hub waits for the `esphome.page` event before rendering; a page without it is never rendered.
 - **Prepare the page in `Preinitialize`**: hide unused widgets, set picture backgrounds, clear text. The hub cannot touch the display before the page is shown.
-- **A solid-colour page paints itself in the theme in `Preinitialize`.** The hub writes the theme globals declared in `Program.s` (`thmBg`, `thmHdrBg`, `thmHdrTxt`, `thmPressed`, `thmCompBg`; defaults = the `COLORS` palette) before every page switch, and the page assigns them to its own `bco` and to every widget colour compiled with a theme colour. Generate the code from the page's widgets and paste it right after `sendme` in both HMIs:
+- **A solid-colour page paints itself in the theme in `Preinitialize`.** The hub writes the five base theme globals declared in `Program.s` (`thmBg`, `thmHdrBg`, `thmHdrTxt`, `thmPressed`, `thmCompBg`) before every page switch. TFTs at `0.4.7` and newer also declare four body-foreground globals (`thmCompTxt`, `thmActive`, `thmActiveDk`, `thmTxt`), which the page applies to its widgets in `Preinitialize`. The hub only sends those extra globals to supported TFT versions; for older, unknown or invalid versions it retains per-widget foreground commands. Generate the theme code from the page's widgets and paste it right after `sendme` in both HMIs:
 
   ```bash
   python -m scripts.hmi_layout.gen_virtual_layout --theme-code grid
   ```
 
-  Paste it again whenever a widget compiled with a theme colour is added, removed or recoloured. `gen_virtual_layout --check`, run by the test suite, fails while a page's code is missing or stale.
+  The command emits foreground assignments when the selected HMI declares the four globals. Paste the generated code again whenever a widget compiled with a theme colour is added, removed or recoloured. `gen_virtual_layout --check`, run by the test suite, validates the matching legacy or foreground-enabled contract.
 - **Enable `Send Component ID`** on every touch event the hub must react to (buttons, sliders, keypad keys). Without it the hub receives no component event.
 - **Toggle `sendkey` in the landscape project only.** The portrait run copies every widget's `Send Component ID` from `SIBLING_HMI`, so a touch setting changed only in the portrait HMI is overwritten by the next `gen_layout --spec portrait`.
 - **Component ids are page-local and change when you reorder widgets.** Re-dump the page and fix every affected `Component(id, …)`.
 - **Keep behaviour in the hub.** Layout and visuals live in the HMI; state reads, commands and navigation live in `haui/page/*.py`. HMI event code beyond `sendme` is the exception.
 - **Both HMIs carry the same widgets.** Same names, ids, order and event code in both projects: a widget present in one HMI only breaks that TFT silently at runtime, and `make hmi-check` is what proves the parity.
 - **Respect the visible area.** Landscape is 480 × 320 px but the bezel hides the rightmost 30 px: keep interactive content left of x 450 ([dimensions](nextion.md#dimensions-and-non-visible-area)).
-- **The TFT version lives in the HMI too.** `system.tftVersion` in both HMIs must equal `tft_version` in `esphome/nspanel_haui/version.yaml` — the TFT version can differ from the firmware version — and `python -m scripts.bump_tft_version` writes it.
+- **The TFT version lives in the HMI too.** `system.tftVersion` in both HMIs must equal `tft_version` in `esphome/nspanel_haui/version.yaml` — the TFT version can differ from the firmware version — and `python -m scripts.bump_tft_version` writes it. That text is a widget attribute, so the same run rewrites `frontend/virtual/layout_<orientation>.json`; never edit the layouts to carry a version by hand.
 
 ## Changing an existing widget
 

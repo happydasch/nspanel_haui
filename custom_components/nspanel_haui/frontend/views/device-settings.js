@@ -50,8 +50,8 @@ function renderHardwareButton(host, cfg, side) {
     : t("When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.");
   const entityLabel = left ? t("Left Button Entity") : t("Right Button Entity");
   const entityHint = left
-    ? t("Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled.")
-    : t("Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled.");
+    ? t("Switch this Home Assistant entity with its domain's default action — a light or switch toggles, a scene or script runs, a button is pressed — when you release the left hardware button. Only available when the left relay is disabled.")
+    : t("Switch this Home Assistant entity with its domain's default action — a light or switch toggles, a scene or script runs, a button is pressed — when you release the right hardware button. Only available when the right relay is disabled.");
 
   return html`
     ${checkbox(host, relayId, relayKey, cfg, relayLabel, relayHint)}

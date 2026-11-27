@@ -19,7 +19,7 @@ Every release publishes a **firmware manifest** (`firmware-manifest.json`) that 
 | **Development** (`dev`) | The newest release in the GitHub release list that ships a manifest, development builds included (see [Published development firmware](release.md#published-development-firmware)) |
 | **Custom manifest URL** | The URL set under **Update settings → Advanced** overrides the channel, for example to follow the local manifest that `scripts/dev_release.py` writes into Home Assistant's `www` folder |
 
-The display always gets the TFT the **installed** firmware needs: the firmware reports the version it requires (`tft_version`) and the hub installs that version from the manifest. A newer TFT is never installed ahead of its firmware; after a firmware update it follows once the device has rebooted into it. A manifest without a TFT (a local test release ships none) offers no display update; when the channel's manifest ships another TFT version, the hub takes the one from the GitHub release named like the installed firmware.
+The display always gets the TFT the **installed** firmware needs: the firmware reports the version it requires (`tft_version`) and the hub installs that version from the manifest. A newer TFT is never installed ahead of its firmware; after a firmware update it follows once the device has rebooted into it. That order is what makes the 921600-baud TFTs safe: the new firmware scans the display rates on boot, finds an older 115200 TFT, and only then offers the TFT that switches the display to 921600. A manifest without a TFT (a local test release ships none) offers no display update; when the channel's manifest ships another TFT version, the hub takes the one from the GitHub release named like the installed firmware.
 
 ```mermaid
 flowchart TD
@@ -223,7 +223,7 @@ sequenceDiagram
     Note over Hub: 60 s after the connect:<br/>check the TFT the new firmware requires
     Hub->>Panel: upload_tft_url (TFT)
     Panel-->>Hub: tft_upload_started (the URL)
-    Panel->>Display: write the TFT (several minutes)
+    Panel->>Display: write the TFT (a few minutes)
     alt the transfer ended
         Panel->>Panel: reboot
         Panel-->>Hub: reconnect with the new TFT version
@@ -261,11 +261,11 @@ The editor shows the steps, the time the install has run and about how long is l
 ### Failure handling
 
 - **Firmware**: the hub waits up to ten minutes (`FIRMWARE_INSTALL_TIMEOUT_SECONDS`) for the device to reboot. No reboot, a reconnect without a reboot, or a reboot into the old version is an error. A failed automatic install is retried after `retry_interval` (an hour), at most `max_attempts` (3) times per version.
-- **Display TFT**: the upload takes several minutes (about 13 on a portrait panel) and ends in a reboot; the hub waits up to 20 minutes (`INSTALL_TIMEOUT_SECONDS`). An upload that ends without a reboot, or a TFT the display does not report afterwards, is an error; the automatic install tries again after `retry_interval`, at most `max_attempts` times.
+- **Display TFT**: the upload ends in a reboot; the hub waits up to 20 minutes (`INSTALL_TIMEOUT_SECONDS`). Its duration is not the link's: 11.5 MB at 921600 bps is about two minutes of wire time, and the rest is the display acknowledging each 4 KB chunk plus the HTTP download, which is why `TFT_EXPECTED_SECONDS` (15 minutes) is a yardstick rather than a measurement. An upload that ends without a reboot, or a TFT the display does not report afterwards, is an error; the automatic install tries again after `retry_interval`, at most `max_attempts` times.
 
 | What the hub hears | Meaning | Install state |
 |--------------------|---------|---------------|
-| `esphome.tft_upload_started` | the panel accepted the URL and started the transfer; the timeout restarts here | stays `installing` |
+| `esphome.tft_upload_started` | the panel accepted the URL and started the transfer; the timeout restarts here. The firmware sends it a second time for the retry at 115200 bps, so a fallback that outlives the first window is still one install | stays `installing` |
 | `esphome.tft_upload_failed` | the panel could not install the file; the event carries its reason (no network, `HTTP 404`, a server without range support, a file size out of range, the display refusing the upload, a chunk the display rejected) | `error` with that reason |
 | no event, then the device reconnects without a reboot | an upload the panel never started, or one that died before reporting | `error`, "did not reboot" |
 | no event, no reconnect for 20 minutes | the transfer is still running, or the panel hangs | `error` on the timeout |

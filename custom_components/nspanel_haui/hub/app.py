@@ -433,6 +433,9 @@ class NSPanelHAUI(HAAdapter):
             "name": self._runtime_device_name or device_config.get("name", self.name),
             "tft_version": runtime_info.get("tft_version") or "",
             "tft_required_version": runtime_info.get("tft_required_version") or "",
+            # The UART baud the panel runs its display link at: None until the
+            # firmware of a panel published it (firmware before 0.5.7 does not).
+            "display_baud": runtime_info.get("display_baud"),
             "yaml_version": runtime_info.get("yaml_version") or "",
             "hub_api_version": runtime_info.get("hub_api_version") or "",
             "hub_api_compatible": hub_api_compatible(runtime_info.get("hub_api_version")),

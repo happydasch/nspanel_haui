@@ -92,7 +92,8 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   @container haui-panels-overview (max-width: 360px) {
     .haui-panels-overview-roles { grid-template-columns: minmax(0, 1fr); }
   }
-  .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
+  /* The workspace's own band, like every card heading on the pages it opens. */
+  .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); background: var(--haui-surface-soft); }
   .haui-preview-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
   /* The panel list's search (.haui-search-field) shares the row with the view toggle at every width: it takes what the toggle leaves, up to its full size. */
   .haui-panel-search { display: inline-flex; max-width: 260px; height: 40px; flex: 1 1 0; }
@@ -289,26 +290,52 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-device-details .haui-diag-tiles.is-stale .haui-diag-tile-value { color: var(--secondary-text-color); }
   /* Offline is the current state, not a stale reading. */
   .haui-device-details .haui-diag-tiles .haui-diag-tile-value.is-danger { color: var(--haui-bad-text); }
-  /* The buttons below the Device stack's cards, as content without a card of their own: each one
-     across the whole width on a line of its own, naming its sidebar on the inline start edge and what
-     it opens on its trailing edge - what the update settings hold, the selected theme's name. */
-  .haui-details-actions { display: grid; gap: 8px; }
-  .haui-details-actions .haui-button { justify-content: flex-start; }
+  /* The buttons below the Device stack's cards, as content without a card of their own, naming their
+     sidebar on the inline start edge and what it opens on its trailing edge - what the update settings
+     hold, the selected theme's name. The wide side column gives each one a line of its own; the width
+     one row underneath the workspace has does not, so it pairs them and a phone turns them into tiles. */
+  .haui-details-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .haui-details-actions .haui-button { justify-content: flex-start; min-width: 0; }
   .haui-details-actions .haui-button-detail { margin-left: auto; }
+  /* Two by two: the value keeps the trailing edge and gives way first, with an ellipsis. */
+  @container haui-editor (max-width: 980px) {
+    .haui-details-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  /* A phone: one row of tiles, the icon over the label, one column per button the device has. The
+     trailing value has no room here, so it stays in the button's name for a screen reader rather than
+     disappearing with the box that showed it; the sidebar each one opens names it in its own title.
+     The label keeps the whole track (no padding) so the longest translation still fits one line: Polish
+     "Aktualizacje" needs 66px of the 73px a 355px screen leaves, and anything longer breaks inside its
+     own tile instead of spilling over the next one. */
+  @container haui-editor (max-width: 560px) {
+    .haui-details-actions { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+    .haui-details-actions .haui-button {
+      position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 64px;
+      padding: 8px 0; border-radius: var(--haui-card-radius); font-size: var(--haui-text-caption);
+      line-height: var(--haui-line-height-tight); overflow-wrap: anywhere; text-align: center;
+      white-space: normal; --mdc-icon-size: 18px;
+    }
+    .haui-details-actions .haui-button-detail {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+      margin: 0; white-space: nowrap;
+    }
+  }
   /* A tile shows its label and value; hover, focus or a tap opens its facts below it (ui/info-tile.js), a right-hand tile's aligned to its right edge. */
   .haui-tile-info { position: relative; min-width: 0; }
   .haui-tile-info > .haui-diag-tile { width: 100%; height: 100%; }
   /* The card is capped at twice a tile, so its tracks are capped too: with only the width limited, a long
-     localized label or reading would spill over its edge instead of wrapping inside it. */
-  .haui-tile-card { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; grid-template-columns: minmax(0, 1fr); box-sizing: border-box; width: max-content; min-width: 100%; max-width: min(280px, calc(200% + 8px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
+     localized label or reading would spill over its edge instead of wrapping inside it. The cap leaves room
+     for a label beside a reading such as "921600 bps": the longest translation (Polish) needs 282px. */
+  .haui-tile-card { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; display: grid; grid-template-columns: minmax(0, 1fr); box-sizing: border-box; width: max-content; min-width: 100%; max-width: min(320px, calc(200% + 8px)); gap: 8px; padding: 12px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); box-shadow: var(--haui-shadow-overlay); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; visibility: hidden; }
   .haui-tile-info:nth-child(even) > .haui-tile-card { right: 0; left: auto; }
   .haui-tile-card > strong { font-size: var(--haui-text-label); font-weight: 500; overflow-wrap: anywhere; }
   .haui-tile-card dl { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
-  /* A fact keeps its label and value on one line while both fit; a long label wraps, and a value that still
-     does not fit moves to its own line, flush right, before it is cut off. */
+  /* A fact keeps its reading on its label's line: the label gives way first and wraps, holding on to the width
+     of its longest word (min-content). Only a reading that cannot share the line at all moves to one of its
+     own, flush right, before it is cut off. */
   .haui-tile-card dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-tile-card dl > div:last-child { border-bottom: 0; }
-  .haui-tile-card dt { min-width: 0; color: var(--secondary-text-color); }
+  .haui-tile-card dt { flex: 1 1 0; min-width: min-content; color: var(--secondary-text-color); overflow-wrap: break-word; }
   .haui-tile-card dd { overflow: hidden; min-width: 0; margin: 0; margin-inline-start: auto; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
   .haui-tile-card > p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-tile-info > .haui-diag-tile:focus-visible + .haui-tile-card, .haui-tile-info > .haui-diag-tile[aria-expanded="true"] + .haui-tile-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }

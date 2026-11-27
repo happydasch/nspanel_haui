@@ -4,8 +4,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INTEGRATION_DIR = ROOT / "custom_components" / "nspanel_haui"
 
-# Where the README's images are served from: the repository and its one long-lived
-# branch. A URL naming any other ref breaks as soon as that ref is deleted.
+# Where the README's images are served from: the repository and its stable branch.
+# A URL naming any other ref breaks as soon as that ref is deleted or renamed.
 REPO = "happydasch/nspanel_haui"
 README_BRANCH = "master"
 

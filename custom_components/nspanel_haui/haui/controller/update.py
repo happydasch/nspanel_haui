@@ -1748,17 +1748,19 @@ class HAUIUpdateController(HAUIBase):
         device_info = self.app.device.device_info or {}
         installed_version = device_info.get("tft_version")
         required_version = self._required_tft_version(device_info)
-        self.log(
-            f"Checking installed version: required={required_version} installed={installed_version}"
-        )
         if self._pending_state_check or self._state_check_timer is not None:
             return  # a refresh is already in flight
         if installed_version or self._recent_unconfirmed_install(required_version):
             # A TFT version arrived (or an install waits for confirmation):
-            # evaluate now.
+            # evaluate now; it logs the comparison itself.
             self._evaluate_installed_version(device_info)
             return
-        # Version unknown: ask the device before drawing any conclusion.
+        # Version unknown: ask the device before drawing any conclusion. Only
+        # this branch logs here, so a known version is logged once instead of
+        # twice; the empty ``installed=`` is the troubleshooting tell.
+        self.log(
+            f"Checking installed version: required={required_version} installed={installed_version}"
+        )
         self._pending_state_check = True
         self._request_device_state()
         self._start_state_check_timer()

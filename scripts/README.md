@@ -65,7 +65,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `translations/extract_translations.py` | Extract `t()`/`translate()`/`_()` strings and sync `haui/locale/*.json` |
 | `translations/merge_translations.py` | Merge a completed `translate.json` batch back into the locales |
 | `bump_version.py` | Bump the integration, firmware and TFT versions everywhere |
-| `bump_tft_version.py` | Set `system.tftVersion` in both HMIs and re-stamp the pages |
+| `bump_tft_version.py` | Set `system.tftVersion` in both HMIs, re-stamp the pages and regenerate the virtual layouts |
 | `dev_release.py` | Write a local OTA image and firmware manifest for testing hub updates |
 | `release/dev_version.py` | CI helper: derive a development build's version; writes nothing |
 | `release/compile_firmware.sh` | CI helper: compile the universal firmware and copy both images |
@@ -88,8 +88,8 @@ Change both HMIs, then run `gen_layout --check` and `gen_layout --spec portrait
 [docs/develop/nextion-editor.md](../docs/develop/nextion-editor.md).
 
 **Preview screenshots.** `gen_preview_gallery --docs` writes
-`docs/assets/screens/` and `docs/screens.html`; the dev-firmware workflow commits
-them, so never edit those images by hand. Details:
+`docs/assets/screens/` and `docs/screens.html`; the pull request that changes what a
+screen draws commits them, so never edit those images by hand. Details:
 [preview_gallery/README.md](preview_gallery/README.md).
 
 **Translations.** Run `extract_translations` after any string change and fill in
@@ -97,8 +97,9 @@ the empty non-English values. `merge_translations` is only for an external
 translation round trip.
 
 **Release.** Follow the runbook in
-[docs/develop/release.md](../docs/develop/release.md). One long-lived branch,
-`master`; the release scripts only bump the version and build the image.
+[docs/develop/release.md](../docs/develop/release.md). `dev` is the integration
+branch and `master` the stable one; the release scripts only bump the version and
+build the image.
 
 **Before committing.** Run `make -j4 check`; shortcuts and local setup are in
 [docs/develop/development.md](../docs/develop/development.md).

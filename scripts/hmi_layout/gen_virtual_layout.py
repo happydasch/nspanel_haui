@@ -9,9 +9,11 @@ widths to ``haui/mapping/font_metrics.json``, which the hub fits text with.
 It also generates the theme code of the solid-colour pages: each paints itself in
 the device's theme in Preinitialize, from the Program.s globals the hub sets before
 every page switch. ``--theme-code`` prints the code to paste into a page in both
-HMIs, and the run writes ``haui/mapping/theme_foregrounds.py`` for the body
+HMIs. A HMI whose ``Program.s`` also declares ``FOREGROUND_GLOBALS`` gets the body
+foregrounds in that code too, so such a TFT needs no per-widget colour command from
+the hub; until then the run writes ``haui/mapping/theme_foregrounds.py`` for the
 foregrounds the theme code cannot paint (the hub sends those with a panel's first
-render).
+render), and the code it demands is the backgrounds only.
 
 Run it after every HMI change; ``--check`` (run by the test suite) fails when a
 layout file is out of date or a page's theme code is missing or stale.
@@ -38,7 +40,11 @@ from typing import Any
 from scripts import _ha_stubs  # noqa: F401
 from scripts.nextion2text import Nextion2Text
 from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS
-from custom_components.nspanel_haui.haui.mapping.color import COLORS, THEME_GLOBALS
+from custom_components.nspanel_haui.haui.mapping.color import (
+    COLORS,
+    FOREGROUND_GLOBALS,
+    THEME_GLOBALS,
+)
 from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING
 from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING
 
@@ -176,11 +182,13 @@ def _theme_key(comp: dict[str, Any], attr: str) -> str | None:
     return None
 
 
-def theme_code(page: dict[str, Any]) -> str | None:
+def theme_code(page: dict[str, Any], foregrounds: bool = False) -> str | None:
     """The Preinitialize code that paints a solid-colour page in the theme.
 
     One assignment per page colour and per widget colour the HMI compiles with a theme
-    colour, read from the theme globals; None for a picture page.
+    colour, read from the theme globals; None for a picture page. ``foregrounds`` appends
+    the body widgets' ``pco`` too, from ``FOREGROUND_GLOBALS`` — the part a TFT without
+    those globals leaves to the hub.
     """
     comps = page["components"]
     page_attrs = next(c for c in comps if c["type"] == TYPE_PAGE)["attrs"]
@@ -194,6 +202,9 @@ def theme_code(page: dict[str, Any]) -> str | None:
             key = _theme_key(comp, attr)
             if key is not None:
                 lines.append(f"{comp['name']}.{attr}={THEME_GLOBALS[key]}")
+    if foregrounds:
+        for name, key in theme_foregrounds(page):
+            lines.append(f"{name}.pco={FOREGROUND_GLOBALS[key]}")
     return "\n".join(lines)
 
 
@@ -279,6 +290,15 @@ def _contains_code(event: str, code: str) -> bool:
     return any(have[i : i + len(want)] == want for i in range(len(have) - len(want) + 1))
 
 
+def declares_foregrounds(layout: dict[str, Any]) -> bool:
+    """Whether this HMI's ``Program.s`` declares the body foreground globals.
+
+    The declarations are the switch: an HMI without them is one whose TFT leaves the body
+    foregrounds to the hub, so the generated code must not assign what nothing declares.
+    """
+    return all(name in layout["globals"] for name in FOREGROUND_GLOBALS.values())
+
+
 def check_theme_code(layouts: list[dict[str, Any]]) -> list[str]:
     """Problems with the theme code: globals, each solid page's Preinitialize, parity."""
     problems: list[str] = []
@@ -288,9 +308,16 @@ def check_theme_code(layouts: list[dict[str, Any]]) -> list[str]:
         for key, name in THEME_GLOBALS.items():
             if layout["globals"].get(name) != COLORS[key]:
                 problems.append(f"{hmi}: Program.s must declare int {name}={COLORS[key]} ({key})")
+        foregrounds = declares_foregrounds(layout)
+        if foregrounds:
+            for key, name in FOREGROUND_GLOBALS.items():
+                if layout["globals"].get(name) != COLORS[key]:
+                    problems.append(
+                        f"{hmi}: Program.s must declare int {name}={COLORS[key]} ({key})"
+                    )
         code = {}
         for page in layout["pages"].values():
-            page_code = theme_code(page)
+            page_code = theme_code(page, foregrounds)
             if page_code is None:
                 continue
             code[page["name"]] = page_code
@@ -314,7 +341,15 @@ def check_theme_code(layouts: list[dict[str, Any]]) -> list[str]:
 
 def print_theme_code(layout: dict[str, Any], pages: list[str]) -> int:
     """Print the theme code of the given solid pages (all when empty)."""
-    codes = {page["name"]: theme_code(page) for page in layout["pages"].values()}
+    foregrounds = declares_foregrounds(layout)
+    if not foregrounds:
+        print(
+            "Program.s declares no body foreground globals yet: this is the code for a TFT "
+            f"that leaves {', '.join(FOREGROUND_GLOBALS.values())} to the hub. Declare them "
+            "first to print the block that paints body foregrounds too.",
+            file=sys.stderr,
+        )
+    codes = {page["name"]: theme_code(page, foregrounds) for page in layout["pages"].values()}
     unknown = [name for name in pages if codes.get(name) is None]
     if unknown:
         print(f"no solid-colour page named {', '.join(unknown)}", file=sys.stderr)

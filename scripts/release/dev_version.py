@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Derive the version of a development firmware build; change no file.
 
-A dev build is not a commit. ``dev-firmware.yml`` injects the version into the
-firmware with ``esphome -s yaml_version …`` and uses it as the release tag, so the
-branch keeps the released version and no workflow pushes to a branch at all.
+``dev-firmware.yml`` hands the printed version to ``scripts.bump_version``, which
+writes it into ``manifest.json`` and ``version.yaml``; the workflow commits that bump
+to ``dev`` and tags the commit, so the image, the tag and an integration installed
+from ``dev`` all report the same version.
 
 The base advances with the release: the newest ``vX.Y.Z`` tag reachable from HEAD
 gives ``X.Y.(Z+1)``, so the first build after a release is that release's

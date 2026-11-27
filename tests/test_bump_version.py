@@ -247,6 +247,14 @@ def test_committed_display_assets_carry_the_configured_tft_version():
     assert bump_tft.shipped_tft_version() == configured
 
 
+def test_both_hmis_boot_the_display_at_the_firmware_baud():
+    """A TFT at another boot rate leaves the panel unreachable until a scan."""
+    for name in ("nspanel_haui.HMI", "nspanel_haui_portrait.HMI"):
+        raw = (NEXTION / name).read_bytes()
+        assert b"bauds=921600" in raw, name
+        assert b"bauds=115200" not in raw, name
+
+
 def test_shipped_tft_version_rejects_disagreeing_hmis(hmi_copies):
     landscape, _ = hmi_copies
     new_version = _other_same_length_version(_current_hmi_version(landscape))
@@ -263,6 +271,57 @@ def test_shipped_tft_version_rejects_a_tft_that_was_not_recompiled(hmi_copies):
         assert bump_tft.bump_hmi(hmi, new_version)[0]
     with pytest.raises(ValueError, match="recompile"):
         bump_tft.shipped_tft_version(hmi_copies)
+
+
+def _stub_layout_refresh(monkeypatch, module, ok: bool = True) -> list[bool]:
+    """Record the layout refreshes a bump asks for, without running the generator."""
+    calls: list[bool] = []
+
+    def refresh() -> tuple[bool, str]:
+        calls.append(True)
+        return ok, "regenerated the virtual layouts" if ok else "the generator failed"
+
+    monkeypatch.setattr(module, "regenerate_virtual_layouts", refresh)
+    return calls
+
+
+def test_bumping_an_hmi_refreshes_the_virtual_layouts(hmi_copies, monkeypatch):
+    """The layouts embed ``system.tftVersion``, so a bump must rewrite them too."""
+    calls = _stub_layout_refresh(monkeypatch, bump_tft)
+    monkeypatch.setattr(bump_tft, "DEFAULT_HMIS", hmi_copies)
+    new_version = _other_same_length_version(_current_hmi_version(hmi_copies[0]))
+
+    assert bump_tft.main(["--version", new_version]) == 0
+    assert calls == [True]
+
+
+def test_a_check_run_or_a_custom_hmi_leaves_the_virtual_layouts_alone(hmi_copies, monkeypatch):
+    calls = _stub_layout_refresh(monkeypatch, bump_tft)
+    monkeypatch.setattr(bump_tft, "DEFAULT_HMIS", hmi_copies)
+    version = _current_hmi_version(hmi_copies[0])
+
+    assert bump_tft.main(["--version", version, "--check"]) == 0
+    assert bump_tft.main(["--version", version, "--hmi", str(hmi_copies[0])]) == 0
+    assert calls == []
+
+
+def test_a_failed_layout_refresh_fails_the_bump(hmi_copies, monkeypatch):
+    _stub_layout_refresh(monkeypatch, bump_tft, ok=False)
+    monkeypatch.setattr(bump_tft, "DEFAULT_HMIS", hmi_copies)
+
+    assert bump_tft.main(["--version", _current_hmi_version(hmi_copies[0])]) == 1
+
+
+def test_a_tft_update_refreshes_the_virtual_layouts(hmi_copies, monkeypatch):
+    """The release path bumps ``tftVersion`` through ``bump_hmis``, so it refreshes too."""
+    calls = _stub_layout_refresh(monkeypatch, bump_version.hmi)
+    monkeypatch.setattr(bump_version.hmi, "DEFAULT_HMIS", hmi_copies)
+    version = _current_hmi_version(hmi_copies[0])
+
+    assert bump_version.bump_hmis(version, check=False) is True
+    assert calls == [True]
+    assert bump_version.bump_hmis(version, check=True) is True
+    assert calls == [True]
 
 
 def test_bump_script_rejects_bad_version():

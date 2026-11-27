@@ -104,6 +104,10 @@ def bump_hmis(version: str, check: bool) -> bool:
         changed, message = hmi.bump_hmi(path, version, check=check)
         print(("[OK] " if changed else "[FAIL] ") + message)
         ok = ok and changed
+    if ok and not check:
+        # The virtual layouts embed this text as a widget attribute.
+        ok, message = hmi.regenerate_virtual_layouts()
+        print(("[OK] " if ok else "[FAIL] ") + message)
     return ok
 
 

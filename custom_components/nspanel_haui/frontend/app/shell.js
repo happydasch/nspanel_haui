@@ -987,20 +987,6 @@ class NSPanelEditor extends LitElement {
     return FleetScreen.toggleDeviceMenu(this, name, anchorKey);
   }
 
-  _barTip() {
-    return FleetScreen.barTip(this);
-  }
-
-  /** @param {string} name */
-  _showBarTip(name) {
-    return FleetScreen.showBarTip(this, name);
-  }
-
-  /** @param {string} name */
-  _hideBarTip(name) {
-    return FleetScreen.hideBarTip(this, name);
-  }
-
   /** Keep the Device header in step with the preview session it cannot see. @param {any} event */
   _onPreviewState(event) {
     return DeviceScreen.onPreviewState(this, event);

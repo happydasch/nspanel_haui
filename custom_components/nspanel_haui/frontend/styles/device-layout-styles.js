@@ -32,13 +32,14 @@ export const deviceLayoutStyles = css`
   .haui-device-lead { min-width: 0; grid-area: lead; }
   .haui-device-workspace { position: sticky; top: calc(var(--haui-header-height) + 18px); grid-area: workspace; min-width: 0; overflow: hidden; border: 1px solid var(--divider-color); border-radius: var(--haui-card-radius); background: var(--card-background-color); transition: background 150ms ease, border-color 150ms ease; }
   .haui-device-workspace.is-live { border-color: var(--haui-live-border); background: var(--haui-live-surface); }
-  .haui-device-workspace.is-live .haui-workspace-header { border-color: var(--haui-live-border); }
+  .haui-device-workspace.is-live .haui-workspace-header { border-color: var(--haui-live-border); background: var(--haui-live-surface); }
   .haui-device-side-stack { display: flex; min-width: 0; flex-direction: column; gap: 16px; grid-area: side; }
   .haui-device-side-stack .haui-surface-heading-copy { min-width: 0; flex: 1 1 auto; }
   .haui-device-side-stack .haui-surface-heading-copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-side-stack .haui-surface-heading .haui-button { flex: 0 0 auto; min-height: 32px; padding: 0 8px; font-size: var(--haui-text-label); }
   .haui-device-side-stack .haui-surface-body { display: grid; gap: 12px; }
   .haui-sidebar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  /* A sidebar's title strip carries the same band as the card headings inside it. */
   .haui-sidebar-strip {
     display: flex;
     flex: 0 0 auto;
@@ -47,6 +48,7 @@ export const deviceLayoutStyles = css`
     gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--divider-color);
+    background: var(--haui-surface-soft);
   }
   .haui-sidebar-title { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: var(--haui-text-title); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
   /* The back control starts the strip, before the group's name. */

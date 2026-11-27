@@ -21,7 +21,7 @@ Themes, display files, backups and logs have their own tools in the editor; this
 2. Select a device on the dashboard.
 3. A device opens on its **Device** view; a device without panels opens on **Panels**. **Panels** switches to its panel list.
 
-The highlighted action card holds the next actions: **Add panel**, and the **Settings** cog beside its title. Below the **Connection** and **Diagnostics** cards, the **Themes**, **Updates** and **Backups** buttons open their sidebars. In **Panels**, the cog sits in the list's action card.
+The highlighted action card holds the next actions: **Add panel**, and the **Settings** cog beside its title. Below the **Connection** and **Diagnostics** cards, the **Themes**, **Logs**, **Updates** and **Backups** buttons open their sidebars. In **Panels**, the cog sits in the list's action card.
 
 If the editor stays on its loading screen, see [Troubleshooting](../troubleshooting.md#editor-loading-problems).
 
@@ -51,11 +51,11 @@ A row shows the firmware version, the display (TFT) version, the IP address and 
 - **Disable** — keeps the device and its settings but stops serving it. Its card still shows the last render. Updates need an enabled, connected device.
 - **Remove** — after confirmation, deletes the device with its settings and panels.
 
-The inventory card closes with one coloured segment per device, showing its connection state; hovering or focusing a segment names that device. **Install updates** starts a rollout for every device with an offered update; see [Updating](../update.md).
+**Install updates** starts a rollout for every device with an offered update; see [Updating](../update.md).
 
 ## Device view
 
-The device view holds the panel's screen beside its cards: **Connection**, **Diagnostics** and **Backups**, with the **Themes**, **Updates** and **Backups** sidebars below them.
+The device view holds the panel's screen beside its cards: **Connection**, **Diagnostics** and **Backups**, with the **Themes**, **Logs**, **Updates** and **Backups** sidebars below them.
 
 === "Light"
 
@@ -82,9 +82,9 @@ The header icon is a green check, or an alert with the number of issues:
 
 Expand the card for:
 
-- **Versions** and **Integration log** tiles; the log tile opens the logs.
+- **Versions** and **Integration log** tiles. Hover over or tap the **Versions** tile for its details: the integration version, the firmware (**YAML**), the display (**TFT**) and the **Display link** — the speed of the panel's link to its display, 921600 bps with a current TFT and lower with an older one, **Unknown** while no display answers or the firmware does not report it. The log tile opens the logs.
 - **Integration details** — display state, idle page, disconnects, late heartbeats and the entities of the current page. Select an entity to open it in Home Assistant.
-- **Copy report** — a text report for a bug report, without network name, IP address or entity ids.
+- **Copy report** — a text report for a bug report, without network name, IP address or entity ids. It repeats the display link as a `Display link: … bps` line.
 - Preview tools, see [The Live Preview](#the-live-preview).
 
 ### Backups
@@ -105,7 +105,7 @@ The **Backups** sidebar exports, imports and copies a device's settings and pane
 
 ### Logs
 
-The **Logs** sidebar shows the 50 most recent messages for a device, newest first and grouped by day. Open it from the **Integration log** tile or from **Logs** in the device's row menu. Filter by **All**, **Warnings** or **Errors**, or search; the copy button copies the lines shown.
+The **Logs** sidebar shows the 50 most recent messages for a device, newest first and grouped by day. Open it from the **Integration log** tile, from the **Logs** button below the device's **Connection** and **Diagnostics** cards, or from **Logs** in the device's row menu. Filter by **All**, **Warnings** or **Errors**, or search; the copy button copies the lines shown.
 
 On the dashboard, **Latest events** lists warnings and errors of the last 24 hours. **Logs** shows the full log and **Reset** restarts the window from now; **Last 24 hours** brings the default back. A reset is remembered in the browser, so reloading the editor keeps the shorter window. Both follow the selected device, or show all devices when none is selected.
 

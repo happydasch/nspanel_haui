@@ -77,10 +77,11 @@ def buttons_message(
 ) -> dict[str, Any]:
     """The browser's view of the hardware buttons: their entities and their lights.
 
-    A press switches the button's entity when one is set without relay mode
-    (``HAUIDevice._toggle_button_state``), otherwise its relay. ``entity`` is
-    that entity, None in relay mode; ``state`` is what the light shows, and
-    ``relay_state`` the relay's own state (the dot beside the light).
+    A press runs the button's entity with its domain's default action when one
+    is set without relay mode (``HAUIDevice._toggle_button_state``), otherwise
+    its relay. ``entity`` is that entity, None in relay mode; ``state`` is what
+    the light shows, and ``relay_state`` the relay's own state (the dot beside
+    the light).
     """
     message: dict[str, Any] = {"type": "buttons"}
     for side in BUTTON_SIDES:

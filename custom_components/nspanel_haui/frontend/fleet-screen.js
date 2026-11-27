@@ -18,8 +18,6 @@ import * as DeviceEvents from './device-events.js';
 import * as Toast from './toast.js';
 import { needsSetup } from './panel-utils.js';
 import { resolveHomeKey } from './panel-roles.js';
-import { overlayAnchor } from './ui/popover.js';
-import { isAnchoredOverlayKind } from './store/store.js';
 
 /* ── device discovery ────────────────────────────────────────────────────── */
 
@@ -152,41 +150,6 @@ export function toggleDeviceMenu(host, name, anchorKey) {
   host._toggleAnchoredPopover('device-menu', anchorKey, name);
 }
 
-/* ── footer bar tip ──────────────────────────────────────────────────────── */
-
-/** The footer segment whose tip is open, as the Fleet view renders it. @param {any} host */
-export function barTip(host) {
-  const top = host._store.getState().ui.overlays.at(-1);
-  if (top?.kind !== 'fleet-bar-tip') return null;
-  return { name: top.subject, anchorKey: top.anchorKey };
-}
-
-/**
- * Open the tip of the footer segment under the pointer or the focus. A hover is
- * not a request to close anything, so a menu the user opened keeps its anchor.
- * @param {any} host
- * @param {string} name
- */
-export function showBarTip(host, name) {
-  const top = host._store.getState().ui.overlays.at(-1);
-  if (isAnchoredOverlayKind(top?.kind) && top.kind !== 'fleet-bar-tip') return;
-  const anchorKey = overlayAnchor('fleet-bar-tip', name);
-  if (top?.kind === 'fleet-bar-tip' && top.anchorKey === anchorKey) return;
-  host._store.actions.pushOverlay({ kind: 'fleet-bar-tip', anchorKey, subject: name, draft: null });
-}
-
-/**
- * Close the tip of one segment. The pointer leaves a segment after the next one
- * has taken over, so only the segment the tip names closes it.
- * @param {any} host
- * @param {string} name
- */
-export function hideBarTip(host, name) {
-  const top = host._store.getState().ui.overlays.at(-1);
-  if (top?.kind !== 'fleet-bar-tip' || top.subject !== name) return;
-  host._closeAnchoredPopover('fleet-bar-tip');
-}
-
 /* ── screen ──────────────────────────────────────────────────────────────── */
 
 /** Fleet's screen: the carousel, its summary, the inventory and latest events. @param {any} host */
@@ -241,10 +204,6 @@ export function renderFleetScreen(host) {
       onSetUpDevice: (name) => host._openQuickStart(name),
       selectedDevice: host._fleetSelection,
       onSelectDevice: (name) => { host._fleetSelection = host._fleetSelection === name ? null : name; },
-      // The inventory's footer segments name their device on hover or focus.
-      barTip: host._barTip(),
-      onShowBarTip: (name) => host._showBarTip(name),
-      onHideBarTip: (name) => host._hideBarTip(name),
       // Reset starts the timeline at the moment it was pressed instead of the default 24 hours.
       // Hub log lines carry whole seconds, so the window starts at the second: a line written
       // right after the press is still inside it. The shell keeps it in localStorage.

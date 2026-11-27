@@ -4,12 +4,13 @@ import { t } from '../localize.js';
 import { deviceCard } from '../ui/device-card.js';
 import { deviceSlots } from '../ui/device-slot.js';
 import { deviceRow } from '../ui/device-row.js';
-import { fleetBar, fleetBarTip, fleetSummary } from '../ui/fleet-summary.js';
+import { fleetSummary } from '../ui/fleet-summary.js';
 import { eventList, eventsFrom, eventsInLast24Hours, latestEvents } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
 import { button, iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
 import { menuItem, menuSeparator, overlayAnchor, popover } from '../ui/popover.js';
+import { icon } from '../ui/icon.js';
 import { hasUpdateAvailable } from '../device-status.js';
 import { rolloutCard } from '../ui/rollout-card.js';
 
@@ -24,6 +25,18 @@ export function carouselEdgesFrom(carousel) {
 const CARD_GAP = 16;
 const ROW_PADDING = 4;
 const DEVICE_CARD_SELECTOR = '.haui-device-card:not(.haui-device-slot-card)';
+
+/**
+ * A failure above the inventory as a banner: the red ground under the glyph and the message says
+ * something went wrong before the colour does. A scan the user started is an alert; a status that
+ * could not be refreshed is polled state, which is announced politely.
+ * @param {{ message: string, role: 'alert'|'status' }} notice
+ */
+function fleetNotice({ message, role }) {
+  return html`<p class="haui-fleet-notice" role=${role}>
+    ${icon('alert-circle-outline')}<span>${message}</span>
+  </p>`;
+}
 
 /**
  * How many card-sized placeholders complete the visible row. A final slot may continue beyond its
@@ -104,9 +117,7 @@ function revealCard(from, index) {
  *   installable?: number, onInstallUpdates?: () => void,
  *   rollout?: any, onCancelRollout?: (device: string|null) => void, onDismissRollout?: () => void,
  *   eventsSince?: number|null, onResetEvents?: () => void, onShowAllEvents?: () => void,
- *   onOpenLogs?: () => void,
- *   barTip?: {name: string, anchorKey: string}|null,
- *   onShowBarTip?: (name: string) => void, onHideBarTip?: (name: string) => void }} data
+ *   onOpenLogs?: () => void }} data
  */
 export function renderFleetView(data) {
   const online = data.devices.filter(({ status }) => status?.connected === true).length;
@@ -196,14 +207,6 @@ export function renderFleetView(data) {
         }))),
     })
     : nothing;
-  // A footer segment identifies its device on hover or focus: its tip names the
-  // device and how it is connected, anchored at the segment.
-  const tipSegment = data.barTip
-    ? data.devices.find(({ name }) => name === data.barTip.name) || null
-    : null;
-  const barTip = tipSegment
-    ? fleetBarTip({ segment: tipSegment, anchorKey: data.barTip.anchorKey })
-    : nothing;
   // A selected device scopes Fleet's log surfaces to itself: its events here, and its
   // lines in the Logs sidebar, which the shell opens on the same device.
   const selected = data.selectedDevice
@@ -216,8 +219,8 @@ export function renderFleetView(data) {
   const latest = latestEvents(
     data.eventsSince != null ? eventsFrom(events, data.eventsSince) : eventsInLast24Hours(events),
   );
-  // The segments close the card, so the connection of every device reads at its foot without
-  // repeating a column of the table.
+  // The summary strip closes the inventory: it reads the fleet's health above the table,
+  // without repeating a column of it.
   const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
     <div class="haui-inventory-overview">
       ${fleetSummary({
@@ -259,12 +262,6 @@ export function renderFleetView(data) {
         ...dragActions(item.name, '.haui-device-row'),
       }))}
     </div>
-    <footer class="haui-inventory-footer">
-      ${fleetBar({
-        devices: data.devices, total: data.devices.length, online,
-        onShowTip: data.onShowBarTip, onHideTip: data.onHideBarTip,
-      })}
-    </footer>
   </section>`;
 
   return html`<main class="haui-dashboard-content">
@@ -290,9 +287,13 @@ export function renderFleetView(data) {
           iconName: 'devices', title: t('No devices yet'), message: t('Add a device to get started'),
           action: data.onScan, actionLabel: data.scanning ? t('Scanning...') : t('Scan for devices'),
         })}
-      ${data.scanError ? html`<p class="haui-fleet-scan-error" role="alert">${data.scanError}</p>` : nothing}
-      ${data.statusError ? html`<p class="haui-fleet-scan-error" role="status">${
-        t('Device status could not be refreshed: {error}').replace('{error}', data.statusError)}</p>` : nothing}
+      ${data.scanError ? fleetNotice({
+        message: data.scanError, role: 'alert',
+      }) : nothing}
+      ${data.statusError ? fleetNotice({
+        message: t('Device status could not be refreshed: {error}').replace('{error}', data.statusError),
+        role: 'status',
+      }) : nothing}
       ${discovered.length ? html`<section class="haui-discovered" aria-labelledby="haui-discovered-heading">
         <header>
           <div><h2 id="haui-discovered-heading">${t('Discovered Devices')}</h2>
@@ -324,6 +325,5 @@ export function renderFleetView(data) {
       })}
     </div>` : ''}
     ${deviceMenu}
-    ${barTip}
   </main>`;
 }

@@ -110,6 +110,20 @@ _US = {"time_format": "%I:%M %p", "date_format": "%m/%d/%Y"}
 
 
 @pytest.mark.parametrize(
+    ("entity_id", "service"),
+    [("scene.morning", "turn_on"), ("button.door", "press"), ("light.hall", "toggle")],
+)
+def test_execute_item_runs_the_action_the_domain_provides(entity_id: str, service: str) -> None:
+    """A scene or a button runs its own service, from the table a hardware button shares."""
+    entity = Entity("unknown", {})
+    app = _DeviceApp(entity, {"locale": "en_US"})
+
+    item_utils.execute_item(HAUIItem(app, {"item": entity_id}))
+
+    assert [call[0] for call in entity.calls] == [service]
+
+
+@pytest.mark.parametrize(
     ("entity_id", "state", "attributes", "shown"),
     [
         (

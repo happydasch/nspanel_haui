@@ -39,6 +39,10 @@ These live in `esphome/nspanel_haui/display.yaml`:
 | `on_setup`, `on_page`, `on_touch` | — | triggers after the firmware connects to the display, on a page change, and on a touch |
 | `on_buffer_overflow` | — | logs the warning and publishes a `buffer_overflow` event, which starts [buffer overflow recovery](#buffer-overflow-recovery) |
 
+### Display baud
+
+`Program.s` in both HMIs sets `bauds=921600`, and `hardware.yaml` starts the UART at the same rate. A panel still running an older or stock TFT boots at another rate and is unreachable, so `display_baud.yaml` waits 8 s for the display, power-cycles it and probes the remembered rate, 921600, 115200, 9600 and the remaining Nextion rates. The rate that answers is stored in flash and tried first on the next boot; a scan that finds nothing leaves the link at 115200 and keeps that fallback for its retries. A TFT transfer also starts at the link rate and falls back to 115200 once when the display cannot hold it. A successful TFT upload reboots the ESP, so the new TFT's rate is picked up by the same scan. Keep `bauds` identical in both HMIs; `tests/test_bump_version.py` checks it.
+
 ## Panel rendering and refresh
 
 The HA layer batches commands to keep the native API payload small, ESPHome queues them and the `command_spacing` pacer writes them to the UART. The pacer, not HA batching, is what protects the Nextion's 1 KB RX buffer.
@@ -63,7 +67,7 @@ Measured against the hub's own renders (`tests/page_commands_golden.json`, and a
 | One `next_page` on a grid | 23 | 0.37 s | 0.05 s |
 | One `next_page` on a row | 32 | 0.51 s | 0.06 s |
 
-Those counts are flat in the number of panel items (only the visible tiles render), so the cost is set by the pacing alone. The headroom check: an average command is ~14 characters plus the three `0xFF` terminators, so 2 ms per command is ~8.6 KB/s of the UART's 11.5 KB/s — the display keeps up while it is idle, and its 1 KB RX buffer covers ~60 commands (120 ms) while it is busy drawing a page. `4ms` is the safer fallback if overflows appear on a slow display: ~4.3 KB/s, still 4× faster than the old behaviour.
+Those counts are flat in the number of panel items (only the visible tiles render), so the cost is set by the pacing alone. The headroom check: an average command is ~14 characters plus the three `0xFF` terminators, so 2 ms per command is ~8.6 KB/s, well under the 921600 UART's ~92 KB/s — the display keeps up while it is idle, and its 1 KB RX buffer covers ~60 commands (120 ms) while it is busy drawing a page. `4ms` is the safer fallback if overflows appear on a slow display: ~4.3 KB/s, still 4× faster than the old behaviour.
 
 ### The pacing also sets the queue's drain rate
 
@@ -116,10 +120,10 @@ A Nextion buffer overflow (0x24) loses every instruction that was in flight, so 
 
 ## Editing the HMI
 
-The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs to the hub. The rules that keep both HMIs in step are in [Nextion Editor](nextion-editor.md#the-hmipython-contract).
+The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs to the hub. The rules that keep both HMIs in step are in [Nextion Editor](nextion-editor.md#the-hmipython-contract), and [HMI event scripts](nextion-scripts.md) is the inventory of the script that already exists — one entry per page and widget handler, with the hub command it pairs with.
 
 - Every page sends `sendme` in `Preinitialize`: it is how a page change becomes an `esphome.page` event, and a page without it is never rendered.
-- Prepare the page in `Preinitialize`, because the hub cannot touch the display before the page is shown. What the page needs at load time arrives in the globals the hub sets before the switch: the theme colours in `Program.s` for solid-colour pages, and the picture background of the clock and weather pages.
+- Prepare the page in `Preinitialize`, because the hub cannot touch the display before the page is shown. What the page needs at load time arrives in the globals the hub sets before the switch: the base theme colours in `Program.s` for solid-colour pages (and, on TFT `0.4.7+`, body foreground globals applied by the page), and the picture background of the clock and weather pages. Older or unknown TFT versions keep the hub's per-widget foreground updates; see [the theme rules](nextion-editor.md#hard-rules).
 - Enable `Send Component ID` on any widget whose touch the hub must receive.
 - The hub addresses a widget by id and object name from the page's `COMPONENTS` registry, so reordering components changes their ids.
 
@@ -136,7 +140,7 @@ The display tools live in `scripts/` (index in `scripts/README.md`) and run as m
 | `python -m scripts.hmi_layout.gen_virtual_layout --theme-code <page>` | the `Preinitialize` theme code of one page | when a page's theme code must be pasted or refreshed | same `--check` |
 | `python -m scripts.check_preview_coverage` | — | after adding a panel type | `tests/test_preview_coverage.py` |
 | `python -m scripts.nextion2text.Nextion2Text -i <hmi> -o <dir> -d -s -p visual` | a text dump per page: widgets with ids and names, event code and visual properties | when you map widgets to `COMPONENTS` | — (read-only; `build/` is git-ignored) |
-| `python -m scripts.bump_tft_version` | `system.tftVersion` in both HMIs | with a release that ships new TFTs | `tests/test_bump_version.py` and the release manifest |
+| `python -m scripts.bump_tft_version` | `system.tftVersion` in both HMIs, plus the virtual layouts that carry its text | with a release that ships new TFTs | `tests/test_bump_version.py` and the release manifest |
 | `python -m scripts.design_grid.gen_grid` | `nextion/images/grid_landscape.png`, `grid_portrait.png`, the editor-only design grid | after a layout rule or theme colour changes | import them into both projects by hand |
 | `python -m scripts.backgrounds.gen_backgrounds` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | after a source picture in `nextion/src_images/bkg/` changes | import them by hand |
 | `python -m scripts.spinner.gen_spinner` | `spinner_<orientation>_1.png`, `_2.png` (pictures 11 and 12) | after the `system` tile changes or `hSpinner` moves | `gen_virtual_layout --check` fails while the timer's `xpic` ids point elsewhere |

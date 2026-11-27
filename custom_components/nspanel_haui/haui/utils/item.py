@@ -39,6 +39,44 @@ _PRESS_TYPES = frozenset(["button", "input_button"])
 _TURN_ON_TYPES = frozenset(["scene", "script"])
 
 
+# What a press on an entity runs. The same table serves a panel item, a
+# hardware button and a tile's power button, so they can never disagree.
+
+
+def default_service(item_type: str, item_state: str | None) -> str | None:
+    """The service a press runs for an entity of *item_type*, None for none."""
+    if item_type in _TOGGLE_TYPES:
+        return "toggle"
+    if item_type in _PRESS_TYPES:
+        return "press"
+    if item_type in _TURN_ON_TYPES:
+        return "turn_on"
+    if item_type == "lock":
+        return "unlock" if item_state == "locked" else "lock"
+    if item_type == "vacuum":
+        return "start" if item_state == "docked" else "return_to_base"
+    if item_type == "input_select":
+        return "select_next"
+    return None
+
+
+def power_service(item_type: str, item_state: str | None, *, on: bool) -> str:
+    """The service an explicit on/off press runs for an entity of *item_type*.
+
+    Only a domain with turn_on/turn_off gets one of those; a domain whose press
+    action is not a state change (a scene, script, button, lock, vacuum, input
+    select) runs that action instead, so a power button never sends a service
+    the domain does not provide. A media player plays and stops.
+    """
+    if item_type == "media_player":
+        return "media_play" if on else "media_stop"
+    service = default_service(item_type, item_state)
+    # A domain outside the table keeps the plain turn_on/turn_off it had before.
+    if service in (None, "toggle"):
+        return "turn_on" if on else "turn_off"
+    return service
+
+
 def execute_item(haui_item: HAUIItem) -> None:
     """Executes the given entity.
 
@@ -48,22 +86,9 @@ def execute_item(haui_item: HAUIItem) -> None:
     if not haui_item.has_item():
         return
 
-    entity = haui_item.get_item()
-    item_type = haui_item.get_item_type()
-    item_state = haui_item.get_item_state()
-
-    if item_type in _TOGGLE_TYPES:
-        entity.call_service("toggle")
-    elif item_type in _PRESS_TYPES:
-        entity.call_service("press")
-    elif item_type in _TURN_ON_TYPES:
-        entity.call_service("turn_on")
-    elif item_type == "lock":
-        entity.call_service("unlock" if item_state == "locked" else "lock")
-    elif item_type == "vacuum":
-        entity.call_service("start" if item_state == "docked" else "return_to_base")
-    elif item_type == "input_select":
-        entity.call_service("select_next")
+    service = default_service(haui_item.get_item_type(), haui_item.get_item_state())
+    if service is not None:
+        haui_item.get_item().call_service(service)
 
 
 # --- get_item_color dispatch ---

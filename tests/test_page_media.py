@@ -25,6 +25,7 @@ _ENTITY_ID = "media_player.kitchen"
 
 class _Device:
     is_portrait = False
+    device_info = {}
 
     def get(self, key, default=None):
         return {}.get(key, default)

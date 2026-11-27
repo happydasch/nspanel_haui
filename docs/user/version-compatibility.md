@@ -32,6 +32,7 @@ The firmware and the display are updated independently:
 - The **HAUI Firmware** update entity installs a newer firmware image.
 - The **HAUI Display** entity installs the TFT the firmware requires.
 - A firmware-only release keeps its display version, so the panel is not sent a TFT it does not need.
+- The shipped TFTs run the display link at 921600 bps, eight times the old 115200. Firmware 0.5.7 and later starts its UART there and scans the Nextion rates on boot, so a panel still on an older 115200 TFT keeps working until the display update installs 0.4.6.
 - The editor's device row shows both versions and marks a mismatch. The diagnostics card also shows the TFT
   version the firmware requires.
 
@@ -67,9 +68,10 @@ is too old for a feature, install the current firmware from its **Updates** side
 
 ## Development releases
 
-Development releases use a PEP 440 version such as `0.5.6.dev42`. They are published as GitHub prereleases and
+Development releases use a PEP 440 version such as `0.5.7.dev42`. They are published as GitHub prereleases and
 are not supported for everyday use. To try one, set the device's **Update channel** to **Development** in the
-**Updates** sidebar; switch back to **Stable** to leave it.
+**Updates** sidebar; switch back to **Stable** to leave it. The editor footer shows the installed integration
+version with a **Dev** badge; the panel's About page lists the integration and firmware versions separately.
 
 Development firmware and development display assets are built together, so keep the panel on the same channel
 as the integration. A panel that reports an older development format may need one manual firmware install; see

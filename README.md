@@ -97,10 +97,10 @@ The editor follows your Home Assistant theme. Each screen below is shown in the 
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-device-preview-light.png" alt="Living Room device in the light theme: a landscape grid panel preview beside the connection, diagnostics and backup cards and the updates and themes buttons" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-device-preview-light.png" alt="Living Room device in the light theme: a landscape grid panel preview beside the connection, diagnostics and backup cards and the themes, logs, updates and backups buttons" width="100%">
     </td>
     <td align="center" valign="top" width="50%">
-      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-device-preview-dark.png" alt="Bedroom device in the dark theme: a portrait clock panel preview beside the connection, diagnostics and backup cards and the updates and themes buttons" width="100%">
+      <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/editor-device-preview-dark.png" alt="Bedroom device in the dark theme: a portrait clock panel preview beside the connection, diagnostics and backup cards and the themes, logs, updates and backups buttons" width="100%">
     </td>
   </tr>
   <tr>

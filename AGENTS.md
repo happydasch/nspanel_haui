@@ -16,7 +16,7 @@ Do not over-engineer. Keep edits minimal. Ask for permission before making an ex
 
 `docs/develop/` is the reference. Open the page before changing an area; this file only holds the rules that must not break.
 
-The developer guide is grouped as **General** (`development`, `hub`, `communication`, `notifications`), **ESPHome & display** (`esphome`, `nextion`, `nextion-editor`, `design`), **Frontend** (`frontend`, `preview`) and **Releases** (`update-process`, `upgrading`, `release`).
+The developer guide is grouped as **General** (`development`, `hub`, `communication`, `notifications`), **ESPHome & display** (`esphome`, `nextion`, `nextion-editor`, `nextion-scripts`, `design`), **Frontend** (`frontend`, `preview`) and **Releases** (`update-process`, `upgrading`, `release`).
 
 | Area | Read |
 |------|------|
@@ -25,7 +25,7 @@ The developer guide is grouped as **General** (`development`, `hub`, `communicat
 | Handshake, heartbeats, reading values from the display | `docs/develop/communication.md` |
 | Notifications: queue, delivery paths, timers, presentation | `docs/develop/notifications.md` |
 | ESPHome firmware | `docs/develop/esphome.md` |
-| Nextion component, HMI editing rules, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md` |
+| Nextion component, HMI editing rules, the event script inventory, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md`, `docs/develop/nextion-scripts.md` |
 | Design: fonts, icons, themes, the new-panel workflow | `docs/develop/design.md` |
 | Editor architecture, screens and overlays, visual foundations, component inventory, testing | `docs/develop/frontend.md` and the five pages beside it |
 | Virtual panel, simulated and live preview, panel cards, dashboard card transport | `docs/develop/preview.md` |
@@ -106,7 +106,7 @@ Every call into an app — device events, state changes, timers, reloads, action
 - **A notification is never dropped, delayed or hidden:** auto-dismiss only through the service's `timeout`, the queue plays through (`_advance_queue`), a persistent one re-opens every 60 s, and queued-notification popups get no `close_timeout`.
 - **A card or thumbnail is the hub's own render, replayed.** No renderer in the browser, no second preview path, and never key a render on live readings (uptime, RSSI) — the 5 s status poll would re-render every card.
 - **No Python files in `frontend/`** — it is served without authentication. The card's WebSocket commands in `web/card.py` stay the only WebSocket commands without `require_admin`: they read and lead to no input path.
-- **A dev release tag is the PEP 440 version itself** (`X.Y.(Z+1).dev<run>`) and byte-identical to the version the image reports — that version reaches the build as `esphome -s yaml_version …`, so it is *not* written into `manifest.json`, which keeps the released version. Never add a `+local`/`+g<sha>` segment, which AwesomeVersion sorts above its own successors.
+- **A dev release tag is the PEP 440 version itself** (`X.Y.(Z+1).dev<run>`) and byte-identical to the version the branch and the image report — CI writes it into `manifest.json` and `version.yaml` as one bot commit on `dev`, then tags that commit. The branch manifest, the tag and the image therefore match, so an integration installed from `dev`, custom firmware built from it and the hub's TFT manifest lookup all use the same version; `pyproject.toml` and `tft_version` keep the released values until the stable prep. Never add a `+local`/`+g<sha>` segment, which AwesomeVersion sorts above its own successors.
 - **Keep the two copies of a shared default in one commit:** `frontend/constants.js` mirrors Python (`haui/device_config.py`, …), and `haui/option_rules.py` mirrors `frontend/option-rules.js` (`tests/fixtures/option_rules_cases.json` runs through both).
 
 ## Display and page code
@@ -166,7 +166,7 @@ Read the `docs/develop/frontend*.md` pages before a UI change; these are the rul
 
 ## Commits and pull requests
 
-Conventional Commits (`type(scope): message`); PR titles use the same format and stay under 100 characters. `master` is the only long-lived branch: cut a short-lived branch from it (`feat/…`, `fix/…`, `release/X.Y.Z`), open the PR with `--base master`, and merge it with a merge commit. The ruleset needs the six always-running checks green, so no release or feature commit reaches `master` any other way — and **no workflow ever pushes to a branch**: the release workflow only publishes a tag, and a development build reports its version through `esphome -s` instead of committing it. A release is the merged PR plus a `vX.Y.Z` tag; nothing has to be synced afterwards. Full cycle: `docs/develop/release.md`.
+Conventional Commits (`type(scope): message`); PR titles use the same format and stay under 100 characters. Two long-lived branches: `dev` is the integration branch, where small changes land directly and features/fixes arrive as a PR (`--base dev`) merged with a merge commit; `master` is stable-only and the repository default (a clone and any ref-less request read it), and moves only through a `dev` → `master` promotion PR whose ruleset needs the six always-running checks green. Tag that merge commit `vX.Y.Z`, then merge `master` back into `dev` so the branches converge; hotfixes branch from `master` and are merged back the same way. **No release workflow pushes to `master`**: the stable workflow only publishes a tag; the dev-firmware workflow alone commits the derived dev version to `dev` (on that ref only, because the dispatch form preselects the default branch), tags it and dispatches CI. Full cycle: `docs/develop/release.md`.
 
 - Fill in `.github/pull_request_template.md` (what changed, why, how it was tested, unverified device checks); add a screenshot or recording for frontend or display changes; reference the issues involved.
 - All CI jobs must pass: `tests (3.14)`, `frontend`, `esphome`, `docs`, `hassfest`, `hacs`.

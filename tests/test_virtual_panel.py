@@ -416,6 +416,45 @@ def test_hardware_button_simulates_configured_entity_on_release(session, env):
     )
 
 
+def test_hardware_button_simulates_a_scene_by_activating_it(session, env):
+    """A scene has no toggle: the release runs scene.turn_on, which the sandbox simulates."""
+    relay_id = "switch.relay_left"
+    scene_id = "scene.morning"
+    env._states[relay_id] = _State("off", {})
+    env._states[scene_id] = _State("unknown", {"friendly_name": "Morning"})
+    session.app.find_entity_id = lambda domain, name: (
+        relay_id if (domain, name) == ("switch", "Relay Left") else None
+    )
+    applied: list[tuple[str, str]] = []
+    apply = session.app.sandbox.apply
+
+    def record_apply(domain, service, entity_ids, data):
+        applied.append((domain, service))
+        return apply(domain, service, entity_ids, data)
+
+    session.app.sandbox.apply = record_apply
+
+    def configure_scene_button():
+        session.app.device.config["use_relay_left"] = False
+        session.app.device.config["button_left_entity"] = scene_id
+        # The sandbox reports an unhandled service at DEBUG level.
+        session.app.device.config["log_level"] = "DEBUG"
+        session.app.device._register_callbacks()
+        session.app.start_button_state_tracking()
+
+    _run(env, session.app.async_run_on_worker(configure_scene_button))
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "0")
+
+    _wait(lambda: applied)
+    assert applied == [("scene", "turn_on")]
+    # Activating a scene changes nothing to simulate; it is not "unsimulated" either.
+    assert not session.app.sandbox.is_simulated(scene_id)
+    assert session.app.sandbox.get(scene_id).state == "unknown"
+    assert env.services.calls == []
+    assert not any("not simulated" in line for line in session.app.get_status_logs())
+
+
 def test_hardware_button_simulates_configured_cover_and_tracks_position(session, env):
     relay_id = "switch.relay_left"
     cover_id = "cover.window"

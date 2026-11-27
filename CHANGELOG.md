@@ -9,11 +9,43 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.7] — 2026-11-27
+
+### Added
+
+- Editor: the Device screen's side stack opens **Logs** for the device shown, between **Themes** and **Updates**, so a device's log lines no longer need the fleet overview ([Editor](docs/user/editor/README.md)).
+- Editor: the device's **Diagnostics** card names the **Display link** — the UART baud the panel runs at, 921600 bps with a current TFT and lower with an older one — in the Versions tile and in **Copy report**, so a panel that fell back to a slow display link is visible without the ESPHome log ([Editor](docs/user/editor/README.md)).
+
+### Fixed
+
+- Display: the boot baud scan now recovers a display that stays silent instead of giving up for the rest of the boot — the probe re-enables the display's command returns (a just power-cycled Nextion answers nothing without it), a failed scan leaves the link at 115200 rather than at a rate nothing answers, and the scan is retried three times a minute apart. A panel that sat on the TFT's **Waiting for Initialization** page is brought back by a firmware update in the meantime; this keeps the scan from needing one.
+- Display: a **TFT install** the display cannot hold at 921600 bps is retried once at 115200 bps — the panel power-cycles the display first, because a failed transfer leaves it waiting for data, and reports the install as failed only if the retry fails too; a download or heap error is not retried, since another transfer would not fix it ([Troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
+- Display: a failed boot scan now keeps its 115200 bps fallback for the retries instead of switching back to the rate nothing answered at, so the fallback gets the window it exists for ([Display baud](docs/develop/esphome.md#display-baud)).
+- Editor: a fact keeps its reading on its label's line. The tile card is wide enough for the widest translation's label beside a reading such as **921600 bps**, and a label that still does not fit wraps instead of pushing the reading onto a line of its own, so **Diagnostics -> Versions** shows **Display link** on one line ([Editor](docs/user/editor/README.md)).
+- Firmware: the vendored `nextion` patch resolves from the directory the package was fetched into instead of from `master`, so a build compiles the patch that shipped beside its own YAML — a panel installed from `dev` used to stop at `no member named 'tft_upload_display_fault'`, and no `ref:` is left to drift from the package or to serve a stale component cache ([Troubleshooting](docs/user/troubleshooting.md#esphome-stops-with-couldnt-find-remote-ref)).
+- Update: the TFT version check logs `Checking installed version` once per check instead of twice when the display has already reported its version, so the line whose `installed=` is empty is the only one that means the display told the hub nothing ([Troubleshooting](docs/user/troubleshooting.md#the-panel-refuses-every-tft-upload)).
+- Hardware buttons: a button assigned a scene, script, button, lock, vacuum or input select now runs that domain's own action instead of sending a `toggle` the domain does not provide, so a scene on a hardware button with its relay off activates instead of failing with a Home Assistant service error ([Hardware buttons](docs/user/editor/device.md#hardware-buttons)).
+- Grid: a tile's power button sends `turn_on`/`turn_off` only to a domain that has them; a scene, script, button, lock, vacuum or input select runs that domain's own action, so a lock tile's power button locks and unlocks instead of failing with a Home Assistant service error ([Grid](docs/user/panels/panel_grid.md#colors)).
+- Editor: a failure above the **Fleet** inventory is now red like every other failure in the editor instead of amber, so a status refresh that failed no longer reads as a warning; the refresh failure is still announced politely rather than as an alert ([Editor](docs/user/editor/README.md)).
+
+### Changed
+
+- Editor: the Device screen's **Themes**, **Logs**, **Updates** and **Backups** buttons no longer take four full-width lines on a narrow screen — two per line below 980px and one row of icon tiles on a phone, where the value each one showed takes no room and stays in its name for a screen reader ([Editor](docs/user/editor/README.md)).
+- Editor: the Fleet inventory's title and device count stay visible on phones, with update and integration-version labels beside their values in a compact two-column strip instead of crowding the header's right edge ([Editor](docs/user/editor/README.md)).
+- Editor: every card heading now sits on the soft surface, one step above its body — **Device inventory**, **Latest events** and **Discovered Devices** on Fleet, the Device screen's workspace strip and its side cards, a sidebar's title strip and the panel groups inside it — so a card reads title band then content on every page instead of one flat ground ([Editor](docs/user/editor/README.md)).
+
+- Display: both TFTs (version 0.4.8) now boot the Nextion at 921600 bps, and the firmware starts its UART at the same rate, scanning down only for an older or stock TFT; there is still one TFT per display model, and existing panels get the faster link with their next display update. A display install moves the same 11 MB over that link, so the file spends about two minutes on the wire instead of about seventeen ([Display baud](docs/develop/nextion.md#display-baud)).
+- Display: a page paints its body widgets' theme foreground from four `Program.s` globals in the TFT's Preinitialize code instead of from one hub command per widget, so opening a row panel sends 24 commands fewer and opening a grid panel 6 fewer; a TFT older than 0.4.7 keeps the hub's per-widget colours ([Design](docs/develop/design.md)).
+- Release: `dev` is the integration branch again and `master` stays stable-only and is the repository default, so a clone and any link without a ref read released code while a **Development** firmware build carries unreleased code, and a stable release still arrives through a promotion pull request and a `vX.Y.Z` tag ([Release process](docs/develop/release.md)).
+- Repo: GitHub's source archives leave out `nextion/`, so a HACS or Marketplace install downloads ~15 MB instead of ~74 MB; the raw TFT URLs, the release assets and a fresh clone are unchanged, and git already delta-compresses successive HMI and TFT revisions, so a history rewrite would save little ([Release process](docs/develop/release.md#guardrails-and-known-gaps)).
+- Editor: a **Scan** that fails and a **Device status could not be refreshed** notice read as banners above **Device inventory** instead of a line of red text under the device carousel, and the failed status keeps its polite announcement ([Editor](docs/user/editor/README.md)).
+- Editor: the Fleet inventory card ends with its device table — the bar of one coloured segment per device and its hover tip are gone, since every row already carries its device's connection icon and a selected row names it ([Editor](docs/user/editor/README.md)).
+
 ## [0.5.6] — 2026-11-23
 
 ### Fixed
 
-- Firmware: the vendored Nextion override is fetched from `master`, so building your own firmware works again — every ESPHome build of the package used to stop at config validation with `couldn't find remote ref dev`, because 0.5.5 deleted that branch ([Troubleshooting](docs/user/troubleshooting.md#esphome-stops-with-couldnt-find-remote-ref-dev)).
+- Firmware: the vendored Nextion override is fetched from `master`, so building your own firmware works again — every ESPHome build of the package used to stop at config validation with `couldn't find remote ref dev`, because 0.5.5 deleted that branch ([Troubleshooting](docs/user/troubleshooting.md#esphome-stops-with-couldnt-find-remote-ref)).
 - Docs: the README images and links name `master` instead of the deleted `dev` branch, so the HACS and Marketplace listing shows its screenshots again ([README](README.md)).
 - Editor: the footer's **Documentation** link opens the published docs instead of the deleted `/dev/` site, which answered 404 on a development build.
 
@@ -722,6 +754,7 @@ See [Updating](docs/user/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
+[0.5.7]: https://github.com/happydasch/nspanel_haui/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/happydasch/nspanel_haui/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/happydasch/nspanel_haui/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/happydasch/nspanel_haui/compare/v0.5.3...v0.5.4

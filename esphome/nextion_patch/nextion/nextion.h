@@ -1136,6 +1136,15 @@ class Nextion final : public NextionBase, public PollingComponent, public uart::
   std::string tft_upload_error() const { return this->tft_upload_error_; }
 
   /**
+   * Whether the last failed TFT upload failed on the display's side.
+   *
+   * A failure the network, the server or the heap caused repeats at any rate,
+   * but one the display caused can be a transfer rate it cannot sustain: the
+   * firmware retries those once at a lower rate (see ``prepare_tft_upload``).
+   */
+  bool tft_upload_display_fault() const { return this->tft_upload_display_fault_; }
+
+  /**
    * @brief Uploads the TFT file to the Nextion display.
    *
    * This function initiates the upload of a TFT file to the Nextion display. Users can specify a target baud rate for
@@ -1598,6 +1607,8 @@ class Nextion final : public NextionBase, public PollingComponent, public uart::
   std::string tft_url_;
   /// Why ``upload_tft()`` returned false; empty until a failure.
   std::string tft_upload_error_;
+  /// Whether that failure came from the display (see ``tft_upload_display_fault()``).
+  bool tft_upload_display_fault_ = false;
   uint32_t content_length_ = 0;
   int tft_size_ = 0;
   uint32_t original_baud_rate_ = 0;

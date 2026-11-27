@@ -4,6 +4,7 @@ packages:
   base: !include base.yaml
   hardware: !include hardware.yaml
   display: !include display.yaml
+  display_baud: !include display_baud.yaml
   interval: !include interval.yaml
   scripts_common: !include scripts_common.yaml
   scripts_connection: !include scripts_connection.yaml

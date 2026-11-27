@@ -57,6 +57,12 @@ export const fleetStyles = css`
     background: var(--haui-card-background);
     box-shadow: var(--haui-card-shadow);
   }
+  /* A card's header sits on the soft surface, a step above the sticky column heads, which are a
+     step above the rows: the card reads title band, column heads, rows instead of one flat
+     ground, and the title no longer floats in the same colour as the table it heads. */
+  .haui-inventory-overview,
+  .haui-event-list > header,
+  .haui-discovered > header { background: var(--haui-surface-soft); }
   .haui-fleet-carousel {
     display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 320px);
     gap: 16px; overflow-x: auto; padding: 4px 4px 16px;
@@ -148,7 +154,21 @@ export const fleetStyles = css`
     box-shadow: none;
   }
   .haui-device-menu { min-width: 220px; }
-  .haui-fleet-scan-error { margin: 8px 0 0; color: var(--haui-bad-text); font-size: var(--haui-text-label); }
+  /* A failure above the inventory is a banner, not a line of text: the ground is tinted red and the
+     glyph repeats what it says, so the colour is never the only cue. */
+  .haui-fleet-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding: 12px 16px;
+    border-radius: var(--haui-radius-control);
+    background: var(--haui-bad-soft);
+    color: var(--haui-bad-text);
+    font-size: var(--haui-text-label);
+    line-height: var(--haui-line-height-copy);
+  }
+  .haui-fleet-notice ha-icon { flex: 0 0 auto; --mdc-icon-size: 18px; }
   .haui-discovered { margin-top: 8px; overflow: hidden; }
   .haui-discovered > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
   .haui-discovered h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }
@@ -184,8 +204,6 @@ export const fleetStyles = css`
   .haui-fleet-inventory-heading { flex: 0 0 auto; }
   .haui-fleet-inventory-heading h2 { white-space: nowrap; }
   .haui-fleet-summary { display: grid; gap: 0; padding: 0; }
-  /* The segments close the card: one per device in its connection tone, under the table. */
-  .haui-inventory-footer { flex: 0 0 auto; padding: 16px 20px; border-top: 1px solid var(--divider-color); }
   .haui-fleet-band-top { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 12px; }
   .haui-fleet-orb {
     display: grid;
@@ -227,23 +245,12 @@ export const fleetStyles = css`
   .haui-fleet-fact-value { color: var(--primary-text-color); font-size: var(--haui-text-label); font-variant-numeric: tabular-nums; font-weight: 500; line-height: var(--haui-line-height-tight); white-space: nowrap; }
   /* A pending figure is a placeholder the size of its value, so the strip keeps its height. */
   .haui-fleet-fact .haui-stat-placeholder { width: 48px; height: 15px; margin: 0; }
-  .haui-fleet-bar { display: flex; gap: 4px; height: 6px; }
-  .haui-fleet-bar .haui-fleet-segment { flex: 1; border-radius: var(--haui-radius-pill); background: var(--primary-color, #03a9f4); }
-  .haui-fleet-bar .haui-fleet-segment.is-offline { background: var(--haui-bad); }
-  .haui-fleet-bar .haui-fleet-segment.is-unknown { background: var(--secondary-text-color); }
-  /* A segment is a keyboard stop too: it names its device and opens the same tip on focus. */
-  .haui-fleet-bar .haui-fleet-segment:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 3px; }
-  /* The segment's tip: the device it stands for, above the state the segment shows as a colour. */
-  .haui-fleet-tip { display: grid; gap: 4px; padding: 8px 12px; }
-  .haui-fleet-tip strong { font-size: var(--haui-text-label); font-weight: 600; line-height: var(--haui-line-height-tight); }
-  .haui-fleet-tip-state { display: flex; align-items: center; gap: 4px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
-  .haui-fleet-tip-state ha-icon { --mdc-icon-size: 14px; }
   .haui-stat-placeholder { display: block; width: 64px; height: 15px; margin: 4px 0; border-radius: var(--haui-radius-control); background: var(--secondary-background-color); }
   .haui-device-inventory, .haui-event-list { min-width: 0; }
   /* The table is flush: its rows run to the card's edges. It takes the height the grid row gives
-     the card — the events card beside it sets a minimum — so the segments stay at the card's foot;
-     a longer device list scrolls under its column heads and the free space stays below the last
-     row (align-content), not spread between the rows. */
+     the card — the events card beside it sets a minimum — so a longer device list scrolls under
+     its column heads and the free space stays below the last row (align-content), not spread
+     between the rows. */
   .haui-device-inventory { display: flex; max-height: 720px; flex-direction: column; overflow: hidden; }
   .haui-inventory-update { min-height: 32px; padding: 0 12px; font-size: var(--haui-text-caption); }
   .haui-inventory-update ha-icon { --mdc-icon-size: 16px; }
@@ -271,8 +278,9 @@ export const fleetStyles = css`
   .haui-device-row-version.is-mismatch > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-row-version .haui-device-row-mismatch { padding: 4px 4px; font-size: var(--haui-text-eyebrow); }
   /* The event list follows the inventory: it has no height of its own (size containment), so it
-     stretches to the row the inventory sets and scrolls inside it. */
-  .haui-event-list { display: flex; min-height: 320px; flex-direction: column; contain: size; }
+     stretches to the row the inventory sets and scrolls inside it. Like the inventory, it clips, so
+     its header's band takes the card's rounded top corners. */
+  .haui-event-list { display: flex; min-height: 320px; flex-direction: column; overflow: hidden; contain: size; }
   /* A quiet text action on the event list's title line. */
   .haui-event-list > header .haui-event-actions { display: flex; flex: 0 0 auto; align-items: center; gap: var(--haui-space-1); margin-inline-start: auto; }
   .haui-event-list > header .haui-event-logs,
@@ -309,13 +317,29 @@ export const fleetStyles = css`
   .haui-sort-handle { display: inline-flex; align-items: center; padding: 4px; border-radius: var(--haui-radius-control); color: var(--secondary-text-color); cursor: grab; --mdc-icon-size: 18px; }
   .haui-device-row .haui-row-action { width: 30px; height: 30px; --mdc-icon-size: 17px; }
   .haui-device-sort .haui-sort-handle { background: var(--card-background-color); }
-  @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 12px; } .haui-fleet-lead > span, .haui-fleet-inventory-heading { display: none; } }
+  @container haui-editor (max-width: 560px) {
+    .haui-fleet-band-top { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; }
+    .haui-fleet-facts {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 4px;
+      margin: 4px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid var(--divider-color);
+    }
+    .haui-fleet-fact { gap: 0; }
+    .haui-fleet-fact-icon { display: none; }
+    .haui-fleet-fact-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; }
+    .haui-inventory-update { grid-column: 1 / -1; justify-self: start; }
+    .haui-fleet-lead > span { display: none; }
+  }
   @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } }
   /* Stacked, the event list has no neighbour to follow and takes its own height again. */
   @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } .haui-event-list { min-height: 0; contain: none; } .haui-event-list ol { max-height: 480px; } }
   @container haui-editor (max-width: 720px) {
     .haui-inventory-overview { padding: 16px 12px 12px; }
-    .haui-inventory-footer { padding: 12px; }
   }
   @container haui-editor (max-width: 720px) { .haui-dashboard-content { width: calc(100% - 28px); padding-top: 16px; } .haui-device-table { grid-template-columns: minmax(0, 1fr) repeat(2, max-content) auto; column-gap: 12px; } .haui-device-row { padding: 4px 12px; } .haui-device-row-head > :nth-child(2), .haui-device-row > :nth-child(2) { display: none; } .haui-device-row-actions { grid-column: 4; } }
   @container haui-editor (max-width: 560px) { .haui-device-table { grid-template-columns: minmax(0, 1fr) max-content auto; } .haui-device-row-head > :nth-child(4), .haui-device-row > :nth-child(4) { display: none; } .haui-device-row-actions { grid-column: 3; } }

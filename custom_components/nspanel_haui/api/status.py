@@ -110,6 +110,7 @@ class DeviceStatusView(HomeAssistantView):
                 "name": device_name,
                 "tft_version": "",
                 "tft_required_version": "",
+                "display_baud": None,
                 "yaml_version": "",
                 "ip": network["ip"],
                 "ssid": network["ssid"],

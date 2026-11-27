@@ -70,12 +70,63 @@ def test_web_server_is_optional_and_off_by_default():
     assert "web_username" not in universal
 
 
+def test_the_uart_starts_at_the_tft_baud_and_scans_down():
+    """The shipped TFT boots at 921600; older TFTs are found by the boot scan."""
+    hardware = _read("hardware.yaml")
+    assert re.search(r"^\s+baud_rate:\s*921600\s*$", hardware, re.MULTILINE)
+    baud_script = _read("display_baud.yaml")
+    assert "restore_value: true" in baud_script
+    assert "921600" in baud_script
+    assert "set_baud_rate(id(haui_display_baud))" in baud_script
+    # A failed scan must not strand an older panel on the rate it did not answer
+    # at: 115200 is what every TFT before 0.4.6 and the stock one use.
+    assert "set_baud_rate(115200)" in baud_script
+    # A power-cycled display is back on its power-on defaults and returns no
+    # `get` reply, so the probe has to re-enable returns itself.
+    assert "bkcmd=3" in baud_script
+    assert "retry_display_baud" in baud_script
+    assert "is_detected()" in baud_script
+    assert "screen_power" in baud_script
+    assert "display_baud: !include display_baud.yaml" in _read("packages.yaml")
+
+
+def test_only_the_boot_applies_the_remembered_baud():
+    """A retry must keep the rate the last scan settled on.
+
+    The boot check applies the remembered rate, so a panel that already found
+    its display's older rate starts there. A retry must not repeat that: it
+    would overwrite the 115200 fallback of a failed scan before that rate got
+    the retry's window, which is the one thing the fallback is for.
+    """
+    baud_script = _read("display_baud.yaml")
+    boot, _, scripts = baud_script.partition("script:\n")
+    assert "set_baud_rate(id(haui_display_baud))" in boot
+    assert "set_baud_rate(id(haui_display_baud))" not in scripts
+
+
 def test_firmware_reports_required_tft_version_separately():
     version = _read("version.yaml")
     state_script = _read("scripts_event.yaml")
     assert "tft_version:" in version
     assert 'auto tft_required_version = "$tft_version";' in state_script
     assert 'root["tft_required_version"] = tft_required_version;' in state_script
+
+
+def test_firmware_reports_the_display_link_rate() -> None:
+    """The editor shows the display link's speed, so the state has to carry it."""
+    state_script = _read("scripts_event.yaml")
+    # Only a display that answers has a link: reporting the rate the UART sits
+    # at with nothing on the other end would look like a working slow panel.
+    assert re.search(
+        r"display_baud_val = id\(haui_disp\)\.is_detected\(\)\s*\?\s*"
+        r"int\(id\(haui_uart\)\.get_baud_rate\(\)\) : 0;",
+        state_script,
+    )
+    assert 'root["display_baud"] = display_baud_val;' in state_script
+    baud_script = _read("display_baud.yaml")
+    # Both detection paths report it: the boot check (usually before the hub
+    # connected) and the scan, which may settle on a rate much later.
+    assert baud_script.count("id(publish_device_state).execute();") == 2
 
 
 def test_http_request_buffers_fit_github_redirect_headers():
@@ -218,6 +269,59 @@ def test_the_panel_reports_a_tft_upload_it_could_not_start():
     assert "tft_upload_error()" in upload
 
 
+def test_a_transfer_the_display_cannot_hold_falls_back_to_the_safe_baud():
+    """The 921600 link is fast; a display that cannot transfer at it is not lost.
+
+    A failed transfer leaves the Nextion waiting for data, so the retry has to
+    power-cycle it; a successful one reboots, which is why the fallback only
+    ever runs after a failure.
+    """
+    upload = _read("scripts_common.yaml").split("- id: prepare_tft_upload")[1]
+    assert upload.index("upload_tft()") < upload.index("upload_tft(115200)")
+    assert "switch.turn_off: screen_power" in upload
+    assert "switch.turn_on: screen_power" in upload
+    # The retry re-runs the transfer the hub is waiting on, so the install
+    # timeout is re-armed the same way the first attempt armed it.
+    assert upload.count('"esphome.tft_upload_started"') == 2
+    assert '"esphome.tft_upload_failed"' in upload
+
+
+def test_only_a_failure_the_display_caused_is_retried():
+    """A download or heap error repeats at any rate, and a retry costs a transfer."""
+    upload = _read("scripts_common.yaml").split("- id: prepare_tft_upload")[1]
+    guard = upload.split("- if:")[1].split("then:")[0]
+    assert "tft_upload_display_fault()" in guard
+    # Nothing to fall back to when the link already runs at the safe rate.
+    assert "get_baud_rate() > 115200" in guard
+
+    patch = ROOT.parent / "nextion_patch" / "nextion"
+    # The display's own failures are the ones a lower rate can fix; the vendor's
+    # other paths (a `404`, an exhausted heap) stay unmarked.
+    assert (
+        'return fail_display("the display refused the upload (power-cycle it to recover)");'
+        in (patch / "nextion_upload_esp32.cpp").read_text()
+    )
+    source = (patch / "nextion_upload_esp32.cpp").read_text()
+    assert "tft_upload_display_fault_ = true;" in source
+    # Cleared per attempt, so a stale mark cannot make a download error look
+    # like a rate the display cannot hold.
+    assert "tft_upload_display_fault_ = false;" in source
+    assert "bool tft_upload_display_fault() const" in (patch / "nextion.h").read_text()
+
+
+def test_a_tft_upload_asks_a_power_cycled_display_for_returns():
+    """The retry power-cycles the display, which resets it to no command results.
+
+    Same lesson as the boot scan's probe: a display that was just power-cycled
+    answers nothing without `bkcmd=3`, so the upload re-enables returns with its
+    other wake-up commands.
+    """
+    source = (ROOT.parent / "nextion_patch" / "nextion" / "nextion_upload_esp32.cpp").read_text()
+    upload = source.split("bool Nextion::upload_tft(")[1]
+    wake_up = upload[: upload.index("whmi-wris")]
+    assert 'this->send_command_("bkcmd=3");' in wake_up
+
+
 def test_native_ota_is_encrypted_with_the_api_key():
     """ESPHome warns that an OTA password next to an api key wastes flash and
     RAM (#81).  A bare ``encryption:`` inherits ``api_encryption_key``.
@@ -275,31 +379,43 @@ def test_universal_image_keeps_its_wifi_across_firmware_updates():
     assert "<nvs.h>" in universal["esphome"]["includes"]
 
 
-def test_nextion_patch_is_never_older_than_the_package():
-    """The package and the patch change together.
+def test_the_nextion_patch_travels_with_the_package_that_uses_it():
+    """The patch and the YAML that calls it are always one tree.
 
-    With the default 1-day cache a build combined a fresh display.yaml with an
-    older patch: "[tft_upload_http_buffer_size_tx] is an invalid option".
+    A git source let a build pair a fresh ``display.yaml`` with an older patch
+    ("[tft_upload_http_buffer_size_tx] is an invalid option"), and once the patch
+    grew C++ the YAML calls, a panel installed from ``dev`` failed to compile
+    against the patch of ``master``: "no member named
+    'tft_upload_display_fault'". A local path resolves against the config's own
+    directory, so a remote package compiles the patch fetched beside it.
     """
-    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
-    block = package.split("external_components:")[1].split("packages:")[0]
-    assert "path: esphome/nextion_patch" in block
-    assert "refresh: 0s" in block
+    for config in ("nspanel_haui.yaml", "nspanel_haui_dev.yaml", "nspanel_haui_universal.yaml"):
+        text = (ROOT.parent / config).read_text()
+        block = text.split("external_components:")[1].split("packages:")[0]
+        assert "type: local" in block, config
+        assert "path: nextion_patch" in block, config
+        # The path is relative to the config, so it must exist next to it.
+        assert (ROOT.parent / "nextion_patch" / "nextion" / "__init__.py").is_file(), config
+    # No config may fetch the patch by branch again.
+    for config in ("nspanel_haui.yaml", "nspanel_haui_dev.yaml", "nspanel_haui_universal.yaml"):
+        block = (
+            (ROOT.parent / config)
+            .read_text()
+            .split("external_components:")[1]
+            .split("packages:")[0]
+        )
+        assert "ref:" not in block, config
 
 
-def test_every_git_source_names_the_live_branch():
-    """A ref naming a deleted branch fails every build with "couldn't find remote ref".
+def test_the_installed_package_fetches_the_stable_branch():
+    """A ref naming a branch that is not in the repository fails every build.
 
-    The vendored patch and install.yaml's remote package both fetch this repository
-    by branch, so they must name the one long-lived branch: `dev` was deleted and
-    every build pinning it stopped at config validation.
+    ``install.yaml``'s remote package is the one remaining git source, so it must
+    name `master`, the stable one: an installed panel builds the released
+    firmware, while `dev` carries unreleased code for the development channel.
     """
-    branch = "master"
-    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
-    source = package.split("external_components:")[1].split("packages:")[0]
-    assert f"ref: {branch}" in source
     install = (ROOT.parent / "install.yaml").read_text()
-    assert f"ref: {branch}" in install.split("packages:")[1]
+    assert "ref: master" in install.split("packages:")[1]
 
 
 def test_firmware_can_be_flashed_from_a_url():

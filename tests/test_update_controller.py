@@ -424,6 +424,21 @@ def test_current_tft_needs_no_update(monkeypatch):
     assert (app.published, app.opened, fetches) == ([], [], [])
 
 
+def test_a_known_version_is_compared_once_per_check(monkeypatch):
+    """One check logs the comparison once; the line is the troubleshooting tell."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.4.0"},
+        manifest="0.4.0",
+    )
+    logged = []
+    ctrl.log = lambda msg, **kwargs: logged.append(msg)
+
+    ctrl.check_installed_version()
+
+    assert sum(msg.startswith("Checking installed version") for msg in logged) == 1
+
+
 def test_tft_is_not_assumed_to_match_firmware_version(monkeypatch):
     ctrl, app, _ = _updater(
         monkeypatch,

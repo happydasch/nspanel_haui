@@ -7,6 +7,7 @@ _PAGE_ID = 5
 
 class _Device:
     is_portrait = False
+    device_info = {}
 
     def get(self, key, default=None):
         return {}.get(key, default)

@@ -4,16 +4,11 @@
 # (nspanel_haui.bin) is a full flash image for serial flashing, firmware.ota.bin
 # (nspanel_haui_ota.bin) the app image the HTTP OTA platform writes.
 #
-# YAML_VERSION overrides the version the image reports, so a development build can
-# carry X.Y.Z.devN without committing it: the branch keeps the released version.
+# The image reports yaml_version, which both workflows write before calling this
+# (scripts.bump_version), so the image, the tag and the branch cannot disagree.
 set -euo pipefail
 
-substitutions=()
-if [ -n "${YAML_VERSION:-}" ]; then
-  substitutions=(-s yaml_version "$YAML_VERSION")
-fi
-
-esphome "${substitutions[@]}" compile esphome/nspanel_haui_universal.yaml
+esphome compile esphome/nspanel_haui_universal.yaml
 factory=$(find esphome/.esphome -name firmware.factory.bin -path "*nspanel-haui*" -print -quit)
 if [ -z "$factory" ]; then
   echo "firmware.factory.bin not found after compile" >&2

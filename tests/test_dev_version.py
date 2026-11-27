@@ -1,7 +1,7 @@
-"""The development build version is derived, never written into the tree.
+"""The development build version is derived from the newest tag and the run number.
 
-A dev build is not a commit: ``dev_version`` only prints the version, which
-``dev-firmware.yml`` injects into the image with ``esphome -s`` and uses as the tag.
+``dev_version`` only prints the version; ``dev-firmware.yml`` writes it into
+``manifest.json`` and ``version.yaml`` before it compiles, and uses it as the tag.
 """
 
 from __future__ import annotations

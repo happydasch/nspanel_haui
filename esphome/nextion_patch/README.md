@@ -1,6 +1,6 @@
 # Vendored `nextion` component patch
 
-Temporary vendored copy of the ESPHome `nextion` display component. It carries one fix that is not upstream yet.
+Temporary vendored copy of the ESPHome `nextion` display component. It carries two local changes that are not upstream yet.
 
 ## Why this exists
 
@@ -19,7 +19,10 @@ and the TFT upload TX buffer option ([esphome/esphome#21435]) that
 
 ## What this directory contains
 
-The `nextion/` subdirectory is exactly the stock component at the `2026.11.0` tag **plus** the TFT upload retry fix — nothing else. Both `nextion_upload_esp32.cpp` and `nextion_upload_arduino.cpp` clear `upload_first_chunk_sent_` when `upload_tft()` starts.
+The `nextion/` subdirectory is exactly the stock component at the `2026.11.0` tag **plus** the upload fixes — nothing else:
+
+- `upload_first_chunk_sent_` is cleared when `upload_tft()` starts, in both `nextion_upload_esp32.cpp` and `nextion_upload_arduino.cpp`.
+- A failed upload names its cause in `tft_upload_error_` instead of failing silently, and `tft_upload_display_fault()` marks the failures that came from the display's side of the link (a refused upload command, a rejected chunk, a missing acknowledgement). A download, range or heap error is not marked, because another transfer at a lower rate would end the same way — `prepare_tft_upload` in `esphome/nspanel_haui/scripts_common.yaml` retries only the marked ones, once, at 115200 bps.
 
 Every other file is byte-identical to the released tag, so the component stays
 API-compatible with the ESPHome version pinned in `requirements-esphome.txt`.
@@ -41,10 +44,13 @@ committing the churn.
 ## Removal condition
 
 Delete this directory **and** the `external_components` blocks that reference it
-the moment a released ESPHome contains the retry fix. **Status 2026-11-20:** the
-fix is not upstream yet (both the 2026.11.0 tag and current `dev` still never
-reset `upload_first_chunk_sent_`), so it has to be filed and merged first. Then
-bump `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in
+the moment a released ESPHome contains both changes — the retry is worth filing
+upstream together with the fault flag, which is what makes a rate change the
+caller's decision. **Status 2026-11-20:** the retry is not upstream yet (both the
+2026.11.0 tag and current `dev` still never reset `upload_first_chunk_sent_`), so
+it has to be filed and merged first; `tft_upload_error_` and
+`tft_upload_display_fault()` are this project's, and would have to be filed with
+it. Then bump `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in
 `requirements-esphome.txt` to that release in the same change.
 
 [esphome/esphome#17744]: https://github.com/esphome/esphome/pull/17744

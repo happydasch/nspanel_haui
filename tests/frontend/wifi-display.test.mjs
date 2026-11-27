@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { render } from './support/render.mjs';
 
 import {
-  connectionTiles, deviceDiagnostics, diagnosticsModel,
+  connectionTiles, deviceDiagnostics, diagnosticsModel, diagnosticsReport,
 } from '../../custom_components/nspanel_haui/frontend/ui/device-diagnostics.js';
 import {
+  fmtBaud,
   fmtRssi,
   rssiBarCount,
   rssiStrengthClass,
@@ -57,4 +58,33 @@ test('RSSI display helpers map invalid values to unknown instead of offline or N
 
   assert.equal(rssiStrengthClass(-54), 'haui-wifi-good');
   assert.equal(fmtRssi(-54), '-54 dBm');
+});
+
+/** A tile fact's value, found by its term. */
+function factValue(view, name) {
+  const term = [...view.querySelectorAll('dt')].find((dt) => dt.textContent.trim() === name);
+  return term ? term.nextElementSibling.textContent.trim() : null;
+}
+
+test('the Versions tile names the display link speed the panel reported', () => {
+  const status = {
+    connected: true,
+    device_info: { yaml_version: '0.5.7', tft_version: '0.4.6', display_baud: 921600 },
+  };
+  const view = render(deviceDiagnostics({ status, expanded: true }));
+  assert.equal(factValue(view, 'Display link'), '921600 bps');
+  assert.ok(diagnosticsReport('kitchen', status).includes('Display link: 921600 bps'));
+
+  // Firmware that does not publish the rate leaves it unknown, never 0 bps.
+  const older = { connected: true, device_info: { tft_version: '0.4.5' } };
+  assert.equal(factValue(render(deviceDiagnostics({ status: older, expanded: true })), 'Display link'), 'Unknown');
+  assert.ok(diagnosticsReport('kitchen', older).includes('Display link: unknown'));
+});
+
+test('a malformed display link rate stays unknown', () => {
+  for (const value of [null, undefined, '', 'bad-baud', 0, -1, 'NaN', Number.NaN]) {
+    assert.equal(fmtBaud(value), 'Unknown');
+  }
+  assert.equal(fmtBaud(921600), '921600 bps');
+  assert.equal(fmtBaud('115200'), '115200 bps');
 });

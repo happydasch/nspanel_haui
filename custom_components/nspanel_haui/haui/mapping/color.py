@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from packaging.version import InvalidVersion, Version
+
 from ..utils.color import mix_rgb565
 
 COLORS = {
@@ -354,6 +356,36 @@ THEME_GLOBALS = {
     "component_background": "thmCompBg",
 }
 
+# Program.s globals for the body foreground roles a solid page can paint itself,
+# keyed by ``COLORS`` like ``THEME_GLOBALS``. A page paints them only once its
+# Preinitialize carries the generated foreground lines, and that code ships with
+# the TFT that declares these globals; until a panel runs such a TFT its body
+# widgets keep the dark theme's foreground compiled into them, so the hub sends
+# ``haui/mapping/theme_foregrounds.py`` instead. Per page load that is the
+# difference between nine global writes and five plus one write per body widget:
+# 9 commands on the row page against 40.
+FOREGROUND_GLOBALS = {
+    "component_text": "thmCompTxt",
+    "component_active": "thmActive",
+    "component_active_dark": "thmActiveDk",
+    "text": "thmTxt",
+}
+
+
+# The first TFT whose Preinitialize code reads these globals.
+FOREGROUND_GLOBALS_TFT_VERSION = "0.4.7"
+
+
+def tft_supports_foreground_globals(version: str | None) -> bool:
+    """Whether an installed TFT has the Program.s globals for body foregrounds."""
+    if not isinstance(version, str) or not version:
+        return False
+    try:
+        return Version(version) >= Version(FOREGROUND_GLOBALS_TFT_VERSION)
+    except InvalidVersion:
+        return False
+
+
 # How far an on grid tile is lifted off the page: the theme's entity-on colour
 # mixed into the page background.
 TILE_TINT = 0.16
@@ -415,9 +447,16 @@ class Theme:
         """
         return self.palette["icons"].get(variant or self.variant, {}).get(domain, {}).get(key)
 
-    def display_commands(self) -> list[str]:
-        """Nextion commands that set the display's theme globals (``THEME_GLOBALS``)."""
-        return [f"{name}={self.get(key)}" for key, name in THEME_GLOBALS.items()]
+    def display_commands(self, *, foreground_globals: bool = False) -> list[str]:
+        """Commands that set this theme on the display before a page switch.
+
+        Body foreground globals are included only for TFTs that declare them; older
+        TFTs keep getting their per-widget foregrounds from the hub.
+        """
+        globals_ = dict(THEME_GLOBALS)
+        if foreground_globals:
+            globals_.update(FOREGROUND_GLOBALS)
+        return [f"{name}={self.get(key)}" for key, name in globals_.items()]
 
 
 class ThemeLibrary:

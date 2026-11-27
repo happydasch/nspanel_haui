@@ -10,7 +10,7 @@
  */
 import { html, nothing } from '../lit-import.js';
 import { t } from '../localize.js';
-import { rssiStrengthClass, rssiBarCount, fmtRssi, isOlderVersion } from '../device-info.js';
+import { rssiStrengthClass, rssiBarCount, fmtRssi, fmtBaud, isOlderVersion } from '../device-info.js';
 import { displayLabel, relativeTime, uptimeLabel } from './format.js';
 import { button } from './button.js';
 import { icon } from './icon.js';
@@ -189,6 +189,9 @@ function tiles(model, status, onLogs) {
         [t('Integration'), status?.integration_version || unknown],
         [t('Firmware (YAML)'), info.yaml_version || unknown, model.mismatch ? 'is-danger' : ''],
         [t('Display (TFT)'), displayState(model)],
+        // The speed of the display link, beside the TFT it talks to: a panel
+        // whose boot scan fell back to an older TFT runs slower than 921600.
+        [t('Display link'), fmtBaud(info.display_baud)],
       ],
     })}
     ${infoTile({
@@ -395,6 +398,7 @@ export function diagnosticsReport(name, status, now = new Date()) {
   const listeners = status?.active_listeners || [];
   const timers = status?.active_timers || [];
   const yesNo = (value) => (value ? 'yes' : 'no');
+  const displayBaud = Number(info.display_baud);
   const lines = [
     'NSPanel HAUI diagnostics',
     `Device: ${name}`,
@@ -402,6 +406,7 @@ export function diagnosticsReport(name, status, now = new Date()) {
     `Integration: ${status?.integration_version || 'unknown'}`,
     `Firmware (YAML): ${info.yaml_version || 'unknown'} (matches hub: ${yesNo(!model.mismatch)})`,
     `Display (TFT): ${info.tft_version || 'unknown'}${info.tft_required_version ? ` (required ${info.tft_required_version})` : ''}`,
+    `Display link: ${Number.isFinite(displayBaud) && displayBaud > 0 ? `${displayBaud} bps` : 'unknown'}`,
     `Display update: ${update.state || 'idle'}${update.version ? ` ${update.version}` : ''}${update.last_error ? ` (${update.last_error})` : ''}`,
     `Connection: ${status?.connection_state || (model.connected ? 'connected' : 'disconnected')}`
       + (model.uptime != null ? `, up ${model.uptime}s` : ''),

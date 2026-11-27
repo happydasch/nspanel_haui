@@ -98,3 +98,22 @@ export function fmtRssi(rssi) {
   const value = rssiValue(rssi);
   return value == null ? t('Unknown') : `${value} dBm`;
 }
+
+function baudValue(baud) {
+  if ((typeof baud !== "number" && typeof baud !== "string") || baud === "") return null;
+  const value = Number(baud);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * The speed of the panel's display link: the UART baud its firmware runs at.
+ * A reading the firmware did not report (or a malformed one) stays "Unknown",
+ * never 0 bps.
+ *
+ * @param {unknown} baud
+ * @returns {string}
+ */
+export function fmtBaud(baud) {
+  const value = baudValue(baud);
+  return value == null ? t('Unknown') : `${value} bps`;
+}

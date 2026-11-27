@@ -71,7 +71,7 @@ Next: the [Editor overview](editor/README.md) explains the editor, and the [FAQ]
 
 ## TFT and firmware updates
 
-The display also needs its TFT file. You do not install it: about a minute after the panel connects, the hub installs the matching TFT if it is missing or outdated. The transfer takes several minutes.
+The display also needs its TFT file. You do not install it: about a minute after the panel connects, the hub installs the matching TFT if it is missing or outdated. The transfer takes a few minutes; the **Updates** sidebar shows its progress.
 
 - Update the firmware with the panel's **HAUI Firmware** update entity. The matching TFT follows after the panel reconnects.
 - **Firmware 0.4.3 or older** must be updated once by hand before the hub can update it. See [Other ways to update](update.md#other-ways-to-update).

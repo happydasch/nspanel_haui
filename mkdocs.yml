@@ -3,7 +3,7 @@ site_name: NSPanel HAUI
 site_url: https://happydasch.github.io/nspanel_haui/
 repo_url: https://github.com/happydasch/nspanel_haui
 repo_name: nspanel_haui
-edit_uri: edit/master/docs/
+edit_uri: edit/dev/docs/
 site_description: HomeAssistant UI for the Sonoff NSPanel — a flexible, configurable display system built on ESPHome.
 use_directory_urls: false
 site_author: happydasch
@@ -122,6 +122,7 @@ nav:
       - ESPHome firmware: develop/esphome.md
       - Nextion component: develop/nextion.md
       - Editing the HMI: develop/nextion-editor.md
+      - HMI event scripts: develop/nextion-scripts.md
       - Design guidelines: develop/design.md
     - Frontend:
       - Editor architecture: develop/frontend.md

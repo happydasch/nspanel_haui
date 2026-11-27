@@ -9,10 +9,11 @@ picture like this:
   and declined — plus the open scope decisions.
 - [`CHANGELOG.md`](CHANGELOG.md) — What has shipped.
 
-Sections follow the roadmap's horizons. A feature is listed under the version it
-is scheduled for — v0.5.x is in development now, v0.6 is next — or in the open
-pool for later. A candidate is promoted by moving it into a version section with
-a done-means sentence; when it ships it is recorded in `CHANGELOG.md` and the
+Sections follow the roadmap's horizons. v0.5.x is in development now, covering
+speed, recovery and ownership; v0.6 is next, focused on new panels and the options
+that make them feel finished. Everything else stays in the open pool until it is
+selected. A candidate is promoted by moving it into a version section with a
+done-means sentence; when it ships it is recorded in `CHANGELOG.md` and the
 entry is deleted, so nothing here describes something that already works.
 
 **HMI** means Nextion page or widget work in both `nextion/*.HMI` files and both
@@ -27,75 +28,62 @@ discussion it came from when there is one.
 
 ## v0.5.x — In development now
 
-Speed and weight: display installs take minutes rather than tens of minutes, the
-first render is cheaper, the vendored Nextion patch disappears, and the large
-TFT binaries leave Git.
+Speed, recovery and ownership: the 921600 display link, smaller downloads and
+theme foreground globals all land in 0.5.7 — a solid page now paints its body
+foregrounds from the TFT itself, so the row page opens in 9 display commands
+instead of 40. Removing the vendored Nextion patch, display recovery,
+hub-scoped settings and the Nextion script cleanup belong to this cycle.
 
-- **Clean up the large files in GitHub** — *ASAP, before the rest of this
-  horizon.* The ~120 MB of compiled TFTs in git inflate the repository and every
-  Marketplace download. Decide the storage (release assets or Git LFS), rewrite
-  the history, keep the HMI sources in git, and point the install path at the
-  binaries' new home. Done: a fresh clone and a Marketplace download no longer
-  carry the TFTs, installed panels keep auto-updating, older releases still
-  resolve, and both layout gates stay green. *Area: Distribution.*
-- **Multiple TFT speed variants** — Keep the existing 115200 TFTs as the
-  known-good normal-speed default — asset names unchanged, so flashed panels keep
-  auto-updating — and add a 921600 variant per display model. That is 8× the baud
-  (~10× in practice), turning an ~11 MB TFT install from ~16 min into ~2 min.
-  Speed is chosen per device; a boot baud scan power-cycles `screen_power` and
-  probes each Nextion-supported rate, so a mismatch recovers without user action.
-  Done: both variants install and run on both display models and the universal
-  image, a mismatched panel recovers by itself, and no UART buffer overflow
-  appears under the update burst. *Area: Display install.*
-- **Predefined palettes for the first render** — Put the theme palettes into the
-  TFT so a page needs fewer colour commands on its first render — without
-  flashing the default palette first or showing a half-themed page, and with
-  editor cards still matching the device render. Needs a new TFT, so it ships
-  with the speed variants. *Area: Theme rendering.*
 - **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
-  2026-11-18) carries two of the three fixes this patch used to add: the
+  2026-11-18) carries two of the fixes this patch used to add: the
   numeric-response delivery
   ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) and the TFT
   upload buffer option
   ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), both verified
-  in the tag's own `nextion` sources. The patch is now 2026.11.0 plus only the
-  TFT upload retry (`upload_first_chunk_sent_` is never reset upstream), so it
-  stays until that fix is filed upstream and merged into a release. After that:
-  bump `min_version` and `requirements-esphome.txt` together, delete the
-  directory and its `external_components` blocks and re-validate the firmware
-  config and a compile. *Area: Dependencies.*
-
-## v0.6 — Next
-
-Recoverability and ownership: a damaged display is repaired from the editor,
-hub-scoped settings become editable in Home Assistant, and the Nextion side is
-inventoried and cleaned up.
+  in the tag's own `nextion` sources. Two local changes are left: the TFT upload
+  retry (`upload_first_chunk_sent_` is never reset upstream) and the per-upload
+  detail 0.5.4 and 0.5.7 report — the named `tft_upload_error_` reasons and the
+  `tft_upload_display_fault()` flag that decides whether a failure is worth
+  retrying at 115200 bps. The flag is worth filing upstream with the retry, since
+  a lower rate is a caller's decision; the error strings are ours either way.
+  After a release carries the retry: bump `min_version` and
+  `requirements-esphome.txt` together, delete the directory and its
+  `external_components` blocks and re-validate the firmware config and a
+  compile. *Area: Dependencies.*
 
 - **Display repair mode** — A minimal, self-contained repair TFT per display
   model plus a **Repair display** action in the editor that installs it and then
   the normal TFT — reachable from the device's **Updates** sidebar even in a
   failed update state. That makes a broken, half-installed or wrong-baud TFT
   recoverable without a Nextion Editor session. Done: a damaged panel is restored
-  from the editor on both display models and both speed variants. *Area:
-  Recovery.*
-- **Nextion script inventory and cleanup** — Dump the event code of both HMIs
-  (Nextion2Text), record what each script does and which hub command or firmware
-  event it pairs with, document the instruction set and limits that matter
-  (timers, system variables, `sendme`, local state, sleep/wake hooks, script
-  length and RAM), then remove dead or duplicated scripts and keep
-  landscape/portrait parity under the "logic in the hub app" rule. Done: a
-  documented inventory, no unused event code, both layout gates green, pages
-  unchanged on hardware. This is the groundwork for moving any behaviour onto
-  the display deliberately rather than by accident. *Area: Display behaviour.*
+  from the editor on both display models. *Area: Recovery.*
+- **Nextion script cleanup** — The inventory is written:
+  [HMI event scripts](docs/develop/nextion-scripts.md) records every event block
+  in both projects, what it does, the hub command or firmware event it pairs with,
+  and the instruction-set limits that matter (one page-scoped timer, page-local
+  state, no sleep or wake hooks, the largest block). What is left is the removal,
+  which needs the Nextion Editor, and nothing it removes changes a page: a stray
+  `sys1` assignment and a comment in the landscape weather and row pages, and a
+  stale `sys0` comment on the system page. The one code difference that does reach
+  a pixel — the landscape clocktwo loop skipping the top-left dot — is answered by
+  `ClockTwoPage.start_panel()` and pinned by a test, so both orientations already
+  paint the same page. Done: no unused event code, both layout gates green, pages
+  unchanged on hardware. This is the groundwork for moving any behaviour onto the
+  display deliberately rather than by accident. *Area: Display behaviour.*
 - **Hub settings in Home Assistant** — An integration options flow so the hub can
   be renamed and genuinely hub-scoped settings changed after setup, while
   per-device settings stay in the editor. *Area: Configuration.*
 
-## After that — Open pool
+## v0.6 — Next
+
+Content and everyday use: new panel types people keep asking for but do not have
+(a fan, a graph, free text), plus options that make panels feel finished. Other
+candidates remain in the open pool until selected for this cycle.
 
 ### Panels
 
-Every entry here needs a Nextion page, which is why they are the expensive items.
+New panel types need Nextion page work; the other entries extend existing panel
+experiences.
 
 - **Graph panel** — A line graph of a numeric sensor over a chosen window from
   Home Assistant history — house power, temperature, humidity, solar — with
@@ -134,7 +122,7 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   starts, as a list or as a compact block the clock panel can show. Overlaps the
   text panel; decide whether it is one feature or two.
 
-### Small changes
+### Panel options and interaction polish
 
 - **Confirm before acting** — A per-item confirmation (or hold-to-run) for actions
   that should not fire on a stray tap: garage door, alarm disarm, "all lights
@@ -155,10 +143,10 @@ Every entry here needs a Nextion page, which is why they are the expensive items
 - **Shrink to fit** — An option to reduce a long value's font instead of clipping
   it — bus times, calendar summaries, long sensor states. `fit_text` already
   exists for notifications to build on.
-- **Notification history and grouping** — Keep past notifications with a read-only
-  API and a view in the editor, and group or prioritise the queue instead of
-  playing it strictly in arrival order. The read/dismiss queue API and the
-  editor's queue view already shipped.
+- **Notification grouping and priority** — Group or prioritise pending
+  notifications instead of playing them strictly in arrival order, and keep past
+  notifications after they are dismissed, with a read-only API and a view in the
+  editor.
 - **A maximum notification text size** — `text_size` already picks a font per
   message and `auto` takes the largest that fits; a per-device maximum would let a
   short welcome be large while an alert stays small. (Discussion
@@ -203,9 +191,6 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   sunshine duration or thunderstorm probability. Reuse the existing forecast
   sub-value slot, format it with the entity's units, and fall back to the low
   temperature when the integration lacks the chosen field.
-
----
-
 - **Step buttons beside the sliders** — `–` / `+` at the ends of the brightness
   and position sliders, 10% per tap, so a value can be nudged precisely on a wall
   panel instead of dragged.
@@ -216,6 +201,23 @@ Every entry here needs a Nextion page, which is why they are the expensive items
   What is missing is the user side: labels and an action per button (fire an
   event or call an action), so the panel can answer a question instead of only
   acknowledging it.
+
+## After that — Open pool
+
+Unscheduled candidates remain here until they are selected for a release.
+
+### Icons and images
+
+- **Custom full-color icons for GRID panels** — Let a grid item use a PNG icon
+  (ideally with transparency) instead of the built-in MDI font glyph, chosen in
+  the editor and kept across firmware updates, with an on/off pair where the
+  entity has two states. Needs picture assets in both HMIs and TFTs, an editor
+  image library or upload path, and a per-item mapping; the display's memory and
+  picture capacity decide how large a library is practical, so a small curated
+  set may be the first step. Done: a grid item shows a custom image on both
+  display models, survives an update, and falls back to its MDI icon when the
+  image is missing. *Area: Icons.*
+  ([#105](https://github.com/happydasch/nspanel_haui/issues/105))
 
 ### Display and idle behaviour
 
@@ -348,20 +350,15 @@ Open items from the release-process review (runbook and known risks in
   reference. The 30,432-line TFT listing and the decompiled sources matched; only page lock flags and a
   four-byte picture encoding detail differed. Next: choose the source layout, then verify/build TFTs in CI
   and stop committing the compiled display binaries.
-- **Scripted HMI patching for release-only edits** — `tftVersion` scripting landed
-  with the version-bump tooling; Send Component ID and other in-place edits still
-  need the Nextion Editor or an extended patch spec.
 - **Portrait as a build-time rotation** — Derive the portrait HMI from the
   landscape one instead of committing a second HMI and keeping both in sync by
   hand.
 
 ## Open decisions
 
-Only the questions that shape scope remain here. The distribution risks — the
-~120 MB of Nextion binaries in the Marketplace download and the shared
-credentials in the universal image — are tracked with the release risks in
-[Release process](docs/develop/release.md#guardrails-and-known-gaps); the
-binary cleanup is scheduled for v0.5.x.
+Only the questions that shape scope remain here. The shared credentials in the
+universal image are tracked with the release risks in
+[Release process](docs/develop/release.md#guardrails-and-known-gaps).
 
 - **Multiple hub entries** — One hub entry discovers and manages every eligible
   NSPanel, with settings scoped per device. No separate multi-hub use case is

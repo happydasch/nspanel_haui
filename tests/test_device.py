@@ -249,8 +249,12 @@ def test_reconnect_falls_back_to_home_panel():
 
 
 class _RelayItem:
-    def __init__(self):
+    def __init__(self, state="off"):
+        self.state = state
         self.calls = []
+
+    def get_state(self):
+        return self.state
 
     def call_service(self, service, **kwargs):
         self.calls.append(service)
@@ -348,6 +352,39 @@ def test_toggle_button_prefers_configured_entity_and_skips_hardware_relay() -> N
     device.toggle_left_button_state()
 
     assert custom.calls == []
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "state", "service"),
+    [
+        ("scene.morning", "unknown", "turn_on"),
+        ("script.bed", "off", "turn_on"),
+        ("button.door", "unknown", "press"),
+        ("light.hall", "off", "toggle"),
+        ("lock.front", "locked", "unlock"),
+        ("lock.front", "unlocked", "lock"),
+        ("vacuum.room", "docked", "start"),
+        ("input_select.mode", "a", "select_next"),
+        ("climate.hall", "heat", "toggle"),
+    ],
+)
+def test_button_entity_runs_the_action_its_domain_provides(entity_id, state, service) -> None:
+    """An entity button runs the domain's own service, never a blanket toggle."""
+    item = _RelayItem(state)
+    app = _RelayApp({entity_id: item}, "nspanel_haui")
+    device = HAUIDevice(
+        app,
+        {
+            "name": "nspanel_haui",
+            "button_left_entity": entity_id,
+            "use_relay_left": False,
+        },
+    )
+    device._register_callbacks()
+
+    device.toggle_left_button_state()
+
+    assert item.calls == [service]
 
 
 def test_relay_event_does_not_touch_display() -> None:

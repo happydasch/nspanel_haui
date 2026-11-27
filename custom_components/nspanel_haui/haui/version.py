@@ -61,7 +61,7 @@ def integration_version_mismatch(
 # image. A version below it names no service on the device, and ``publish()``
 # only logs a warning for an unknown action — the image would silently not
 # appear, so the service refuses instead.
-DRAW_RUNS_FIRMWARE_VERSION = "0.6.0.dev1"
+DRAW_RUNS_FIRMWARE_VERSION = "0.5.9.dev99"
 
 
 def firmware_supports_draw_runs(version: str | None) -> bool:

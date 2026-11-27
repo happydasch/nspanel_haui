@@ -7,6 +7,7 @@ export const fleetStyles = css`
   .haui-toolbar-context { color: var(--secondary-text-color); font-size: var(--haui-text-body); font-weight: 500; }
   .haui-dashboard-content {
     width: calc(100% - 56px);
+    max-width: var(--haui-content-max-width);
     margin: 0 auto;
     padding: 28px 0 32px;
     box-sizing: border-box;
@@ -26,22 +27,23 @@ export const fleetStyles = css`
     border-bottom: 1px solid var(--divider-color);
   }
   /* Long log lists shrink into their scroll area, never into the heading. The first line carries the
-     title with its count and the line under it opens with the device the timeline is scoped to and
-     closes with the window it covers; the quiet actions sit in the footer under the timeline. The
-     header is as tall as the summary band beside it, whichever of the two carries less. */
+     title with its count and the window it covers, the way the inventory card heads its own; the
+     line under it names the device the timeline is scoped to; the quiet actions sit in the footer
+     under the timeline. The header is as tall as the summary band beside it, whichever of the two
+     carries less. */
   .haui-event-list > header { flex-wrap: wrap; flex-shrink: 0; align-content: center; box-sizing: border-box; min-height: var(--fleet-band-height); row-gap: var(--haui-space-1); }
-  .haui-event-list > header > .haui-surface-heading { min-width: 0; flex: 1 1 100%; align-items: center; }
-  /* Neither line wraps: the title gives way to its count and the scope to the window, each
-     ellipsizing instead of pushing the other out of the card. */
+  .haui-event-list > header > .haui-surface-heading { min-width: 0; flex: 1 1 100%; align-items: baseline; }
+  /* Neither line wraps: the title gives way to its count and to the window, and the scope takes
+     what its own line leaves, each ellipsizing instead of pushing the other out of the card. */
   .haui-event-list > header h2,
   .haui-event-list > header .haui-event-window { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* The scope line: the name gives way to the window, which ellipsizes only once the name is gone.
-     The whole fleet reads quieter than a device name, since it is the list's scope and not one of
-     its devices. */
+  /* The scope line: the name fills the line under the title, ellipsizing when it is long. The whole
+     fleet reads quieter than a device name, since it is the list's scope and not one of its
+     devices. */
   .haui-event-list > header .haui-event-bar { display: flex; min-width: 0; flex: 1 1 100%; align-items: baseline; gap: var(--haui-space-2); line-height: var(--haui-line-height-tight); }
   .haui-event-list > header .haui-event-scope { min-width: 0; flex: 1 1 0; overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-event-list > header .haui-event-scope.is-all { color: var(--secondary-text-color); font-weight: 400; }
-  .haui-event-list > header .haui-event-window { flex: 0 1 auto; min-width: 0; margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
+  .haui-event-list > header .haui-event-scope.is-all { color: var(--secondary-text-color); }
+  .haui-event-list > header .haui-event-window { flex: 0 1 auto; min-width: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-device-inventory h2,
   .haui-event-list h2 {
     margin: 0;
@@ -56,15 +58,16 @@ export const fleetStyles = css`
     background: var(--haui-card-background);
     box-shadow: var(--haui-card-shadow);
   }
-  /* A card's header sits on the soft surface, a step above the sticky column heads, which are a
-     step above the rows: the card reads title band, column heads, rows instead of one flat
-     ground, and the title no longer floats in the same colour as the table it heads. The footers
-     that close the two cards take the same surface, so each card ends where it began. */
+  /* A card's header and footer sit on the band, a step above the sticky column heads, which keep a
+     paler half of that band so the table's head stays in the same family, and above the rows: the
+     card reads title band, column heads, rows instead of one flat ground, and the title no longer
+     floats in the same colour as the table it heads. The footers that close the two cards take the
+     same band, so each card ends where it began. */
   .haui-inventory-overview,
   .haui-inventory-footer,
   .haui-event-list > header,
   .haui-event-list > footer,
-  .haui-discovered > header { background: var(--haui-surface-soft); }
+  .haui-discovered > header { background: var(--haui-surface-band); }
   .haui-fleet-carousel {
     display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 320px);
     gap: 16px; overflow-x: auto; padding: 4px 4px 16px;
@@ -119,7 +122,7 @@ export const fleetStyles = css`
     text-align: center;
   }
   .haui-device-card-setup-icon { --mdc-icon-size: 20px; }
-  .haui-device-card-setup-title { font-size: var(--haui-text-label); font-weight: 500; }
+  .haui-device-card-setup-title { font-size: var(--haui-text-subtitle); font-weight: 500; }
   /* A portrait screen keeps its own shape, centred, and fills the cover's height: the cover is as
      tall as a landscape screen on the same card width, so a row mixing both shapes keeps one card
      height and a portrait preview no longer sits in empty space. */
@@ -127,7 +130,9 @@ export const fleetStyles = css`
   .haui-device-card.is-portrait .haui-device-card-select > * { width: auto; max-width: 100%; aspect-ratio: 320 / 480; }
   /* The overlays float on the preview; the strip under it is the card's bottom, level in every card
      of the row however tall its preview is. */
-  .haui-device-update-badge { position: absolute; right: 12px; bottom: 12px; border-radius: var(--haui-radius-pill); padding: 4px 8px; background: var(--haui-warn-soft); color: var(--haui-warn-text); font-size: var(--haui-text-caption); font-weight: 500; }
+  /* The overlay takes the shared badge (device-card.js adds it); only its place over the preview is
+     the card's own. */
+  .haui-device-update-badge { position: absolute; right: 12px; bottom: 12px; }
   .haui-device-sort { position: absolute; top: 12px; left: 12px; transition: opacity 150ms ease; }
   .haui-device-card-info { display: flex; box-sizing: border-box; min-width: 0; align-items: center; gap: 8px; margin-top: auto; padding: 8px 12px 12px; }
   button.haui-device-card-info { width: 100%; border: 0; color: inherit; background: transparent; font: inherit; text-align: start; cursor: pointer; }
@@ -182,6 +187,9 @@ export const fleetStyles = css`
   .haui-discovered li > div > span { color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: var(--haui-text-caption); }
   .haui-discovered li .haui-button { min-height: 34px; }
   .haui-device-card-name, .haui-device-row-name { border: 0; padding: 0; color: var(--primary-text-color); background: transparent; font: inherit; font-weight: 500; text-align: start; cursor: pointer; }
+  /* The name a card or a row is listed by takes the subtitle step, above the facts beside it and
+     below a real title; the reset above is shared, so this follows it rather than joining it. */
+  .haui-device-card-name, .haui-device-row-name { font-size: var(--haui-text-subtitle); }
   .haui-carousel-arrow:disabled { opacity: 0; pointer-events: none; }
   /* A mouse shows the arrows and the grip on hover or focus; a touch screen keeps them
      shown, since a tap cannot hover and a hidden control would still take the tap. */
@@ -255,9 +263,9 @@ export const fleetStyles = css`
   .haui-fleet-fact.is-warn .haui-fleet-fact-icon { color: var(--haui-warn); }
   .haui-fleet-fact-body { display: flex; min-width: 0; align-items: baseline; gap: 4px; }
   .haui-fleet-fact-label { flex: 0 0 auto; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-tight); white-space: nowrap; }
-  .haui-fleet-fact-value { overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-caption); font-variant-numeric: tabular-nums; font-weight: 500; line-height: var(--haui-line-height-tight); text-overflow: ellipsis; white-space: nowrap; }
+  .haui-fleet-fact-value { overflow: hidden; color: var(--primary-text-color); font-size: var(--haui-text-label); font-variant-numeric: tabular-nums; font-weight: 500; line-height: var(--haui-line-height-tight); text-overflow: ellipsis; white-space: nowrap; }
   /* A pending figure is a placeholder the size of its value, on the line's own baseline. */
-  .haui-fleet-fact .haui-stat-placeholder { width: 40px; height: 13px; margin: 0; }
+  .haui-fleet-fact .haui-stat-placeholder { width: 40px; height: 15px; margin: 0; }
   .haui-stat-placeholder { display: block; width: 64px; height: 15px; margin: 4px 0; border-radius: var(--haui-radius-control); background: var(--secondary-background-color); }
   /* Both card headers are as tall as the other, whichever of the two carries less: the summary strip
      has the health glyph and two lines, the events header the title line and the scope line. The
@@ -285,17 +293,17 @@ export const fleetStyles = css`
     background: color-mix(in srgb, var(--primary-color) 10%, transparent);
     box-shadow: inset 3px 0 0 var(--primary-color);
   }
-  .haui-device-row-head { position: sticky; z-index: 1; top: 0; min-height: 32px; background: color-mix(in srgb, var(--secondary-background-color) 60%, var(--haui-card-background)); color: var(--secondary-text-color); font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+  .haui-device-row-head { position: sticky; z-index: 1; top: 0; min-height: 32px; background: color-mix(in srgb, var(--haui-surface-band) 55%, var(--haui-card-background)); color: var(--secondary-text-color); font-size: var(--haui-text-eyebrow); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
   .haui-device-row-identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .haui-device-row-identity > div { min-width: 0; }
   .haui-device-row-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* Addresses and versions line up in the mono face, as Home Assistant aligns its table values. */
   .haui-device-row-ip, .haui-device-row-version { overflow: hidden; color: var(--secondary-text-color); font-family: var(--haui-mono); font-size: var(--haui-text-caption); text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-row-actions { display: flex; align-items: center; justify-content: end; gap: 4px; }
-  .haui-device-row-actions .haui-badge { margin-inline-end: 4px; padding: 4px 8px; font-size: var(--haui-text-eyebrow); }
+  .haui-device-row-actions .haui-badge { margin-inline-end: 4px; }
   .haui-device-row-version.is-mismatch { display: grid; justify-items: start; gap: 4px; white-space: normal; }
   .haui-device-row-version.is-mismatch > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .haui-device-row-version .haui-device-row-mismatch { padding: 4px 4px; font-size: var(--haui-text-eyebrow); }
+  .haui-device-row-version .haui-device-row-mismatch { padding: 4px 4px; }
   /* The event list follows the inventory: it has no height of its own (size containment), so it
      stretches to the row the inventory sets and scrolls inside it. Like the inventory, it clips, so
      its header's band takes the card's rounded top corners. */
@@ -332,7 +340,7 @@ export const fleetStyles = css`
   .haui-event-device + time::before { content: '·'; margin: 0 4px; color: var(--disabled-text-color); }
   /* The device name gives way first; the time and the repeat count stay whole. */
   .haui-event-meta time, .haui-event-repeat { flex: 0 0 auto; white-space: nowrap; }
-  .haui-event-repeat { margin-inline-start: 4px; padding: 0 4px; border-radius: var(--haui-radius-pill); background: var(--secondary-background-color); font-size: var(--haui-text-eyebrow); font-variant-numeric: tabular-nums; font-weight: 500; line-height: var(--haui-line-height); }
+  .haui-event-repeat { margin-inline-start: 4px; padding: 0 4px; border-radius: var(--haui-radius-pill); background: var(--secondary-background-color); font-size: var(--haui-text-caption); font-variant-numeric: tabular-nums; font-weight: 400; line-height: var(--haui-line-height-tight); }
   .haui-event-warn .haui-event-repeat { background: var(--haui-warn-soft); color: var(--haui-warn-text); }
   .haui-event-error .haui-event-repeat { background: var(--haui-bad-soft); color: var(--haui-bad-text); }
   .haui-sort-handle { display: inline-flex; align-items: center; padding: 4px; border-radius: var(--haui-radius-control); color: var(--secondary-text-color); cursor: grab; --mdc-icon-size: 18px; }

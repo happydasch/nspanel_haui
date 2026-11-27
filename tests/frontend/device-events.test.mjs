@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import { loadDeviceConfig } from '../../custom_components/nspanel_haui/frontend/device-config.js';
 import * as Events from '../../custom_components/nspanel_haui/frontend/device-events.js';
+import * as Sidebars from '../../custom_components/nspanel_haui/frontend/device-sidebars.js';
 import { jsonResponse, makeHost } from './fake-host.mjs';
 
 /** Host whose backend store is `serverStore`; device add/remove calls succeed. */
@@ -252,4 +253,69 @@ test('the firmware install sends the release chosen in the picker', async () => 
   await Events.installFirmware(host, { detail: { name: 'kitchen', version: 'v0.4.2' } });
 
   assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
+});
+
+test('the repair action posts the repair endpoint for one device', async () => {
+  const host = makeHost(
+    { devices: { kitchen } },
+    (method, path, opts) => {
+      assert.equal(method, 'POST');
+      assert.equal(path, '/api/nspanel_haui/repair_display/entry1');
+      assert.deepEqual(JSON.parse(opts.body), { device: 'kitchen' });
+      return jsonResponse({ status: 'ok', update: { state: 'installing' } });
+    },
+  );
+
+  await Events.repairDisplay(host, { detail: { name: 'kitchen' } });
+
+  assert.deepEqual(host.toasts.at(-1), ['info', 'Repairing the display of "kitchen"']);
+});
+
+test('a repair the hub refuses is reported instead of a started one', async () => {
+  const host = makeHost(
+    { devices: { kitchen } },
+    () => jsonResponse(
+      { message: 'The firmware manifest ships no repair TFT for this display model' },
+      { status: 502 },
+    ),
+  );
+
+  await Events.repairDisplay(host, { detail: { name: 'kitchen' } });
+
+  assert.deepEqual(host.toasts.at(-1), [
+    'error',
+    'The firmware manifest ships no repair TFT for this display model',
+  ]);
+});
+
+test('the repair asks first and then repairs the device it asked about', async () => {
+  const calls = [];
+  const host = {
+    entryId: 'entry1',
+    _repairDisplayTarget: null,
+    requestUpdate() {},
+    _store: { getState: () => ({}), actions: { pollSelectedStatus: async () => {} } },
+    api: {
+      updates: {
+        async repairDisplay(entryId, name) {
+          calls.push([entryId, name]);
+          return { update: { state: 'installing' } };
+        },
+      },
+    },
+    _showToast() {},
+  };
+
+  Sidebars.askRepairDisplay(host, 'kitchen');
+  assert.equal(host._repairDisplayTarget, 'kitchen');
+  assert.equal(Sidebars.repairDisplayParams().confirmText, 'Repair display');
+
+  await Sidebars.confirmRepairDisplay(host);
+  assert.deepEqual(calls, [['entry1', 'kitchen']]);
+  assert.equal(host._repairDisplayTarget, null);
+
+  Sidebars.askRepairDisplay(host, 'kitchen');
+  Sidebars.cancelRepairDisplay(host);
+  assert.equal(host._repairDisplayTarget, null);
+  assert.deepEqual(calls, [['entry1', 'kitchen']]);
 });

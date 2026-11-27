@@ -98,3 +98,100 @@ def test_validate_manifest_refuses_a_manifest_without_tft_assets():
 
     with pytest.raises(ValueError, match="TFT assets"):
         generator.validate_manifest(manifest)
+
+
+def _release_assets(tmp_path, tft_version="0.4.3"):
+    """The files a release workflow assembles, minus the repair TFTs."""
+    ota = tmp_path / "firmware.ota.bin"
+    eu_tft = tmp_path / "nspanel_haui.tft"
+    us_tft = tmp_path / "nspanel_haui_portrait.tft"
+    ota.write_bytes(b"ota image")
+    eu_tft.write_bytes(b"landscape TFT\x00" + tft_version.encode() + b"\x00")
+    us_tft.write_bytes(b"portrait TFT\x00" + tft_version.encode() + b"\x00")
+    return ota, eu_tft, us_tft
+
+
+def _repair_tfts(tmp_path, version=None):
+    version = version or generator.REPAIR_VERSION
+    eu = tmp_path / "nspanel_haui_repair.tft"
+    us = tmp_path / "nspanel_haui_repair_portrait.tft"
+    eu.write_bytes(b"repair TFT\x00" + version.encode() + b"\x00")
+    us.write_bytes(b"repair portrait TFT\x00" + version.encode() + b"\x00")
+    return {"eu": eu, "us": us}
+
+
+def test_manifest_names_the_repair_tfts_the_release_ships(tmp_path, monkeypatch):
+    ota, eu_tft, us_tft = _release_assets(tmp_path)
+    repair = _repair_tfts(tmp_path)
+    monkeypatch.setattr(generator, "REPAIR_TFTS", repair)
+
+    manifest = generator.build_manifest(
+        "example/nspanel-haui", "v0.4.4", ota, eu_tft, us_tft, "0.4.3"
+    )
+
+    assert manifest["repair"]["version"] == generator.REPAIR_VERSION
+    assert manifest["repair"]["assets"]["eu"] == {
+        "path": (
+            "https://github.com/example/nspanel-haui/releases/download/v0.4.4/"
+            "nspanel_haui_repair.tft"
+        ),
+        "md5": hashlib.md5(b"repair TFT\x001\x00", usedforsecurity=False).hexdigest(),
+    }
+    assert manifest["repair"]["assets"]["us"]["path"].endswith("/nspanel_haui_repair_portrait.tft")
+
+
+def test_manifest_leaves_the_repair_block_out_without_the_assets(tmp_path, monkeypatch):
+    """A release that ships no repair TFT names none, so the hub reports that."""
+    ota, eu_tft, us_tft = _release_assets(tmp_path)
+    monkeypatch.setattr(generator, "REPAIR_TFTS", {"eu": tmp_path / "missing.tft"})
+
+    manifest = generator.build_manifest(
+        "example/nspanel-haui", "v0.4.4", ota, eu_tft, us_tft, "0.4.3"
+    )
+
+    assert "repair" not in manifest
+
+
+def test_manifest_refuses_a_repair_tft_that_does_not_carry_its_version(tmp_path, monkeypatch):
+    ota, eu_tft, us_tft = _release_assets(tmp_path)
+    monkeypatch.setattr(generator, "REPAIR_TFTS", _repair_tfts(tmp_path, version="2"))
+
+    with pytest.raises(ValueError, match="does not carry"):
+        generator.build_manifest("example/nspanel-haui", "v0.4.4", ota, eu_tft, us_tft, "0.4.3")
+
+
+def test_validate_manifest_refuses_a_partial_repair_block():
+    manifest = generator.build_manifest_from_assets(
+        "0.4.4",
+        "universal",
+        "https://x/ota.bin",
+        "0f",
+        {"version": "0.4.4", "assets": {"eu": {"path": "a.tft", "md5": "a"}}},
+        {"version": "1", "assets": {"eu": {"path": "r.tft", "md5": "r"}}},
+    )
+
+    with pytest.raises(ValueError, match="us repair TFT"):
+        generator.validate_manifest(manifest)
+
+
+def test_committed_repair_tfts_carry_the_manifest_repair_version():
+    """A release publishes these files only when they are committed and valid."""
+    from scripts.verify_nextion.check_repair_tft import check_repair_tft
+
+    missing = [path for path in generator.REPAIR_TFTS.values() if not path.exists()]
+    if missing:
+        pytest.skip("no repair TFTs are committed yet")
+    for path in generator.REPAIR_TFTS.values():
+        assert check_repair_tft(ROOT / path) is None
+
+
+def test_repair_check_names_a_missing_and_a_wrong_version(tmp_path):
+    from scripts.verify_nextion.check_repair_tft import check_repair_tft
+
+    assert "missing" in (check_repair_tft(tmp_path / "nothing.tft") or "")
+    wrong = tmp_path / "wrong.tft"
+    wrong.write_bytes(b"repair TFT\x002\x00")
+    assert "does not carry" in (check_repair_tft(wrong) or "")
+    good = tmp_path / "good.tft"
+    good.write_bytes(b"repair TFT\x00" + generator.REPAIR_VERSION.encode() + b"\x00")
+    assert check_repair_tft(good) is None

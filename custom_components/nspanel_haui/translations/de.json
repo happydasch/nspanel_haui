@@ -35,6 +35,39 @@
       "description": "Der Hub {hub} hat keine aktivierten Geräte.\n\nAktiviere mindestens ein Gerät im NSPanel HAUI-Editor oder füge ein neues ESPHome-Gerät mit HAUI-Firmware hinzu. Neue HAUI-Geräte können automatisch zum Hub hinzugefügt werden."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hub-Einstellungen",
+        "description": "Der Hub-Name ist der Name, unter dem NSPanel HAUI in Home Assistant erscheint. Die folgenden Formate sind die Vorgaben, die jedes Panel übernimmt; Einstellungen pro Panel bleiben im NSPanel HAUI-Editor.",
+        "data": {
+          "name": "Hub-Name",
+          "time_format": "Standard-Zeitformat",
+          "date_format": "Standard-Datumsformat",
+          "date_format_locale": "Standard-Datumslayout je Sprache"
+        },
+        "data_description": {
+          "date_format_locale": "Wird verwendet, wenn das Datumsformat eines Panels auf Standard steht."
+        }
+      }
+    },
+    "error": {
+      "empty_name": "Gib dem Hub einen Namen.",
+      "invalid_format": "Verwende ein strftime-Muster mit mindestens einer %-Direktive (zum Beispiel %H:%M)."
+    }
+  },
+  "selector": {
+    "date_format_locale": {
+      "options": {
+        "full": "Voll",
+        "long": "Lang",
+        "medium": "Mittel",
+        "short": "Kurz",
+        "E": "Wochentag (kurz)",
+        "EEEE": "Wochentag (lang)"
+      }
+    }
+  },
   "services": {
     "open_panel": {
       "name": "Panel öffnen",

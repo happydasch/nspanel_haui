@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { updateStateLabel, updateSummary } from'../../custom_components/nspanel_haui/frontend/dialogs/updates.js';
-import { render } from './support/render.mjs';
+import { mount, render, settle } from './support/render.mjs';
 import { updatesStyles } from '../../custom_components/nspanel_haui/frontend/styles/updates-styles.js';
 
 function element(props = {}) {
@@ -398,4 +398,58 @@ test('a skipped firmware version is marked', () => {
   const status = scheduledStatus({ firmware_scheduled: null, firmware_skipped_version: '0.5.1' });
 
   assert.match(flatten(element({ deviceStatus: status }).render()), /Skipped/);
+});
+
+test('the overview offers Repair display beside the versions, unless the release ships no repair TFT', () => {
+  const overview = (update) => render(element({
+    deviceStatus: {
+      connected: true,
+      integration_version: '0.5.0',
+      device_info: { tft_version: '1.2.3', tft_required_version: '1.2.4' },
+      update: { enabled: true, state: 'idle', ...update },
+    },
+  }).render()).querySelector('.haui-update-overview');
+  const offered = overview({ repair_available: true });
+  const repair = offered.querySelector('.haui-update-repair');
+  assert.ok(repair);
+  assert.match(repair.textContent, /Repair display/);
+  // It sits under the versions and above the check row.
+  const versions = offered.querySelector('.haui-update-versions');
+  assert.ok(versions.compareDocumentPosition(repair) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const missing = overview({ repair_available: false });
+  assert.equal(missing.querySelector('.haui-update-repair'), null);
+  assert.match(missing.textContent, /no repair TFT for this display model/);
+});
+
+test('the repair button asks the Device screen instead of installing by itself', async () => {
+  const dlg = await mount('nspanel-updates-sidebar', {
+    open: true,
+    deviceName: 'kitchen',
+    entryId: 'entry1',
+    _picker: null,
+    _actionBusy: false,
+    deviceStatus: {
+      connected: true,
+      device_info: {},
+      update: { enabled: true, state: 'idle', repair_available: true },
+    },
+  });
+  const events = [];
+  dlg.addEventListener('repair-display', (event) => events.push(event.detail));
+
+  dlg.shadowRoot.querySelector('.haui-update-repair ha-button').click();
+  await settle();
+
+  assert.deepEqual(events, [{ name: 'kitchen' }]);
+});
+
+test('a repair is not offered while an update is running or the panel is offline', () => {
+  const button = (props) => render(element(props).render())
+    .querySelector('.haui-update-repair ha-button');
+  assert.equal(button({ deviceStatus: {
+    connected: true, device_info: {}, update: { enabled: true, state: 'installing' },
+  } }).hasAttribute('disabled'), true);
+  assert.equal(button({ deviceStatus: {
+    connected: false, device_info: {}, update: { enabled: true, state: 'idle' },
+  } }).hasAttribute('disabled'), true);
 });

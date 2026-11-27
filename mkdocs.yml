@@ -73,6 +73,7 @@ nav:
     - Setup:
       - Quick Start: user/get-started.md
       - Installation: user/install.md
+      - Hub settings: user/hub-settings.md
       - Backup: user/backup.md
       - Updating: user/update.md
       - Version compatibility: user/version-compatibility.md

@@ -35,6 +35,39 @@
       "description": "Hub {hub} heeft geen ingeschakelde apparaten.\n\nSchakel minstens één apparaat in de NSPanel HAUI-editor in, of voeg een nieuw ESPHome-apparaat met HAUI-firmware toe. Nieuwe HAUI-apparaten kunnen automatisch aan de hub worden toegevoegd."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hub-instellingen",
+        "description": "De hubnaam is de naam waaronder NSPanel HAUI in Home Assistant verschijnt. De onderstaande notaties zijn de standaarden die elk paneel overneemt; instellingen per paneel blijven in de NSPanel HAUI-editor.",
+        "data": {
+          "name": "Hubnaam",
+          "time_format": "Standaard tijdnotatie",
+          "date_format": "Standaard datumnotatie",
+          "date_format_locale": "Standaard datumindeling per taal"
+        },
+        "data_description": {
+          "date_format_locale": "Wordt gebruikt als de datumnotatie van een paneel op Standaard staat."
+        }
+      }
+    },
+    "error": {
+      "empty_name": "Geef de hub een naam.",
+      "invalid_format": "Gebruik een strftime-patroon met minstens één %-richtlijn (bijvoorbeeld %H:%M)."
+    }
+  },
+  "selector": {
+    "date_format_locale": {
+      "options": {
+        "full": "Volledig",
+        "long": "Lang",
+        "medium": "Gemiddeld",
+        "short": "Kort",
+        "E": "Weekdag (kort)",
+        "EEEE": "Weekdag (volledig)"
+      }
+    }
+  },
   "services": {
     "open_panel": {
       "name": "Paneel openen",

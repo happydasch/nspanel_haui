@@ -3,7 +3,7 @@ import { css } from '../lit-import.js';
 export const deviceLayoutStyles = css`
   .haui-device-screen { display: flex; flex-direction: column; gap: 16px; }
   .haui-device-head { display: flex; align-items: center; gap: 12px 12px; min-width: 0; }
-  .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-headline); font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-device-head h1 { overflow: hidden; min-width: 0; flex: 0 1 auto; margin: 0; font-size: var(--haui-text-headline); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
   .haui-back-button { flex: 0 0 auto; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--secondary-text-color); transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
   /* Outranks the generic grey icon-button hover, which clashed with the blue border and arrow. */
   .haui-back-button:hover:not(:disabled) { border-color: var(--primary-color); color: var(--primary-color); background: color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color, #fff)); }
@@ -48,7 +48,7 @@ export const deviceLayoutStyles = css`
     gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--divider-color);
-    background: var(--haui-surface-soft);
+    background: var(--haui-surface-band);
   }
   .haui-sidebar-title { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: var(--haui-text-title); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
   /* The back control starts the strip, before the group's name. */

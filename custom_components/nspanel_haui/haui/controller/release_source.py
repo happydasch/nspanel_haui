@@ -48,6 +48,10 @@ class FirmwareManifestInfo(TypedDict):
     # Empty when the manifest ships no TFT for the display model.
     tft_version: str
     tft_url: str
+    # The minimal, self-contained TFT that restores a display whose own file is
+    # broken; empty when the manifest ships none for the display model.
+    repair_version: str
+    repair_url: str
 
 
 class UpdateFetchInputs(TypedDict):
@@ -224,6 +228,19 @@ def _load_catalog(force: bool) -> tuple[list[dict[str, Any]], str | None, str | 
     return catalog.releases, None, catalog.warning
 
 
+def _model_asset_path(block: dict[str, Any], display_model: str | None) -> str:
+    """Return the file path ``block`` names for ``display_model`` (``eu`` when unknown)."""
+    assets = block.get("assets")
+    asset = None
+    if isinstance(assets, dict):
+        model = str(display_model or "").lower()
+        if model not in ("eu", "us"):
+            model = "eu"
+        asset = assets.get(model)
+    path: Any = asset.get("path") if isinstance(asset, dict) else asset
+    return path if isinstance(path, str) else ""
+
+
 def parse_firmware_manifest(
     manifest: Any, url: str, display_model: str | None
 ) -> FirmwareManifestInfo:
@@ -231,7 +248,7 @@ def parse_firmware_manifest(
 
     Paths resolve against ``url``.  The TFT is the ``tft.assets`` entry of the
     display model (``eu`` for an unknown model); without one the TFT fields
-    stay empty.
+    stay empty, and the same holds for the ``repair`` block's fields.
 
     Raises:
         RuntimeError: When the manifest lacks its OTA build
@@ -245,22 +262,23 @@ def parse_firmware_manifest(
             "variant": str(manifest.get("variant") or ""),
             "tft_version": "",
             "tft_url": "",
+            "repair_version": "",
+            "repair_url": "",
         }
-        tft = manifest.get("tft")
-        if isinstance(tft, dict):
-            assets = tft.get("assets")
-            asset = None
-            if isinstance(assets, dict):
-                model = str(display_model or "").lower()
-                if model not in ("eu", "us"):
-                    model = "eu"
-                asset = assets.get(model)
-            tft_path: Any = asset.get("path") if isinstance(asset, dict) else asset
-            if isinstance(tft_path, str) and tft_path:
-                info["tft_url"] = urljoin(url, tft_path)
-                tft_version = tft.get("version")
-                if isinstance(tft_version, str) and tft_version:
-                    info["tft_version"] = tft_version
+        for key, block in (("tft", manifest.get("tft")), ("repair", manifest.get("repair"))):
+            if not isinstance(block, dict):
+                continue
+            path = _model_asset_path(block, display_model)
+            if not path:
+                continue
+            version = block.get("version")
+            version = version if isinstance(version, str) else ""
+            if key == "tft":
+                info["tft_url"] = urljoin(url, path)
+                info["tft_version"] = version
+            else:
+                info["repair_url"] = urljoin(url, path)
+                info["repair_version"] = version
         return info
     except (LookupError, TypeError) as exc:
         raise RuntimeError(f"Could not read the firmware manifest {url}: {exc}") from exc

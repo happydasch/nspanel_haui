@@ -25,7 +25,7 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | `surface`, `sectionHeading` | plain, flush or table, gradient summary, live-tinted | Sequential heading levels; actions stay named controls |
 | `segmented` | two or more choices, an optional count, a disabled choice | `role=group` with `aria-pressed` and keyboard activation |
 | `choiceList` (`ui/choice-list.js`) | checkbox rows under an eyebrow heading with an optional count and group action; picked, disabled, empty | `role=group` named by the heading; the whole row is the label; the ring goes around the row |
-| `sortHandle` | compact (row), overlay (card); grabbed, dragging, drop target | The only reorder affordance; it needs a pointer, so it is `aria-hidden` and keeps its label as a tooltip |
+| `sortHandle` | compact (row), overlay (card); grabbed, dragging, drop target | The only reorder affordance; a finger drags it through `ui/drag-handle.js`, so it is `aria-hidden` and keeps its label as a tooltip |
 | `emptyState` | fleet, panels, group, notifications, events; with or without action | A static message and a native button; no live-region spam |
 | `popover`, `menuItem` | menu, info panel, notification panel; open, focused, disabled, destructive | Trigger `aria-expanded` and `aria-controls`, menu keyboard navigation, focus restored on close |
 | `HauiDialog` (`dialogs/haui-dialog.js`) | the base of both dialogs: heading, close, scrollable body, optional footer | Dialog role labelled by the title, focus contained and restored, one Escape policy |
@@ -34,6 +34,8 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | `trapTab` (`ui/focus-trap.js`) | focus containment for a sidebar, dialog or popover | Tab cycles inside the layer, focus enters on open and returns to the trigger on close |
 | `renderFooter` (`toolbar.js`) | stable, prerelease; version missing | The existing `.editor-footer` markup, `target` and `rel` attributes and translated titles; the links stay focusable |
 | `format.js` | no DOM: timestamp, version, RSSI and connection formatters | Missing data renders explicit unknown text, never a false value |
+
+Reorder is a grip, never a whole row: a mouse starts the browser's own HTML5 drag on it, and a finger or a pen starts the same sequence by hand through `ui/drag-handle.js` — `dragstart` on the `draggable` element, `dragover` on whatever the finger is over, and `drop` plus `dragend` where it lifts, so `crud.js`, `item-renderers.js` and the rows only ever see drag events. A grip carries `data-drag-handle` (its `touch-action: none` rule is in `styles/content.js`, which every shadow root that renders one composes) and the bridge scrolls a long list by itself while the finger rests near its edge. A row body stays a scroll target, so only the grip drags.
 
 ## Composites
 

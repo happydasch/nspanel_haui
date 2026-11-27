@@ -3,14 +3,22 @@ import { css } from '../lit-import.js';
 /** Shared aliases for the Home Assistant theme and measured editor scale. */
 export const dashboardTokens = css`
   :host {
-    /* Steps Home Assistant lacks follow its font size setting like the others. */
-    --haui-text-eyebrow: calc(11px * var(--ha-font-size-scale, 1));
-    --haui-text-caption: calc(13px * var(--ha-font-size-scale, 1));
-    --haui-text-label: var(--ha-font-size-m, 14px);
-    --haui-text-body: var(--ha-font-size-l, 16px);
-    --haui-text-title: calc(18px * var(--ha-font-size-scale, 1));
-    --haui-text-headline: var(--ha-font-size-xl, 20px);
-    --haui-text-display: var(--ha-font-size-2xl, 24px);
+    /* The base text is the label step, so an element without a type rule reads as body text
+       instead of borrowing the body step, which is a card or section heading. */
+    font-size: var(--haui-text-label);
+    /* The ladder is the editor's own and one step below Home Assistant's own type (its body text
+       is 15px to HA's 16px), so the dense screens read a little tighter; every step follows HA's
+       font size setting, which is what the scale multiplies. */
+    --haui-text-eyebrow: calc(10px * var(--ha-font-size-scale, 1));
+    --haui-text-caption: calc(12px * var(--ha-font-size-scale, 1));
+    --haui-text-label: calc(13px * var(--ha-font-size-scale, 1));
+    /* Between a name and a card's own title: a thing that opens a card but is not its heading,
+       such as the device name under a Fleet card's preview. */
+    --haui-text-subtitle: calc(14px * var(--ha-font-size-scale, 1));
+    --haui-text-body: calc(15px * var(--ha-font-size-scale, 1));
+    --haui-text-title: calc(17px * var(--ha-font-size-scale, 1));
+    --haui-text-headline: calc(19px * var(--ha-font-size-scale, 1));
+    --haui-text-display: calc(23px * var(--ha-font-size-scale, 1));
     --haui-line-height: var(--ha-line-height-normal, 1.6);
     --haui-line-height-tight: var(--ha-line-height-condensed, 1.2);
     --haui-line-height-copy: 1.4;
@@ -23,6 +31,9 @@ export const dashboardTokens = css`
     --haui-space-7: var(--ha-space-7, 28px);
     --haui-space-8: var(--ha-space-8, 32px);
     --haui-space-10: var(--ha-space-10, 40px);
+    /* The screens' content column stops here and centres, so a wide monitor does not stretch the
+       cards and the device table across the window; the titlebar and the footer stay full-bleed. */
+    --haui-content-max-width: 1440px;
     /* The sticky titlebar (styles/content.js); page content that pins to the
        viewport starts below it. */
     --haui-header-height: calc(var(--header-height, 56px) + var(--safe-area-inset-top, 0px));
@@ -53,6 +64,15 @@ export const dashboardTokens = css`
     --haui-warn-icon: color-mix(in srgb, var(--haui-warn) 71%, var(--primary-text-color, #212121));
     --haui-bad-icon: var(--haui-bad);
     --haui-surface-soft: var(--secondary-background-color, #f5f5f5);
+    /* The band that opens and closes a card — its heading and its footer — is a step of the
+       theme's own text colour in the card ground, so it stays neutral in every theme and lands at
+       the same contrast against the card in a light one and a dark one (6% is ~1.1:1 either way).
+       It is deliberately lighter than the theme's secondary surface, which is heavy enough in a
+       light theme to read as a bar across the card. The plain soft surface stays for tiles, chips
+       and hover fills, where a step would compete with the content sitting on it. One token, so
+       every band in the editor moves together. */
+    --haui-surface-band: color-mix(in srgb, var(--primary-text-color, #212121) 6%,
+      var(--card-background-color, #fff));
     --haui-surface-strong: var(--divider-color, #e0e0e0);
     --haui-border-strong: var(--secondary-text-color, #666);
     --haui-scrim: rgb(0 0 0 / 42%);

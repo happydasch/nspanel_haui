@@ -11,7 +11,7 @@ export const panelListStyles = css`
     justify-content: space-between;
     gap: 8px;
     padding: 12px 16px 8px;
-    background: var(--haui-surface-soft);
+    background: var(--haui-surface-band);
     border-bottom: 1px solid var(--divider-color);
   }
   .haui-panel-group-heading .haui-surface-heading-copy { flex: 1 1 auto; }
@@ -76,7 +76,7 @@ export const panelListStyles = css`
     color: var(--primary-text-color);
     background: transparent;
     font: inherit;
-    font-size: var(--haui-text-label);
+    font-size: var(--haui-text-subtitle);
     font-weight: 500;
     text-align: start;
     text-overflow: ellipsis;

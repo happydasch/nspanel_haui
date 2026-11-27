@@ -360,6 +360,11 @@ export function renderDeviceScreen(host) {
       .params=${host._tftInstallTarget !== null ? host._tftInstallParams : null}
       @dialog-closed=${() => host._cancelTftInstall()} @dialog-confirmed=${() => host._confirmTftInstall()}
     ></nspanel-dialog-confirm>
+    <nspanel-dialog-confirm
+      .hass=${host.hass} .open=${host._repairDisplayTarget !== null}
+      .params=${host._repairDisplayTarget !== null ? host._repairDisplayParams : null}
+      @dialog-closed=${() => host._cancelRepairDisplay()} @dialog-confirmed=${() => host._confirmRepairDisplay()}
+    ></nspanel-dialog-confirm>
     ${host._renderQuickStart()}
     ${host._renderNotificationsView()}
     ${host._toast ? Toast.renderToast(host) : ''}

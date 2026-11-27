@@ -8,6 +8,7 @@ here so that ``haui/mapping/const.py``, ``storage.py``, ``__init__.py``, and
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -139,6 +140,41 @@ def is_portrait_model(display_model: str | None) -> bool:
 DEVICE_CONFIG_FIELDS: list[str] = [
     k for k in DEVICE_CONFIG if k not in ("name", "panels", "esphome_device_id")
 ]
+
+# Hub-scoped display defaults: the config entry's ``options`` keys that every
+# panel inherits when its own value is empty, and that are editable outside the
+# editor's per-device settings.  They overlay the root of the config dict.
+HUB_OPTION_KEYS: tuple[str, ...] = ("time_format", "date_format", "date_format_locale")
+
+
+def hub_options(options: Mapping[str, Any] | None) -> dict[str, str]:
+    """Return the hub option keys that hold a non-empty string.
+
+    An absent or blank option means "keep the built-in default from
+    ``DEFAULT_CONFIG``", so a stored options dict can never leave a root key
+    empty or invalid.
+
+    Args:
+        options: The config entry's ``options`` mapping, or ``None``.
+
+    Returns:
+        dict[str, str]: Known option keys with a non-blank string value.
+    """
+    resolved: dict[str, str] = {}
+    for key in HUB_OPTION_KEYS:
+        value = (options or {}).get(key)
+        if isinstance(value, str) and value.strip():
+            resolved[key] = value
+    return resolved
+
+
+def apply_hub_options(cfg: dict[str, Any], options: Mapping[str, Any] | None) -> None:
+    """Overlay the hub's display defaults onto the root of *cfg*.
+
+    *cfg* is modified in place; keys the options leave unset keep their
+    ``DEFAULT_CONFIG`` value.
+    """
+    cfg.update(hub_options(options))
 
 
 def resolve_snapshot_max_age(cfg: dict[str, Any]) -> int:

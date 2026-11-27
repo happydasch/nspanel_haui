@@ -11,6 +11,8 @@ Open the settings with the **Settings** cog in the **Device** or **Panels** acti
 
 Select a tile to open its group; the back arrow returns to the grid. Every group is one draft: **Cancel** discards it and **Save** applies all of it. The footer also carries **Device Enabled**. The **Updates** sidebar is separate; open it with the **Updates** button below the side cards.
 
+Everything here belongs to this panel. The hub's own name, and the formats a panel inherits while its formats are **Default**, are set in Home Assistant on the integration's card: see [Hub settings](../hub-settings.md).
+
 === "Light"
 
     <img src="../../assets/readme/editor-settings-light.png" alt="Device settings in the light theme, opened on a tile per group: general, screen, sounds, home and idle, gestures, screen buttons, hardware buttons and advanced" width="800" height="500">
@@ -36,7 +38,7 @@ Saving a changed model asks whether to install the matching TFT when updates are
 
 **Language** sets the display language and how dates, times and numbers are formatted: `en_US`, `de_DE`, `nl_NL`, `pl_PL`, `fr_FR` or `sk_SK`.
 
-**Time format** and **Date format** apply to every panel. Presets cover 24-hour, US 12-hour and 12-hour without AM/PM; **Custom strftime…** accepts any [strftime](https://strftime.org/) format. **Locale-aware date layout** is used while **Date format** is at its default: Full, Long, Medium, Short or a weekday form, with translated day and month names.
+**Time format** and **Date format** apply to every panel. Presets cover 24-hour, US 12-hour and 12-hour without AM/PM; **Custom strftime…** accepts any [strftime](https://strftime.org/) format. **Default** inherits the hub's own format, which is set in [Hub settings](../hub-settings.md). **Locale-aware date layout** is used while **Date format** is at its default: Full, Long, Medium, Short or a weekday form, with translated day and month names; **Use hub default** inherits the hub's layout.
 
 Date, time and datetime entities, `input_datetime` and `event` entities, and sensors with the `date` or `timestamp` device class use these formats. A narrow field, such as a row value, may cut a long date; choose **Short** or a numeric format for those. An item's own value template is shown as it renders.
 
@@ -228,5 +230,14 @@ logger:
 ## Updates
 
 The **Update settings** card in the **Updates** sidebar controls checks and installs for this device. Changes save automatically; text fields save after a pause. Its title carries **Enable updates**; the main fields are **Update channel**, **Check for a new version** and **Install firmware updates automatically**, and the rest are under **Advanced**.
+
+### Repair display
+
+**Repair display**, under the installed versions in the **Updates** sidebar, restores a display the normal update cannot: the screen stays blank or shows the TFT's **Waiting for Initialization** page, or an install keeps failing because the panel never finishes the 11 MB transfer. It asks first, then installs two files, so the panel cannot be used for several minutes:
+
+1. a small repair screen the release ships for your display model (about 465 KB — a twenty-fifth of the normal file, small enough that it always installs), and
+2. the display file this firmware needs, so the panel ends up on the normal screen.
+
+Use it instead of retrying **Install** on the **Display (TFT)** row. Nothing changes on the panel's settings, and the panel's ESPHome connection has to be up — the hub needs it to send the files. If the release you follow ships no repair screen for your display model, the sidebar says so in the button's place; install it by hand from the panel's own file instead ([TFT upload failures](../troubleshooting.md#the-panel-refuses-every-tft-upload)).
 
 See [Updating](../update.md#update-settings) for every setting and for the update flow.

@@ -11,8 +11,11 @@ from custom_components.nspanel_haui.haui.config_models import validate_device_co
 from custom_components.nspanel_haui.haui.device_config import (
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
+    HUB_OPTION_KEYS,
+    apply_hub_options,
     apply_panel_store,
     find_store_device,
+    hub_options,
     merge_store_fields,
     populate_devices_from_store,
     tft_filename_for_model,
@@ -260,6 +263,37 @@ def test_populate_empty_store() -> None:
     cfg: dict[str, Any] = {}
     populate_devices_from_store(cfg, {}, [])
     assert cfg["devices"] == []  # devices key created but empty
+
+
+# ============================================================================
+# hub options
+# ============================================================================
+
+
+def test_hub_options_keep_only_known_keys_with_a_value() -> None:
+    """A blank or unknown stored option keeps the built-in default."""
+    options = {
+        "time_format": "%I:%M %p",
+        "date_format": "   ",
+        "date_format_locale": "long",
+        "theme_id": "dark",
+    }
+
+    assert hub_options(options) == {"time_format": "%I:%M %p", "date_format_locale": "long"}
+    assert hub_options(None) == {}
+    assert hub_options({"time_format": None}) == {}
+
+
+def test_apply_hub_options_overlays_the_root_and_leaves_the_rest() -> None:
+    """The hub's display formats sit in the root, where an empty device value falls back."""
+    from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+
+    cfg = copy.deepcopy(DEFAULT_CONFIG)
+    apply_hub_options(cfg, {**dict.fromkeys(HUB_OPTION_KEYS, ""), "time_format": "%I:%M %p"})
+
+    assert cfg["time_format"] == "%I:%M %p"
+    assert cfg["date_format"] == DEFAULT_CONFIG["date_format"]
+    assert cfg["update"] == DEFAULT_CONFIG["update"]
 
 
 # ============================================================================

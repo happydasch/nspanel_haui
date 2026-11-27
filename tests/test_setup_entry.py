@@ -22,11 +22,16 @@ from custom_components.nspanel_haui.hub.app import NSPanelHAUI  # noqa: E402
 
 
 class _Entry:
-    def __init__(self, devices: list[dict]) -> None:
+    def __init__(
+        self,
+        devices: list[dict],
+        title: str = "Hub",
+        options: dict | None = None,
+    ) -> None:
         self.entry_id = "entry1"
-        self.title = "Hub"
+        self.title = title
         self.data = {"name": "Hub", "devices": devices}
-        self.options: dict = {}
+        self.options = options or {}
         self.on_unload: list = []
 
     def async_on_unload(self, cb):
@@ -85,7 +90,13 @@ class _App:
         self._plugin_proxies: dict = {}
 
 
-def _setup(monkeypatch, devices: list[dict], stored: dict | None = None):
+def _setup(
+    monkeypatch,
+    devices: list[dict],
+    stored: dict | None = None,
+    entry: _Entry | None = None,
+    started: list | None = None,
+):
     class _PanelStorage:
         def __init__(self, hass, entry_id, entry):
             pass
@@ -93,7 +104,9 @@ def _setup(monkeypatch, devices: list[dict], stored: dict | None = None):
         async def load(self):
             return stored or {"version": 1, "devices": {}}
 
-    async def create_app(hass, name, data, panels, device_name):
+    async def create_app(hass, name, data, panels, device_name, hub_options=None):
+        if started is not None:
+            started.append({"hub_name": name, "hub_options": hub_options, "device": device_name})
         return _App()
 
     registry = types.ModuleType("homeassistant.helpers.device_registry")
@@ -107,7 +120,7 @@ def _setup(monkeypatch, devices: list[dict], stored: dict | None = None):
     monkeypatch.setattr(nspanel_haui, "_delete_device_start_failed_issue", lambda *args: None)
 
     hass = _Hass()
-    entry = _Entry(devices)
+    entry = entry or _Entry(devices)
     assert asyncio.run(nspanel_haui.async_setup_entry(hass, entry)) is True
     return hass, entry
 
@@ -217,6 +230,31 @@ def test_setup_starts_only_enabled_devices_listed_in_the_entry(monkeypatch):
     hass, _entry = _setup(monkeypatch, [{"name": "kitchen"}, {"name": "office"}], stored)
 
     assert list(hass.data["nspanel_haui"]["entry1"]) == ["kitchen"]
+
+
+def test_setup_gives_each_app_the_current_title_and_the_hub_options(monkeypatch):
+    """A hub renamed in Home Assistant's options flow starts under its new name."""
+    entry = _Entry([{"name": "kitchen"}], title="Downstairs", options={"time_format": "%I:%M %p"})
+    started: list = []
+
+    _setup(monkeypatch, [{"name": "kitchen"}], entry=entry, started=started)
+
+    assert started == [
+        {"hub_name": "Downstairs", "hub_options": {"time_format": "%I:%M %p"}, "device": "kitchen"}
+    ]
+
+
+def test_the_hub_option_reaches_the_config_a_panel_inherits():
+    """The root format is what a device with an empty format falls back to."""
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {"version": 1, "devices": {"kitchen": {"config": {}, "panels": []}}},
+        device_name="kitchen",
+        hub_options={"time_format": "%I:%M %p"},
+    )
+
+    assert cfg["device"]["time_format"] == ""
+    assert cfg["time_format"] == "%I:%M %p"
 
 
 # --- config reload -----------------------------------------------------------

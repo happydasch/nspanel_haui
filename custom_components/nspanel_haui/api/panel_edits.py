@@ -75,7 +75,13 @@ class PanelEdit:
             if app is None or not app.device_config:
                 continue
             try:
-                cfg = _build_config_dict(entry.data, data, device_name=name)
+                cfg = _build_config_dict(
+                    entry.data,
+                    data,
+                    device_name=name,
+                    hub_name=entry.title,
+                    hub_options=entry.options,
+                )
                 await app.async_run_on_worker(app.reload_config, cfg)
             except Exception:
                 _LOGGER.exception(

@@ -39,7 +39,8 @@ test('Latest events keeps warnings and errors only, lists a repeated message onc
   const text = root.innerHTML;
   const header = root.querySelector('.haui-event-list > header');
   assert.equal(header?.querySelector('h2')?.textContent, 'Latest events');
-  assert.equal(header?.querySelector('p')?.textContent, 'Last 24 hours');
+  // The window follows the title on its line, as the inventory card's own figure does.
+  assert.equal(header?.querySelector('.haui-event-window')?.textContent, 'Last 24 hours');
   assert.equal(header?.querySelector('.haui-badge-count')?.textContent, '4');
   // The action closes the card in its footer, leaving the title line to the title and its count.
   assert.equal(header?.querySelector('button'), null);
@@ -119,14 +120,15 @@ test('Latest events names its scope and window in the header and keeps the actio
     deviceName: 'Office', onOpenLogs() {}, onReset() {},
   }));
   const header = root.querySelector('.haui-event-list > header');
-  // The title opens the first line and its count follows it; the header carries no control.
+  // The title opens the first line, its count and the window follow it; the header carries no control.
   assert.equal(header.querySelector('h2').textContent, 'Latest events');
+  assert.equal(header.querySelector('.haui-section-heading .haui-event-window').textContent, 'Last 24 hours');
   assert.equal(header.querySelectorAll('button').length, 0);
-  // The second line opens with the device that scopes the list and closes with the window it covers.
+  // The second line holds the device that scopes the list, and nothing else.
   const bar = header.querySelector('.haui-event-bar');
   assert.equal(bar.firstElementChild.className, 'haui-event-scope');
   assert.equal(bar.firstElementChild.textContent, 'Office');
-  assert.equal(bar.querySelector('p').textContent, 'Last 24 hours');
+  assert.equal(bar.childElementCount, 1);
   assert.equal(bar.querySelectorAll('button').length, 0);
   // The actions close the card under the timeline.
   const footer = root.querySelector('.haui-event-list > footer');
@@ -140,7 +142,9 @@ test('Latest events names its scope and window in the header and keeps the actio
   const everyoneBar = everyone.querySelector('.haui-event-list > header .haui-event-bar');
   assert.equal(everyoneBar.firstElementChild.className, 'haui-event-scope is-all');
   assert.equal(everyoneBar.firstElementChild.textContent, 'All devices');
-  assert.equal(everyoneBar.querySelector('p').textContent, 'Last 24 hours');
+  // The window stays beside the title even without a device to name under it.
+  assert.equal(everyone.querySelector('.haui-event-list > header .haui-event-window').textContent,
+    'Last 24 hours');
 
   // A list nobody gave an action to keeps no empty band at its bottom.
   const quiet = render(eventList({ events: [] }));
@@ -158,7 +162,7 @@ test('a reset replaces the 24 hours with its own moment and can be taken back', 
     onShowWindow() { shown += 1; },
   }));
   const header = root.querySelector('.haui-event-list > header');
-  assert.match(header.querySelector('p').textContent, /^Since /);
+  assert.match(header.querySelector('.haui-event-window').textContent, /^Since /);
   const footer = root.querySelector('.haui-event-list > footer');
   assert.deepEqual([...footer.querySelectorAll('button')].map((button) => button.textContent.trim()),
     ['Last 24 hours', 'Reset', 'Logs']);

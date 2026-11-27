@@ -412,6 +412,35 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
         )
 
 
+class DeviceRepairDisplayView(HomeAssistantView):
+    """Repair one device's display: a minimal TFT, then the TFT it needs."""
+
+    url = "/api/nspanel_haui/repair_display/{entry_id}"
+    name = "api:nspanel_haui:repair_display"
+    requires_auth = True
+
+    @require_admin
+    @api_errors
+    async def post(self, request: web.Request, entry_id: str) -> web.Response:
+        """Install the release's repair TFT on the ``device`` the body names.
+
+        One device per request: the repair rewrites the display and then
+        installs the TFT the firmware needs, which is worth watching one panel
+        at a time.
+        """
+        body = await json_object(request)
+        device = text_field(body.get("device"), "device")
+        if not device:
+            raise ApiError("The repair needs a single device", 400)
+        apps = running_apps(request.app["hass"], entry_id)
+        app = device_app(apps, device)
+        result = await app.async_repair_display()
+        message = _tft_install_error(result)
+        if message:
+            raise ApiError(message, 502)
+        return self.json({"status": "ok", "devices_updated": [device], "update": result})
+
+
 class DeviceTftReleasesView(HomeAssistantView):
     """List the TFT versions a device can install."""
 

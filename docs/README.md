@@ -53,6 +53,7 @@ The integration in Home Assistant decides what the panel shows. The firmware on 
 
 - [Quick Start](user/get-started.md) — the short path from a new panel to the first screen
 - [Installation](user/install.md) — every step: flash the panel, install the integration, add the panel
+- [Hub settings](user/hub-settings.md) — rename the hub and set the time and date formats every panel inherits
 - [Back up the stock firmware](user/backup.md) — keep the original Sonoff firmware and its eWeLink credentials
 - [Updating](user/update.md) — update the integration, the firmware and the display
 - [Version compatibility](user/version-compatibility.md) — which Home Assistant, firmware and display versions work together

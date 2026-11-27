@@ -29,7 +29,7 @@ export const entryStyles = css`
   .haui-entry-head::-webkit-details-marker { display: none; }
   .haui-entry-head:hover { background: var(--haui-surface-strong); border-radius: var(--haui-radius-control); }
   .haui-entry[open] > .haui-entry-head { border-bottom: 1px solid var(--divider-color); border-radius: var(--haui-radius-control) var(--haui-radius-control) 0 0; }
-  .haui-entry-title { flex: 0 0 auto; font-size: var(--haui-text-label); font-weight: 500; }
+  .haui-entry-title { flex: 0 0 auto; font-size: var(--haui-text-subtitle); font-weight: 500; }
   /* The head reads what starts the entry, which gives way first, then what it does. */
   .haui-entry-summary {
     flex: 1 1 auto;

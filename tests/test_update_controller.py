@@ -234,10 +234,11 @@ class _App:
                 on_done(result, None)
 
 
-def _manifest(version, path=None, tft=True):
+def _manifest(version, path=None, tft=True, repair=False):
     """A firmware manifest in the schema the release workflow writes.
 
-    ``tft=False`` omits the ``tft`` block (a local test release names none).
+    ``tft=False`` omits the ``tft`` block (a local test release names none),
+    ``repair`` adds the repair TFTs a release ships beside it.
     """
     manifest = {
         "name": "NSPanel HAUI",
@@ -258,6 +259,20 @@ def _manifest(version, path=None, tft=True):
                 "us": {
                     "path": f"https://dl/tft/{version}/nspanel_haui_portrait.tft",
                     "md5": f"tft-portrait-{version}",
+                },
+            },
+        }
+    if repair:
+        manifest["repair"] = {
+            "version": "1",
+            "assets": {
+                "eu": {
+                    "path": f"https://dl/repair/{version}/nspanel_haui_repair.tft",
+                    "md5": "repair-eu",
+                },
+                "us": {
+                    "path": f"https://dl/repair/{version}/nspanel_haui_repair_portrait.tft",
+                    "md5": "repair-us",
                 },
             },
         }
@@ -3725,3 +3740,150 @@ def test_a_failed_install_clears_once_the_panel_runs_another_firmware(monkeypatc
     app.device.set_device_info({"yaml_version": "0.4.2"})
     ctrl.on_connection_changed(True)
     assert ctrl.get_update_state()["firmware_install_error"] is None
+
+
+# --- display repair ----------------------------------------------------------
+
+
+def test_repair_display_installs_the_release_repair_tft_first(monkeypatch):
+    """A display that cannot take the full file gets the minimal TFT first."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest=_manifest("0.4.0", repair=True),
+    )
+
+    state = ctrl.repair_display()
+
+    assert state["state"] == "installing"
+    assert ctrl._repair_pending is True
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/repair/0.4.0/nspanel_haui_repair.tft")
+    ]
+
+
+def test_repair_display_follows_with_the_tft_the_firmware_needs(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest=_manifest("0.4.0", repair=True),
+    )
+    ctrl.repair_display()
+    app.published.clear()
+
+    ctrl.on_connection_changed(False)  # the repair upload reboots the panel
+    app.device.device_info["uptime"] = 0
+    ctrl.on_connection_changed(True)  # ... and it is back
+    # The panel has only just booted: the second upload waits briefly.
+    assert app.published == []
+    assert update.REPAIR_FOLLOWUP_DELAY_SECONDS in [delay for _cb, delay in app.timers.values()]
+
+    _fire_timer(app, update.REPAIR_FOLLOWUP_DELAY_SECONDS)
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
+    assert ctrl._repair_pending is False
+    state = ctrl.get_update_state()
+    assert state["state"] == "installing"
+    assert state["version"] == "0.4.0"
+
+
+def test_repair_display_without_a_repair_tft_in_the_manifest_is_refused(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest="0.4.0",
+    )
+
+    state = ctrl.repair_display()
+
+    assert state["state"] == "error"
+    assert "no repair TFT" in state["last_error"]
+    assert app.published == []
+    assert ctrl.get_update_state()["repair_available"] is False
+
+
+def test_repair_display_needs_the_repair_tft_of_its_display_model(monkeypatch):
+    """A portrait panel reports us; a release that ships only eu cannot repair it."""
+    manifest = _manifest("0.4.0", repair=True)
+    manifest["repair"]["assets"].pop("us")
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        display_model="us",
+        manifest=manifest,
+    )
+
+    state = ctrl.repair_display()
+
+    assert state["state"] == "error"
+    assert app.published == []
+
+
+def test_repair_display_offers_its_state_to_the_editor(monkeypatch):
+    ctrl, _app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest=_manifest("0.4.0", repair=True),
+    )
+
+    state = ctrl.get_update_state()
+
+    assert state["repair_available"] is True
+    assert state["repair_install_pending"] is False
+
+
+def test_a_failed_repair_upload_does_not_install_the_tft_after_it(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest=_manifest("0.4.0", repair=True),
+    )
+    ctrl.repair_display()
+    app.published.clear()
+
+    ctrl.process_event(types.SimpleNamespace(name=ESPEvent.TFT_UPLOAD_FAILED, value="HTTP 404"))
+    assert ctrl.get_update_state()["state"] == "error"
+    assert ctrl._repair_pending is False
+
+    ctrl.on_connection_changed(False)
+    app.device.device_info["uptime"] = 0
+    ctrl.on_connection_changed(True)
+    _fire_timer(app, update.REPAIR_FOLLOWUP_DELAY_SECONDS)
+
+    # Nothing follows a repair that never landed.
+    assert app.published == []
+
+
+def test_a_disconnect_after_the_repair_reboot_drops_the_followup(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest=_manifest("0.4.0", repair=True),
+    )
+    ctrl.repair_display()
+    ctrl.on_connection_changed(False)
+    app.device.device_info["uptime"] = 0
+    ctrl.on_connection_changed(True)
+    app.published.clear()
+
+    ctrl.on_connection_changed(False)  # it dropped off again before the upload
+    _fire_timer(app, update.REPAIR_FOLLOWUP_DELAY_SECONDS)
+
+    assert app.published == []
+
+
+def test_an_async_repair_reads_the_manifest_before_installing(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        manifest=_manifest("0.4.0", repair=True),
+    )
+    ctrl._firmware_manifest = None
+    ctrl._tft_manifest = None
+
+    state = _result(ctrl.start_async_repair)
+
+    assert state["state"] == "installing"
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/repair/0.4.0/nspanel_haui_repair.tft")
+    ]

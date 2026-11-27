@@ -154,6 +154,24 @@ jobs:
           # A rerun of the same run number must re-point its tag at the new commit.
           git push --force origin "refs/tags/$VERSION"
 
+      - name: Resolve the release assets
+        # The two repair TFTs are listed only once they are committed: the
+        # manifest names them in its `repair` block, and naming a missing file
+        # would fail the publish below.
+        id: assets
+        run: |
+          {
+            echo 'files<<ASSETS'
+            printf '%s\n' nspanel_haui.bin nspanel_haui_ota.bin \
+              nextion/nspanel_haui.tft nextion/nspanel_haui_portrait.tft
+            for tft in nextion/nspanel_haui_repair.tft \
+              nextion/nspanel_haui_repair_portrait.tft; do
+              if [ -f "$tft" ]; then printf '%s\n' "$tft"; fi
+            done
+            printf '%s\n' firmware-manifest.json
+            echo 'ASSETS'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Publish the development prerelease
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
         with:
@@ -162,12 +180,7 @@ jobs:
           body_path: dev-release-notes.md
           prerelease: true
           make_latest: false
-          files: |
-            nspanel_haui.bin
-            nspanel_haui_ota.bin
-            nextion/nspanel_haui.tft
-            nextion/nspanel_haui_portrait.tft
-            firmware-manifest.json
+          files: ${{ steps.assets.outputs.files }}
 
       - name: Run CI on the new dev commit
         # A push with GITHUB_TOKEN starts no workflow, so CI is dispatched.

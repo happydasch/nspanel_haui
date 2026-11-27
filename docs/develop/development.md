@@ -77,7 +77,7 @@ mypy
 
 These hold today; changing one is an architecture decision, not a refactor.
 
-- **Configuration lives in Home Assistant.** The panel config store and the device settings are the single source of truth; the display holds no user configuration.
+- **Configuration lives in Home Assistant.** The panel config store and the device settings are the single source of truth; the display holds no user configuration. Hub-scoped settings live in the config entry — its title is the hub's name, its `options` the display defaults every panel inherits — while per-device settings live in the panel store the editor writes ([Config entry and hub settings](hub.md#config-entry-and-hub-settings)).
 - **Logic in the hub app, drawing on the display.** The Nextion draws, the hub decides. Display-side scripts exist for preparation and immediate feedback only.
 - **The firmware is a stable substrate.** A feature ships in the integration without a reflash where possible, which is why the update entities exist and why the ESPHome package changes rarely.
 - **The fleet is the unit of design.** Updates, backups and rollouts are fleet-wide concerns, not per-device afterthoughts.

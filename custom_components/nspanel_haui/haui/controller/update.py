@@ -66,6 +66,9 @@ INSTALL_TIMEOUT_SECONDS = 20 * 60
 DEVICE_STATE_REFRESH_SECONDS = 15
 VERIFY_REFRESH_SECONDS = 60
 VERIFY_MAX_REFRESHES = 2
+# A repair upload ends in a reboot; the TFT that follows waits this long, so the
+# panel is past its boot and the repair page has drawn before the upload starts.
+REPAIR_FOLLOWUP_DELAY_SECONDS = 15
 
 # Firmware update: read the device's manifest, flash a newer image, then the
 # TFT it ships follows after the reboot.  Failed automatic installs retry per
@@ -240,6 +243,13 @@ class HAUIUpdateController(HAUIBase):
         # An automatic firmware install waiting out ``install_delay``.
         self._scheduled: dict[str, Any] | None = None
         self._scheduled_timer: str | None = None
+        # A repair upload is in flight: the TFT the firmware needs follows once
+        # the panel is back from the repair's reboot.
+        self._repair_pending = False
+        # ... and the panel has rebooted: the follow-up install runs after
+        # ``REPAIR_FOLLOWUP_DELAY_SECONDS``.
+        self._repair_rebooted = False
+        self._repair_followup_timer: str | None = None
         # Set while a hub rollout (``hub/rollout.py``) owns this device's installs.
         self._rollout_hold = False
         # How the last firmware install ended: None unknown/in flight, True
@@ -346,6 +356,9 @@ class HAUIUpdateController(HAUIBase):
         self._cancel_timer("_install_verify_timer")
         self._cancel_timer("_install_timeout_timer")
         self._cancel_timer("_firmware_install_timer")
+        self._cancel_timer("_repair_followup_timer")
+        self._repair_pending = False
+        self._repair_rebooted = False
         self._drop_schedule()
         self._firmware_installing = False
 
@@ -1135,6 +1148,153 @@ class HAUIUpdateController(HAUIBase):
             self._manual_tft_firmware = (self.app.device.device_info or {}).get("yaml_version")
         return result
 
+    # display repair
+
+    def _repair_tft_url(self) -> str | None:
+        """Return the repair TFT the loaded manifest ships for this display model."""
+        manifest = self._get_tft_manifest()
+        url = manifest.get("repair_url") if manifest is not None else None
+        return url or None
+
+    def _repair_unavailable_reason(self) -> str:
+        """Explain why no repair TFT can be installed from the loaded manifest."""
+        if self._get_tft_manifest() is None:
+            return str(
+                self._tft_manifest_error
+                or self._firmware_manifest_error
+                or self.translate("Firmware manifest unavailable")
+            )
+        return self.translate("The firmware manifest ships no repair TFT for this display model")
+
+    def repair_display(self) -> dict[str, Any]:
+        """Install the release's repair TFT, then the TFT the firmware needs.
+
+        A display whose own file is half-installed, crashes on boot or runs at
+        another rate cannot take the full display file, so the manifest's small,
+        self-contained repair TFT goes first.  It carries no version of its own:
+        once the panel is back from the repair's reboot, the TFT the firmware
+        needs follows (``_start_repair_followup``) and the display update
+        reports that install as usual.
+
+        Returns:
+            dict: The update state after the attempt (``get_update_state()``)
+        """
+        if not self._updates_enabled():
+            self._set_update_state(UPDATE_STATE_ERROR, error="Updates are disabled for this device")
+            return self.get_update_state()
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            # A second upload would restart the transfer the panel is running.
+            return self._answer_install_in_progress(None)
+        if not self.app.device.connected:
+            self.log("Cannot repair the display while the device is disconnected", level="WARNING")
+            self._set_update_state(UPDATE_STATE_ERROR, error="device disconnected")
+            return self.get_update_state()
+        url = self._repair_tft_url()
+        if url is None:
+            msg = self._repair_unavailable_reason()
+            self.log(msg, level="WARNING")
+            self._set_update_state(UPDATE_STATE_ERROR, error=msg)
+            return self.get_update_state()
+        self.log(f"Installing the repair TFT from {url}, then the TFT the firmware needs")
+        # A repair starts fresh like any manual install: it bypasses the "not
+        # confirmed" guard and gives automatic installs their attempts back.
+        self._last_install_confirmed = False
+        self._last_install_at = None
+        self._update_version = None
+        self._auto_attempts.pop("tft", None)
+        self._repair_pending = True
+        self._repair_rebooted = False
+        result = self._start_tft_upload(url, None)
+        if result["state"] != UPDATE_STATE_INSTALLING:
+            self._repair_pending = False
+        return result
+
+    def _schedule_repair_followup(self) -> None:
+        """Queue the TFT install that follows a confirmed repair upload.
+
+        The panel has only just rebooted: waiting ``REPAIR_FOLLOWUP_DELAY_SECONDS``
+        lets it finish booting and draw the repair page before the second upload
+        takes the display over again.
+        """
+        self._cancel_timer("_repair_followup_timer")
+        self._repair_followup_timer = self.app.run_in(
+            self._repair_followup_callback, REPAIR_FOLLOWUP_DELAY_SECONDS
+        )
+
+    def _repair_followup_callback(self, kwargs: dict[str, Any]) -> None:
+        self._repair_followup_timer = None
+        self._install_after_repair()
+
+    def _install_after_repair(self) -> None:
+        """Install the TFT the firmware needs, right after the repair TFT."""
+        if not self._repair_rebooted:
+            return
+        self._repair_rebooted = False
+        self._repair_pending = False
+        if not self.app.device.connected:
+            self.log(
+                "The panel is offline again; the TFT install after the repair waits for the "
+                "next check",
+                level="WARNING",
+            )
+            return
+        # The repair upload has done its job, so its install is over; the upload
+        # that follows is the one the display update reports.
+        self._cancel_timer("_install_verify_timer")
+        self._cancel_timer("_install_timeout_timer")
+        self._set_update_state(UPDATE_STATE_DONE)
+        self.log("The repair TFT is installed; installing the TFT the firmware needs")
+        result = self.install_tft()
+        if result["state"] == UPDATE_STATE_ERROR:
+            self.log(
+                f"The TFT install after the repair did not start: {result.get('last_error')}",
+                level="WARNING",
+            )
+
+    def start_async_repair(self, on_complete: Callable[[dict[str, Any]], None]) -> None:
+        """Resolve the manifest off-worker before repairing the display."""
+        if not self._updates_enabled():
+            self._set_update_state(UPDATE_STATE_ERROR, error="Updates are disabled for this device")
+            on_complete(self.get_update_state())
+            return
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            on_complete(self._answer_install_in_progress(None))
+            return
+        if self._firmware_installing:
+            self._set_update_state(
+                UPDATE_STATE_ERROR,
+                error=self.translate("Cannot install TFT during a firmware update"),
+            )
+            on_complete(self.get_update_state())
+            return
+        self.start_async_check(
+            allow_auto_install=False,
+            include_notice=False,
+            include_tft_source=True,
+            require_connected=False,
+            on_complete=lambda check: self._answer_once(
+                on_complete,
+                lambda message: {
+                    **self.get_update_state(),
+                    "state": UPDATE_STATE_ERROR,
+                    "last_error": f"Repair request failed: {message}",
+                },
+                lambda answer: answer(self._repair_after_check(check)),
+            ),
+        )
+
+    def _repair_after_check(self, check: dict[str, Any]) -> dict[str, Any]:
+        """Start the repair with the manifest the check loaded."""
+        if check["check_error"] == CHECK_SUPERSEDED:
+            return {
+                **self.get_update_state(),
+                "state": UPDATE_STATE_ERROR,
+                "last_error": self.translate("Install request superseded"),
+            }
+        if self._get_tft_manifest() is None:
+            return self._set_missing_manifest_error_for_tft(None)
+        return self.repair_display()
+
     # update state (for the editor / Panel Doctor)
 
     def _set_update_state(
@@ -1274,6 +1434,10 @@ class HAUIUpdateController(HAUIBase):
             "sent_at": self._last_install_at.isoformat() if self._last_install_at else None,
             "tft_update_reason": display["update_reason"],
             "tft_update_available": display["available"],
+            # Whether the loaded manifest ships a repair TFT for this model, so
+            # the editor can explain instead of offering an install that fails.
+            "repair_available": self._repair_tft_url() is not None,
+            "repair_install_pending": self._repair_pending,
             "firmware_update_available": firmware["available"],
             "firmware_update_version": firmware["latest_version"],
             "firmware_update_reason": firmware["reason"],
@@ -1505,12 +1669,16 @@ class HAUIUpdateController(HAUIBase):
     def _set_install_failed(self, message: str) -> None:
         """Mark the in-flight install as failed and stop its timers."""
         self.log(message, level="ERROR")
+        # A failed upload ends a repair: the follow-up install must not run.
+        self._repair_pending = False
         self._record_auto_result("tft", False)
         self._set_update_state(
             UPDATE_STATE_ERROR, version=self._last_install_version, error=message
         )
         self._cancel_timer("_install_verify_timer")
         self._cancel_timer("_install_timeout_timer")
+        self._cancel_timer("_repair_followup_timer")
+        self._repair_rebooted = False
 
     def _install_missing_tft(
         self, required_version: str, installed_version: str | None, firmware_version: str | None
@@ -2253,7 +2421,14 @@ class HAUIUpdateController(HAUIBase):
                 self._start_timer_delay()
             if self._update_state == UPDATE_STATE_INSTALLING:
                 if self._rebooted_since(self._last_install_at):
-                    self._start_install_verification()
+                    if self._repair_pending:
+                        # The repair TFT is on the display; the TFT the firmware
+                        # needs follows once the panel has finished booting, so a
+                        # verification window would only race it.
+                        self._repair_rebooted = True
+                        self._schedule_repair_followup()
+                    else:
+                        self._start_install_verification()
                 else:
                     self._set_install_failed(
                         "TFT upload failed: the panel did not reboot after the upload. "
@@ -2262,6 +2437,7 @@ class HAUIUpdateController(HAUIBase):
         else:
             self._cancel_timer("_state_check_timer")
             self._cancel_timer("_install_verify_timer")
+            self._cancel_timer("_repair_followup_timer")
             self._pending_state_check = False
             self._install_verify_refreshes = 0
             if self._update_state not in (UPDATE_STATE_IDLE, UPDATE_STATE_INSTALLING):

@@ -140,7 +140,13 @@ async def _create_host(hass: Any, entry: Any, device: str) -> Any:
         if not any(record.get("name") == device for record in entry.data.get("devices", [])):
             raise ValueError("Device was removed")
         store = await panel_store(hass, entry.entry_id).async_load() or empty_store()
-        cfg = _build_config_dict(entry.data, store, device_name=device)
+        cfg = _build_config_dict(
+            entry.data,
+            store,
+            device_name=device,
+            hub_name=entry.title,
+            hub_options=entry.options,
+        )
         ha_device_id = resolve_ha_device_id(hass, device)
         running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(device)
         device_info = (
@@ -172,7 +178,15 @@ async def async_reload_hosts(hass: Any, entry_id: str, data: dict[str, Any]) -> 
         if device not in devices:
             await hosts.async_stop((entry_id, device))
             continue
-        await host.async_reload(_build_config_dict(entry.data, data, device_name=device))
+        await host.async_reload(
+            _build_config_dict(
+                entry.data,
+                data,
+                device_name=device,
+                hub_name=entry.title,
+                hub_options=entry.options,
+            )
+        )
 
 
 async def async_stop_hosts(hass: Any, entry_id: str) -> None:

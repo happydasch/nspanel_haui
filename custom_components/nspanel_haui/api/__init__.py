@@ -34,6 +34,7 @@ from .status import (
 from .themes import ThemesView
 from .updates import (
     DeviceFirmwareReleasesView,
+    DeviceRepairDisplayView,
     DeviceTftReleasesView,
     DeviceUpdateArtifactView,
     DeviceUpdateCheckView,
@@ -64,6 +65,7 @@ VIEWS = (
     DeviceUpdateTftView,
     DeviceTftReleasesView,
     DeviceUpdateFirmwareView,
+    DeviceRepairDisplayView,
     DeviceFirmwareReleasesView,
     DeviceUpdateCheckView,
     UpdateControlView,

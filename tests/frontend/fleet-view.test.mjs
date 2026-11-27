@@ -517,13 +517,14 @@ test('a selected device scopes Fleet\'s latest events to itself and names it und
 
   const scopedRoot = render(renderFleetView({ ...base, selectedDevice: 'office' }));
   assert.equal(scopedRoot.querySelector('.haui-event-list > header h2').textContent, 'Latest events');
+  // The window follows the title, as the inventory card heads its own value.
+  assert.equal(scopedRoot.querySelector('.haui-event-list > header .haui-event-window').textContent, 'Last 24 hours');
   // The device opens the header's second line, where a long name truncates instead of wrapping.
   assert.equal(scopedRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'Office');
-  assert.equal(scopedRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
   const everyoneRoot = render(renderFleetView(base));
   // Nothing selected: the same line says the timeline covers every device.
   assert.equal(everyoneRoot.querySelector('.haui-event-list > header .haui-event-scope').textContent, 'All devices');
-  assert.equal(everyoneRoot.querySelector('.haui-event-list > header p').textContent, 'Last 24 hours');
+  assert.equal(everyoneRoot.querySelector('.haui-event-list > header .haui-event-window').textContent, 'Last 24 hours');
 
   // The device, not its label, decides: two devices named alike never share lines.
   const mislabelled = timeline({

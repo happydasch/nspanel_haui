@@ -85,7 +85,7 @@ export const itemListStyles = css`
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: var(--haui-text-label);
+    font-size: var(--haui-text-subtitle);
     font-weight: 500;
   }
   .haui-item-row-name {
@@ -93,12 +93,10 @@ export const itemListStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* The item type reads as a badge like every other pill: the shared haui-badge class sets its text,
+     so only the row's own colour and its fixed place on the line are here. */
   .haui-item-row-chip {
     flex-shrink: 0;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    border-radius: var(--haui-radius-control);
     color: var(--secondary-text-color, #666);
   }
   .haui-item-row-secondary {

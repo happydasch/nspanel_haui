@@ -113,10 +113,11 @@ function resetLabel(since) {
 
 /**
  * Render the latest real device log entries as a timeline. The header's first line
- * carries the title with its count; the second line opens with what the list is
+ * carries the title, its count and the window the list covers (**Last 24 hours**,
+ * or **Since 14:32** after a reset) — the value after the title, the way the
+ * inventory card beside it heads its own; the second line holds what the list is
  * scoped to — `deviceName`, or the whole fleet (**All devices**) while nothing is
- * selected — so a long device name has the row to itself, and closes with the
- * window the list covers (**Last 24 hours**, or **Since 14:32** after a reset).
+ * selected — so a long device name has the row to itself.
  * The quiet actions close the card in a footer under the timeline, where they stay
  * at hand however long the list grows. `since` replaces the default 24 hours with
  * everything from that moment on (a reset), and the footer offers **Reset** (start
@@ -147,17 +148,17 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
   const footer = canRestore || onReset || onOpenLogs
     ? html`<footer class="haui-event-footer">${actions}</footer>`
     : nothing;
-  // The second line: what the list is scoped to — the device, or the whole fleet when nothing is
-  // selected — and, at its end, the window the list covers. The scope opens the line, so a long
-  // device name has the room to truncate instead of pushing the window out.
+  // The second line names the device that scopes the timeline; the count and the window the list
+  // covers follow the title, so both cards on the dashboard read title then value.
   const scope = html`<span class="haui-event-scope${deviceName ? '' : ' is-all'}">${
     deviceName || t('All devices')}</span>`;
   return html`<section class="haui-event-list">
     <header>${sectionHeading({
       title: t('Latest events'),
       className: 'haui-section-heading',
-      badge: events.length ? countBadge(events.length) : nothing,
-    })}<div class="haui-event-bar">${scope}<p class="haui-event-window">${windowLabel}</p></div>
+      badge: html`${events.length ? countBadge(events.length) : nothing}<span class="haui-event-window">${
+        windowLabel}</span>`,
+    })}<div class="haui-event-bar">${scope}</div>
     </header>
     ${events.length ? html`<ol role="list" tabindex="0" aria-label=${t('Latest events')}>
       ${events.map((event) => {

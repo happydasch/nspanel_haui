@@ -127,6 +127,7 @@ export const dropdownStyles = css`
     cursor: pointer;
     font-size: var(--haui-text-caption);
     font-family: inherit;
+    font-weight: 400;
     color: var(--secondary-text-color, #666);
     transition: all 120ms;
   }

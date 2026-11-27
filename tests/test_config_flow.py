@@ -7,6 +7,7 @@ import contextlib
 import copy
 import sys
 import types
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -56,6 +57,20 @@ def _make_ha_stubs() -> None:
     ha = MagicMock()
     ha.config_entries.ConfigFlow = _ConfigFlow
     ha.config_entries.ConfigFlowResult = dict
+
+    class _OptionsFlow:
+        """Stub for config_entries.OptionsFlow - the flow manager sets hass/config_entry."""
+
+        hass: Any
+        config_entry: Any
+
+        def async_show_form(self, **kwargs: Any) -> dict:
+            return {"type": "form", **kwargs}
+
+        def async_create_entry(self, **kwargs: Any) -> dict:
+            return {"type": "create_entry", **kwargs}
+
+    ha.config_entries.OptionsFlow = _OptionsFlow
 
     selector_mod = MagicMock()
 
@@ -129,7 +144,11 @@ _make_ha_stubs()
 
 # Now safe to import
 from custom_components.nspanel_haui import _build_config_dict  # noqa: E402, I001
-from custom_components.nspanel_haui.config_flow import NSPanelHAUIConfigFlow  # noqa: E402
+from custom_components.nspanel_haui.config_flow import (  # noqa: E402
+    DATE_FORMAT_LOCALE_OPTIONS,
+    NSPanelHAUIConfigFlow,
+    NSPanelHAUIHubOptionsFlow,
+)
 from custom_components.nspanel_haui.hub.esphome_helpers import (  # noqa: E402
     normalize_device_name as _normalize_device_name,
 )
@@ -435,6 +454,26 @@ class TestBuildConfigDict:
         }
         result = _build_config_dict(data)
         assert len(result["devices"]) == 2
+
+    def test_hub_options_set_the_root_display_defaults(self):
+        """The hub's formats land in the root, where an empty device value falls back."""
+        from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+
+        result = _build_config_dict(
+            {"name": "hub", "devices": [{"name": "dev1"}]},
+            device_name="dev1",
+            hub_options={"time_format": "%I:%M %p", "unrelated": "dropped"},
+        )
+
+        assert result["time_format"] == "%I:%M %p"
+        assert result["date_format"] == DEFAULT_CONFIG["date_format"]
+        assert "unrelated" not in result
+
+    def test_hub_name_supersedes_the_name_the_entry_was_created_with(self):
+        """A hub renamed through Home Assistant's options flow names the config."""
+        result = _build_config_dict({"name": "NSPanel HAUI Hub"}, hub_name="Downstairs")
+
+        assert result["device"]["name"] == "Downstairs"
 
 
 # ---------------------------------------------------------------------------
@@ -815,3 +854,142 @@ class TestDiscoveryCard:
         assert len(result["data"]["devices"]) == 1
         assert result["data"]["devices"][0]["name"] == "panel-living"
         assert result["data"]["devices"][0]["esphome_device_id"] == "e1"
+
+
+# ---------------------------------------------------------------------------
+# options flow  -  hub-scoped settings (name and the display defaults panels inherit)
+# ---------------------------------------------------------------------------
+
+
+class _OptionsEntry:
+    """A hub config entry as the options flow sees it."""
+
+    def __init__(self, title: str = "NSPanel HAUI Hub", options: dict | None = None) -> None:
+        self.entry_id = "entry1"
+        self.title = title
+        self.data = {"name": "NSPanel HAUI Hub", "devices": []}
+        self.options = options or {}
+
+
+class _RecordingConfigEntries:
+    """Records every entry write, so a save is asserted at the Home Assistant boundary."""
+
+    def __init__(self) -> None:
+        self.updates: list[dict] = []
+
+    def async_update_entry(self, entry: Any, **kwargs: Any) -> None:
+        self.updates.append(kwargs)
+
+
+class _FlowHass:
+    """Minimal hass for the options flow."""
+
+    def __init__(self) -> None:
+        self.config_entries = _RecordingConfigEntries()
+
+
+def _form_values(result: dict) -> dict[str, Any]:
+    """The values a shown form prefills, keyed by field name."""
+    return {str(marker): marker.default() for marker in result["data_schema"].schema}
+
+
+class TestHubOptionsFlow:
+    """The Configure flow: rename the hub and set the formats every panel inherits."""
+
+    def _make_flow(self, entry: _OptionsEntry):
+        flow = NSPanelHAUIHubOptionsFlow()
+        flow.hass = _FlowHass()
+        flow.config_entry = entry
+        return flow
+
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_the_config_flow_returns_the_options_flow(self):
+        """Home Assistant's Configure button on the integration card reaches it."""
+        flow = NSPanelHAUIConfigFlow.async_get_options_flow(_OptionsEntry())
+
+        assert isinstance(flow, NSPanelHAUIHubOptionsFlow)
+
+    def test_the_form_prefills_the_built_in_defaults(self):
+        """An untouched hub shows what a panel inherits today."""
+        from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+
+        result = self._run(self._make_flow(_OptionsEntry()).async_step_init())
+
+        values = _form_values(result)
+        assert values["name"] == "NSPanel HAUI Hub"
+        assert values["time_format"] == DEFAULT_CONFIG["time_format"]
+        assert values["date_format"] == DEFAULT_CONFIG["date_format"]
+        assert values["date_format_locale"] == DEFAULT_CONFIG["date_format_locale"]
+
+    def test_the_form_prefills_the_stored_options(self):
+        """A saved option is shown as saved, not as the built-in default."""
+        entry = _OptionsEntry(options={"time_format": "%I:%M %p", "date_format_locale": "long"})
+
+        result = self._run(self._make_flow(entry).async_step_init())
+
+        values = _form_values(result)
+        assert values["time_format"] == "%I:%M %p"
+        assert values["date_format_locale"] == "long"
+
+    def test_the_form_offers_the_editor_s_locale_date_layouts(self):
+        """The editor's per-device dropdown and this form offer the same layouts."""
+        source = (
+            Path(__file__).parent.parent
+            / "custom_components"
+            / "nspanel_haui"
+            / "frontend"
+            / "views"
+            / "device-settings.js"
+        ).read_text(encoding="utf-8")
+
+        missing = [
+            value for value in DATE_FORMAT_LOCALE_OPTIONS if f'value: "{value}"' not in source
+        ]
+        assert missing == []
+
+    def test_saving_renames_the_hub_and_stores_the_formats_once(self):
+        """One entry write: the title carries the name, the options the formats."""
+        flow = self._make_flow(_OptionsEntry())
+
+        result = self._run(
+            flow.async_step_init(
+                {
+                    "name": "  Downstairs  ",
+                    "time_format": "%I:%M %p",
+                    "date_format": "",
+                    "date_format_locale": "long",
+                    "unknown_field": "dropped",
+                }
+            )
+        )
+
+        assert flow.hass.config_entries.updates == [
+            {
+                "title": "Downstairs",
+                "options": {"time_format": "%I:%M %p", "date_format_locale": "long"},
+            }
+        ]
+        assert result["type"] == "create_entry"
+        assert result["data"] == {"time_format": "%I:%M %p", "date_format_locale": "long"}
+
+    def test_a_blank_name_keeps_the_form_open(self):
+        """A hub without a name is not saved, and nothing is written."""
+        flow = self._make_flow(_OptionsEntry())
+
+        result = self._run(flow.async_step_init({"name": "   ", "time_format": "%H:%M"}))
+
+        assert result["type"] == "form"
+        assert result["errors"] == {"base": "empty_name"}
+        assert flow.hass.config_entries.updates == []
+
+    def test_a_format_without_a_directive_keeps_the_form_open(self):
+        """A format that cannot render a time is refused instead of stored."""
+        flow = self._make_flow(_OptionsEntry())
+
+        result = self._run(flow.async_step_init({"name": "Hub", "time_format": "HH:MM"}))
+
+        assert result["type"] == "form"
+        assert result["errors"] == {"base": "invalid_format"}
+        assert flow.hass.config_entries.updates == []

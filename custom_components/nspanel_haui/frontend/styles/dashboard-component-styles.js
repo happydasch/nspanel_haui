@@ -78,6 +78,8 @@ export const dashboardComponentStyles = css`
   /* The actions at the end of a table row or card: Edit/Settings, then More. */
   .haui-row-action { width: 32px; height: 32px; flex: 0 0 auto; padding: 0; border-radius: var(--haui-radius-control); color: var(--secondary-text-color, #666); --mdc-icon-size: 18px; transition: background 120ms ease, color 120ms ease; }
   .haui-row-action:hover:not(:disabled), .haui-row-action[aria-expanded="true"] { background: var(--haui-surface-strong); color: var(--primary-text-color, #212121); }
+  /* A pill is a label on a tinted ground, not emphasis: it keeps the text weight so it reads as
+     quiet as the row it sits on, and its size alone sets it apart. */
   .haui-badge {
     display: inline-flex;
     align-items: center;
@@ -86,11 +88,12 @@ export const dashboardComponentStyles = css`
     border-radius: var(--haui-radius-pill);
     background: var(--secondary-background-color, #f5f5f5);
     font-size: var(--haui-text-caption);
+    font-weight: 400;
     line-height: var(--haui-line-height-tight);
   }
   /* Tinted rather than filled, so a count shows on a hovered or open row as well;
      the tones below still colour it. */
-  .haui-badge-count { box-sizing: border-box; min-width: 20px; justify-content: center; background: color-mix(in srgb, var(--secondary-text-color, #666) 12%, transparent); color: var(--secondary-text-color, #666); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .haui-badge-count { box-sizing: border-box; min-width: 20px; justify-content: center; background: color-mix(in srgb, var(--secondary-text-color, #666) 12%, transparent); color: var(--secondary-text-color, #666); font-variant-numeric: tabular-nums; }
   .haui-badge-primary { background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, var(--card-background-color, #fff)); color: var(--haui-accent-text); }
   .haui-badge-success { background: var(--haui-good-soft); color: var(--haui-good-text); }
   .haui-badge-warning { background: var(--haui-warn-soft); color: var(--haui-warn-text); }
@@ -101,11 +104,11 @@ export const dashboardComponentStyles = css`
   .haui-status-dot-stale { background: var(--haui-warn-icon); }
   .haui-status-dot-unknown { background: var(--secondary-text-color, #666); }
   .haui-surface { min-width: 0; overflow: hidden; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); }
-  /* Every card heading sits on the soft surface, one step above the card's body, so a card reads
-     title band then content instead of one flat ground. A heading that opens its card takes the
-     card's top corners with it: three cards cannot clip their contents (the update settings' floating
-     field hint, the details' and diagnostics' overlays), and a square band would show there. */
-  .haui-surface-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); background: var(--haui-surface-soft); }
+  /* Every card heading sits on the band, one step above the card's body, so a card reads title band
+     then content instead of one flat ground. A heading that opens its card takes the card's top
+     corners with it: three cards cannot clip their contents (the update settings' floating field
+     hint, the details' and diagnostics' overlays), and a square band would show there. */
+  .haui-surface-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); background: var(--haui-surface-band); }
   .haui-surface > .haui-surface-heading:first-child { border-start-start-radius: var(--haui-card-radius); border-start-end-radius: var(--haui-card-radius); }
   /* A collapsed card is its heading: the band is then the whole card and keeps every corner. */
   .haui-surface > .haui-surface-heading:only-child { border-radius: var(--haui-card-radius); }

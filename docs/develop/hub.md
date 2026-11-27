@@ -215,6 +215,21 @@ The adapter marshals its entity-registry read onto Home Assistant's event loop. 
 
 Never derive an entity id from the ESPHome `id:` or the HAUI device slug: Home Assistant may assign area-prefixed ids, and entity ids change after a device rename. Never substitute an id guessed from another device either: with no unique enabled match on the linked device the entity counts as unavailable, so HAUI's built-in inside-temperature display shows its unavailable value.
 
+## Config entry and hub settings
+
+One config entry is one hub. Its `data` carries the device identity (`name`, `devices`, `removed_devices`); its `options` carries the hub-scoped settings, which the options flow in `config_flow.py` is the only writer of.
+
+| Setting | Lives in | Meaning |
+|---------|----------|---------|
+| Hub name | `entry.title` | The name Home Assistant shows for the integration, and the name the apps start under. `data["name"]` keeps the value the entry was created with and is a fallback only — no entity id, unique id or device-registry entry is built from either, so a rename changes no identity. |
+| `time_format`, `date_format`, `date_format_locale` | `entry.options` | The display defaults a panel inherits while its own value is empty. An absent or blank option means "keep the `DEFAULT_CONFIG` root value", so a stored options dict can never leave a root key empty. |
+
+`haui/device_config.py` holds the vocabulary: `HUB_OPTION_KEYS` names the keys, `hub_options()` keeps the known ones that hold a value, and `apply_hub_options()` overlays them onto the root of a config dict. `_build_config_dict()` (`__init__.py`) calls it right after copying `DEFAULT_CONFIG`, and every live caller passes the entry it already has — `async_setup_entry` through `_create_app`, the editor's save path in `api/panel_edits.py`, and the preview host in `web/websocket.py` — so a panel, a preview and a card render format dates and times identically.
+
+Saving the flow writes the entry once (`async_update_entry` with the title and the options) and then returns `async_create_entry(data=options)`: the second write finds identical options and fires no listener, so one save reloads the hub once (`async_reload_entry`). That reload restarts every app, which is the documented cost of changing a hub default ([Hub settings](../user/hub-settings.md)).
+
+What stays out of the flow: every key in `DEVICE_CONFIG`, the `update` block and the panel layouts are per device and belong to the editor, and the theme library and device order are hub-scoped but need the editor's CRUD. Connection timings stay out because a wrong `heartbeat_interval` disconnects every panel and a panel already reports its own through the handshake. The hub-wide `update_policy` is gone for the same reason: every update setting belongs to its device ([Update process](update-process.md#settings)).
+
 ## HTTP API
 
 `api/__init__.py` registers these views (`VIEWS`), all under `/api/nspanel_haui/`. Every view needs an authenticated Home Assistant user, and all but the editor lookups require an admin. The editor calls them through `frontend/api/client.js`.

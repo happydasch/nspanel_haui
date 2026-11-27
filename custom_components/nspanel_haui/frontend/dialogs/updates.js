@@ -513,6 +513,37 @@ class UpdatesSidebar extends HauiDialog {
   }
 
   /**
+   * The repair action sits under the versions: a display whose own file is
+   * broken or half-installed cannot take the usual update, so the release's
+   * minimal repair TFT goes in first and the TFT the firmware needs follows.
+   */
+  _renderRepair({ available, disabled }) {
+    if (available === false) {
+      return html`<p class="haui-update-repair-unavailable">${t('This release ships no repair TFT for this display model.')}</p>`;
+    }
+    return html`<div class="haui-update-repair">
+      <ha-button
+        size="s"
+        appearance="plain"
+        variant="neutral"
+        ?disabled=${disabled}
+        title=${t('Install the repair TFT, then the TFT this firmware needs.')}
+        @click=${this._askRepair}
+      >
+        <ha-icon slot="start" icon="mdi:backup-restore"></ha-icon>
+        <span class="haui-update-label-wide">${t('Repair display')}</span>
+        <span class="haui-update-label-narrow">${t('Repair')}</span>
+      </ha-button>
+    </div>`;
+  }
+
+  /** Ask before repairing; the confirmation lives on the Device screen. */
+  _askRepair() {
+    if (this.deviceStatus?.update?.enabled === false) return;
+    this._emit('repair-display', { name: this.deviceName });
+  }
+
+  /**
    * The check action sits after the installed version rows, the integration's
    * version at the row's end: the hub updates through the Marketplace, so it has
    * nothing to install here. The version stays when updates are off. A narrow
@@ -722,6 +753,10 @@ class UpdatesSidebar extends HauiDialog {
           info, update, requiredTft, updatesEnabled,
           installDisabled: installing || this._actionBusy || stale,
         })}
+        ${updatesEnabled ? this._renderRepair({
+          available: update.repair_available,
+          disabled: installing || this._actionBusy || stale,
+        }) : nothing}
         ${this._renderCheckAction(updatesEnabled, status.integration_version)}
       </section>
       ${this._renderScheduled(update)}

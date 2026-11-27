@@ -118,6 +118,33 @@ export async function installTft(host, e) {
   }
 }
 
+/**
+ * Repair a display the hub cannot update the usual way: the release's repair
+ * TFT installs first, and the TFT the firmware needs follows it.
+ * @param {any} host
+ * @param {{ detail?: { name?: string } }} e
+ */
+export async function repairDisplay(host, e) {
+  const name = e.detail?.name;
+  if (!name) return;
+  try {
+    const result = await host.api.updates.repairDisplay(host.entryId, name);
+    const update = result.update;
+    if (update?.state === "error") {
+      host._showToast(update.last_error || t("The display repair did not start"), "error");
+      return;
+    }
+    // A start is not a success: the panel answers with the outcome later, and
+    // the sidebar shows both installs as they run.
+    host._showToast(
+      t('Repairing the display of "{name}"').replace("{name}", _friendlyName(host, name)),
+      "info",
+    );
+  } catch (err) {
+    host._showToast(err.message || t("The display repair did not start"), "error");
+  }
+}
+
 /** Install a firmware the update surface chose (release, URL or local file). */
 export async function installFirmware(host, e) {
   const name = e.detail?.name;

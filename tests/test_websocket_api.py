@@ -187,7 +187,9 @@ class _Hass:
         self.tasks = []
         self.entry = types.SimpleNamespace(
             entry_id="entry1",
+            title="Hub",
             data={"name": "Hub", "devices": [{"name": "kitchen"}]},
+            options={},
             setup_lock=asyncio.Lock(),
         )
         self.config_entries = types.SimpleNamespace(

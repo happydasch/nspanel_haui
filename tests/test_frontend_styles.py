@@ -46,11 +46,110 @@ def test_guard_reports_off_scale_values_and_raw_colors(tmp_path: Path) -> None:
 
     errors = check_css_sources([(style, css)], frontend, root)
 
-    assert any("off-scale font-size" in error for error in errors)
+    assert any("use a --haui-text-* token" in error for error in errors)
     assert any("off-scale gap" in error for error in errors)
     assert any("off-scale margin" in error for error in errors)
     assert any("raw color function rgb" in error for error in errors)
     assert any("raw color #abc" in error for error in errors)
+
+
+def test_guard_requires_the_whole_eyebrow_recipe(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "labels.js"
+    css = (
+        ".half-uppercase { font-size: var(--haui-text-caption); text-transform: uppercase; }"
+        ".half-sized { font-size: var(--haui-text-eyebrow); }"
+        ".half-weighted { font-size: var(--haui-text-eyebrow); font-weight: 600; }"
+    )
+
+    errors = check_css_sources([(style, css)], frontend, root)
+
+    assert any(
+        ".half-uppercase is uppercase, so it is the eyebrow step" in error for error in errors
+    )
+    assert any(
+        ".half-sized uses the eyebrow size without its uppercase recipe" in error
+        for error in errors
+    )
+    assert any(
+        ".half-weighted uses the eyebrow size without its uppercase recipe" in error
+        for error in errors
+    )
+
+
+def test_guard_accepts_the_eyebrow_recipe(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "labels.js"
+    css = (
+        ".eyebrow { font-size: var(--haui-text-eyebrow); font-weight: 600;"
+        " letter-spacing: .05em; text-transform: uppercase; }"
+    )
+
+    assert check_css_sources([(style, css)], frontend, root) == []
+
+
+def test_guard_keeps_weight_tracking_and_case_in_their_steps(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "labels.js"
+    css = (
+        ".heavy { font-size: var(--haui-text-label); font-weight: 600; }"
+        ".tracked { font-size: var(--haui-text-headline); letter-spacing: -.01em; }"
+        ".lowered { font-size: var(--haui-text-caption); text-transform: lowercase; }"
+    )
+
+    errors = check_css_sources([(style, css)], frontend, root)
+
+    assert any("weight 600" in error for error in errors)
+    assert any("tracks '-.01em'" in error for error in errors)
+    assert any("no text-transform but uppercase" in error for error in errors)
+
+
+def test_guard_keeps_a_badge_on_the_badge_step(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "badges.js"
+    css = (
+        ".haui-device-row-actions .haui-badge { font-size: var(--haui-text-eyebrow);"
+        " font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }"
+        ".haui-item-row-chip { font-size: var(--haui-text-label); }"
+    )
+
+    errors = check_css_sources([(style, css)], frontend, root)
+
+    assert any("is a badge, chip or count" in error for error in errors)
+    assert any("haui-item-row-chip" in error for error in errors)
+
+
+def test_guard_keeps_a_pill_out_of_emphasis(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "badges.js"
+    css = (
+        ".haui-badge { font-size: var(--haui-text-caption); font-weight: 500; }"
+        ".haui-item-row-chip { font-weight: 500; }"
+    )
+
+    errors = check_css_sources([(style, css)], frontend, root)
+
+    assert any(".haui-badge is a badge, chip or count, so it is 400" in error for error in errors)
+    assert any(
+        ".haui-item-row-chip is a badge, chip or count, so it is 400" in error for error in errors
+    )
+
+
+def test_guard_accepts_a_quiet_pill(tmp_path: Path) -> None:
+    root = tmp_path
+    frontend = root / "frontend"
+    style = frontend / "styles" / "badges.js"
+    css = (
+        ".haui-badge { font-size: var(--haui-text-caption); font-weight: 400; }"
+        ".haui-badge-danger { color: var(--haui-bad-text); }"
+    )
+
+    assert check_css_sources([(style, css)], frontend, root) == []
 
 
 def test_guard_rejects_font_shorthand_and_raw_line_heights(tmp_path: Path) -> None:

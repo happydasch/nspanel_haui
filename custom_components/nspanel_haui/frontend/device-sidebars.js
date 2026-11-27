@@ -29,8 +29,43 @@ export function renderUpdates(host, name) {
     @save-update-settings=${(event) => host._saveUpdateSettings(event)}
     @update-tft=${(event) => host._installThenRefresh(DeviceEvents.installTft(host, event))}
     @update-firmware=${(event) => host._installThenRefresh(DeviceEvents.installFirmware(host, event))}
+    @repair-display=${() => askRepairDisplay(host, name)}
     @update-control=${(event) => host._controlUpdate(name, event.detail)}
   ></nspanel-updates-sidebar>`;
+}
+
+/**
+ * Ask before repairing: the two uploads blank the display for several minutes.
+ * @param {any} host @param {string} name
+ */
+export function askRepairDisplay(host, name) {
+  host._repairDisplayTarget = name;
+  host.requestUpdate();
+}
+
+/** What the repair rewrites, so nobody starts it for a display that works. */
+export function repairDisplayParams() {
+  return {
+    title: t('Repair the display?'),
+    message: t('The hub installs the release\'s small repair TFT and then the TFT this firmware needs, so the panel cannot be used for several minutes. Use it when the display stays blank or an update cannot finish.'),
+    confirmText: t('Repair display'),
+    cancelText: t('Cancel'),
+    confirmVariant: 'brand',
+  };
+}
+
+/** @param {any} host */
+export async function confirmRepairDisplay(host) {
+  const name = host._repairDisplayTarget;
+  host._repairDisplayTarget = null;
+  if (!name) return;
+  await installThenRefresh(host, DeviceEvents.repairDisplay(host, { detail: { name } }));
+}
+
+/** @param {any} host */
+export function cancelRepairDisplay(host) {
+  host._repairDisplayTarget = null;
+  host.requestUpdate();
 }
 
 /**

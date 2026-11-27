@@ -10,6 +10,11 @@ import { css } from '../lit-import.js';
 export const contentStyles = css`
   /* ── main content area (flex-grows to push footer down) ── */
   .haui-main-content {
+    /* The titlebar and the footer stay full-bleed; the column between them stops at the reading
+       width and centres. */
+    width: 100%;
+    max-width: var(--haui-content-max-width);
+    margin-inline: auto;
     flex: 1 0 auto;
   }
 
@@ -62,7 +67,8 @@ export const contentStyles = css`
     border-radius: var(--haui-radius-control);
     background: var(--error-color);
     color: var(--text-primary-color);
-    font-size: var(--haui-text-eyebrow);
+    font-size: var(--haui-text-caption);
+    font-weight: 400;
     line-height: 20px;
     text-align: center;
   }
@@ -259,8 +265,7 @@ export const contentStyles = css`
     background: var(--warning-color, #ffa600);
     color: var(--primary-text-color, #212121);
     font-size: var(--haui-text-caption);
-    font-weight: 500;
-    text-transform: lowercase;
+    font-weight: 400;
   }
   .footer-link {
     display: inline-flex;
@@ -273,6 +278,18 @@ export const contentStyles = css`
   }
   .footer-link:hover { color: var(--primary-color, #03a9f4); }
   .footer-link ha-icon { --mdc-icon-size: 16px; }
+
+  /* ── reorder grips ──────────────── */
+  /* A grip turns a touch into a drag (ui/drag-handle.js): the gesture must not
+     scroll the page under it, and a long press must not select or call out the icon.
+     The rule lives here because every shadow root that renders a grip composes this
+     sheet, while Fleet's own rules never reach the dialog that edits a panel. */
+  [data-drag-handle] {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     :host *, :host *::before, :host *::after {

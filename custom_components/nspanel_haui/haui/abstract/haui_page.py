@@ -18,6 +18,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import tft_supports_foreground_globals
 from ..mapping.const import NotifEvent, PopupPanelKey
+from ..utils.item import power_service
 from ..utils.text import TextBox, fit_line, text_width
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
@@ -598,30 +599,22 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
             item.execute()
 
     def turn_on_item(self, item: HAUIItem) -> None:
-        """Turns on the given item.
+        """Turns on the given item: turn_on, or its own action without one.
 
         Args:
             item (HAUIItem): item
         """
         self.log(f"Switching item on: {item.get_name()} ({item.get_item_id()})")
-        item_type = item.get_item_type()
-        if item_type == "media_player":
-            item.call_item_service("media_play")
-        else:
-            item.call_item_service("turn_on")
+        item.call_item_service(power_service(item.get_item_type(), item.get_item_state(), on=True))
 
     def turn_off_item(self, item: HAUIItem) -> None:
-        """Turns off the given item.
+        """Turns off the given item: turn_off, or its own action without one.
 
         Args:
             item (HAUIItem): item
         """
         self.log(f"Switching item off: {item.get_name()} ({item.get_item_id()})")
-        item_type = item.get_item_type()
-        if item_type == "media_player":
-            item.call_item_service("media_stop")
-        else:
-            item.call_item_service("turn_off")
+        item.call_item_service(power_service(item.get_item_type(), item.get_item_state(), on=False))
 
     # item state listeners
 

@@ -5,7 +5,7 @@ description: Working in the Nextion Editor on both HMI projects and keeping them
 
 # Editing the HMI
 
-The display UI is a Nextion Editor project — `nextion/nspanel_haui.HMI` and its portrait sibling `nextion/nspanel_haui_portrait.HMI` — compiled to `nspanel_haui.tft` and `nspanel_haui_portrait.tft`. Layout changes, new widgets, new pages and the portrait variant are hand work in that application; this page is the procedure and the contract that keeps the HMI and the Python pages in step. The hub side of the same cycle is [Nextion component](nextion.md).
+The display UI is a Nextion Editor project — `nextion/nspanel_haui.HMI` and its portrait sibling `nextion/nspanel_haui_portrait.HMI` — compiled to `nspanel_haui.tft` and `nspanel_haui_portrait.tft`. Layout changes, new widgets, new pages and the portrait variant are hand work in that application; this page is the procedure and the contract that keeps the HMI and the Python pages in step. The hub side of the same cycle is [Nextion component](nextion.md), and [HMI event scripts](nextion-scripts.md) inventories the event code both projects carry.
 
 ## When you need this page
 

@@ -92,7 +92,8 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   @container haui-panels-overview (max-width: 360px) {
     .haui-panels-overview-roles { grid-template-columns: minmax(0, 1fr); }
   }
-  .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); }
+  /* The workspace's own band, like every card heading on the pages it opens. */
+  .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); background: var(--haui-surface-soft); }
   .haui-preview-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
   /* The panel list's search (.haui-search-field) shares the row with the view toggle at every width: it takes what the toggle leaves, up to its full size. */
   .haui-panel-search { display: inline-flex; max-width: 260px; height: 40px; flex: 1 1 0; }
@@ -289,12 +290,36 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-device-details .haui-diag-tiles.is-stale .haui-diag-tile-value { color: var(--secondary-text-color); }
   /* Offline is the current state, not a stale reading. */
   .haui-device-details .haui-diag-tiles .haui-diag-tile-value.is-danger { color: var(--haui-bad-text); }
-  /* The buttons below the Device stack's cards, as content without a card of their own: each one
-     across the whole width on a line of its own, naming its sidebar on the inline start edge and what
-     it opens on its trailing edge - what the update settings hold, the selected theme's name. */
-  .haui-details-actions { display: grid; gap: 8px; }
-  .haui-details-actions .haui-button { justify-content: flex-start; }
+  /* The buttons below the Device stack's cards, as content without a card of their own, naming their
+     sidebar on the inline start edge and what it opens on its trailing edge - what the update settings
+     hold, the selected theme's name. The wide side column gives each one a line of its own; the width
+     one row underneath the workspace has does not, so it pairs them and a phone turns them into tiles. */
+  .haui-details-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .haui-details-actions .haui-button { justify-content: flex-start; min-width: 0; }
   .haui-details-actions .haui-button-detail { margin-left: auto; }
+  /* Two by two: the value keeps the trailing edge and gives way first, with an ellipsis. */
+  @container haui-editor (max-width: 980px) {
+    .haui-details-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  /* A phone: one row of tiles, the icon over the label, one column per button the device has. The
+     trailing value has no room here, so it stays in the button's name for a screen reader rather than
+     disappearing with the box that showed it; the sidebar each one opens names it in its own title.
+     The label keeps the whole track (no padding) so the longest translation still fits one line: Polish
+     "Aktualizacje" needs 66px of the 73px a 355px screen leaves, and anything longer breaks inside its
+     own tile instead of spilling over the next one. */
+  @container haui-editor (max-width: 560px) {
+    .haui-details-actions { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+    .haui-details-actions .haui-button {
+      position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 64px;
+      padding: 8px 0; border-radius: var(--haui-card-radius); font-size: var(--haui-text-caption);
+      line-height: var(--haui-line-height-tight); overflow-wrap: anywhere; text-align: center;
+      white-space: normal; --mdc-icon-size: 18px;
+    }
+    .haui-details-actions .haui-button-detail {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+      margin: 0; white-space: nowrap;
+    }
+  }
   /* A tile shows its label and value; hover, focus or a tap opens its facts below it (ui/info-tile.js), a right-hand tile's aligned to its right edge. */
   .haui-tile-info { position: relative; min-width: 0; }
   .haui-tile-info > .haui-diag-tile { width: 100%; height: 100%; }

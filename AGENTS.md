@@ -16,7 +16,7 @@ Do not over-engineer. Keep edits minimal. Ask for permission before making an ex
 
 `docs/develop/` is the reference. Open the page before changing an area; this file only holds the rules that must not break.
 
-The developer guide is grouped as **General** (`development`, `hub`, `communication`, `notifications`), **ESPHome & display** (`esphome`, `nextion`, `nextion-editor`, `design`), **Frontend** (`frontend`, `preview`) and **Releases** (`update-process`, `upgrading`, `release`).
+The developer guide is grouped as **General** (`development`, `hub`, `communication`, `notifications`), **ESPHome & display** (`esphome`, `nextion`, `nextion-editor`, `nextion-scripts`, `design`), **Frontend** (`frontend`, `preview`) and **Releases** (`update-process`, `upgrading`, `release`).
 
 | Area | Read |
 |------|------|
@@ -25,7 +25,7 @@ The developer guide is grouped as **General** (`development`, `hub`, `communicat
 | Handshake, heartbeats, reading values from the display | `docs/develop/communication.md` |
 | Notifications: queue, delivery paths, timers, presentation | `docs/develop/notifications.md` |
 | ESPHome firmware | `docs/develop/esphome.md` |
-| Nextion component, HMI editing rules, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md` |
+| Nextion component, HMI editing rules, the event script inventory, the `.HMI` file format | `docs/develop/nextion.md`, `docs/develop/nextion-editor.md`, `docs/develop/nextion-scripts.md` |
 | Design: fonts, icons, themes, the new-panel workflow | `docs/develop/design.md` |
 | Editor architecture, screens and overlays, visual foundations, component inventory, testing | `docs/develop/frontend.md` and the five pages beside it |
 | Virtual panel, simulated and live preview, panel cards, dashboard card transport | `docs/develop/preview.md` |

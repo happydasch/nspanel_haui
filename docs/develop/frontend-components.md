@@ -43,7 +43,7 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | `deviceSlots` (`ui/device-slot.js`) | dashed outlines covering the row's spare width | Inert and hidden from assistive technology: no cover, status, scrolling or snapping |
 | `deviceRow` | desktop table, compact; online or offline, stale, update, dragging | Table semantics where practical, labelled row actions, no nested control inside one button |
 | `deviceRail` | full, narrow; active, offline, pending, overflow | A named group, each chip exposing its device and connection state |
-| `fleetSummary`, `fleetBar`, `fleetBarTip` | normal, degraded, all offline; loading, empty; a segment hovered or focused | Counts are text, each figure keeps the diagnostics tiles' 13 px name above a 14 px/500 value, its tone repeats what the value says, and health is readable without colour or animation; every segment names its device and state, and its tip repeats it |
+| `fleetSummary` | normal, degraded, all offline; loading, empty | Counts are text, each figure keeps the diagnostics tiles' 13 px name above a 14 px/500 value, its tone repeats what the value says, and health is readable without colour or animation |
 | `eventList` | info, warning, error; empty, populated, long text | An ordered list; the level is hidden text before the message; `<time datetime>` carries the timestamp; a repeat reads "Repeated N times" |
 | `panelRow` | navigation, hidden, popup, fixed system; empty items, role set, invalid, dragging | A row is not one giant button, and a fixed entry says why it cannot be edited |
 | `panelThumb` | landscape 72×51, portrait 40×60; loading, rendered, error | `alt` names the page, and hover or focus enlarges the same render |

@@ -63,7 +63,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 key="show_power_button",
                 kind="bool",
                 label=_("Show power button"),
-                description=_("Show a power button on the tile that turns the item on or off."),
+                description=_("Show a power button that switches the item or runs its action."),
             ),
         ],
         options=[

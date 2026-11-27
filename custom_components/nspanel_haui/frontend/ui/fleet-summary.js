@@ -1,15 +1,7 @@
 // @ts-check
-import { html, nothing } from '../lit-import.js';
+import { html } from '../lit-import.js';
 import { t } from '../localize.js';
 import { icon } from './icon.js';
-import { connectionIcon } from './device-details.js';
-import { overlayAnchor, popover } from './popover.js';
-import { deviceConnectionState } from '../device-status.js';
-
-/** The connection tone of one device, as the summary strip paints it. */
-function deviceTone(status) {
-  return `is-${deviceConnectionState(status).tone}`;
-}
 
 /**
  * A figure on the strip's right: a tinted glyph, its label and its value. The
@@ -76,54 +68,4 @@ export function fleetSummary({
       ${action}
     </div>
   </section>`;
-}
-
-/**
- * One segment per device in its connection tone; the Device inventory keeps it
- * in its footer, under the table. A segment only stands for its device, so its
- * accessible name carries the device and its state, and hovering or focusing it
- * opens the tip anchored at it.
- *
- * @param {{ devices: any[], total: number, online: number,
- *   onShowTip?: ((name: string) => void)|null,
- *   onHideTip?: ((name: string) => void)|null }} data
- */
-export function fleetBar({ devices, total, online, onShowTip = null, onHideTip = null }) {
-  if (!total) return nothing;
-  return html`<div class="haui-fleet-bar" role="group"
-    aria-label=${t('{online} of {total} devices connected')
-    .replace('{online}', String(online)).replace('{total}', String(total))}>
-    ${devices.map(({ name, device, status }) => {
-      const state = deviceConnectionState(status);
-      const label = `${device?.friendlyName || name}: ${state.label}`;
-      return html`<span class=${`haui-fleet-segment ${deviceTone(status)}`} role="img"
-        tabindex="0" aria-label=${label} data-overlay-anchor=${overlayAnchor('fleet-bar-tip', name)}
-        @pointerenter=${(event) => { if (event.pointerType === 'mouse') onShowTip?.(name); }}
-        @pointerleave=${() => onHideTip?.(name)}
-        @focus=${() => onShowTip?.(name)}
-        @blur=${() => onHideTip?.(name)}></span>`;
-    })}
-  </div>`;
-}
-
-/**
- * The tip of one footer segment: which device the segment stands for and how it
- * is connected. It is placed against the segment that was hovered or focused.
- *
- * @param {{ segment: any, anchorKey: string }} data
- */
-export function fleetBarTip({ segment, anchorKey }) {
-  const { name, device, status } = segment;
-  const displayName = device?.friendlyName || name;
-  const { tone, label } = deviceConnectionState(status);
-  return popover({
-    open: true,
-    id: 'haui-fleet-bar-tip',
-    label: displayName,
-    role: 'tooltip',
-    className: 'haui-fleet-tip',
-    anchorKey,
-    content: html`<strong>${displayName}</strong>
-      <span class=${`haui-fleet-tip-state ${tone}`}>${connectionIcon(status)}${label}</span>`,
-  });
 }

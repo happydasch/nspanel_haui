@@ -12,6 +12,7 @@ from .device_config import DEVICE_CONFIG, is_portrait_model
 from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent
 from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 from .schedule import ScheduleEntry, active_entry, next_boundary
+from .utils.item import default_service
 from .utils.value import number_state
 
 if TYPE_CHECKING:
@@ -464,11 +465,11 @@ class HAUIDevice(HAUIBase):
         return self.app._runtime_device_name or self.get("name")
 
     def toggle_left_button_state(self) -> None:
-        """Toggles the left button relay entity."""
+        """Runs the left button's action: its relay or its entity's default service."""
         self._toggle_button_state("left")
 
     def toggle_right_button_state(self) -> None:
-        """Toggles the right button relay entity."""
+        """Runs the right button's action: its relay or its entity's default service."""
         self._toggle_button_state("right")
 
     def play_sound(self, name: str) -> None:
@@ -597,7 +598,7 @@ class HAUIDevice(HAUIBase):
         navigation.exit_idle_to_prev_or_home(self.config)
 
     def _on_button_release(self, side: str) -> None:
-        """Handle a hardware-button release: toggle the relay, then finish the wake."""
+        """Handle a hardware-button release: run the button action, then finish the wake."""
         reset = self.get("reset_interaction_on_button")
         getattr(self, f"toggle_{side}_button_state")()
         if reset:
@@ -613,8 +614,12 @@ class HAUIDevice(HAUIBase):
             button["item_id"] = entity_id
         if not entity_id or not self.app.item_exists(entity_id):
             return
-        if not self.get(f"use_relay_{side}", True):
-            self.app.get_item(entity_id).call_service("toggle")
+        if self.get(f"use_relay_{side}", True):
+            return
+        item = self.app.get_item(entity_id)
+        # A domain with no entry of its own (climate, media_player, siren, …)
+        # keeps the plain toggle it had before.
+        item.call_service(default_service(entity_id.split(".", 1)[0], item.get_state()) or "toggle")
 
     def _persistent_sound(self) -> str:
         """The first queued audible persistent notification's sound."""

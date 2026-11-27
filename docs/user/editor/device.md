@@ -76,10 +76,10 @@ These settings change the panel that is shown, never the brightness.
 
 ## Hardware buttons
 
-Each of the two hardware buttons either switches its built-in relay or toggles a Home Assistant entity:
+Each of the two hardware buttons either switches its built-in relay or runs a Home Assistant entity's default action:
 
 - **Left Button - Use Relay** / **Right Button - Use Relay** on (the default) means the button switches its built-in relay.
-- Off means the button toggles the entity set in **Left Button Entity** or **Right Button Entity**. The entity is toggled when you release the button, so holding it does not toggle again.
+- Off means the button runs the entity set in **Left Button Entity** or **Right Button Entity** with the default action of its domain: a light, switch, cover, fan, input boolean or automation toggles, a scene or script runs, a button or input button is pressed, a lock locks or unlocks, a vacuum starts or returns to its base, an input select steps to the next option. Any other domain keeps the plain toggle it had before. The action runs when you release the button, so holding it does not run it again.
 
 The relays keep their state across a restart, a firmware update and a power loss, so connected loads do not switch off during an update.
 

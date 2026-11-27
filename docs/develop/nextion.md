@@ -120,7 +120,7 @@ A Nextion buffer overflow (0x24) loses every instruction that was in flight, so 
 
 ## Editing the HMI
 
-The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs to the hub. The rules that keep both HMIs in step are in [Nextion Editor](nextion-editor.md#the-hmipython-contract).
+The HMI holds the interface design and only the page-scoped logic that must run on the display; everything else belongs to the hub. The rules that keep both HMIs in step are in [Nextion Editor](nextion-editor.md#the-hmipython-contract), and [HMI event scripts](nextion-scripts.md) is the inventory of the script that already exists — one entry per page and widget handler, with the hub command it pairs with.
 
 - Every page sends `sendme` in `Preinitialize`: it is how a page change becomes an `esphome.page` event, and a page without it is never rendered.
 - Prepare the page in `Preinitialize`, because the hub cannot touch the display before the page is shown. What the page needs at load time arrives in the globals the hub sets before the switch: the base theme colours in `Program.s` for solid-colour pages (and, on TFT `0.4.7+`, body foreground globals applied by the page), and the picture background of the clock and weather pages. Older or unknown TFT versions keep the hub's per-widget foreground updates; see [the theme rules](nextion-editor.md#hard-rules).

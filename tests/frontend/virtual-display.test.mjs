@@ -35,11 +35,6 @@ function makeDisplay(orientation = 'landscape') {
   return { display, scheduler, changes: () => changes };
 }
 
-// The clocktwo page's setup loop writes .picc to b[112], its `background`
-// variable; the Nextion rejects that write and carries on, and so does the
-// virtual panel.
-const KNOWN_HMI_QUIRK = /^112 has no attribute picc/;
-
 for (const orientation of ORIENTATIONS) {
   test(`every ${orientation} page's event code runs`, () => {
     const { display, scheduler } = makeDisplay(orientation);
@@ -52,7 +47,7 @@ for (const orientation of ORIENTATIONS) {
       }
       scheduler.tick(70);
     }
-    assert.deepEqual(display.warnings.filter(w => !KNOWN_HMI_QUIRK.test(w)), []);
+    assert.deepEqual(display.warnings, [], 'setup code may not touch a missing attribute');
   });
 }
 

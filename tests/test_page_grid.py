@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from support.page_app import Entity, PageApp
 
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.mapping.color import Theme, active_tile_color
 from custom_components.nspanel_haui.haui.page.grid import GridPage
@@ -133,3 +135,29 @@ def test_item_colours_win_over_the_theme_tile() -> None:
     assert _last_color(app, "g1Power", "pco") == parse_color_value("#00ff00")
     last_icon = max(i for i, cmd in enumerate(app.cmds) if _draws(cmd, "g1Icon"))
     assert any(_draws(cmd, "g1Power") for cmd in app.cmds[last_icon + 1 :])
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "state", "method", "service"),
+    [
+        ("light.lamp", "off", "turn_on_item", "turn_on"),
+        ("light.lamp", "on", "turn_off_item", "turn_off"),
+        ("media_player.tv", "idle", "turn_on_item", "media_play"),
+        ("media_player.tv", "playing", "turn_off_item", "media_stop"),
+        ("lock.front", "unlocked", "turn_off_item", "lock"),
+        ("lock.front", "locked", "turn_off_item", "unlock"),
+        ("scene.morning", "2026-01-01T07:00:00+00:00", "turn_off_item", "turn_on"),
+        ("climate.hall", "heat", "turn_on_item", "turn_on"),
+    ],
+)
+def test_power_button_sends_a_service_the_domain_provides(
+    entity_id: str, state: str, method: str, service: str
+) -> None:
+    """A tile's power button never sends turn_on/turn_off to a domain lacking them."""
+    entity = Entity(state, {"friendly_name": "Item"})
+    app = PageApp({entity_id: entity})
+    page = GridPage(app, {"page_id": 9})
+
+    getattr(page, method)(HAUIItem(app, {"item": entity_id}))
+
+    assert [call[0] for call in entity.calls] == [service]

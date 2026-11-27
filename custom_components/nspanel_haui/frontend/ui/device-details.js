@@ -92,12 +92,12 @@ export function deviceDetails({
 }
 
 /**
- * The buttons below the side stack's cards, as content without a card of their
- * own: each spans the whole width on a line of its own. **Themes** and
- * **Updates** also name what they open on their trailing edge — the selected
- * theme's name, what the update settings hold; **Backups** opens the device's
- * YAML export and import, **Themes** the theme library with the device's theme
- * selected, **Logs** the hub's log lines with this device selected.
+ * The buttons below the side stack's cards, as content without a card of their own. **Themes** and
+ * **Updates** also name what they open on their trailing edge — the selected theme's name, what the
+ * update settings hold; **Backups** opens the device's YAML export and import, **Themes** the theme
+ * library with the device's theme selected, **Logs** the hub's log lines with this device selected.
+ * The width decides how many of them share a line (`styles/device-panel-styles.js`), and a phone has
+ * no room for the trailing value: it stays in each button's name for a screen reader.
  *
  * @param {{ onLogs?: () => void, onBackups?: () => void, onUpdates: () => void,
  *   updatesDetail?: string, onEditTheme?: (() => void)|null, themeDetail?: string }} data

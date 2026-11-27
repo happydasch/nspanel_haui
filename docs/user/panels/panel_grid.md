@@ -25,7 +25,7 @@ The tiles use the colors of the device's selected theme: an off tile stays flat 
 | **Background color** | the tile's background |
 | **Pressed text color**, **Pressed background color** | the text and background while the tile is pressed |
 | **Power button color** | the power button while the item is on, the theme's on color by default |
-| **Show power button** | shows a power button that turns the item on or off |
+| **Show power button** | shows a power button that turns the item on or off; a domain without on or off — a scene, script, button, lock, vacuum or input select — runs that domain's own action instead |
 
 Set only the colors you want to change; the others keep following the selected theme. Like the item's own **Color**, which changes the icon only, each tile color can be one color or one color per state, see [Values that depend on the state](../editor/items.md#values-that-depend-on-the-state).
 

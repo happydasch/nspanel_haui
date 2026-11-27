@@ -7,8 +7,7 @@ import { flush, render } from './support/render.mjs';
 import { renderFleetView, carouselEdgesFrom, carouselSlots, deviceSlotCount } from '../../custom_components/nspanel_haui/frontend/views/fleet.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/app/shell.js';
 import * as EditorPreferences from '../../custom_components/nspanel_haui/frontend/editor-preferences.js';
-import * as FleetScreen from '../../custom_components/nspanel_haui/frontend/fleet-screen.js';
-import { jsonResponse, makeHost } from './fake-host.mjs';
+import { makeHost } from './fake-host.mjs';
 
 test('a device without panels offers its setup instead of an empty screen', () => {
   const opened = [];
@@ -108,7 +107,7 @@ test('Fleet uses real device status and versions in the summary, inventory and e
   assert.match(text, /Update available/);
 });
 
-test('the summary strip reports health and the footer one segment per device', () => {
+test('the summary strip reports fleet health above the inventory table', () => {
   const deviceFor = (name, status) => ({
     name, device: { friendlyName: name, config: {}, panels: [] }, status, updates: false,
   });
@@ -164,18 +163,8 @@ test('the summary strip reports health and the footer one segment per device', (
   }));
   assert.deepEqual(figureText(waiting).map(([, , tone]) => tone),
     ['haui-fleet-fact is-warn', 'haui-fleet-fact is-warn']);
-  // The segments close the card: always drawn, in the inventory's footer under the table.
-  const footer = inventory.querySelector('.haui-inventory-footer');
-  const bar = footer?.querySelector('.haui-fleet-bar');
-  assert.ok(bar && table.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING);
-  const segments = [...bar.querySelectorAll('.haui-fleet-segment')];
-  assert.deepEqual(segments.map(({ className }) => className),
-    ['haui-fleet-segment is-online', 'haui-fleet-segment is-online']);
-  assert.equal(bar.getAttribute('aria-label'), '2 of 2 devices connected');
-  // A segment only stands for its device, so its own name carries the device and its state.
-  assert.deepEqual(segments.map((segment) => segment.getAttribute('aria-label')),
-    ['kitchen: Connected', 'office: Connected']);
-  assert.equal(segments[0].getAttribute('data-overlay-anchor'), 'fleet-bar-tip:kitchen');
+  // The table closes the card under the summary strip.
+  assert.equal(inventory.lastElementChild, table);
   assert.match(summary.textContent, /All devices connected/);
 
   const partial = render(renderFleetView({
@@ -189,69 +178,6 @@ test('the summary strip reports health and the footer one segment per device', (
     devices: [deviceFor('kitchen', null), deviceFor('office', { connected: false })],
   }));
   assert.match(none.textContent, /No device connected/);
-});
-
-test('a footer segment names its device in a tip on hover or focus', () => {
-  const shown = [];
-  const hidden = [];
-  const deviceFor = (name, friendlyName, status) => ({
-    name, device: { friendlyName, config: {}, panels: [] }, status, updates: false,
-  });
-  const root = render(renderFleetView({
-    devices: [deviceFor('kitchen', 'Kitchen', { connected: true }), deviceFor('office', 'Office', null)],
-    events: [], version: '0.5.0',
-    barTip: { name: 'kitchen', anchorKey: 'fleet-bar-tip:kitchen' },
-    onShowBarTip: (name) => shown.push(name),
-    onHideBarTip: (name) => hidden.push(name),
-    onOpenDevice() {}, onReorderDevices() {},
-  }));
-  // The tip names the device of the segment it is anchored at, and how it is connected.
-  const tip = root.querySelector('.haui-fleet-tip');
-  assert.ok(tip);
-  assert.equal(tip.getAttribute('role'), 'tooltip');
-  assert.equal(tip.getAttribute('data-popover-anchor'), 'fleet-bar-tip:kitchen');
-  assert.match(tip.textContent, /Kitchen/);
-  assert.match(tip.textContent, /Connected/);
-
-  const [kitchen, office] = [...root.querySelectorAll('.haui-fleet-segment')];
-  // A touch has no hover to end, so it opens the tip through the focus a tap sets.
-  kitchen.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'touch' }));
-  assert.deepEqual(shown, []);
-  kitchen.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
-  assert.deepEqual(shown, ['kitchen']);
-  office.dispatchEvent(new Event('focus'));
-  assert.deepEqual(shown.at(-1), 'office');
-  kitchen.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-  assert.deepEqual(hidden, ['kitchen']);
-  office.dispatchEvent(new Event('blur'));
-  assert.deepEqual(hidden, ['kitchen', 'office']);
-
-  // No segment is hovered or focused, so no tip is drawn at all.
-  const quiet = render(renderFleetView({
-    devices: [deviceFor('kitchen', 'Kitchen', { connected: true })],
-    events: [], version: '0.5.0', onOpenDevice() {}, onReorderDevices() {},
-  }));
-  assert.equal(quiet.querySelector('.haui-fleet-tip'), null);
-});
-
-test('the bar tip replaces the tip of the last segment, never a menu the user opened', () => {
-  const host = makeHost({ device_order: [], devices: {} }, () => jsonResponse({}));
-  FleetScreen.showBarTip(host, 'kitchen');
-  assert.deepEqual(FleetScreen.barTip(host), { name: 'kitchen', anchorKey: 'fleet-bar-tip:kitchen' });
-  FleetScreen.showBarTip(host, 'office');
-  assert.deepEqual(FleetScreen.barTip(host), { name: 'office', anchorKey: 'fleet-bar-tip:office' });
-  // The pointer leaves the last segment after the next one took over.
-  FleetScreen.hideBarTip(host, 'kitchen');
-  assert.deepEqual(FleetScreen.barTip(host), { name: 'office', anchorKey: 'fleet-bar-tip:office' });
-  FleetScreen.hideBarTip(host, 'office');
-  assert.equal(FleetScreen.barTip(host), null);
-
-  host._store.actions.pushOverlay({
-    kind: 'device-menu', anchorKey: 'device-menu-row:kitchen', subject: 'kitchen', draft: null,
-  });
-  FleetScreen.showBarTip(host, 'office');
-  assert.equal(FleetScreen.barTip(host), null);
-  assert.equal(host._store.getState().ui.overlays.at(-1).kind, 'device-menu');
 });
 
 test('Fleet renders inventory and latest-event content', () => {
@@ -310,17 +236,15 @@ test('Fleet scans for devices and offers the ones it found', () => {
   // A failure is a banner above the inventory, not a line of text under the carousel.
   const failed = scanning.querySelector('.haui-fleet-notice');
   assert.equal(failed.textContent.trim(), 'Scan failed');
-  assert.ok(failed.classList.contains('is-bad'));
   assert.equal(failed.getAttribute('role'), 'alert');
 
   const stale = render(renderFleetView({
     devices: [], events: [], version: 'Unknown', onOpenDevice() {}, onReorderDevices() {},
     statusError: 'offline',
   }));
-  // A status that could not be refreshed is polled state: a banner, announced politely.
+  // A status that could not be refreshed is polled state: the same failure banner, announced politely.
   const refresh = stale.querySelector('.haui-fleet-notice');
   assert.equal(refresh.textContent.trim(), 'Device status could not be refreshed: offline');
-  assert.ok(refresh.classList.contains('is-warn'));
   assert.equal(refresh.getAttribute('role'), 'status');
 });
 

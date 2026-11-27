@@ -101,7 +101,14 @@ export const dashboardComponentStyles = css`
   .haui-status-dot-stale { background: var(--haui-warn-icon); }
   .haui-status-dot-unknown { background: var(--secondary-text-color, #666); }
   .haui-surface { min-width: 0; overflow: hidden; border: 1px solid var(--divider-color, #e0e0e0); border-radius: var(--haui-card-radius); background: var(--card-background-color, #fff); }
-  .haui-surface-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+  /* Every card heading sits on the soft surface, one step above the card's body, so a card reads
+     title band then content instead of one flat ground. A heading that opens its card takes the
+     card's top corners with it: three cards cannot clip their contents (the update settings' floating
+     field hint, the details' and diagnostics' overlays), and a square band would show there. */
+  .haui-surface-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); background: var(--haui-surface-soft); }
+  .haui-surface > .haui-surface-heading:first-child { border-start-start-radius: var(--haui-card-radius); border-start-end-radius: var(--haui-card-radius); }
+  /* A collapsed card is its heading: the band is then the whole card and keeps every corner. */
+  .haui-surface > .haui-surface-heading:only-child { border-radius: var(--haui-card-radius); }
   .haui-surface-heading:last-child { border-bottom: 0; }
   .haui-surface-heading-toggle { cursor: pointer; user-select: none; }
   .haui-surface-heading h2 { margin: 0; font-size: var(--haui-text-body); font-weight: 500; }

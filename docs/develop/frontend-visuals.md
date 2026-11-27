@@ -20,6 +20,7 @@ The editor draws with Home Assistant's live theme variables and their legacy ali
 | Motion | 120–150ms hover and colour transitions; the scrim and sidebar entrance keep their 140/180ms timing; every animation is paired with `prefers-reduced-motion` |
 | Focus | `--haui-focus-ring` and `--haui-focus-offset`: a visible 2px primary outline with a 2px offset, never suppressed |
 | Hover | An item whose border turns `--primary-color` on hover also takes `color-mix(in srgb, var(--primary-color) 8%, var(--card-background-color))`, 10% on small pill controls, never the border alone; a preview filled by a render and a text field keep their own background |
+| Surface | `--haui-surface-soft` is the band above a body: a card's heading, the Device screen's workspace strip, a sidebar's title strip and the panel groups all take it, so a card reads title band, then content, then its rows — never one flat ground. A heading that opens a card takes the card's top corners with it, because three cards cannot clip their own contents |
 
 ## Breakpoints
 
@@ -28,11 +29,11 @@ The editor draws with Home Assistant's live theme variables and their legacy ali
 | Width | What changes |
 |---|---|
 | 1120px | The inventory simplifies |
-| 980px | The two-column screens collapse to one |
+| 980px | The two-column screens collapse to one; the Device screen's four side actions pair up two by two |
 | 870px | Toolbar spacing |
 | 720px | Less row and card detail, stacked role controls |
 | 600px | A sidebar becomes a full-screen page |
-| 560px | Compact Fleet facts, no inventory heading or TFT column |
+| 560px | Compact Fleet facts, no inventory heading or TFT column; the Device side actions become one row of tiles |
 
 Elements that follow their own width declare their own containers (`haui-workspace`, `haui-panel-info`, `haui-action-card`); anchored popovers float at every width, clamped to the viewport. The panel is registered with `handle_safe_area`, so the title header takes the top inset and the editor host the side and bottom insets.
 

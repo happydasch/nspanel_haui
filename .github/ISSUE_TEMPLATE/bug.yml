@@ -26,8 +26,8 @@ body:
       description: Paste the editor's **Copy report** output.
       render: text
       placeholder: |
-        Integration: 0.5.7
-        Firmware: 0.5.7
+        Integration: 0.5.8
+        Firmware: 0.5.8
         Display: 1.1.0 (required 1.1.0)
         Model: EU landscape
 
@@ -35,13 +35,13 @@ body:
     attributes:
       label: Integration version
       description: Shown in Settings → Devices & services → NSPanel HAUI, or in the device report.
-      placeholder: "0.5.7"
+      placeholder: "0.5.8"
 
   - type: input
     attributes:
       label: Firmware version
       description: The **HAUI Firmware** update entity, or the device report.
-      placeholder: "0.5.4"
+      placeholder: "0.5.8"
 
   - type: input
     attributes:

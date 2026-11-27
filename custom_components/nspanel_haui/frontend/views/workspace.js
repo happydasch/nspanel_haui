@@ -76,15 +76,21 @@ class PreviewWorkspace extends LitElement {
   // -- session lifecycle ------------------------------------------------------
 
   updated(changed) {
-    if (changed.has('active') || changed.has('device') || changed.has('entryId')) {
+    const switched = changed.has('device') || changed.has('entryId');
+    if (changed.has('active') || switched) {
       if (this.active && this.device && this.entryId) {
-        // Another device keeps the mode the user chose.
-        if (!this._session || this._session.device !== this.device) this._startSession(this.mode === 'live');
+        const deviceChanged = Boolean(this._session) && this._session.device !== this.device;
+        if (!this._session || deviceChanged) {
+          // Live belongs to the device it was started on: a switch starts the
+          // new device's sandbox, so the editor never streams a panel it does
+          // not show, while the first session follows the mode it was given.
+          this._startSession(deviceChanged ? false : this.mode === 'live');
+        }
       } else {
         this._stopSession();
       }
     }
-    if (changed.has('mode')) this.setLive(this.mode === 'live');
+    if (changed.has('mode') && !switched) this.setLive(this.mode === 'live');
     if (changed.has('showEntities') && !this.showEntities) this._hover = null;
     const stage = this.renderRoot.querySelector('.haui-preview-stage');
     if (stage && !this._resizeObserver && typeof ResizeObserver === 'function') {

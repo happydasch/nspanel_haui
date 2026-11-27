@@ -164,6 +164,7 @@ The **Live** button above the screen switches to the real panel and back. Live i
 - The preview shows what the real panel shows.
 - **Everything you do is real**, including taps and hardware button presses.
 - Input is accepted only while the panel is connected.
+- Live ends by itself as soon as you leave the preview it belongs to — another device, the **Panels** view, or any sidebar such as **Edit panel** — so a change never runs against the panel on screen. Coming back shows Simulated again.
 
 ### Controls
 

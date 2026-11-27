@@ -77,6 +77,8 @@ A new viewer gets the current page as the panel shows it: the page's `load_comma
 
 Live viewers are independent of each other and of the Simulated previews. A preview switching to Live first sends `/reset_sandbox` when the sandbox has simulated states.
 
+Live lasts exactly as long as the editor keeps showing that preview. Switching device, opening the **Panels** view, going back to Fleet, or opening any sidebar — the panel editor, the catalog, device settings, the theme library, Updates, Logs, Backups — ends it as the change lands, so an edit never runs against the panel on screen. Every commit is checked against the route and sidebars Live started on (`settleLive()` in `store/store.js`, so no caller has to remember), and `views/workspace.js` never starts a live session for a device it was not already showing. Coming back to the preview therefore shows the sandbox again: Live is not resumed on its own.
+
 Opening a Simulated preview and switching back to it from Live take nothing from the device and send `/home`, so the virtual app starts over: it drops the simulated states, leaves its idle page, restarts its inactivity clock (it got no touches while Live was shown) and opens its home panel.
 
 ### Live panel commands

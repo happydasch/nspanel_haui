@@ -190,7 +190,7 @@ test('a mode property change starts the session for that mode', async () => {
   dlg._stopSession();
 });
 
-test('switching device in Live mode keeps the Live session', async () => {
+test('switching device in Live mode starts the new device\'s sandbox', async () => {
   const { dlg } = makeWorkspace({ active: true, mode: 'live' });
   dlg.updated(new Map([['active', false]]));
   await flush();
@@ -199,7 +199,17 @@ test('switching device in Live mode keeps the Live session', async () => {
   dlg.updated(new Map([['device', 'kitchen']]));
   await flush();
   assert.equal(dlg._session.device, 'hall');
-  assert.equal(dlg._session.live, true);
+  // Live streams one device's panel; the editor ends the mode before the
+  // switch, and a session never starts live for a device it was not showing.
+  assert.equal(dlg._session.live, false);
+
+  // A switch wins over a mode change in the same render.
+  dlg.device = 'office';
+  dlg.mode = 'live';
+  dlg.updated(new Map([['device', 'hall'], ['mode', 'simulated']]));
+  await flush();
+  assert.equal(dlg._session.device, 'office');
+  assert.equal(dlg._session.live, false);
   dlg._stopSession();
 });
 

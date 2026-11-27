@@ -15,6 +15,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Editor: badges, count bubbles, the repeat count and the item type chip take their own type step one below the caption — `--haui-text-badge` at 11px — so a pill sits inside the row's text instead of competing with the meta line beside it ([Visual foundations](docs/develop/frontend-visuals.md#text-sizes)).
 - Editor: the inventory footer's update and integration-version figures line up at the card's end, the way the events footer's actions close the card beside it
+- Editor: **Live** ends by itself the moment the editor moves away from the preview it belongs to — switching device, opening the **Panels** view or Fleet, or any sidebar such as **Edit panel** — so an edit never runs against the panel on screen, and returning to the preview shows Simulated again instead of resuming a live session behind a sidebar ([The Live Preview](docs/user/editor/README.md#the-live-preview)).
 
 ## [0.5.8] — 2026-11-27
 

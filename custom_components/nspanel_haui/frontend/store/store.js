@@ -214,11 +214,59 @@ export function createStore({ client, storage, onToast }) {
   let notificationsPromise = null;
 
   /**
+   * The route Live started on. Live streams one device's running panel for as
+   * long as the editor keeps showing it, so switching device, opening the
+   * Panels view or any sidebar ends it: an edit must never run against the
+   * panel on screen. Null whenever the preview is not live.
+   * @type {string|null}
+   */
+  let liveAnchor = null;
+
+  /**
+   * The route and the open sidebars as one comparable key.
+   * @param {StoreState} current
+   */
+  function liveAnchorKey(current) {
+    const route = current.ui.route;
+    const sidebars = current.ui.overlays
+      .filter((overlay) => isSidebarOverlayKind(overlay.kind))
+      .map((overlay) => overlay.kind);
+    return JSON.stringify([route.view, route.device, route.panelView, route.panel, sidebars]);
+  }
+
+  /**
+   * End Live the moment the state stops being the preview it started as.
+   *
+   * Live only ever shows the device's own panel in the preview view with
+   * nothing open over it, so every commit is checked against that: the mode
+   * falls back to Simulated instead of leaving the editor a live control that
+   * acts on a panel it is no longer showing.
+   *
+   * @param {StoreState} previous
+   * @param {StoreState} next
+   * @returns {StoreState}
+   */
+  function settleLive(previous, next) {
+    if (next.ui.preview.mode !== 'live') {
+      liveAnchor = null;
+      return next;
+    }
+    const route = next.ui.route;
+    const previewable = route.view === 'device' && route.panelView === 'preview' && !route.panel
+      && !next.ui.overlays.some((overlay) => isSidebarOverlayKind(overlay.kind));
+    const anchor = previewable ? liveAnchorKey(next) : null;
+    if (previous.ui.preview.mode !== 'live') liveAnchor = anchor;
+    if (liveAnchor !== null && liveAnchor === anchor) return next;
+    liveAnchor = null;
+    return { ...next, ui: { ...next.ui, preview: { ...next.ui.preview, mode: 'simulated' } } };
+  }
+
+  /**
    * @param {(current: StoreState) => StoreState} updater
    */
   function commit(updater) {
     const previous = state;
-    const next = updater(previous);
+    const next = settleLive(previous, updater(previous));
     if (next === previous) return;
     state = next;
     for (const listener of listeners) listener(state, previous);

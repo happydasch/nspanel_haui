@@ -3,7 +3,7 @@ import './support/browser.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createStore } from '../../custom_components/nspanel_haui/frontend/store/store.js';
+import { createStore } from '../../custom_components/nspanel_haui/frontend/store/store.js';import { SIDEBAR_OVERLAY_KINDS } from '../../custom_components/nspanel_haui/frontend/store/store.js';
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -371,6 +371,57 @@ test('route and overlays update shared UI state; Escape can close overlays in st
   store.actions.pushOverlay({ kind: 'menu', anchorKey: 'another-menu', subject: null, draft: null });
   store.actions.closeOverlay('menu', 'another-menu');
   assert.deepEqual(store.getState().ui.overlays.map(({ kind }) => kind), ['sidebar']);
+});
+
+/** The store on one device's preview view, with the preview in Live. */
+function liveStore() {
+  const store = seededStore();
+  store.actions.setRoute({ view: 'device', device: 'kitchen', panelView: 'preview' });
+  store.actions.setPreviewMode('live');
+  return store;
+}
+
+test('Live ends as soon as the editor switches device, view or sidebar', () => {
+  const store = liveStore();
+  assert.equal(store.getState().ui.preview.mode, 'live');
+
+  // Another device is another panel, so Live ends before its preview opens.
+  store.actions.setRoute({ view: 'device', device: 'office', panelView: 'preview' });
+  assert.equal(store.getState().ui.preview.mode, 'simulated');
+
+  store.actions.setPreviewMode('live');
+  assert.equal(store.getState().ui.preview.mode, 'live', 'the device on screen can go live again');
+
+  store.actions.setRoute({ view: 'device', device: 'office', panelView: 'panels' });
+  assert.equal(store.getState().ui.preview.mode, 'simulated');
+
+  store.actions.setRoute({ view: 'device', device: 'office', panelView: 'preview' });
+  store.actions.setPreviewMode('live');
+  store.actions.setRoute({ view: 'fleet' });
+  assert.equal(store.getState().ui.preview.mode, 'simulated');
+
+  // Coming back to the same preview does not resume Live on its own.
+  store.actions.setRoute({ view: 'device', device: 'office', panelView: 'preview' });
+  assert.equal(store.getState().ui.preview.mode, 'simulated');
+});
+
+test('every sidebar ends Live, and Live does not start behind one', () => {
+  for (const kind of SIDEBAR_OVERLAY_KINDS) {
+    const store = liveStore();
+    store.actions.pushOverlay({ kind, anchorKey: kind, subject: 'kitchen', draft: null });
+    assert.equal(store.getState().ui.preview.mode, 'simulated', `${kind} ends Live`);
+
+    store.actions.setPreviewMode('live');
+    assert.equal(store.getState().ui.preview.mode, 'simulated', `${kind} keeps Live off`);
+  }
+});
+
+test('what stays in the preview keeps Live', () => {
+  const store = liveStore();
+  store.actions.pushOverlay({ kind: 'panel-menu', anchorKey: 'panel-a', subject: 'a', draft: null });
+  store.actions.setPreviewEntities(true);
+  store.actions.setPreviewIdle(true);
+  assert.equal(store.getState().ui.preview.mode, 'live');
 });
 
 test('a refused save keeps the fields the hub names until the next save', async () => {

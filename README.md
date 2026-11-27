@@ -22,41 +22,6 @@ Requires Home Assistant 2026.11 or later.
 
 [![Open NSPanel HAUI in the Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration)
 
-## Features
-
-**On the panel**
-
-- **Landscape and portrait** layouts for the EU and US panel, with 13 panel types: clock and word
-  clock, weather, grid, row, light, media, climate, cover, vacuum, timer, alarm and QR code
-- **Touch and gestures**: taps, swipes, configurable sequences and long press to go back
-- **Idle page, schedules and dimming**: a clock or weather idle page, automatic dimming and
-  time-based display states
-- **Notifications**: a queue with icon colours and sounds, persistent alerts, silent times and
-  PIN-protected panels
-- **Themes and pictures**: ten predefined themes, a colour editor, custom backgrounds, and hardware
-  buttons as relays or any entity
-- **Updates and languages**: firmware and display updates as Home Assistant entities, six
-  languages, all local over the ESPHome native API
-
-**In the editor**
-
-- **Visual panel builder**: searchable panel catalog, entity and action editors, icons and colours
-- **Previews as you work**: panel thumbnails, an interactive simulated display and the live device
-  view
-- **Quick start**: room, whole-home, sensor, entry and alarm, timer and guest Wi-Fi presets for a
-  new device
-- **Per-device arrangement**: navigation, hidden and popup groups, reordering and moving panels
-  between devices
-- **Device settings**: language, theme, gestures, schedules, dimming, buttons and notifications
-- **Fleet management**: status, latest events and logs, updates, backups, and copying settings or
-  panels to other devices
-
-**On your dashboard**
-
-- **Dashboard card**: every panel of the hub or one panel, as a large or compact preview or status
-  only, with the live screen, display state, notification count, versions and button lights.
-  View-only for every signed-in user
-
 ## Quick start
 
 <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/assets/readme/quick-start.png" alt="Flash the firmware, connect it to ESPHome, install NSPanel HAUI, configure panels" width="100%">

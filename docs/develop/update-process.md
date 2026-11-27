@@ -164,6 +164,36 @@ flowchart TD
     upload --> verify["Upload ends in a reboot;<br/>done when the display<br/>reports the new version"]
 ```
 
+## Display repair
+
+A display that is half-written, crashes on its own file or runs at another rate cannot take the 11 MB TFT: the transfer never finishes and every retry fails the same way. **Repair display** in the [Updates sidebar](#editor-the-updates-sidebar) writes a minimal, self-contained TFT first (`POST /api/nspanel_haui/repair_display/{entry_id}`, one device per request) and the TFT the firmware needs right after it:
+
+1. `repair_display()` (`haui/controller/update.py`) reads the manifest off-worker, resolves the `repair` block for the device's `display_model`, and sends its URL as an ordinary TFT upload. The repair file carries a fixed version of its own — `REPAIR_VERSION`, `"1"`, which is not `tft_version` and never moves with it — and no display update is offered for it. Between the two uploads the display therefore reports `1` where the firmware requires `1.1.0`.
+2. The upload reboots the panel. On the reconnect `_schedule_repair_followup()` queues the second upload for `REPAIR_FOLLOWUP_DELAY_SECONDS` (15 s) — the panel has only just booted — and `_install_after_repair()` then installs the TFT the firmware needs with `install_tft()`, so the display update reports that install as usual (steps, retry policy, `done` when the display reports the required version). A disconnect in that window drops the queued install instead of resuming it.
+3. A repair upload that fails ends the attempt: the follow-up does not start, the error reaches the editor and the update entity, and nothing runs automatically afterwards. A repair is never retried by itself — it is a manual action.
+
+The action is offered whenever the loaded manifest ships a repair TFT for the display model (`repair_available` in the device status), it is refused while another install runs or the panel is offline, and a release without the block says so instead of installing nothing. The files themselves are hand-compiled and documented in [The repair TFTs](nextion-editor.md#the-repair-tfts).
+
+```mermaid
+sequenceDiagram
+    participant Editor as Editor
+    participant Hub as HAUI hub
+    participant Panel as Panel firmware
+    participant Display as Nextion display
+
+    Editor->>Hub: POST repair_display (device)
+    Hub->>Hub: read the manifest, resolve repair.assets[display_model]
+    Hub->>Panel: upload_tft_url (repair .tft)
+    Panel->>Display: write the ~465 KB repair file
+    Panel->>Panel: reboot
+    Panel-->>Hub: reconnect
+    Hub->>Hub: wait REPAIR_FOLLOWUP_DELAY_SECONDS (15 s)
+    Hub->>Panel: upload_tft_url (the TFT the firmware needs)
+    Panel->>Display: write the real TFT
+    Panel-->>Hub: reconnect with the new TFT version
+    Hub->>Hub: display update done
+```
+
 ## Settings
 
 Every update setting belongs to its device, in `DEFAULT_CONFIG["update"]`; there is no hub-wide update setting. `migrate_hub_update_policy` in `hub/storage.py` moves a stored hub-level `update_policy` into each device's settings on load, without changing what a device does.
@@ -293,6 +323,8 @@ data:
 The sidebar leads with one status: **Up to date**, **Update available**, a running install, a failed one with the hub's error, or **No update available** with the reason the release does not fit the device. That reason also says when the hub could not read the firmware manifest, or has not checked since it started, so neither reads as **Up to date**; a check that could not read the release list shows its error under the versions. A failed firmware install stays until the next install starts or the panel reconnects with another firmware (flashed by other means), and a second install while one runs is refused with an error instead of reported as started.
 
 Below the status are the installed firmware and display versions, each with the latest release or the display version the firmware needs; an offered update turns the installed version into one badge with the version it updates to (`0.5.4 → 0.5.5`), and a narrow card shows only the target (`→ 0.5.5`). While the panel is offline, or the editor could not refresh its status, the sidebar says so and the **Install** buttons are off, the versions being the last ones read; **Install updates** on the dashboard is not offered then either. After an install request the editor reads the status at once. Whenever updates are enabled, each version row keeps its own **Install** button, even if no compatible update is offered.
+
+Under the versions sits **Repair display**, for a display the normal update cannot reach ([Display repair](#display-repair)). It asks first, then installs the release's minimal repair TFT and the TFT this firmware needs, so the panel is unusable for several minutes; a release that ships no repair TFT for the display model says so in its place. It is offered on the same terms as an install — updates enabled, the panel connected, and no install already running — and its confirmation is a dialog on the Device screen.
 
 Under the status, a scheduled automatic firmware install shows when it starts with **Install now**, **In 1 hour**, **In 1 day** and **Skip this version** (`POST /api/nspanel_haui/update_control/{entry_id}`); a running install shows its [steps](#progress); and after a failed automatic attempt a line says when the next one follows, or that the automatic install stopped. A skipped firmware version is marked **Skipped** on its row.
 

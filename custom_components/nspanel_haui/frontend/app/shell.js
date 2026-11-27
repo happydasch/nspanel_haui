@@ -88,6 +88,7 @@ class NSPanelEditor extends LitElement {
       _toast: { type: Object, state: true },
       _deleteTarget: { type: Number, state: true },
       _tftInstallTarget: { type: String, state: true },
+      _repairDisplayTarget: { type: String, state: true },
       _deviceConfig: { type: Object, state: true },
       _editingDeviceConfig: { type: Boolean, state: true },
       _deviceConfigForm: { type: Object, state: true },
@@ -164,6 +165,8 @@ class NSPanelEditor extends LitElement {
     this._toast = null;
     this._deleteTarget = null;
     this._tftInstallTarget = null;
+    /** The device whose display the repair action asks about, or null. */
+    this._repairDisplayTarget = null;
     /** The device the quick start dialog sets up, or null while it is closed. */
     this._quickStartTarget = null;
     /** What the user chose: a preset, its area, toggles and Wi-Fi name. */
@@ -1136,6 +1139,20 @@ class NSPanelEditor extends LitElement {
 
   _cancelTftInstall() {
     return DeviceConfig.cancelTftInstall(this);
+  }
+
+  /* ── display repair confirmation ─────────────────────────────────────────── */
+
+  get _repairDisplayParams() {
+    return DeviceSidebars.repairDisplayParams();
+  }
+
+  async _confirmRepairDisplay() {
+    return DeviceSidebars.confirmRepairDisplay(this);
+  }
+
+  _cancelRepairDisplay() {
+    return DeviceSidebars.cancelRepairDisplay(this);
   }
 
   /* ── device config save handler ──────────────────────────────────────────── */

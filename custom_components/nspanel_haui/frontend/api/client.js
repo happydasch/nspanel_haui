@@ -10,8 +10,8 @@
 import { getLanguage, t } from '../localize.js';
 
 /** @typedef {import('./types.js').Hass} Hass */
-/** @typedef {import('./types.js').PanelStore} PanelStore *//** @typedef {import('./types.js').PanelConfig} PanelConfig */
-
+/** @typedef {import('./types.js').PanelStore} PanelStore */
+/** @typedef {import('./types.js').PanelConfig} PanelConfig */
 /** @typedef {import('./types.js').PanelTypeDescriptor} PanelTypeDescriptor */
 /** @typedef {import('./types.js').DeviceConfig} DeviceConfig */
 /** @typedef {import('./types.js').DeviceStatus} DeviceStatus */
@@ -473,6 +473,26 @@ export function createApiClient(getHass) {  /** @returns {Hass} */
             body: JSON.stringify(body),
           },
           t('Failed to install the TFT'),
+        );
+      },
+
+      /**
+       * Repair a device's display: the release's repair TFT, then the TFT the
+       * firmware needs.
+       * @param {string} entryId
+       * @param {string} device
+       * @returns {Promise<UpdateResult>}
+       */
+      repairDisplay(entryId, device) {
+        requireEntry(entryId);
+        return request(
+          `/api/nspanel_haui/repair_display/${entryId}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device }),
+          },
+          t('Failed to repair the display'),
         );
       },
 

@@ -61,9 +61,11 @@ test('a menu trigger says it opens a menu, and names the menu only while it is o
   assert.equal(closed.getAttribute('aria-haspopup'), 'menu');
   assert.equal(closed.getAttribute('aria-expanded'), 'false');
   assert.equal(closed.getAttribute('aria-controls'), null);
-  // A grip only works by dragging, so a screen reader does not announce it.
+  // A grip only works by dragging, so a screen reader does not announce it; a finger needs the
+  // mark that `ui/drag-handle.js` hangs a touch drag on.
   const grip = render(sortHandle({ label: 'Drag to reorder Kitchen' })).querySelector('.haui-sort-handle');
   assert.equal(grip.getAttribute('aria-hidden'), 'true');
+  assert.equal(grip.hasAttribute('data-drag-handle'), true);
 });
 
 test('a button detail is shown after the label and is part of its name', () => {

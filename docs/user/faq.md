@@ -11,6 +11,10 @@ description: Common issues, troubleshooting, and tips for NSPanel HAUI
 
 Follow the [Quick Start Guide](get-started.md). After that, the [Panel overview](panels/README.md) shows what each panel type does.
 
+### How do I rename the hub?
+
+Go to **Settings → Devices & services**, find **NSPanel HAUI** and select **Configure**. **Hub name** renames the hub, and the same form sets the time and date formats every panel inherits. Panels keep their own names. See [Hub settings](hub-settings.md).
+
 ### My NSPanel devices are not discovered
 
 Add the panel to Home Assistant's ESPHome integration first; the editor only lists panels it finds there. See [Device Discovery Issues](troubleshooting.md#device-discovery-issues).

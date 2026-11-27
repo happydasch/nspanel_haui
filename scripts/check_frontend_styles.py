@@ -17,7 +17,14 @@ HEX_COLOR = re.compile(r"#[\da-fA-F]{3,8}\b")
 COLOR_FUNCTION = re.compile(r"\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\s*\(", re.IGNORECASE)
 PX = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))px\b")
 NON_PX_LENGTH = re.compile(r"(?<![\w.-])(-?(?:\d+(?:\.\d*)?|\.\d+))(?:rem|em)\b")
-FONT_SIZES = {"11", "13", "14", "16", "18", "20", "24"}
+TYPE_TOKEN = "var(--haui-text-"
+EYEBROW_SIZE = "var(--haui-text-eyebrow)"
+BADGE_SIZE = "var(--haui-text-caption)"
+# A pill is a label on a tinted ground, never emphasis: it keeps the size as its only distinction.
+BADGE_WEIGHT = "400"
+EYEBROW_TRACKING = ".05em"
+# A pill's own class name says it is a badge: its text is the badge step, never a size of its own.
+BADGE_NAME = re.compile(r"(?:^|[-_.])(?:badge|chip|count)(?:[-_.]|$)")
 FONT_WEIGHTS = {"400", "500", "600"}
 # 0 and 1 collapse a line box to its content (icons, count bubbles); text uses the tokens.
 LINE_HEIGHTS = {"0", "1", "normal", "inherit"}
@@ -243,6 +250,69 @@ def _motion_errors(css_by_path: dict[Path, str], frontend: Path, root: Path) -> 
     return errors
 
 
+def _typography_errors(css: str, relative: str) -> list[str]:
+    """Check each rule against the one recipe its text role has.
+
+    A size is one of the ``--haui-text-*`` tokens; the eyebrow step is uppercase, 600 and ``.05em``
+    together; nothing else is uppercase, tracked or 600; and a badge, chip or count keeps the badge
+    step whatever its container's size.
+    """
+    errors: list[str] = []
+    for match in RULE.finditer(css):
+        selectors = [
+            " ".join(selector.split())
+            for selector in match.group(1).split(",")
+            if selector.strip() and not selector.strip().startswith("@")
+        ]
+        decls = {name: value.strip() for name, value in DECLARATION.findall(match.group(2))}
+        size = decls.get("font-size", "")
+        weight = decls.get("font-weight", "")
+        tracking = decls.get("letter-spacing", "")
+        transform = decls.get("text-transform", "")
+        if not (size or weight or tracking or transform):
+            continue
+        where = f"{relative}:{css.count('\n', 0, match.start()) + 1}"
+        name = selectors[0] if selectors else "<rule>"
+        eyebrow = size == EYEBROW_SIZE
+        uppercase = transform == "uppercase"
+        recipe = "the eyebrow step (--haui-text-eyebrow, 600, .05em, uppercase) together"
+
+        if size and not size.startswith(TYPE_TOKEN):
+            errors.append(f"{where}: {name} sets font-size {size!r}; use a --haui-text-* token")
+        if transform and not uppercase:
+            errors.append(f"{where}: {name} takes no text-transform but uppercase")
+        if uppercase and not (eyebrow and weight == "600" and tracking == EYEBROW_TRACKING):
+            errors.append(f"{where}: {name} is uppercase, so it is {recipe}")
+        elif eyebrow and not uppercase:
+            errors.append(f"{where}: {name} uses the eyebrow size without its uppercase recipe")
+        if tracking and tracking != EYEBROW_TRACKING:
+            errors.append(
+                f"{where}: {name} tracks {tracking!r}; only {EYEBROW_TRACKING} in the eyebrow step"
+            )
+        if weight == "600" and not eyebrow:
+            errors.append(f"{where}: {name} is weight 600, which belongs to {recipe}")
+        if (
+            size
+            and size not in {BADGE_SIZE, EYEBROW_SIZE}
+            and any(BADGE_NAME.search(selector) for selector in selectors)
+        ):
+            errors.append(
+                f"{where}: {name} is a badge, chip or count, so its text is {BADGE_SIZE} at"
+                f" {BADGE_WEIGHT}"
+            )
+        if (
+            weight
+            and weight not in {BADGE_WEIGHT, "600"}
+            and not eyebrow
+            and any(BADGE_NAME.search(selector) for selector in selectors)
+        ):
+            errors.append(
+                f"{where}: {name} is a badge, chip or count, so it is {BADGE_WEIGHT} — a pill"
+                " never carries emphasis"
+            )
+    return errors
+
+
 def _normalise_number(number: str) -> str:
     value = abs(float(number))
     return str(int(value)) if value.is_integer() else format(value, "g")
@@ -260,11 +330,7 @@ def check_css_sources(
             line = css.count("\n", 0, match.start()) + 1
             where = f"{relative}:{line}"
             pixels = [_normalise_number(number) for number in PX.findall(value)]
-            if prop == "font-size" and any(number not in FONT_SIZES for number in pixels):
-                errors.append(f"{where}: off-scale font-size {value.strip()!r}")
-            elif prop == "font-size" and not pixels and not ("var(" in value or "calc(" in value):
-                errors.append(f"{where}: font-size must use a typography token or scale step")
-            elif prop == "font-weight":
+            if prop == "font-weight":
                 weights = re.findall(r"(?<![\w.-])\d+(?:\.\d+)?(?![\w.-])", value)
                 if any(weight not in FONT_WEIGHTS for weight in weights):
                     errors.append(f"{where}: off-scale font-weight {value.strip()!r}")
@@ -309,6 +375,7 @@ def check_css_sources(
     css_by_path: dict[Path, str] = defaultdict(str)
     for path, css in sources:
         css_by_path[path] += css
+        errors.extend(_typography_errors(css, path.relative_to(root).as_posix()))
     errors.extend(_motion_errors(css_by_path, frontend, root))
 
     for path, css in sources:

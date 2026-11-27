@@ -338,6 +338,10 @@ class NSPanelHAUI(HAAdapter):
         """Queue a TFT install from app-worker code without blocking it."""
         self.controller["update"].start_async_tft_install(version, url, on_complete)
 
+    async def async_repair_display(self) -> dict[str, Any]:
+        """Repair the display: the release's repair TFT, then the one it needs."""
+        return await self._async_update_request("start_async_repair")
+
     async def async_install_firmware(
         self, version: str | None = None, url: str | None = None
     ) -> dict[str, Any]:

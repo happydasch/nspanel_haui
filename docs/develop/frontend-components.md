@@ -25,7 +25,7 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | `surface`, `sectionHeading` | plain, flush or table, gradient summary, live-tinted | Sequential heading levels; actions stay named controls |
 | `segmented` | two or more choices, an optional count, a disabled choice | `role=group` with `aria-pressed` and keyboard activation |
 | `choiceList` (`ui/choice-list.js`) | checkbox rows under an eyebrow heading with an optional count and group action; picked, disabled, empty | `role=group` named by the heading; the whole row is the label; the ring goes around the row |
-| `sortHandle` | compact (row), overlay (card); grabbed, dragging, drop target | The only reorder affordance; it needs a pointer, so it is `aria-hidden` and keeps its label as a tooltip |
+| `sortHandle` | compact (row), overlay (card); grabbed, dragging, drop target | The only reorder affordance; a finger drags it through `ui/drag-handle.js`, so it is `aria-hidden` and keeps its label as a tooltip |
 | `emptyState` | fleet, panels, group, notifications, events; with or without action | A static message and a native button; no live-region spam |
 | `popover`, `menuItem` | menu, info panel, notification panel; open, focused, disabled, destructive | Trigger `aria-expanded` and `aria-controls`, menu keyboard navigation, focus restored on close |
 | `HauiDialog` (`dialogs/haui-dialog.js`) | the base of both dialogs: heading, close, scrollable body, optional footer | Dialog role labelled by the title, focus contained and restored, one Escape policy |
@@ -35,6 +35,8 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | `renderFooter` (`toolbar.js`) | stable, prerelease; version missing | The existing `.editor-footer` markup, `target` and `rel` attributes and translated titles; the links stay focusable |
 | `format.js` | no DOM: timestamp, version, RSSI and connection formatters | Missing data renders explicit unknown text, never a false value |
 
+Reorder is a grip, never a whole row: a mouse starts the browser's own HTML5 drag on it, and a finger or a pen starts the same sequence by hand through `ui/drag-handle.js` — `dragstart` on the `draggable` element, `dragover` on whatever the finger is over, and `drop` plus `dragend` where it lifts, so `crud.js`, `item-renderers.js` and the rows only ever see drag events. A grip carries `data-drag-handle` (its `touch-action: none` rule is in `styles/content.js`, which every shadow root that renders one composes) and the bridge scrolls a long list by itself while the finger rests near its edge. A row body stays a scroll target, so only the grip drags.
+
 ## Composites
 
 | Component | Variants and states | Contract |
@@ -43,7 +45,7 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | `deviceSlots` (`ui/device-slot.js`) | dashed outlines covering the row's spare width | Inert and hidden from assistive technology: no cover, status, scrolling or snapping |
 | `deviceRow` | desktop table, compact; online or offline, stale, update, dragging | Table semantics where practical, labelled row actions, no nested control inside one button |
 | `deviceRail` | full, narrow; active, offline, pending, overflow | A named group, each chip exposing its device and connection state |
-| `fleetSummary` | normal, degraded, all offline; loading, empty | Counts are text, each figure keeps the diagnostics tiles' 13 px name above a 14 px/500 value, its tone repeats what the value says, and health is readable without colour or animation |
+| `fleetSummary` | normal, degraded, all offline; loading, empty | Counts are text and health is readable without colour or animation; the update and version figures are `fleetFacts`, one line of `label value` runs that closes the inventory |
 | `eventList` | info, warning, error; empty, populated, long text | An ordered list; the level is hidden text before the message; `<time datetime>` carries the timestamp; a repeat reads "Repeated N times" |
 | `panelRow` | navigation, hidden, popup, fixed system; empty items, role set, invalid, dragging | A row is not one giant button, and a fixed entry says why it cannot be edited |
 | `panelThumb` | landscape 72×51, portrait 40×60; loading, rendered, error | `alt` names the page, and hover or focus enlarges the same render |
@@ -69,7 +71,7 @@ A field's hint floats under the field while the pointer rests on it or focus is 
 | Surface | Components used |
 |---|---|
 | Shared titlebar | `icon`, `button`, `badge`, `popover` |
-| Fleet | `deviceCard`, `deviceSlots`, `sortHandle`, `fleetSummary`, `surface`, `deviceRow`, `eventList`, `emptyState`, `badge` |
+| Fleet | `deviceCard`, `deviceSlots`, `sortHandle`, `fleetSummary`, `fleetFacts`, `surface`, `deviceRow`, `eventList`, `emptyState`, `badge` |
 | Device rail | `deviceRail`, `statusDot` |
 | Workspace header and preview | `segmented`, `button`, `previewStage`, `emptyState`, `popover` |
 | Panel groups | `surface`, `panelRow`, `panelThumb`, `sortHandle`, `badge`, `emptyState` |

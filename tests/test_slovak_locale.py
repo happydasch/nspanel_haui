@@ -53,7 +53,7 @@ def test_slovak_dates_use_genitive_months_and_local_weekdays():
     assert format_datetime(date, "%x", "full", "sk_SK") == "štvrtok 12. novembra 2026"
     assert format_datetime(date, "%x", "long", "sk_SK") == "12. novembra 2026"
     assert format_datetime(date, "%x", "medium", "sk_SK") == "12. nov 2026"
-    assert format_datetime(date, "%x", "E", "sk_SK") == "št"
+    assert format_datetime(date, "%x", "weekday_short", "sk_SK") == "št"
     assert get_day_name("sk_SK", 6) == "nedeľa"
     assert get_month_name("sk_SK", 1) == "januára"
     assert get_month_name("sk_SK", 12) == "decembra"

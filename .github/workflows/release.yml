@@ -88,14 +88,27 @@ jobs:
             echo "No prepared notes at $NOTES; using the changelog pointer."
           fi
 
+      - name: Resolve the release assets
+        # The two repair TFTs are listed only once they are committed: the
+        # manifest names them in its `repair` block, and naming a missing file
+        # would fail the upload below.
+        id: assets
+        run: |
+          {
+            echo 'files<<ASSETS'
+            printf '%s\n' nspanel_haui.bin nspanel_haui_ota.bin \
+              nextion/nspanel_haui.tft nextion/nspanel_haui_portrait.tft
+            for tft in nextion/nspanel_haui_repair.tft \
+              nextion/nspanel_haui_repair_portrait.tft; do
+              if [ -f "$tft" ]; then printf '%s\n' "$tft"; fi
+            done
+            printf '%s\n' firmware-manifest.json
+            echo 'ASSETS'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Attach assets to the GitHub release
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
         with:
-          files: |
-            nspanel_haui.bin
-            nspanel_haui_ota.bin
-            nextion/nspanel_haui.tft
-            nextion/nspanel_haui_portrait.tft
-            firmware-manifest.json
+          files: ${{ steps.assets.outputs.files }}
           name: ${{ github.ref_name }}
           body_path: release-notes.md

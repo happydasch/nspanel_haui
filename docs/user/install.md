@@ -50,6 +50,8 @@ NSPanel HAUI is not in the [Marketplace](https://www.home-assistant.io/integrati
 3. Open **NSPanel HAUI**, select **Install**, then restart Home Assistant.
 4. Go to **Settings → Devices & services → Add integration** and add **NSPanel HAUI**.
 
+**Configure** on the integration's card renames the hub and sets the time and date formats every panel inherits; everything per panel is set in the editor. See [Hub settings](hub-settings.md).
+
 ??? note "Manual install"
     Copy `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` folder and restart. Manual copies get no update notifications.
 

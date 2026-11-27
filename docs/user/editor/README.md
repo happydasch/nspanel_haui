@@ -31,11 +31,11 @@ The dashboard is the editor's start screen. It lists every NSPanel HAUI device a
 
 === "Light"
 
-    <img src="../../assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme: device cards with their home screens, the device inventory and latest events" width="800" height="500">
+    <img src="../../assets/readme/editor-fleet-light.png" alt="Fleet dashboard in the light theme: device cards with their home screens and a footer bar naming the device and its status, the device inventory and latest events" width="800" height="500">
 
 === "Dark"
 
-    <img src="../../assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme: device cards with their home screens, the device inventory and latest events" width="800" height="500">
+    <img src="../../assets/readme/editor-fleet-dark.png" alt="Fleet dashboard in the dark theme: device cards with their home screens and a footer bar naming the device and its status, the device inventory and latest events" width="800" height="500">
 
 ### Adding a device
 

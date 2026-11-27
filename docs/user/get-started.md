@@ -28,6 +28,8 @@ This is the short version. The [Installation Guide](install.md) has every detail
 3. Install **NSPanel HAUI** and restart Home Assistant.
 4. Go to **Settings → Devices & services → Add integration** and add **NSPanel HAUI**.
 
+**Configure** on the card renames the hub and sets the time and date formats every panel inherits ([Hub settings](hub-settings.md)).
+
 ## 3. Add your first panel
 
 1. Open **NSPanel HAUI** in the Home Assistant sidebar (administrators only).

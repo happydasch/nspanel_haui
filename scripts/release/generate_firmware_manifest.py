@@ -19,6 +19,16 @@ from scripts.bump_tft_version import check_tft_carries
 
 VERSION_YAML = Path("esphome/nspanel_haui/version.yaml")
 
+# The minimal, self-contained TFTs that restore a display whose own file is
+# broken, one per display model.  They are not compiled from the release HMIs
+# and do not follow ``tft_version``: the repair file only has to boot and take
+# the next upload, so it keeps its own fixed version.
+REPAIR_TFTS = {
+    "eu": Path("nextion/nspanel_haui_repair.tft"),
+    "us": Path("nextion/nspanel_haui_repair_portrait.tft"),
+}
+REPAIR_VERSION = "1"
+
 
 def _md5(path: Path) -> str:
     """Return the release asset's MD5 checksum."""
@@ -31,6 +41,7 @@ def build_manifest_from_assets(
     ota_url: str,
     ota_md5: str,
     tft: dict[str, Any] | None = None,
+    repair: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the shared manifest schema from already-resolved asset metadata."""
     if variant not in {"universal", "custom"}:
@@ -48,7 +59,36 @@ def build_manifest_from_assets(
     }
     if tft is not None:
         manifest["tft"] = tft
+    if repair is not None:
+        manifest["repair"] = repair
     return manifest
+
+
+def repair_block(repo: str, tag: str) -> dict[str, Any] | None:
+    """Return the manifest's repair block, or None while no repair TFT is committed.
+
+    A release that ships no repair TFT leaves the block out, and the hub then
+    reports that this release cannot repair a display instead of installing a
+    file it does not have.
+
+    Raises:
+        ValueError: A repair TFT does not carry ``REPAIR_VERSION``.
+    """
+    if not all(path.exists() for path in REPAIR_TFTS.values()):
+        return None
+    for tft in REPAIR_TFTS.values():
+        check_tft_carries(tft, REPAIR_VERSION)
+    release_url = f"https://github.com/{repo}/releases/download/{tag}"
+    return {
+        "version": REPAIR_VERSION,
+        "assets": {
+            model: {
+                "path": f"{release_url}/{path.name}",
+                "md5": _md5(path),
+            }
+            for model, path in REPAIR_TFTS.items()
+        },
+    }
 
 
 def build_manifest(
@@ -86,6 +126,7 @@ def build_manifest(
                 },
             },
         },
+        repair_block(repo, tag),
     )
 
 
@@ -107,6 +148,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ValueError("firmware manifest is missing the OTA path or checksum")
     if not manifest.get("tft", {}).get("assets"):
         raise ValueError("firmware manifest is missing TFT assets")
+    repair = manifest.get("repair")
+    if repair is None:
+        return
+    if not repair.get("version"):
+        raise ValueError("firmware manifest is missing the repair TFT version")
+    assets = repair.get("assets") or {}
+    for model in REPAIR_TFTS:
+        asset = assets.get(model) or {}
+        if not asset.get("path") or not asset.get("md5"):
+            raise ValueError(f"firmware manifest is missing the {model} repair TFT")
 
 
 def main(argv: list[str] | None = None) -> None:

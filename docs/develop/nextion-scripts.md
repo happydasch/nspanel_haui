@@ -63,6 +63,22 @@ paste, the `vis …,0` block and the press feedback: the same shape on every pag
 Re-take the dump after an HMI change, and update this page in the same commit
 when you add or remove event code.
 
+### Comparing two revisions
+
+Dumping a build from `git` is how you prove an event-code change did only what
+its commit message claims — the cleanup below was checked this way:
+
+```bash
+git show <sha>:nextion/nspanel_haui.HMI > build/before.HMI
+python -m scripts.nextion2text.Nextion2Text -i build/before.HMI -o build/nextion-out/before -d -s -p visual
+diff -r --exclude='*Stats*' build/nextion-out/before build/nextion-out/landscape
+```
+
+A page-local change shows up as a few `>`/`<` lines in one or two page files;
+the stats dump is excluded because it is named after the HMI file it came from.
+Without `-p visual` on both sides every page differs in its attributes, so keep
+the flags identical or the diff is unreadable.
+
 ## Program.s
 
 `Program.s` holds what must exist before any page runs. It is edited in the
@@ -241,10 +257,26 @@ fresh event-code dumps from both projects:
 - `system` (both): removed `sys0=0` and its stale spinner comment. The clocktwo loop
   still initializes `sys0` where it uses the counter.
 
+The three removals in the project could not be smaller, and neither could the
+`system.tftVersion` bump from `0.4.7` to `0.4.8` that rode the same commit: a
+[page-by-page diff](#comparing-two-revisions) against the commit before it shows
+landscape losing the row comment, the duplicate `sys1` on weather and the `sys0`
+line on system, and portrait only the `sys0` line.
+
+The shipped `.tft` artifacts carry it, because they were compiled in that same
+commit. Recompiling the committed HMIs in the Nextion Editor reproduces both of
+them byte for byte (`nspanel_haui.tft` 11,520,228 bytes, `nspanel_haui_portrait.tft`
+11,323,456 bytes, same SHA-256), so nothing about this cleanup is pending and no
+page can draw differently ([compiling a TFT](nextion-editor.md#compiling-a-tft)).
+
+The rebuild was needed for the two lines of *code*, not for the comment: a comment
+never reaches the compiled image — adding one to a page and compiling again yields
+the same `.tft` byte for byte — while dropping the assignment and the `sys0` write
+changes the image. Naming which of the two a cleanup does is what decides whether
+it needs a Nextion Editor session at all.
+
 The clocktwo guard remains intentionally: the hub already sends the dot's crop, so
 dropping the guard only turns that command into a second write of the same value.
-The current `.tft` artifacts and `tft_version` are unchanged; this cleanup does
-not change what a page shows.
 
 ## What a new page must provide
 

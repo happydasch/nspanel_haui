@@ -93,7 +93,7 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
     .haui-panels-overview-roles { grid-template-columns: minmax(0, 1fr); }
   }
   /* The workspace's own band, like every card heading on the pages it opens. */
-  .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); background: var(--haui-surface-soft); }
+  .haui-workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider-color); background: var(--haui-surface-band); }
   .haui-preview-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
   /* The panel list's search (.haui-search-field) shares the row with the view toggle at every width: it takes what the toggle leaves, up to its full size. */
   .haui-panel-search { display: inline-flex; max-width: 260px; height: 40px; flex: 1 1 0; }
@@ -186,7 +186,7 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-diag-status { --diag-tone: var(--haui-good); position: relative; display: grid; box-sizing: border-box; width: 36px; height: 36px; place-items: center; padding: 0; border: 1px solid color-mix(in srgb, var(--diag-tone) 28%, transparent); border-radius: var(--haui-radius-round); color: var(--diag-tone); background: color-mix(in srgb, var(--diag-tone) 12%, var(--card-background-color)); font: inherit; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; --mdc-icon-size: 20px; }
   .haui-diag-status.is-warning { --diag-tone: var(--haui-warn); }
   .haui-diag-status:hover, .haui-diag-status[aria-expanded="true"] { border-color: color-mix(in srgb, var(--diag-tone) 55%, transparent); background: color-mix(in srgb, var(--diag-tone) 20%, var(--card-background-color)); }
-  .haui-diag-status-count { position: absolute; top: -4px; right: -4px; display: grid; box-sizing: border-box; min-width: 16px; height: 16px; place-items: center; padding: 0 4px; border-radius: var(--haui-radius-control); background: var(--diag-tone); box-shadow: 0 0 0 2px var(--card-background-color); color: var(--text-primary-color, #fff); font-size: var(--haui-text-eyebrow); font-weight: 600; line-height: 1; }
+  .haui-diag-status-count { position: absolute; top: -4px; right: -4px; display: grid; box-sizing: border-box; min-width: 16px; height: 16px; place-items: center; padding: 0 4px; border-radius: var(--haui-radius-control); background: var(--diag-tone); box-shadow: 0 0 0 2px var(--card-background-color); color: var(--text-primary-color, #fff); font-size: var(--haui-text-caption); font-weight: 400; line-height: 1; }
   /* The status icon leads the heading; the title takes the free room, so the chevron sits at the end. */
   .haui-device-details .haui-surface-heading-copy, .haui-diagnostics-card .haui-surface-heading-copy { flex: 1 1 auto; }
   .haui-expand-toggle { flex: 0 0 auto; }
@@ -283,7 +283,7 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-device-details dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-device-details dl > div:last-child { border-bottom: 0; }
   .haui-device-details dt { color: var(--secondary-text-color); }
-  .haui-device-details dd { overflow: hidden; margin: 0; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+  .haui-device-details dd { overflow: hidden; margin: 0; font-family: var(--haui-mono); font-weight: 500; text-align: end; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-details .haui-surface-body { gap: 12px; }
   /* The Diagnostics tiles, with values that can run long (page names), cut off; dimmed while stale. */
   .haui-device-details .haui-diag-tile-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -336,7 +336,9 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   .haui-tile-card dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 4px 0; border-bottom: 1px solid var(--divider-color); font-size: var(--haui-text-caption); }
   .haui-tile-card dl > div:last-child { border-bottom: 0; }
   .haui-tile-card dt { flex: 1 1 0; min-width: min-content; color: var(--secondary-text-color); overflow-wrap: break-word; }
-  .haui-tile-card dd { overflow: hidden; min-width: 0; margin: 0; margin-inline-start: auto; font-family: var(--haui-mono); text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+  /* The reading keeps the row's step and is separated by weight and colour, so the row never grows
+     past the card's width. */
+  .haui-tile-card dd { overflow: hidden; min-width: 0; margin: 0; margin-inline-start: auto; font-weight: 500; text-align: end; text-overflow: ellipsis; white-space: nowrap; }
   .haui-tile-card > p { margin: 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-tile-info > .haui-diag-tile:focus-visible + .haui-tile-card, .haui-tile-info > .haui-diag-tile[aria-expanded="true"] + .haui-tile-card { opacity: 1; transform: none; transition-delay: 0s; visibility: visible; }
   /* Only a real pointer hovers: a tap's sticky hover would keep a card open after a second tap. */

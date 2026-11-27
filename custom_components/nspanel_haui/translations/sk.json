@@ -35,6 +35,39 @@
       "description": "Hub {hub} nemá žiadne povolené zariadenia.\n\nPovoľte aspoň jedno zariadenie v editore NSPanel HAUI alebo pridajte nové zariadenie ESPHome s firmvérom HAUI. Nové zariadenia HAUI možno do hubu pridávať automaticky."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavenia hubu",
+        "description": "Názov hubu je názov, pod ktorým sa NSPanel HAUI zobrazuje v Home Assistant. Nasledujúce formáty sú predvolené hodnoty, ktoré preberá každý panel; nastavenia jednotlivých panelov zostávajú v editore NSPanel HAUI.",
+        "data": {
+          "name": "Názov hubu",
+          "time_format": "Predvolený formát času",
+          "date_format": "Predvolený formát dátumu",
+          "date_format_locale": "Predvolené rozloženie dátumu podľa jazyka"
+        },
+        "data_description": {
+          "date_format_locale": "Použije sa, keď je formát dátumu panela predvolený."
+        }
+      }
+    },
+    "error": {
+      "empty_name": "Zadajte hubu názov.",
+      "invalid_format": "Použite vzor strftime aspoň s jednou direktívou % (napríklad %H:%M)."
+    }
+  },
+  "selector": {
+    "date_format_locale": {
+      "options": {
+        "full": "Plný",
+        "long": "Dlhý",
+        "medium": "Stredný",
+        "short": "Krátky",
+        "weekday_short": "Deň v týždni (krátky)",
+        "weekday_full": "Deň v týždni (plný)"
+      }
+    }
+  },
   "services": {
     "open_panel": {
       "name": "Otvoriť panel",

@@ -31,54 +31,20 @@ discussion it came from when there is one.
 Speed, recovery and ownership: the 921600 display link, smaller downloads and
 theme foreground globals all land in 0.5.7 — a solid page now paints its body
 foregrounds from the TFT itself, so the row page opens in 9 display commands
-instead of 40. Removing the vendored Nextion patch, display recovery,
-hub-scoped settings and the Nextion script cleanup belong to this cycle.
-
-- **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
-  2026-11-18) carries two of the fixes this patch used to add: the
-  numeric-response delivery
-  ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) and the TFT
-  upload buffer option
-  ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), both verified
-  in the tag's own `nextion` sources. Two local changes are left: the TFT upload
-  retry (`upload_first_chunk_sent_` is never reset upstream) and the per-upload
-  detail 0.5.4 and 0.5.7 report — the named `tft_upload_error_` reasons and the
-  `tft_upload_display_fault()` flag that decides whether a failure is worth
-  retrying at 115200 bps. The flag is worth filing upstream with the retry, since
-  a lower rate is a caller's decision; the error strings are ours either way.
-  After a release carries the retry: bump `min_version` and
-  `requirements-esphome.txt` together, delete the directory and its
-  `external_components` blocks and re-validate the firmware config and a
-  compile. *Area: Dependencies.*
-
-- **Display repair mode** — A minimal, self-contained repair TFT per display
-  model plus a **Repair display** action in the editor that installs it and then
-  the normal TFT — reachable from the device's **Updates** sidebar even in a
-  failed update state. That makes a broken, half-installed or wrong-baud TFT
-  recoverable without a Nextion Editor session. Done: a damaged panel is restored
-  from the editor on both display models. *Area: Recovery.*
-- **Nextion script cleanup** — The inventory is written:
-  [HMI event scripts](docs/develop/nextion-scripts.md) records every event block
-  in both projects, what it does, the hub command or firmware event it pairs with,
-  and the instruction-set limits that matter (one page-scoped timer, page-local
-  state, no sleep or wake hooks, the largest block). What is left is the removal,
-  which needs the Nextion Editor, and nothing it removes changes a page: a stray
-  `sys1` assignment and a comment in the landscape weather and row pages, and a
-  stale `sys0` comment on the system page. The one code difference that does reach
-  a pixel — the landscape clocktwo loop skipping the top-left dot — is answered by
-  `ClockTwoPage.start_panel()` and pinned by a test, so both orientations already
-  paint the same page. Done: no unused event code, both layout gates green, pages
-  unchanged on hardware. This is the groundwork for moving any behaviour onto the
-  display deliberately rather than by accident. *Area: Display behaviour.*
-- **Hub settings in Home Assistant** — An integration options flow so the hub can
-  be renamed and genuinely hub-scoped settings changed after setup, while
-  per-device settings stay in the editor. *Area: Configuration.*
+instead of 40. Hub-scoped settings landed with the options flow, so a hub is
+renamed in Home Assistant and the display defaults every panel inherits are set
+there too. Display repair landed with the cycle: 0.5.8 installs a one-page
+repair TFT for the panel's display model and then the normal file. Removing the
+vendored Nextion patch needs an ESPHome release that carries the TFT upload
+retry, so it is not tied to a horizon
+([Firmware and dependencies](#firmware-and-dependencies)).
 
 ## v0.6 — Next
 
 Content and everyday use: new panel types people keep asking for but do not have
-(a fan, a graph, free text), plus options that make panels feel finished. Other
-candidates remain in the open pool until selected for this cycle.
+(a fan, a graph, free text), a refreshed and larger background set, plus options
+that make panels feel finished. Other candidates remain in the open pool until
+selected for this cycle.
 
 ### Panels
 
@@ -121,6 +87,33 @@ experiences.
 - **Calendar / agenda** — Upcoming calendar events with a lead time before each
   starts, as a list or as a compact block the clock panel can show. Overlaps the
   text panel; decide whether it is one feature or two.
+
+### Backgrounds
+
+The pictures behind Clock, Clock Two and Weather are compiled into the TFTs, so
+a change to them is HMI and TFT work; the docs show the result
+([Background pages](docs/user/editor/themes.md#background-pages)).
+
+- **Update and refresh the background set** — The decorative pictures have
+  barely changed since the first releases, and their dimmed crop is the look
+  users see most. Rework them — a new source where a picture no longer fits, a
+  fresh crop and dim pass where it does — while keeping every key and its
+  contrast variant. Done: both orientations carry the refreshed set, each key
+  keeps its palette, and the docs gallery and card renders show the same
+  pictures.
+- **Show the backgrounds in the docs** — The Background pages section lists
+  the pictures as a table, so nobody can see what **Modern**, **Spring** or
+  **Cat** looks like before choosing one. Add a gallery of every picture in
+  landscape and portrait, named with the palette it draws, generated from the
+  same tiles the TFTs carry so it cannot drift from the display. Done: the
+  themes page shows every background, and the normal generated-asset check
+  fails while the gallery is stale.
+- **More background pictures** — Grow the set beyond the seasons and the pets
+  with a new batch — for example sea, forest, city or abstract art. Include at
+  least one light picture, since **Light Color** is the only choice for a
+  light palette today, and give each a portrait crop and a `BACKGROUND_VARIANTS`
+  entry. Done: both HMIs and TFTs carry the pictures, the **Background** list
+  offers them, and the docs gallery shows them.
 
 ### Panel options and interaction polish
 
@@ -340,6 +333,25 @@ capacity allows, not tied to a horizon.
   count, and that the densest page stays within a bounded command batch — the
   three ways a busy event stream could make a panel feel slow.
 
+### Firmware and dependencies
+
+- **Remove the vendored Nextion patch** — ESPHome 2026.11.0 (released
+  2026-11-18) carries two of the fixes this patch used to add: the
+  numeric-response delivery
+  ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) and the TFT
+  upload buffer option
+  ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), both verified
+  in the tag's own `nextion` sources. Two local changes are left: the TFT upload
+  retry (`upload_first_chunk_sent_` is never reset upstream) and the per-upload
+  detail 0.5.4 and 0.5.7 report — the named `tft_upload_error_` reasons and the
+  `tft_upload_display_fault()` flag that decides whether a failure is worth
+  retrying at 115200 bps. The flag is worth filing upstream with the retry, since
+  a lower rate is a caller's decision; the error strings are ours either way.
+  Deferred from v0.5.x, since no released ESPHome carries the retry yet; after
+  one does: bump `min_version` and `requirements-esphome.txt` together, delete
+  the directory and its `external_components` blocks and re-validate the
+  firmware config and a compile. *Area: Dependencies.*
+
 ### Release tooling
 
 Open items from the release-process review (runbook and known risks in
@@ -398,6 +410,11 @@ These are covered today; the linked docs show how.
 - **Themes** with light/dark icon palettes, a shared library and per-panel themes.
 - **Schedules**, **gestures**, the **idle page** with carousel, **snapshot
   restore** and **auto-navigate home** — [Device settings](docs/user/editor/device.md).
+- **A fast display link, without a second TFT** — every released TFT boots the
+  Nextion at 921600 bps and the firmware starts its UART there, so there is no
+  faster build to install and no slow one to replace: one file per display model
+  carries the rate, and a fallback to 115200 bps is the same file installed
+  again, not a different one.
 - **Local relay toggling without Home Assistant**, encrypted OTA, TFT retry on
   upload, per-device update channels and one-at-a-time fleet rollouts.
 - **Custom RTTTL melodies** through the firmware's `play_rtttl` action.
@@ -446,6 +463,14 @@ Kept for the record, so the same idea is not re-evaluated every few months.
   though it is the ceiling behind most display limitations.
 - **Automatic dithering / fake transparency** — An HMI technique worth
   remembering if translucent tiles are ever wanted; not worth it on its own.
+- **Separate high-speed and normal-speed TFTs** — Shipping a 921600 bps build
+  next to a 115200 one, as the v0.5 plan once considered. Dropped: the rate is
+  set inside the TFT, so one file per display model serves both, the firmware
+  starts its UART at 921600 and scans down only for an older or stock TFT, and a
+  display that cannot hold a transfer gets the same install once more at
+  115200 bps. A second artifact would double every display build and every
+  install for a link the single file already sets, and leave a panel on the
+  "slow" one with nothing it can do about it.
 - **Camera or doorbell video on the panel** — The Nextion draws static pictures
   only; there is no video path, and refreshing frames over the serial link would
   be unusable.

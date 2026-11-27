@@ -42,6 +42,10 @@ export const updatesStyles = css`  /* ── Updates sidebar ──────�
   .haui-update-summary-copy strong { display: block; font-size: var(--haui-text-body); font-weight: 500; line-height: var(--haui-line-height-tight); overflow-wrap: anywhere; }
   .haui-update-summary-copy p { margin: 4px 0 0; color: var(--secondary-text-color); font-size: var(--haui-text-caption); line-height: var(--haui-line-height-copy); overflow-wrap: anywhere; }
   .haui-update-check-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--divider-color, #e0e0e0); }
+  /* The repair sits between the versions and the check row: a recovery action, not a routine one. */
+  .haui-update-repair { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 12px 8px; }
+  .haui-update-repair ha-icon { --mdc-icon-size: 18px; }
+  .haui-update-repair-unavailable { margin: 0; padding: 0 12px 8px; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   .haui-update-check-action ha-icon { --mdc-icon-size: 18px; }
   .haui-update-integration { display: flex; align-items: baseline; gap: 8px; margin-inline-start: auto; color: var(--secondary-text-color); font-size: var(--haui-text-caption); }
   @keyframes haui-update-spin { to { transform: rotate(360deg); } }

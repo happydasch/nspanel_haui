@@ -35,7 +35,7 @@ export function deviceCard({ name, device, status, preview, updates = false, dis
         : t('Open device {name}')).replace('{name}', displayName)} @click=${onOpen}>
         ${needsSetup ? cover : preview || html`<span class="haui-device-card-bezel" aria-hidden="true"></span>`}
       </button>
-      ${updates ? html`<span class="haui-device-update-badge">${t('Update available')}</span>` : ''}
+      ${updates ? html`<span class="haui-badge haui-badge-warning haui-device-update-badge">${t('Update available')}</span>` : ''}
       ${onDragStart ? html`<div class="haui-device-sort">${sortHandle({
         label: t('Drag to reorder {name}').replace('{name}', displayName),
         onDragStart,

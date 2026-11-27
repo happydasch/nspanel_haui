@@ -34,7 +34,7 @@ export const colorDialogStyles = css`
     padding: 8px 12px;
     background: var(--vp-theme-header-background);
     color: var(--vp-theme-header-text);
-    font-weight: 600;
+    font-weight: 500;
     font-size: var(--haui-text-label);
   }
   .haui-theme-preview-hicons ha-icon { color: var(--vp-theme-icon-color); }
@@ -61,7 +61,6 @@ export const colorDialogStyles = css`
     flex-wrap: wrap;
     gap: 12px;
     font-size: var(--haui-text-label);
-    font-weight: 500;
   }
   .haui-theme-preview-texts > span { color: var(--vp-theme-text-color); }
   .haui-theme-preview-comps {
@@ -76,7 +75,7 @@ export const colorDialogStyles = css`
     background: var(--vp-theme-component-background);
     color: var(--vp-theme-component-text);
     font-size: var(--haui-text-caption);
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
   }
   .haui-theme-preview-slider {

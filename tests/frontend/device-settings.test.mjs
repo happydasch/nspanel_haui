@@ -143,6 +143,23 @@ test('the theme select keeps the stored theme while the library is still loading
   assert.deepEqual([...theme.options].map((option) => option.value), ['black']);
   assert.equal(theme.value, 'black');
 });
+test('a layout saved under its old name reads as its current one', () => {
+  // `E`/`EEEE` were the weekday layouts before they became translation keys; a panel
+  // stored under them has to show its layout, not an empty select.
+  for (const [stored, current] of [['E', 'weekday_short'], ['EEEE', 'weekday_full']]) {
+    const config = { ...DEVICE_CONFIG_DEFAULTS, date_format_locale: stored };
+    const root = render(settings({ config, _deviceConfigForm: config, section: 'general' }).dlg.render());
+
+    const layout = root.querySelector('#dc-date_format_locale');
+    // The rendered selection, not `select.value`: happy-dom reports that getter stale.
+    const selected = [...layout.options]
+      .filter((option) => option.hasAttribute('selected'))
+      .map((option) => option.value);
+    assert.deepEqual(selected, [current], `${stored} reads as ${current}`);
+    assert.ok(![...layout.options].some((option) => option.value === stored), `${stored} is not offered`);
+  }
+});
+
 
 test('an empty brightness field names the brightness the panel uses', () => {
   const config = { ...DEVICE_CONFIG_DEFAULTS, brightness: null, brightness_dim: null };

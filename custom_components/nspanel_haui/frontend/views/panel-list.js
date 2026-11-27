@@ -7,6 +7,7 @@ import { iconButton } from '../ui/button.js';
 import { sectionHeading } from '../ui/surface.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
+import { startHandleDrag } from '../ui/drag-handle.js';
 import { menuItem, menuSeparator, menuSubmenu, overlayAnchor, popover } from '../ui/popover.js';
 
 /**
@@ -243,7 +244,8 @@ function sortHandleFor(entry) {
     </span>`;
   }
   const label = t('Drag to reorder {name}').replace('{name}', entry.title);
-  return html`<span class="haui-panel-handle" draggable="true" role="img" aria-label=${label} title=${label}
+  return html`<span class="haui-panel-handle" draggable="true" data-drag-handle role="img"
+    aria-label=${label} title=${label} @pointerdown=${startHandleDrag}
     @dragstart=${(event) => {
       const row = event.currentTarget.closest('.haui-panel-row');
       event.dataTransfer?.setData('text/plain', entry.key);

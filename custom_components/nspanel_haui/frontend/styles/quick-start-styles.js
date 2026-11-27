@@ -111,6 +111,7 @@ export const quickStartStyles = css`
     color: var(--secondary-text-color);
     font-size: var(--haui-text-eyebrow);
     font-weight: 600;
+    letter-spacing: .05em;
     text-transform: uppercase;
   }
   /* One page of the setup: its hub render, its role, and the panel type it is.
@@ -143,7 +144,7 @@ export const quickStartStyles = css`
   .haui-quick-start-page-title {
     overflow: hidden;
     color: var(--primary-text-color);
-    font-size: var(--haui-text-label);
+    font-size: var(--haui-text-subtitle);
     font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;

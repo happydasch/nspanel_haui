@@ -39,9 +39,12 @@ test('Latest events keeps warnings and errors only, lists a repeated message onc
   const text = root.innerHTML;
   const header = root.querySelector('.haui-event-list > header');
   assert.equal(header?.querySelector('h2')?.textContent, 'Latest events');
-  assert.equal(header?.querySelector('p')?.textContent, 'Last 24 hours');
+  // The window follows the title on its line, as the inventory card's own figure does.
+  assert.equal(header?.querySelector('.haui-event-window')?.textContent, 'Last 24 hours');
   assert.equal(header?.querySelector('.haui-badge-count')?.textContent, '4');
-  assert.ok(header?.querySelector('button')?.textContent.includes('Logs'));
+  // The action closes the card in its footer, leaving the title line to the title and its count.
+  assert.equal(header?.querySelector('button'), null);
+  assert.ok(root.querySelector('.haui-event-list > footer .haui-event-logs')?.textContent.includes('Logs'));
   assert.match(text, /Repeated 2 times/);
   assert.match(text, /haui-event-repeat/);
   // The timeline shows an exception's first line; Logs has the traceback.
@@ -111,30 +114,41 @@ test('a reset window starts at its own moment and keeps the 24-hour rules after 
   assert.deepEqual(eventsFrom(events, since, now), [events[1], events[2]]);
 });
 
-test('Latest events ends its title line with the actions and its second line with the window', () => {
+test('Latest events names its scope and window in the header and keeps the actions in its footer', () => {
   const root = render(eventList({
     events: [{ deviceName: 'Office', line: '[2026-01-01T12:00:00Z] ERROR Office failed' }],
     deviceName: 'Office', onOpenLogs() {}, onReset() {},
   }));
   const header = root.querySelector('.haui-event-list > header');
-  // The title opens the first line and the actions close it.
+  // The title opens the first line, its count and the window follow it; the header carries no control.
   assert.equal(header.querySelector('h2').textContent, 'Latest events');
-  const heading = header.querySelector('.haui-surface-heading');
-  assert.deepEqual([...heading.querySelectorAll('button')].map((button) => button.textContent.trim()),
-    ['Reset', 'Logs']);
-  // The second line opens with the device that scopes the list and closes with the window it covers.
+  assert.equal(header.querySelector('.haui-section-heading .haui-event-window').textContent, 'Last 24 hours');
+  assert.equal(header.querySelectorAll('button').length, 0);
+  // The second line holds the device that scopes the list, and nothing else.
   const bar = header.querySelector('.haui-event-bar');
   assert.equal(bar.firstElementChild.className, 'haui-event-scope');
   assert.equal(bar.firstElementChild.textContent, 'Office');
-  assert.equal(bar.querySelector('p').textContent, 'Last 24 hours');
+  assert.equal(bar.childElementCount, 1);
   assert.equal(bar.querySelectorAll('button').length, 0);
+  // The actions close the card under the timeline.
+  const footer = root.querySelector('.haui-event-list > footer');
+  assert.deepEqual([...footer.querySelectorAll('button')].map((button) => button.textContent.trim()),
+    ['Reset', 'Logs']);
+  const timeline = root.querySelector('.haui-event-list ol');
+  assert.ok(timeline.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING);
 
   // With nothing selected the same line names the whole fleet, so it never opens with an empty space.
   const everyone = render(eventList({ events: [], onOpenLogs() {}, onReset() {} }));
   const everyoneBar = everyone.querySelector('.haui-event-list > header .haui-event-bar');
   assert.equal(everyoneBar.firstElementChild.className, 'haui-event-scope is-all');
   assert.equal(everyoneBar.firstElementChild.textContent, 'All devices');
-  assert.equal(everyoneBar.querySelector('p').textContent, 'Last 24 hours');
+  // The window stays beside the title even without a device to name under it.
+  assert.equal(everyone.querySelector('.haui-event-list > header .haui-event-window').textContent,
+    'Last 24 hours');
+
+  // A list nobody gave an action to keeps no empty band at its bottom.
+  const quiet = render(eventList({ events: [] }));
+  assert.equal(quiet.querySelector('.haui-event-footer'), null);
 });
 
 test('a reset replaces the 24 hours with its own moment and can be taken back', () => {
@@ -148,13 +162,14 @@ test('a reset replaces the 24 hours with its own moment and can be taken back', 
     onShowWindow() { shown += 1; },
   }));
   const header = root.querySelector('.haui-event-list > header');
-  assert.match(header.querySelector('p').textContent, /^Since /);
-  assert.deepEqual([...header.querySelectorAll('button')].map((button) => button.textContent.trim()),
+  assert.match(header.querySelector('.haui-event-window').textContent, /^Since /);
+  const footer = root.querySelector('.haui-event-list > footer');
+  assert.deepEqual([...footer.querySelectorAll('button')].map((button) => button.textContent.trim()),
     ['Last 24 hours', 'Reset', 'Logs']);
   // An empty timeline after a reset says so instead of claiming there is nothing yet.
   assert.match(root.innerHTML, /No events since the reset/);
-  header.querySelector('.haui-event-restore').click();
-  header.querySelector('.haui-event-reset').click();
+  footer.querySelector('.haui-event-restore').click();
+  footer.querySelector('.haui-event-reset').click();
   assert.equal(shown, 1);
   assert.equal(reset, 1);
 });

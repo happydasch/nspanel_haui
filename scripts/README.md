@@ -28,6 +28,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `hmi_layout/landscape_layout.py`, `hmi_layout/portrait_layout.py`, `hmi_layout/theme.py` | Geometry and attribute specs imported by the tools above |
 | `nextion2text/Nextion2Text.py` | Dump an `.HMI` project to readable text |
 | `verify_nextion/check_hmi_bump.py` | Fail when an HMI or TFT changed without a TFT version bump |
+| `verify_nextion/check_repair_tft.py` | Check the two committed repair TFTs against `REPAIR_VERSION` and the display's flash size |
 | `verify_firmware/check_size.py` | Fail when the compiled firmware uses too much of its app partition |
 
 ### Display images, fonts and colours

@@ -12,55 +12,65 @@ Replaces babel.dates.format_date with hardcoded CLDR-based data.
 #   {MONA}  = abbreviated month name
 #   {YEAR}  = full year (4-digit)
 
+# The pattern names double as the `date_format_locale` selector's option values,
+# which Home Assistant validates as translation keys (lowercase, no leading or
+# trailing separator) - hence the weekday-only layouts are not CLDR's `E`/`EEEE`.
 LOCALE_PATTERNS = {
     "sk_SK": {
         "full": "{DOW} {DAY}. {MON} {YEAR}",
         "long": "{DAY}. {MON} {YEAR}",
         "medium": "{DAY}. {MONA} {YEAR}",
         "short": "{DAY}. {MONA} {YEAR}",
-        "E": "{DOWA}",
-        "EEEE": "{DOW}",
+        "weekday_short": "{DOWA}",
+        "weekday_full": "{DOW}",
     },
     "en_US": {
         "full": "{DOW}, {MON} {DAY}, {YEAR}",
         "long": "{MON} {DAY}, {YEAR}",
         "medium": "{MONA} {DAY}, {YEAR}",
         "short": "{MONA} {DAY}, {YEAR}",  # CLDR uses M/d/yy but we keep names for consistency
-        "E": "{DOWA}",
-        "EEEE": "{DOW}",
+        "weekday_short": "{DOWA}",
+        "weekday_full": "{DOW}",
     },
     "de_DE": {
         "full": "{DOW}, {DAY}. {MON} {YEAR}",
         "long": "{DAY}. {MON} {YEAR}",
         "medium": "{DAY}. {MONA} {YEAR}",
         "short": "{DAY}.{MON}.{YEAR}",  # numeric-ish format
-        "E": "{DOWA}",
-        "EEEE": "{DOW}",
+        "weekday_short": "{DOWA}",
+        "weekday_full": "{DOW}",
     },
     "nl_NL": {
         "full": "{DOW} {DAY} {MON} {YEAR}",
         "long": "{DAY} {MON} {YEAR}",
         "medium": "{DAY} {MONA} {YEAR}",
         "short": "{DAY}-{MON}-{YEAR}",  # numeric-ish
-        "E": "{DOWA}",
-        "EEEE": "{DOW}",
+        "weekday_short": "{DOWA}",
+        "weekday_full": "{DOW}",
     },
     "pl_PL": {
         "full": "{DOW}, {DAY} {MON} {YEAR}",
         "long": "{DAY} {MON} {YEAR}",
         "medium": "{DAY} {MONA} {YEAR}",
         "short": "{DAY}.{MON}.{YEAR}",  # numeric-ish
-        "E": "{DOWA}",
-        "EEEE": "{DOW}",
+        "weekday_short": "{DOWA}",
+        "weekday_full": "{DOW}",
     },
     "fr_FR": {
         "full": "{DOW} {DAY} {MON} {YEAR}",
         "long": "{DAY} {MON} {YEAR}",
         "medium": "{DAY} {MONA} {YEAR}",
         "short": "{DAY}/{MON}/{YEAR}",  # numeric-ish
-        "E": "{DOWA}",
-        "EEEE": "{DOW}",
+        "weekday_short": "{DOWA}",
+        "weekday_full": "{DOW}",
     },
+}
+
+# A panel or hub stored before the rename keeps its weekday-only layout instead
+# of silently falling back to the strftime date format.
+LEGACY_PATTERN_NAMES = {
+    "E": "weekday_short",
+    "EEEE": "weekday_full",
 }
 
 # Day names indexed by Python weekday (0=Monday, 6=Sunday)
@@ -278,12 +288,25 @@ def get_month_name(locale: str, month: int, abbreviated: bool = False) -> str:
     return names[idx][month - 1]
 
 
+def normalize_pattern_name(babel_format: str) -> str:
+    """Return the current name of a locale date layout.
+
+    Args:
+        babel_format: A layout name such as "full", or one stored before the
+            weekday layouts became translation keys ("E", "EEEE")
+
+    Returns:
+        The layout's current name
+    """
+    return LEGACY_PATTERN_NAMES.get(babel_format, babel_format)
+
+
 def get_pattern(locale: str, babel_format: str) -> str | None:
-    """Return the token pattern for a given locale and Babel format name.
+    """Return the token pattern for a given locale and layout name.
 
     Args:
         locale: Locale string (e.g. "en_US", "de_DE")
-        babel_format: Babel format name (e.g. "full", "E", "EEEE")
+        babel_format: Layout name (e.g. "full", "weekday_short")
 
     Returns:
         Token pattern string, or None if format is not recognized
@@ -291,4 +314,4 @@ def get_pattern(locale: str, babel_format: str) -> str | None:
     patterns = LOCALE_PATTERNS.get(locale)
     if patterns is None:
         patterns = LOCALE_PATTERNS["en_US"]
-    return patterns.get(babel_format)
+    return patterns.get(normalize_pattern_name(babel_format))

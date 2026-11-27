@@ -4,7 +4,7 @@ import { t } from '../localize.js';
 import { deviceCard } from '../ui/device-card.js';
 import { deviceSlots } from '../ui/device-slot.js';
 import { deviceRow } from '../ui/device-row.js';
-import { fleetSummary } from '../ui/fleet-summary.js';
+import { fleetFacts, fleetSummary } from '../ui/fleet-summary.js';
 import { eventList, eventsFrom, eventsInLast24Hours, latestEvents } from '../ui/event-list.js';
 import { emptyState } from '../ui/empty-state.js';
 import { button, iconButton } from '../ui/button.js';
@@ -219,16 +219,13 @@ export function renderFleetView(data) {
   const latest = latestEvents(
     data.eventsSince != null ? eventsFrom(events, data.eventsSince) : eventsInLast24Hours(events),
   );
-  // The summary strip closes the inventory: it reads the fleet's health above the table,
-  // without repeating a column of it.
+  // The summary strip heads the inventory and reads the fleet's health above the table, without
+  // repeating a column of it; the figures that need acting on close the card under it.
   const inventory = html`<section class="haui-device-inventory" aria-labelledby="haui-inventory-heading">
     <div class="haui-inventory-overview">
       ${fleetSummary({
         total: data.devices.length,
         online,
-        updates,
-        version: data.version,
-        mixedVersions: data.versionMixed === true,
         heading: sectionHeading({
           title: t('Device inventory'),
           className: 'haui-section-heading haui-fleet-inventory-heading',
@@ -262,6 +259,14 @@ export function renderFleetView(data) {
         ...dragActions(item.name, '.haui-device-row'),
       }))}
     </div>
+    <footer class="haui-inventory-footer">
+      ${fleetFacts({
+        updates,
+        version: data.version,
+        mixedVersions: data.versionMixed === true,
+        pending: data.statusPending === true,
+      })}
+    </footer>
   </section>`;
 
   return html`<main class="haui-dashboard-content">

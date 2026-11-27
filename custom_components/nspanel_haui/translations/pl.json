@@ -35,6 +35,39 @@
       "description": "Hub {hub} nie ma włączonych urządzeń.\n\nWłącz co najmniej jedno urządzenie w edytorze NSPanel HAUI lub dodaj nowe urządzenie ESPHome z oprogramowaniem HAUI. Nowe urządzenia HAUI mogą być automatycznie dodawane do huba."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ustawienia huba",
+        "description": "Nazwa huba to nazwa, pod którą NSPanel HAUI pojawia się w Home Assistant. Poniższe formaty są wartościami domyślnymi dziedziczonymi przez każdy panel; ustawienia pojedynczego panelu pozostają w edytorze NSPanel HAUI.",
+        "data": {
+          "name": "Nazwa huba",
+          "time_format": "Domyślny format czasu",
+          "date_format": "Domyślny format daty",
+          "date_format_locale": "Domyślny układ daty zależny od języka"
+        },
+        "data_description": {
+          "date_format_locale": "Używany, gdy format daty panelu jest domyślny."
+        }
+      }
+    },
+    "error": {
+      "empty_name": "Nadaj hubowi nazwę.",
+      "invalid_format": "Użyj wzorca strftime z co najmniej jedną dyrektywą % (na przykład %H:%M)."
+    }
+  },
+  "selector": {
+    "date_format_locale": {
+      "options": {
+        "full": "Pełny",
+        "long": "Długi",
+        "medium": "Średni",
+        "short": "Krótki",
+        "weekday_short": "Dzień tygodnia (krótki)",
+        "weekday_full": "Dzień tygodnia (pełny)"
+      }
+    }
+  },
   "services": {
     "open_panel": {
       "name": "Otwórz panel",

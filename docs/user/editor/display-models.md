@@ -31,4 +31,4 @@ The setting controls:
 - **gestures**: the screen edges follow the selected model
 
 !!! note
-    The firmware is the same for all models. Only the display file (TFT) differs, and every release includes both.
+    The firmware is the same for all models. Only the display file (TFT) differs, and every release includes both. Each model has exactly one: the 921600 bps display link is part of that file, so there is no high-speed or normal-speed version to pick.

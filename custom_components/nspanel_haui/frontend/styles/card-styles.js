@@ -55,7 +55,7 @@ export const cardStyles = css`
   }
   .haui-card-status-name {
     min-width: 0;
-    font-size: var(--haui-text-label);
+    font-size: var(--haui-text-subtitle);
     font-weight: 500;
     overflow-wrap: anywhere;
   }

@@ -26,6 +26,7 @@ PLATFORMS: list[str] = ["notify", "update"]
 
 # Config helpers - moved to haui/device_config.py for single source of truth
 from .haui.device_config import (  # noqa: E402
+    apply_hub_options,
     apply_panel_store,
     populate_devices_from_store,
     validate_config,
@@ -37,6 +38,8 @@ def _build_config_dict(
     panels: Mapping[str, Any] | None = None,
     *,
     device_name: str = "",
+    hub_name: str = "",
+    hub_options: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the combined config dict from three independent layers.
 
@@ -46,6 +49,10 @@ def _build_config_dict(
     - ``device_name``: which device in ``data["devices"]`` this config is for.
       When provided, only that device is included and panel store data is
       scoped to it.
+    - ``hub_name``: the hub's current name (the config entry's title), which
+      supersedes the name the entry was created with.
+    - ``hub_options``: the config entry's options; its display defaults overlay
+      the root keys every panel inherits when its own value is empty.
     """
     from .haui.device_config import (
         DEVICE_CONFIG,
@@ -58,8 +65,9 @@ def _build_config_dict(
     from .hub.storage import migrate_device_config_keys
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
+    apply_hub_options(cfg, hub_options)
 
-    cfg["device"]["name"] = device_name or data.get("name", "")
+    cfg["device"]["name"] = device_name or hub_name or data.get("name", "")
 
     devices = data.get("devices", [])
     if devices:
@@ -181,12 +189,15 @@ async def _create_app(
     data: dict[str, Any],
     panels: dict[str, Any] | None,
     dev_name: str,
+    hub_options: Mapping[str, Any] | None = None,
 ) -> NSPanelHAUI:
     """Build the device config and initialize its app on its own worker."""
     from .hub.app import NSPanelHAUI
     from .hub.esphome_helpers import resolve_ha_device_id
 
-    cfg = _build_config_dict(data, panels, device_name=dev_name)
+    cfg = _build_config_dict(
+        data, panels, device_name=dev_name, hub_name=name, hub_options=hub_options
+    )
     ha_device_id = resolve_ha_device_id(hass, dev_name)
     app = NSPanelHAUI(
         hass,
@@ -399,7 +410,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from .hub.storage import PanelStorage
 
     hass.data.setdefault(DOMAIN, {})
-    name: str = entry.data["name"]
+    # The title is the hub's name: the options flow renames the hub there, so
+    # the name the entry was created with is only a fallback.
+    name: str = entry.title or entry.data.get("name", "")
 
     panels: dict[str, Any] | None
     try:
@@ -423,7 +436,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     for device_name in enabled_device_names(data, panels):
         try:
-            apps[device_name] = await _create_app(hass, name, data, panels, device_name)
+            apps[device_name] = await _create_app(
+                hass, name, data, panels, device_name, hub_options=entry.options
+            )
         except Exception as exc:
             _LOGGER.exception(
                 "NSPanel HAUI '%s': failed to start device '%s'",

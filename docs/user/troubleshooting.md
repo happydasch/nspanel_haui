@@ -96,6 +96,12 @@ The hub itself holds every display command while an install is in flight, so a p
 
 **Fix:** read the reason in the **Updates** sidebar or the failure message. If it names an install that is still running, wait for it; if the panel never finishes, power-cycle it and install again. Firmware from this release reports a failed upload within seconds; older firmware only reports through the timeout.
 
+### Use Repair display when no upload finishes
+
+Open the Device screen, press **Updates** below the side cards, and press **Repair display** under the installed versions. It installs a small repair screen for your display model and then the display file this firmware needs, in one go — the recovery for a display that no longer takes the full 11 MB file ([Repair display](editor/device.md#repair-display)).
+
+The button is only offered when the release you follow ships a repair screen for your display model. If yours does not, install the `.tft` by hand: **Install** on the **Display (TFT)** row, then **From URL** or **From local file**.
+
 ### "Reading from UART timed out at byte 0!" or "Upgrade response is 0"
 
 **Fix:** upload the display file with the Nextion Editor over a cable. Connect the display to 5V, GND, TF-TX and TF-RX; [blakadder's NSPanel teardown guide](https://blakadder.com/nspanel-teardown/) shows the connections. After one successful upload this way, updates through the hub work again.

@@ -43,6 +43,7 @@ import { addButton } from './ui/button.js';
 import { emptyState } from './ui/empty-state.js';
 import { segmented } from './ui/segmented.js';
 import { stateRowsToMap, stateValues } from './ui/state-values.js';
+import { startHandleDrag } from './ui/drag-handle.js';
 
 /* ── values per state ───────────────────────────────────────────────── */
 
@@ -259,7 +260,8 @@ export function renderItemListRow(host, item, actions, drag = null) {
       @dragstart=${startDrag ?? nothing} @dragend=${endDrag ?? nothing}
       @dragover=${allowDrop ?? nothing} @dragleave=${leaveDrop ?? nothing} @drop=${acceptDrop ?? nothing}>
       ${drag
-        ? html`<span class="haui-item-row-grip" role="img" aria-label=${gripLabel} title=${gripLabel}>
+        ? html`<span class="haui-item-row-grip" role="img" aria-label=${gripLabel} title=${gripLabel}
+            data-drag-handle @pointerdown=${startHandleDrag}>
             <ha-icon icon="mdi:drag" aria-hidden="true"></ha-icon>
           </span>`
         : ''}

@@ -210,6 +210,7 @@ _PROTECTED = [
     (api.DeviceUpdateTftView, "post", {"entry_id": "entry1"}),
     (api.DeviceTftReleasesView, "get", {"entry_id": "entry1"}),
     (api.DeviceUpdateFirmwareView, "post", {"entry_id": "entry1"}),
+    (api.DeviceRepairDisplayView, "post", {"entry_id": "entry1"}),
     (api.DeviceFirmwareReleasesView, "get", {"entry_id": "entry1"}),
 ]
 
@@ -1499,6 +1500,8 @@ class _WorkerApp:
 
     def __init__(self):
         self.calls: list[str] = []
+        # What the display repair answers; the view refuses an error state.
+        self.repair_answer: dict = {"state": "installing", "repair_available": True}
 
     def reload_config(self, cfg):
         self.calls.append("reload_config")
@@ -1548,6 +1551,13 @@ class _WorkerApp:
 
     async def async_install_firmware(self, version=None, url=None):
         return await self.async_run_on_worker(self.install_firmware, version, url)
+
+    def repair_display(self):
+        self.calls.append("repair_display")
+        return self.repair_answer
+
+    async def async_repair_display(self):
+        return await self.async_run_on_worker(self.repair_display)
 
     def submit_off_worker(self, fn, *args, on_done=None):
         try:
@@ -2823,3 +2833,49 @@ def test_a_settings_save_refuses_a_bad_retry_interval(monkeypatch):
 
     assert result["status_code"] == 400
     assert saved == []
+
+
+def test_display_repair_runs_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceRepairDisplayView().post(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", "repair_display"]
+    assert result["body"]["devices_updated"] == ["kitchen"]
+    assert result["body"]["update"]["state"] == "installing"
+
+
+def test_display_repair_needs_a_single_device():
+    """The repair rewrites one display; a blank device addresses no panel."""
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={})
+
+    result = asyncio.run(api.DeviceRepairDisplayView().post(request, entry_id="entry1"))
+
+    assert result["status_code"] == 400
+    assert "single device" in result["body"]["message"]
+    assert app.calls == []
+
+
+def test_display_repair_reports_the_controllers_reason():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    app.repair_answer = {
+        "state": "error",
+        "last_error": "The firmware manifest ships no repair TFT for this display model",
+    }
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceRepairDisplayView().post(request, entry_id="entry1"))
+
+    assert result["status_code"] == 502
+    assert "no repair TFT" in result["body"]["message"]

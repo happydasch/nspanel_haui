@@ -83,6 +83,7 @@ These hold today; changing one is an architecture decision, not a refactor.
 - **The fleet is the unit of design.** Updates, backups and rollouts are fleet-wide concerns, not per-device afterthoughts.
 - **Home Assistant's own vocabulary.** States, attributes, device classes, units and translations come from Home Assistant; the integration translates, it does not reinterpret.
 - **Recoverable by default.** No step may leave a device in a state only a serial flash can fix, unless the editor documents it and reaches it.
+- **One display build per model.** A release ships one TFT per orientation — the layout and the 921600 bps display link in the same file — so there is no high-speed or normal-speed variant to choose between or keep in sync.
 
 ## Running a development instance
 

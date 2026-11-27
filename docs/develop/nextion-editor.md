@@ -175,6 +175,7 @@ The portrait spec follows these layout rules:
 - `gen_layout.py --check` verifies landscape; `gen_layout.py --spec portrait --check` verifies portrait and enforces sibling parity, meaning the same widgets with an identical `Send Component ID`.
 - There is one definition of components: the `COMPONENTS` registries address both TFTs with the same names and ids.
 - Both `.tft` files ship on every release. The update controller downloads `nspanel_haui.tft` for `display_model: eu` and `nspanel_haui_portrait.tft` for `display_model: us` ([Display Models](../user/editor/display-models.md)).
+- One TFT per display model: those two files are the display builds, and the 921600 bps link is set in `Program.s` inside each, so there is no separate high-speed or normal-speed artifact to compile, keep in sync or install; an older TFT keeps a panel at its own rate until the display update replaces the file ([display baud](nextion.md#display-baud)).
 
 ### Portrait caveats
 

@@ -125,8 +125,10 @@ test('the summary strip reports fleet health above the inventory table', () => {
   assert.ok(inventory);
   const overview = inventory.querySelector('.haui-inventory-overview');
   const table = inventory.querySelector('.haui-device-table');
+  const footer = inventory.querySelector('.haui-inventory-footer');
   const summary = inventory.querySelector('.haui-fleet-summary');
-  assert.ok(overview && table && overview.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.ok(overview && table && footer && overview.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.ok(table.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary && overview.contains(summary));
   const orb = summary?.querySelector('.haui-fleet-orb');
   const heading = summary?.querySelector('#haui-inventory-heading');
@@ -141,14 +143,15 @@ test('the summary strip reports fleet health above the inventory table', () => {
   assert.equal(heading.closest('.haui-fleet-inventory-heading')?.parentElement, count.parentElement);
   assert.ok(lead.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING);
   assert.ok(summary?.querySelector('.haui-inventory-update'));
-  // The figures name themselves and take a tone from the data: nothing waiting reads healthy,
-  // a pending update warns, and so does a fleet on mixed integration versions.
-  const figureText = (root2) => [...root2.querySelectorAll('.haui-fleet-fact')].map((figure) => [
+  // The figures close the card under the table, not in its header, and take a tone from the data:
+  // nothing waiting reads healthy, a pending update warns, and so does a fleet on mixed versions.
+  assert.equal(summary.querySelector('.haui-fleet-fact'), null);
+  const figureText = (root2) => [...root2.querySelectorAll('.haui-inventory-footer .haui-fleet-fact')].map((figure) => [
     figure.querySelector('.haui-fleet-fact-label').textContent,
     figure.querySelector('.haui-fleet-fact-value').textContent,
     figure.className,
   ]);
-  assert.deepEqual(figureText(summary), [
+  assert.deepEqual(figureText(allOnline), [
     ['Updates', '0', 'haui-fleet-fact is-good'],
     ['Integration version', '0.5.0', 'haui-fleet-fact is-neutral'],
   ]);
@@ -163,8 +166,8 @@ test('the summary strip reports fleet health above the inventory table', () => {
   }));
   assert.deepEqual(figureText(waiting).map(([, , tone]) => tone),
     ['haui-fleet-fact is-warn', 'haui-fleet-fact is-warn']);
-  // The table closes the card under the summary strip.
-  assert.equal(inventory.lastElementChild, table);
+  // The footer closes the card under the table.
+  assert.equal(inventory.lastElementChild, footer);
   assert.match(summary.textContent, /All devices connected/);
 
   const partial = render(renderFleetView({

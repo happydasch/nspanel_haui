@@ -113,13 +113,14 @@ function resetLabel(since) {
 
 /**
  * Render the latest real device log entries as a timeline. The header's first line
- * carries the title and, at its end, the quiet actions; the second line opens with
- * what the list is scoped to — `deviceName`, or the whole fleet (**All devices**)
- * while nothing is selected — so a long device name has the row to itself, and
- * closes with the window the list covers (**Last 24 hours**, or **Since 14:32**
- * after a reset), where the actions used to sit. `since` replaces the default 24
- * hours with everything from that moment on (a reset), and the header offers
- * **Reset** (start again from now) plus, while reset, the way back to 24 hours.
+ * carries the title with its count; the second line opens with what the list is
+ * scoped to — `deviceName`, or the whole fleet (**All devices**) while nothing is
+ * selected — so a long device name has the row to itself, and closes with the
+ * window the list covers (**Last 24 hours**, or **Since 14:32** after a reset).
+ * The quiet actions close the card in a footer under the timeline, where they stay
+ * at hand however long the list grows. `since` replaces the default 24 hours with
+ * everything from that moment on (a reset), and the footer offers **Reset** (start
+ * again from now) plus, while reset, the way back to 24 hours.
  *
  * @param {{ events: Array<{ line: string, deviceName?: string, count?: number }>, deviceName?: string|null,
  *   since?: number|null, onOpenLogs?: () => void, onReset?: () => void, onShowWindow?: () => void }} data
@@ -128,10 +129,10 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
   const windowLabel = since !== null
     ? t('Since {time}').replace('{time}', resetLabel(since))
     : t('Last 24 hours');
-  // The header's first line: the title and the count, then the quiet actions at its end — three of
-  // them never squeeze the title into a column of a few characters.
-  const actions = html`<div class="haui-event-actions">
-    ${since !== null && onShowWindow ? button({
+  // The footer's actions, in the order a reset undoes what the user set.
+  const canRestore = since !== null && onShowWindow;
+  const actions = html`
+    ${canRestore ? button({
       label: t('Last 24 hours'), variant: 'quiet', className: 'haui-event-restore',
       title: t('Show the last 24 hours again'), onClick: onShowWindow,
     }) : nothing}
@@ -141,11 +142,14 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
     }) : nothing}
     ${onOpenLogs ? button({
       label: t('Logs'), variant: 'quiet', className: 'haui-event-logs', onClick: onOpenLogs,
-    }) : nothing}
-  </div>`;
+    }) : nothing}`;
+  // A list nobody gave an action to keeps no empty band; the footer is only the controls'.
+  const footer = canRestore || onReset || onOpenLogs
+    ? html`<footer class="haui-event-footer">${actions}</footer>`
+    : nothing;
   // The second line: what the list is scoped to — the device, or the whole fleet when nothing is
-  // selected — and, at its end where the actions sat, the window the list covers. The scope opens
-  // the line, so a long device name has the room to truncate instead of pushing the window out.
+  // selected — and, at its end, the window the list covers. The scope opens the line, so a long
+  // device name has the room to truncate instead of pushing the window out.
   const scope = html`<span class="haui-event-scope${deviceName ? '' : ' is-all'}">${
     deviceName || t('All devices')}</span>`;
   return html`<section class="haui-event-list">
@@ -153,7 +157,6 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
       title: t('Latest events'),
       className: 'haui-section-heading',
       badge: events.length ? countBadge(events.length) : nothing,
-      actions,
     })}<div class="haui-event-bar">${scope}<p class="haui-event-window">${windowLabel}</p></div>
     </header>
     ${events.length ? html`<ol role="list" tabindex="0" aria-label=${t('Latest events')}>
@@ -177,5 +180,6 @@ export function eventList({ events, deviceName, since = null, onOpenLogs, onRese
       title: since !== null ? t('No events since the reset') : t('No events yet'),
       iconName: 'check', className: 'haui-empty-state-horizontal',
     })}
+    ${footer}
   </section>`;
 }

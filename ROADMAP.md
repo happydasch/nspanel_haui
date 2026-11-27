@@ -25,6 +25,17 @@ in development, v0.6 next, then reaching a stable v1.0.
 | **Next — v0.6** | Content and everyday use | The panels people keep asking for but do not have (a fan, a graph, free text) and the small options that decide whether a panel feels finished. |
 | **v1.0 — stable** | Trust | Bugs closed, documentation complete, listed in the Marketplace catalog, REST API documented and frozen. |
 
+## One TFT per display model
+
+A release carries one display file per model, landscape and portrait, and a panel
+installs the one its **Display Model** names. A faster link is not a second
+artifact: the 921600 bps rate is set in `Program.s` inside that single TFT, the
+firmware starts its UART at the same rate and scans down only for an older or
+stock one, and a display that cannot hold a transfer at 921600 gets the same
+install once more at 115200 bps. The earlier plan for separate high-speed and
+normal-speed TFTs is dropped — a speed variant would double every display build
+and every install for a link the one file already sets.
+
 ## Release gates
 
 Every stable release passes the CI jobs (`tests (3.14)`, `frontend`, `esphome`,

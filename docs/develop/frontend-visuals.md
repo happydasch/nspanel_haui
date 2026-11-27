@@ -33,7 +33,7 @@ The editor draws with Home Assistant's live theme variables and their legacy ali
 | 870px | Toolbar spacing |
 | 720px | Less row and card detail, stacked role controls |
 | 600px | A sidebar becomes a full-screen page |
-| 560px | Compact Fleet facts, no inventory heading or TFT column; the Device side actions become one row of tiles |
+| 560px | No inventory health sentence, no footer glyphs and no TFT column; the Device side actions become one row of tiles |
 
 Elements that follow their own width declare their own containers (`haui-workspace`, `haui-panel-info`, `haui-action-card`); anchored popovers float at every width, clamped to the viewport. The panel is registered with `handle_safe_area`, so the title header takes the top inset and the editor host the side and bottom insets.
 

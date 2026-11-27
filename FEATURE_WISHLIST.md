@@ -385,6 +385,11 @@ These are covered today; the linked docs show how.
 - **Themes** with light/dark icon palettes, a shared library and per-panel themes.
 - **Schedules**, **gestures**, the **idle page** with carousel, **snapshot
   restore** and **auto-navigate home** — [Device settings](docs/user/editor/device.md).
+- **A fast display link, without a second TFT** — every released TFT boots the
+  Nextion at 921600 bps and the firmware starts its UART there, so there is no
+  faster build to install and no slow one to replace: one file per display model
+  carries the rate, and a fallback to 115200 bps is the same file installed
+  again, not a different one.
 - **Local relay toggling without Home Assistant**, encrypted OTA, TFT retry on
   upload, per-device update channels and one-at-a-time fleet rollouts.
 - **Custom RTTTL melodies** through the firmware's `play_rtttl` action.

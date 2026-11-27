@@ -4,6 +4,10 @@
 The version is overwritten in place, so its length must not change; a longer or
 shorter version needs the Nextion Editor. Only active page blocks are edited.
 
+A successful run also regenerates the virtual layouts the editor's live preview
+reads, because they carry the ``tftVersion`` text as a widget attribute: skipping
+that leaves them stale and ``tests/test_virtual_layout.py`` fails.
+
 Usage:
     python -m scripts.bump_tft_version [--version X.Y.Z] [--check] [--hmi PATH]
 """
@@ -14,6 +18,7 @@ import argparse
 import json
 import re
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -25,6 +30,7 @@ DEFAULT_HMIS = (
     ROOT / "nextion" / "nspanel_haui.HMI",
     ROOT / "nextion" / "nspanel_haui_portrait.HMI",
 )
+VIRTUAL_LAYOUT_GENERATOR = "scripts.hmi_layout.gen_virtual_layout"
 
 TARGET_WIDGET = "tftVersion"
 TARGET_PAGE = "system"
@@ -165,6 +171,28 @@ def bump_hmi(path: Path, version: str, check: bool = False) -> tuple[bool, str]:
     return True, f"{path.name}: set {TARGET_WIDGET}.{TXT_NAME} {current!r} -> {version!r}"
 
 
+def regenerate_virtual_layouts() -> tuple[bool, str]:
+    """Rewrite the virtual layouts that carry the HMIs' widget texts.
+
+    Runs the generator as a subprocess, because it installs the ``homeassistant``
+    stubs for itself.
+
+    Returns:
+        ``(ok, message)``; ``ok`` is False when the generator reports a problem.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", VIRTUAL_LAYOUT_GENERATOR],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return True, "regenerated the virtual layouts"
+    detail = " ".join((result.stderr or result.stdout).split())
+    return False, f"the virtual layouts could not be regenerated: {detail}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument(
@@ -208,6 +236,12 @@ def main(argv: list[str] | None = None) -> int:
         print(("[OK] " if ok else "[FAIL] ") + message)
         if not ok:
             failed = True
+    # A custom --hmi is not what the layouts under frontend/virtual are exported from,
+    # and --check writes nothing, so only a write over both release HMIs refreshes them.
+    if not failed and not args.check and args.hmi is None:
+        ok, message = regenerate_virtual_layouts()
+        print(("[OK] " if ok else "[FAIL] ") + message)
+        failed = not ok
     return 1 if failed else 0
 
 

@@ -66,7 +66,7 @@ Semantic Versioning, and every version string the tooling writes must parse as P
 - `scripts/bump_version.py --check` (`make version-check`) fails on drift between these files. Never edit a version file by hand.
 - Never push a tag to test firmware. Every `v*` tag becomes the *latest* release, which every panel with `firmware_auto_update` follows; test a build by dispatching **Development Firmware** and following it with a **Custom manifest URL** or the **Development** channel instead.
 
-A TFT change that lands under no release needs its own bump before the next build, because a panel never installs an image whose version it already reports: run `python -m scripts.bump_tft_version --version X.Y.Z` (same-length versions only), set `tft_version` to the same value, recompile both TFTs in the Nextion Editor, and commit HMI, TFT and `version.yaml` together.
+A TFT change that lands under no release needs its own bump before the next build, because a panel never installs an image whose version it already reports: run `python -m scripts.bump_tft_version --version X.Y.Z` (same-length versions only), set `tft_version` to the same value, recompile both TFTs in the Nextion Editor, and commit HMI, TFT and `version.yaml` together. The run also rewrites the virtual layouts under `frontend/virtual/`, which carry the `tftVersion` text as a widget attribute — commit those with it.
 
 ## Published development firmware
 

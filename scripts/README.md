@@ -65,7 +65,7 @@ with `ZiLib.dll` for the Nextion font generator.
 | `translations/extract_translations.py` | Extract `t()`/`translate()`/`_()` strings and sync `haui/locale/*.json` |
 | `translations/merge_translations.py` | Merge a completed `translate.json` batch back into the locales |
 | `bump_version.py` | Bump the integration, firmware and TFT versions everywhere |
-| `bump_tft_version.py` | Set `system.tftVersion` in both HMIs and re-stamp the pages |
+| `bump_tft_version.py` | Set `system.tftVersion` in both HMIs, re-stamp the pages and regenerate the virtual layouts |
 | `dev_release.py` | Write a local OTA image and firmware manifest for testing hub updates |
 | `release/dev_version.py` | CI helper: derive a development build's version; writes nothing |
 | `release/compile_firmware.sh` | CI helper: compile the universal firmware and copy both images |

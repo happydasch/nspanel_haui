@@ -77,7 +77,7 @@ If the HMI page `clock` has widget `tTime` with id `3`, Python has `t_time=Compo
 - **Keep behaviour in the hub.** Layout and visuals live in the HMI; state reads, commands and navigation live in `haui/page/*.py`. HMI event code beyond `sendme` is the exception.
 - **Both HMIs carry the same widgets.** Same names, ids, order and event code in both projects: a widget present in one HMI only breaks that TFT silently at runtime, and `make hmi-check` is what proves the parity.
 - **Respect the visible area.** Landscape is 480 × 320 px but the bezel hides the rightmost 30 px: keep interactive content left of x 450 ([dimensions](nextion.md#dimensions-and-non-visible-area)).
-- **The TFT version lives in the HMI too.** `system.tftVersion` in both HMIs must equal `tft_version` in `esphome/nspanel_haui/version.yaml` — the TFT version can differ from the firmware version — and `python -m scripts.bump_tft_version` writes it.
+- **The TFT version lives in the HMI too.** `system.tftVersion` in both HMIs must equal `tft_version` in `esphome/nspanel_haui/version.yaml` — the TFT version can differ from the firmware version — and `python -m scripts.bump_tft_version` writes it. That text is a widget attribute, so the same run rewrites `frontend/virtual/layout_<orientation>.json`; never edit the layouts to carry a version by hand.
 
 ## Changing an existing widget
 

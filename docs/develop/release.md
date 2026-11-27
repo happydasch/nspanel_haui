@@ -154,10 +154,10 @@ make esphome-config     # CONFIG defaults to esphome/nspanel_haui_universal.yaml
 
 ```bash
 git switch dev && git pull
-git switch -c release/0.5.6
-python -m scripts.bump_version 0.5.6                      # firmware-only release
-python -m scripts.bump_version 0.5.6 --tft-update         # release with a new TFT
-python -m scripts.bump_version 0.5.6 --check --tft-update # dry run
+git switch -c release/0.5.7
+python -m scripts.bump_version 0.5.7                      # firmware-only release
+python -m scripts.bump_version 0.5.7 --tft-update         # release with a new TFT
+python -m scripts.bump_version 0.5.7 --check --tft-update # dry run
 ```
 
 Every run updates `manifest.json`, `pyproject.toml` and `yaml_version`; only `--tft-update` also writes ESPHome `tft_version` and both HMI `system.tftVersion` values, which is legal only for a same-length version — a length-changing bump needs the Nextion Editor. Recompile both TFTs after `--tft-update`. Merge the prep branch into `dev` (`gh pr create --base dev`, merge commit) so the promotion carries the bump.
@@ -199,8 +199,8 @@ Then tag the merge commit from a checkout of the canonical repository:
 
 ```bash
 git switch master && git pull
-git tag -a v0.5.6 -m "NSPanel HAUI 0.5.6"
-git push origin v0.5.6
+git tag -a v0.5.7 -m "NSPanel HAUI 0.5.7"
+git push origin v0.5.7
 ```
 
 `release.yml` refuses a `v*` tag whose commit is not on `master`, so a tag pushed to a development commit fails its preflight instead of publishing.

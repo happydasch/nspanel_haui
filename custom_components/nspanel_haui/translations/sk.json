@@ -217,26 +217,68 @@
       "name": "Zobraziť obrázok",
       "description": "Nakresli obrázok do obdĺžnika na stránke, ktorú panel práve zobrazuje. Obrázok sa poskladá z niekoľko stoviek obdĺžnikov v 65 536 farbách displeja, kreslí sa približne pol sekundy a zmizne pri ďalšej zmene stránky. Vhodné pre logá, ikony a grafiku; fotografia na celú obrazovku sa zmení na mozaiku.",
       "fields": {
-        "device": "Zariadenie NSPanel, na ktoré sa má kresliť. Ak nie je uvedené, platí pre všetky zariadenia.",
-        "url": "http(s) adresa obrázka (PNG, JPEG, GIF, BMP, WebP). Nemožno kombinovať s cestou.",
-        "path": "Obrázok ako súbor v priečinku \"www\" konfigurácie Home Assistant, napríklad \"logo.png\" pre \"www/logo.png\". Nemožno kombinovať s URL.",
-        "x": "Ľavý okraj obdĺžnika v pixeloch obrazovky.",
-        "y": "Horný okraj obdĺžnika v pixeloch obrazovky.",
-        "w": "Šírka obdĺžnika v pixeloch obrazovky.",
-        "h": "Výška obdĺžnika v pixeloch obrazovky.",
-        "progressive": "Najprv nakresliť hrubú verziu, aby sa obrázok objavil takmer okamžite a potom sa zostril.",
-        "quality": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až približne 1,5 s), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
+        "device": {
+          "name": "Zariadenie",
+          "description": "Zariadenie NSPanel, na ktoré sa má kresliť. Ak nie je uvedené, platí pre všetky zariadenia."
+        },
+        "url": {
+          "name": "URL",
+          "description": "http(s) adresa obrázka (PNG, JPEG, GIF, BMP, WebP). Nemožno kombinovať s cestou."
+        },
+        "path": {
+          "name": "Cesta",
+          "description": "Obrázok ako súbor v priečinku \"www\" konfigurácie Home Assistant, napríklad \"logo.png\" pre \"www/logo.png\". Nemožno kombinovať s URL."
+        },
+        "x": {
+          "name": "X",
+          "description": "Ľavý okraj obdĺžnika v pixeloch obrazovky."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Horný okraj obdĺžnika v pixeloch obrazovky."
+        },
+        "w": {
+          "name": "Šírka",
+          "description": "Šírka obdĺžnika v pixeloch obrazovky."
+        },
+        "h": {
+          "name": "Výška",
+          "description": "Výška obdĺžnika v pixeloch obrazovky."
+        },
+        "progressive": {
+          "name": "Progresívne",
+          "description": "Najprv nakresliť hrubú verziu, aby sa obrázok objavil takmer okamžite a potom sa zostril."
+        },
+        "quality": {
+          "name": "Kvalita",
+          "description": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až približne 1,5 s), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
+        }
       }
     },
     "clear_image": {
       "name": "Vymazať obrázok",
       "description": "Premalovať obdĺžnik farbou pozadia zobrazenej stránky. Iba jednolista farba: na stránke s obrázkovým pozadím zostane obdĺžnik blokom — namiesto toho zmeňte stránku.",
       "fields": {
-        "device": "Zariadenie NSPanel, ktorého obdĺžnik sa má vymazať. Ak nie je uvedené, platí pre všetky zariadenia.",
-        "x": "Ľavý okraj obdĺžnika v pixeloch obrazovky.",
-        "y": "Horný okraj obdĺžnika v pixeloch obrazovky.",
-        "w": "Šírka obdĺžnika v pixeloch obrazovky.",
-        "h": "Výška obdĺžnika v pixeloch obrazovky."
+        "device": {
+          "name": "Zariadenie",
+          "description": "Zariadenie NSPanel, ktorého obdĺžnik sa má vymazať. Ak nie je uvedené, platí pre všetky zariadenia."
+        },
+        "x": {
+          "name": "X",
+          "description": "Ľavý okraj obdĺžnika v pixeloch obrazovky."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Horný okraj obdĺžnika v pixeloch obrazovky."
+        },
+        "w": {
+          "name": "Šírka",
+          "description": "Šírka obdĺžnika v pixeloch obrazovky."
+        },
+        "h": {
+          "name": "Výška",
+          "description": "Výška obdĺžnika v pixeloch obrazovky."
+        }
       }
     }
   }

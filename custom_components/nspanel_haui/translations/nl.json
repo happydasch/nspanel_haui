@@ -217,26 +217,68 @@
       "name": "Afbeelding tonen",
       "description": "Teken een afbeelding in een rechthoek op de pagina die het paneel toont. De afbeelding wordt opgebouwd uit een paar honderd rechthoeken in de 65 536 kleuren van het scherm, in ongeveer een halve seconde getekend, en verdwijnt bij de volgende paginawissel. Geschikt voor logo's, pictogrammen en grafieken; een foto over het hele scherm wordt een mozaïek.",
       "fields": {
-        "device": "NSPanel-apparaat om op te tekenen. Als het weggelaten wordt, geldt het voor alle apparaten.",
-        "url": "http(s)-URL van de afbeelding (PNG, JPEG, GIF, BMP, WebP). Kan niet met Pad worden gecombineerd.",
-        "path": "De afbeelding als bestand in de map \"www\" van de Home Assistant-configuratie, bijvoorbeeld \"logo.png\" voor \"www/logo.png\". Kan niet met URL worden gecombineerd.",
-        "x": "Linkerrand van de rechthoek, in beeldpunten van het scherm.",
-        "y": "Bovenrand van de rechthoek, in beeldpunten van het scherm.",
-        "w": "Breedte van de rechthoek, in beeldpunten van het scherm.",
-        "h": "Hoogte van de rechthoek, in beeldpunten van het scherm.",
-        "progressive": "Eerst een grove versie tekenen, zodat de afbeelding bijna meteen verschijnt en daarna scherper wordt.",
-        "quality": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot ongeveer 1,5 s), in een kleine rechthoek tot één rechthoek per beeldpunt."
+        "device": {
+          "name": "Apparaat",
+          "description": "NSPanel-apparaat om op te tekenen. Als het weggelaten wordt, geldt het voor alle apparaten."
+        },
+        "url": {
+          "name": "URL",
+          "description": "http(s)-URL van de afbeelding (PNG, JPEG, GIF, BMP, WebP). Kan niet met Pad worden gecombineerd."
+        },
+        "path": {
+          "name": "Pad",
+          "description": "De afbeelding als bestand in de map \"www\" van de Home Assistant-configuratie, bijvoorbeeld \"logo.png\" voor \"www/logo.png\". Kan niet met URL worden gecombineerd."
+        },
+        "x": {
+          "name": "X",
+          "description": "Linkerrand van de rechthoek, in beeldpunten van het scherm."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Bovenrand van de rechthoek, in beeldpunten van het scherm."
+        },
+        "w": {
+          "name": "Breedte",
+          "description": "Breedte van de rechthoek, in beeldpunten van het scherm."
+        },
+        "h": {
+          "name": "Hoogte",
+          "description": "Hoogte van de rechthoek, in beeldpunten van het scherm."
+        },
+        "progressive": {
+          "name": "Progressief",
+          "description": "Eerst een grove versie tekenen, zodat de afbeelding bijna meteen verschijnt en daarna scherper wordt."
+        },
+        "quality": {
+          "name": "Kwaliteit",
+          "description": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot ongeveer 1,5 s), in een kleine rechthoek tot één rechthoek per beeldpunt."
+        }
       }
     },
     "clear_image": {
       "name": "Afbeelding wissen",
       "description": "Schilder een rechthoek terug in de achtergrondkleur van de getoonde pagina. Alleen een effen kleur: op een pagina met een afbeelding als achtergrond blijft de rechthoek een blok — wissel liever van pagina.",
       "fields": {
-        "device": "NSPanel-apparaat waarvan de rechthoek gewist wordt. Als het weggelaten wordt, geldt het voor alle apparaten.",
-        "x": "Linkerrand van de rechthoek, in beeldpunten van het scherm.",
-        "y": "Bovenrand van de rechthoek, in beeldpunten van het scherm.",
-        "w": "Breedte van de rechthoek, in beeldpunten van het scherm.",
-        "h": "Hoogte van de rechthoek, in beeldpunten van het scherm."
+        "device": {
+          "name": "Apparaat",
+          "description": "NSPanel-apparaat waarvan de rechthoek gewist wordt. Als het weggelaten wordt, geldt het voor alle apparaten."
+        },
+        "x": {
+          "name": "X",
+          "description": "Linkerrand van de rechthoek, in beeldpunten van het scherm."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Bovenrand van de rechthoek, in beeldpunten van het scherm."
+        },
+        "w": {
+          "name": "Breedte",
+          "description": "Breedte van de rechthoek, in beeldpunten van het scherm."
+        },
+        "h": {
+          "name": "Hoogte",
+          "description": "Hoogte van de rechthoek, in beeldpunten van het scherm."
+        }
       }
     }
   }

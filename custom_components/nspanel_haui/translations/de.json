@@ -217,26 +217,68 @@
       "name": "Bild anzeigen",
       "description": "Ein Bild in ein Rechteck auf der gerade angezeigten Seite zeichnen. Das Bild wird aus wenigen hundert Rechtecken in den 65 536 Farben des Displays aufgebaut, in etwa einer halben Sekunde gezeichnet, und verschwindet beim nächsten Seitenwechsel. Ideal für Logos, Symbole und Grafiken; ein ganzseitiges Foto wird zum Mosaik.",
       "fields": {
-        "device": "NSPanel-Gerät, auf dem gezeichnet wird. Wenn nicht angegeben, gilt für alle Geräte.",
-        "url": "http(s)-URL des Bildes (PNG, JPEG, GIF, BMP, WebP). Nicht mit Pfad kombinierbar.",
-        "path": "Das Bild als Datei im Ordner \"www\" der Home-Assistant-Konfiguration, zum Beispiel \"logo.png\" für \"www/logo.png\". Nicht mit URL kombinierbar.",
-        "x": "Linke Kante des Rechtecks in Display-Pixeln.",
-        "y": "Obere Kante des Rechtecks in Display-Pixeln.",
-        "w": "Breite des Rechtecks in Display-Pixeln.",
-        "h": "Höhe des Rechtecks in Display-Pixeln.",
-        "progressive": "Zuerst eine grobe Fassung zeichnen, damit das Bild fast sofort erscheint und danach schärfer wird.",
-        "quality": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis etwa 1,5 s), in einem kleinen Rechteck bis zu einem Rechteck pro Display-Pixel."
+        "device": {
+          "name": "Gerät",
+          "description": "NSPanel-Gerät, auf dem gezeichnet wird. Wenn nicht angegeben, gilt für alle Geräte."
+        },
+        "url": {
+          "name": "URL",
+          "description": "http(s)-URL des Bildes (PNG, JPEG, GIF, BMP, WebP). Nicht mit Pfad kombinierbar."
+        },
+        "path": {
+          "name": "Pfad",
+          "description": "Das Bild als Datei im Ordner \"www\" der Home-Assistant-Konfiguration, zum Beispiel \"logo.png\" für \"www/logo.png\". Nicht mit URL kombinierbar."
+        },
+        "x": {
+          "name": "X",
+          "description": "Linke Kante des Rechtecks in Display-Pixeln."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Obere Kante des Rechtecks in Display-Pixeln."
+        },
+        "w": {
+          "name": "Breite",
+          "description": "Breite des Rechtecks in Display-Pixeln."
+        },
+        "h": {
+          "name": "Höhe",
+          "description": "Höhe des Rechtecks in Display-Pixeln."
+        },
+        "progressive": {
+          "name": "Progressiv",
+          "description": "Zuerst eine grobe Fassung zeichnen, damit das Bild fast sofort erscheint und danach schärfer wird."
+        },
+        "quality": {
+          "name": "Qualität",
+          "description": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis etwa 1,5 s), in einem kleinen Rechteck bis zu einem Rechteck pro Display-Pixel."
+        }
       }
     },
     "clear_image": {
       "name": "Bild löschen",
       "description": "Ein Rechteck wieder in der Hintergrundfarbe der angezeigten Seite malen. Nur eine Volltonfarbe: auf einer Seite mit Bildhintergrund bleibt das Rechteck ein Block — wechsle stattdessen die Seite.",
       "fields": {
-        "device": "NSPanel-Gerät, dessen Rechteck geleert wird. Wenn nicht angegeben, gilt für alle Geräte.",
-        "x": "Linke Kante des Rechtecks in Display-Pixeln.",
-        "y": "Obere Kante des Rechtecks in Display-Pixeln.",
-        "w": "Breite des Rechtecks in Display-Pixeln.",
-        "h": "Höhe des Rechtecks in Display-Pixeln."
+        "device": {
+          "name": "Gerät",
+          "description": "NSPanel-Gerät, dessen Rechteck geleert wird. Wenn nicht angegeben, gilt für alle Geräte."
+        },
+        "x": {
+          "name": "X",
+          "description": "Linke Kante des Rechtecks in Display-Pixeln."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Obere Kante des Rechtecks in Display-Pixeln."
+        },
+        "w": {
+          "name": "Breite",
+          "description": "Breite des Rechtecks in Display-Pixeln."
+        },
+        "h": {
+          "name": "Höhe",
+          "description": "Höhe des Rechtecks in Display-Pixeln."
+        }
       }
     }
   }

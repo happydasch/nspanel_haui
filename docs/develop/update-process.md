@@ -223,7 +223,7 @@ sequenceDiagram
     Note over Hub: 60 s after the connect:<br/>check the TFT the new firmware requires
     Hub->>Panel: upload_tft_url (TFT)
     Panel-->>Hub: tft_upload_started (the URL)
-    Panel->>Display: write the TFT (several minutes)
+    Panel->>Display: write the TFT (a few minutes)
     alt the transfer ended
         Panel->>Panel: reboot
         Panel-->>Hub: reconnect with the new TFT version
@@ -261,7 +261,7 @@ The editor shows the steps, the time the install has run and about how long is l
 ### Failure handling
 
 - **Firmware**: the hub waits up to ten minutes (`FIRMWARE_INSTALL_TIMEOUT_SECONDS`) for the device to reboot. No reboot, a reconnect without a reboot, or a reboot into the old version is an error. A failed automatic install is retried after `retry_interval` (an hour), at most `max_attempts` (3) times per version.
-- **Display TFT**: the upload takes several minutes (about 13 on a portrait panel) and ends in a reboot; the hub waits up to 20 minutes (`INSTALL_TIMEOUT_SECONDS`). An upload that ends without a reboot, or a TFT the display does not report afterwards, is an error; the automatic install tries again after `retry_interval`, at most `max_attempts` times.
+- **Display TFT**: the upload ends in a reboot; the hub waits up to 20 minutes (`INSTALL_TIMEOUT_SECONDS`). Its duration is not the link's: 11.5 MB at 921600 bps is about two minutes of wire time, and the rest is the display acknowledging each 4 KB chunk plus the HTTP download, which is why `TFT_EXPECTED_SECONDS` (15 minutes) is a yardstick rather than a measurement. An upload that ends without a reboot, or a TFT the display does not report afterwards, is an error; the automatic install tries again after `retry_interval`, at most `max_attempts` times.
 
 | What the hub hears | Meaning | Install state |
 |--------------------|---------|---------------|

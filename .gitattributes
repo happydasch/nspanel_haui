@@ -1,7 +1,7 @@
 # Display assets are build inputs: the Nextion projects, the compiled TFTs,
 # fonts, generated tiles and source pictures. Nothing that installs the
 # integration reads them, so keep them out of GitHub's source archives, which
-# HACS downloads (74 MB -> 16 MB). Raw URLs and release assets are unaffected.
+# HACS downloads (74 MB -> 15 MB). Raw URLs and release assets are unaffected.
 nextion/ export-ignore
 
 # Generated display binaries: hide their diffs and keep them out of the

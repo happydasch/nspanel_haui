@@ -20,13 +20,13 @@ Integration and firmware should match; otherwise **Diagnostics** shows **Firmwar
 1. **Read the release notes** and the [breaking changes](../develop/upgrading.md#upgrading) of the release you are installing.
 2. **Update the integration** in the Home Assistant **Marketplace**, then restart Home Assistant.
 3. **Update the firmware.** Press **Install** on the panel's **HAUI Firmware** update (`update.<device>_haui_firmware`). The panel downloads it and restarts.
-4. **Wait for the display.** About a minute after the panel reconnects, the hub installs the required TFT. This takes several minutes (about 13 on a portrait panel) and ends with one more restart.
+4. **Wait for the display.** About a minute after the panel reconnects, the hub installs the required TFT, and the panel restarts once more when it is done. The write is paced by the display acknowledging each 4 KB chunk rather than by the link, so there is no fixed duration to quote: the **Updates** sidebar shows the time the install has run, and past 15 minutes it says the install is taking longer than usual.
 
 The firmware update can appear before you have updated the integration, because both ship with the same release. Update the integration first anyway.
 
 ### The first boot after 0.5.7
 
-Both shipped TFTs now talk to the panel at 921600 bps. A panel that still runs the previous 0.4.5 TFT answers at 115200, so its first boot after the firmware update waits up to about 20 seconds while the firmware scans the display rates. The TFT update then switches the display to 921600, and the first boot after that can take as long again while the firmware finds the new rate. Leave the panel powered; both boots end on their own, and later boots are immediate.
+Both shipped TFTs now talk to the panel at 921600 bps. A panel that still runs the previous 0.4.5 TFT answers at 115200, so its first boot after the firmware update scans the display rates: 8 s for the handshake, 4 s to power-cycle the display, and 1.6 s per rate probed, so about 15 s when the scan finds the display and about 35 s when it finds nothing. The TFT update then switches the display to 921600, and the first boot after that can take as long again while the firmware finds the new rate. Leave the panel powered; both boots end on their own, and later boots are immediate.
 
 ## Other ways to update
 

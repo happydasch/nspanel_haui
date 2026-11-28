@@ -43,8 +43,11 @@ Whatever you pick, an update only ever pays for the cells that actually changed.
 - **Only what changed is painted.** The hub compares each snapshot with what the display is showing; a scene that has not changed sends no display commands at all.
 - **Each update takes as long as it takes.** A frame that arrives while the display is still painting the previous one is dropped rather than queued, so the panel always shows the newest picture it could paint instead of falling behind.
 - **A busy scene is painted coarser rather than slower.** When an update would cost more rectangles than its share of the frame budget — a scene in motion, a very detailed picture — the hub uses larger cells for it, so the frames keep coming. The picture returns to the quality you picked as soon as the scene calms down.
-- **Leaving the page ends the stream.** So do a display that switches off, a TFT install — before the display refuses the next frame — and a camera that stops answering. Nothing keeps running in the background.
+- **A sleeping display pauses the picture, it does not end it.** The stream stops asking for snapshots while the panel is dark and paints the whole area again as soon as it wakes, so the picture is never a stale one from hours ago and nothing keeps running into a dark display.
+- **A camera that stops answering keeps its last picture.** The stream retries, slows down to an attempt every thirty seconds once it has missed a handful in a row, and carries on by itself when the camera comes back — you do not have to leave the page and return.
+- **Leaving the page ends the stream.** So does a TFT install — before the display refuses the next frame. Nothing keeps running in the background.
 - **The page returns to the idle page** like any other panel, which ends the stream.
+- **A card or thumbnail of this page shows the picture the panel last painted.** It replays the fills the panel received; once the stream has run long enough for its oldest fills to be dropped, it asks the stream for a fresh whole picture, so the card catches up within a render or two instead of sitting on *Waiting for the camera*.
 - **A render repaints widgets, not the page.** A plain refresh (from the editor, a
   notification, a reconnect) leaves the picture alone, and the stream keeps running
   across it. The stream is asked for when the panel starts, not when it renders, so a

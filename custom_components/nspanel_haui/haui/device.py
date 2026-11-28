@@ -298,8 +298,15 @@ class HAUIDevice(HAUIBase):
 
     @property
     def display_state(self) -> str:
-        """Display brightness state reported by the firmware: "on", "dim" or "off"."""
-        return str(self.device_info.get("display_state", "off"))
+        """Display brightness state reported by the firmware: "on", "dim", "off", or unknown.
+
+        Empty until the firmware reports one, which is not "off": a panel that has
+        not answered yet may well be lit, and this used to answer "off" for a fact
+        nobody had - so anything that stops work on a dark display (the camera
+        stream) stopped before the first handshake, and every surface that shows
+        the state showed "Off" for a panel it knew nothing about.
+        """
+        return str(self.device_info.get("display_state") or "")
 
     @property
     def display_visible(self) -> bool:

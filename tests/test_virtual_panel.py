@@ -1298,6 +1298,50 @@ def test_a_simulated_camera_page_draws_with_no_physical_panel(env, monkeypatch):
         _run(env, host.async_stop())
 
 
+def test_a_card_render_asks_for_the_picture_it_has_none_of(env):
+    """A replay that cannot describe the area leaves the card on the placeholder.
+
+    A running stream trims its oldest fills within a minute, after which
+    ``camera_page_frame`` is empty for ever and the card showed "Waiting for the
+    camera" while the panel showed the picture. The render asks the stream for a
+    whole paint, so the next one carries it - and asks nothing when it has one.
+    """
+    asked: list[str] = []
+
+    class _Source:
+        """The followed device, as the host reads it: worker calls run inline."""
+
+        def __init__(self, frame: list[str]) -> None:
+            self.frames = frame
+            self.controller = {
+                "navigation": types.SimpleNamespace(
+                    page=types.SimpleNamespace(panel={"key": "front"})
+                )
+            }
+
+        async def async_run_on_worker(self, fn, *args):
+            return fn(*args)
+
+        def camera_page_frame(self) -> list[str]:
+            return self.frames
+
+        def request_camera_page_picture(self) -> None:
+            asked.append("asked")
+
+    panel = {"type": "camera", "key": "front"}
+
+    host = object.__new__(VirtualPanelHost)
+    host._panel_source = _Source([])
+
+    assert _run(env, host._async_camera_frame(panel)) == []
+    assert asked == ["asked"], "no picture, so the stream is asked for one"
+
+    host._panel_source = _Source(["fill 12,70,426,170,1024"])
+
+    assert _run(env, host._async_camera_frame(panel)) == ["fill 12,70,426,170,1024"]
+    assert asked == ["asked"], "and a render that has one asks for nothing"
+
+
 def test_an_image_the_panel_draws_shows_in_the_simulated_preview(session, env):
     """``show_image`` is display output, not state: it must reach the preview too."""
     source = _open(env, _config(), lambda _message: None)

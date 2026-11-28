@@ -45,6 +45,7 @@ this decides what to paint.
 
 from __future__ import annotations
 
+import copy
 import math
 from dataclasses import dataclass
 from typing import Final, cast
@@ -52,7 +53,7 @@ from typing import Final, cast
 from PIL import Image
 
 from .color import rgb565_to_rgb, rgb_to_rgb565
-from .image_program import Rect, fill_run, fit_image
+from .image_program import Rect, cover_image, fill_run, fit_image
 
 #: Per-channel distance a cell must move beyond before it is repainted. Eight is
 #: what ``image_program`` merges neighbours by; a stream needs more, because a
@@ -98,6 +99,11 @@ REFRESH_EVERY: Final = 60
 #: Frames a resolution change waits for, so a scene that hovers at the budget does
 #: not flip the cell size every frame.
 CELL_SETTLE_FRAMES: Final = 2
+#: Frames a stream waits after a refinement painted the rectangle whole before it
+#: tries another one. Sharpening costs a full paint, and a moving scene produces
+#: cheap deltas on its own - without this, a stream walked from cell 4 to cell 2 in
+#: three frames and paid two whole paints for it, which reads as a flash.
+REFINE_COOLDOWN: Final = 8
 #: Startup grids and their run limits. The first starts with one background fill.
 _STARTUP_PASSES: Final = ((32, 160), (16, 400), (8, 1200))
 
@@ -250,6 +256,26 @@ class DeltaPlanner:
         self._until_refresh = 0
         #: Frames spent waiting before a resolution change is worth making.
         self._settle = 0
+        #: ``frames`` before which no refinement is worth another full paint.
+        self._refine_after = 0
+
+    def clone(self) -> DeltaPlanner:
+        """A copy to plan one frame on, leaving this planner untouched.
+
+        A frame is planned off the worker (it is pure CPU), while the worker may
+        repaint or replace the planner meanwhile - so the frame gets its own copy
+        and the worker commits it only when the program arrives whole
+        (``CameraStream._send_on_worker``). This is what that copy is, and it is a
+        shallow one on purpose: the grid is the only mutable state, and copying it
+        row by row costs a fraction of ``copy.deepcopy`` (0.1-0.7 ms a frame
+        against 3-4 ms of planning, measured at cell 2-6).
+
+        Returns:
+            An independent planner with the same settings and painted model.
+        """
+        other = copy.copy(self)
+        other._painted = [row[:] for row in self._painted] if self._painted is not None else None
+        return other
 
     @property
     def painted(self) -> bool:
@@ -300,7 +326,14 @@ class DeltaPlanner:
         """
         if image.width < 1 or image.height < 1:
             raise ImageStreamError("the frame has no pixels")
-        canvas, _colour = fit_image(image, self.rect, cover=self.cover)
+        # Only the fitted picture is used here: a stream clears with the most
+        # common cell of its own grid (``_full_spans``) and never letterboxes a
+        # frame it crops, so the picture's own dominant colour - a sampled
+        # histogram per frame - would be computed and thrown away.
+        if self.cover:
+            canvas = cover_image(image, self.rect, resample=Image.Resampling.BOX)
+        else:
+            canvas, _colour = fit_image(image, self.rect)
         if (startup := self._plan_startup(canvas)) is not None:
             return startup
         # The cell size is decided *before* the program is sent, never after: a
@@ -334,6 +367,7 @@ class DeltaPlanner:
             if len(finer_spans) <= self.first_runs:
                 self.cell -= 1
                 grid, spans, full = finer_grid, finer_spans, True
+                self._refine_after = self.frames + REFINE_COOLDOWN
         if full:
             self._startup_cell = None
             self._settle = 0
@@ -369,9 +403,18 @@ class DeltaPlanner:
         return None
 
     def _should_refine(self, runs: int) -> bool:
-        """Probe a finer grid only after several cheap, non-empty deltas."""
+        """Probe a finer grid only after several cheap, non-empty deltas.
+
+        Sharpening costs a full paint, and a scene that keeps moving produces the
+        cheap deltas this looks for anyway - so a refinement buys itself a
+        ``REFINE_COOLDOWN`` before another is worth considering. Without it a
+        stream walked from cell 4 to cell 2 within three frames and paid two whole
+        paints for it: on a 426x170 rectangle that is a visible flash, twice.
+        """
         if self.cell <= self.min_cell or not runs or runs * 4 > self.max_runs:
             self._settle = 0
+            return False
+        if self.frames < self._refine_after:
             return False
         self._settle += 1
         if self._settle < CELL_SETTLE_FRAMES:
@@ -428,6 +471,15 @@ def _merged(
     repainted only when ``_far`` from its painted colour, so an unchanged
     neighbour - already right on the panel - never joins a span, and what is
     painted is only what changed.
+
+    Deliberately not ``image_program._spans``: that one merges *neighbours within a
+    colour tolerance* on source colours, which is right for a still image painted
+    once, and wrong here - a span merged with tolerance would paint a colour the
+    grid does not hold, so the model the next frame compares against would drift
+    from the display by the tolerance every frame. This one merges exact display
+    colours only, and skips the cells a dead band already covers; the two agree on
+    a full paint of the same grid, which is what
+    ``tests/test_image_stream.py::test_the_two_merges_agree_on_a_full_paint`` pins.
     """
     spans: list[_Span] = []
     previous: dict[tuple[int, int], _Span] = {}

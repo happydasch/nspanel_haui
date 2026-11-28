@@ -47,7 +47,7 @@ def _grid() -> dict[str, Rect]:
     tile_w, tile_h, gap = 140, 123, 4
     for n in range(6):
         x = 11 + (tile_w + gap) * (n % 3)
-        y = 56 + (tile_h + gap) * (n // 3)
+        y = 60 + (tile_h + gap) * (n // 3)
         g = f"g{n + 1}"
         layout.update(
             {
@@ -58,6 +58,16 @@ def _grid() -> dict[str, Rect]:
                 f"{g}Power": (x + tile_w - 48, y, 48, 48),
             }
         )
+    return layout
+
+
+def _info() -> dict[str, Rect]:
+    # The camera page paints the info page's text area as its picture (``PICTURE_RECT``
+    # in ``haui/page/camera.py``: the ``tText`` widget's own rectangle), with the six
+    # mode buttons in two columns beside it.
+    layout: dict[str, Rect] = {"tText": (MARGIN, 65, 260, 240)}
+    for n in range(6):
+        layout[f"btMode{n + 1}"] = (299 + 76 * (n // 3), 69 + 92 * (n % 3), 50, 50)
     return layout
 
 
@@ -129,6 +139,7 @@ def _six_buttons(prefix: str, y: int) -> dict[str, Rect]:
 
 
 LAYOUT: dict[str, dict[str, Rect]] = {
+    "info": _info(),
     "settings": {
         "tBrghtTitle": (MARGIN, 71, CONTENT_W, 32),
         "tBrghtIco": (22, 120, 32, 40),

@@ -40,6 +40,9 @@ COVER_MAX_BYTES: Final = 4 * 1024 * 1024
 #: enough that the off-worker pool is not held by a server that will not answer.
 COVER_FETCH_TIMEOUT: Final = 10
 _COVER_CHUNK_BYTES: Final = 64 * 1024
+#: The only schemes a cover is fetched over. The URL is an integration's
+#: ``entity_picture``, not something this hub chose, so it may address nothing else.
+_PICTURE_SCHEMES: Final = ("http", "https")
 
 
 class MediaCoverError(RuntimeError):
@@ -131,12 +134,27 @@ def request_cover(
 def _download(url: str) -> bytes:
     """Download a picture, bounded in size and in time (blocking).
 
+    Only ``http`` and ``https`` are fetched, and a redirect is followed only while
+    it stays on those schemes: the URL comes from an integration's
+    ``entity_picture``, which is a third party's string, and it must not be able to
+    make the hub read anything but a picture off the network. Home Assistant's own
+    proxy path (``/api/media_player_proxy/...``) is the common case and never
+    redirects.
+
     Raises:
-        MediaCoverError: When the request fails or answers with too much.
+        MediaCoverError: When the request fails, redirects somewhere that is not
+            http(s), or answers with too much.
     """
+    scheme = urlsplit(url).scheme.lower()
+    if scheme not in _PICTURE_SCHEMES:
+        raise MediaCoverError(
+            f"{url} is a {scheme or 'relative'} address; a cover is fetched over http(s)"
+        )
     try:
         with requests.get(url, timeout=COVER_FETCH_TIMEOUT, stream=True) as response:
             response.raise_for_status()
+            if urlsplit(response.url).scheme.lower() not in _PICTURE_SCHEMES:
+                raise MediaCoverError(f"{url} redirected to {response.url}, which is not http(s)")
             data = bytearray()
             for chunk in response.iter_content(_COVER_CHUNK_BYTES):
                 data.extend(chunk)

@@ -149,7 +149,7 @@
  * @property {string|null} [last_panel_update]
  * @property {string|null} [last_connection]
  * @property {number} [connection_uptime]
- * @property {"on"|"dim"|"off"|null} [display_state]
+ * @property {"on"|"dim"|"off"|""|null} [display_state] - empty until the panel reports one; not "off"
  * @property {string} [temperature_entity_id]
  */
 

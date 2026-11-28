@@ -934,6 +934,9 @@ class _RenderApp:
         if self._camera_frame:
             self._recorder.draw_runs(self._camera_frame)
 
+    def request_camera_page_picture(self) -> None:
+        """A render never asks the panel to paint: it only replays what it received."""
+
     def start_camera_page_stream(self, **kwargs: Any) -> None:
         """A render never starts a stream: it would fetch and paint on a real panel."""
 
@@ -1394,6 +1397,12 @@ class VirtualPanelHost:
         panel received. Read it only while the followed device shows that panel.
         The card fetches no snapshot of its own; without one it keeps the page’s
         placeholder.
+
+        A replay that can no longer describe the area whole - the stream's oldest
+        fills were trimmed, which a running stream reaches in under a minute - asks
+        the stream for a whole paint, so the *next* render carries the picture
+        instead of the placeholder for ever. This render still shows the
+        placeholder, which is honest: it has no picture.
         """
         source = self._panel_source
         if source is None or panel_config.get("type") != "camera":
@@ -1407,7 +1416,10 @@ class VirtualPanelHost:
                 or page.panel.get("key") != panel_config.get("key")
             ):
                 return []
-            return source.camera_page_frame()
+            frame = source.camera_page_frame()
+            if not frame:
+                source.request_camera_page_picture()
+            return frame
 
         try:
             frame = await source.async_run_on_worker(current_frame)

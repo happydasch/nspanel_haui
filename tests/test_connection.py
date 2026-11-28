@@ -66,6 +66,8 @@ class DummyApp:
         self.device = DummyDevice()
         self.logged: list = []
         self.sent_esphome: list = []
+        #: Rectangles another program painted into, in order (``app.paint_rect``).
+        self.painted: list = []
 
     def log(self, msg: str, **kwargs) -> None:
         self.logged.append((msg, kwargs))
@@ -91,6 +93,10 @@ class DummyApp:
 
     def send_esphome(self, name: str, value: str = "", retain: bool = False) -> None:
         self.sent_esphome.append((name, value, retain))
+
+    def paint_rect(self, rect) -> None:
+        """Someone painted into ``rect``: whoever owns it must paint it whole again."""
+        self.painted.append(rect)
 
 
 # ── fixtures ─────────────────────────────────────────────────────────────────

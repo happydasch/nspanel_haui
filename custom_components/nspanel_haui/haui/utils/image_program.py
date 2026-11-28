@@ -224,6 +224,40 @@ def _dominant_colour(picture: Image.Image) -> int:
     return rgb_to_rgb565((red // count, green // count, blue // count))
 
 
+def cover_image(
+    image: Image.Image,
+    rect: Rect,
+    *,
+    resample: Image.Resampling = Image.Resampling.LANCZOS,
+) -> Image.Image:
+    """Crop ``image`` to ``rect``, centred, so it fills the rectangle edge to edge.
+
+    The camera path, split out of ``fit_image`` because a stream crops a frame
+    every tick and needs neither the letterbox canvas nor the picture's dominant
+    colour (its clear is the most common cell of its own grid, ``image_stream``).
+
+    Args:
+        image: The decoded picture, any mode Pillow can convert to RGB.
+        rect: Where the picture goes, in display pixels.
+        resample: How the picture is scaled down. ``LANCZOS`` for a still image
+            drawn once; ``BOX`` where the result is reduced to a grid of cells
+            anyway - it averages the pixels it replaces instead of fitting a
+            windowed kernel to them, which is both the right filtering for that
+            and several times cheaper (a stream does this per frame).
+
+    Returns:
+        The ``rect.w`` x ``rect.h`` picture.
+    """
+    image = image.convert("RGB")
+    scale = max(rect.w / image.width, rect.h / image.height)
+    width = max(rect.w, round(image.width * scale))
+    height = max(rect.h, round(image.height * scale))
+    picture = image.resize((width, height), resample)
+    left = (width - rect.w) // 2
+    top = (height - rect.h) // 2
+    return picture.crop((left, top, left + rect.w, top + rect.h))
+
+
 def fit_image(image: Image.Image, rect: Rect, *, cover: bool = False) -> tuple[Image.Image, int]:
     """Composite ``image`` into ``rect``, letterboxed or cropped to fill, on its own colour.
 
@@ -251,13 +285,7 @@ def fit_image(image: Image.Image, rect: Rect, *, cover: bool = False) -> tuple[I
     """
     image = image.convert("RGB")
     if cover:
-        scale = max(rect.w / image.width, rect.h / image.height)
-        width = max(rect.w, round(image.width * scale))
-        height = max(rect.h, round(image.height * scale))
-        picture = image.resize((width, height), Image.Resampling.LANCZOS)
-        left = (width - rect.w) // 2
-        top = (height - rect.h) // 2
-        cropped = picture.crop((left, top, left + rect.w, top + rect.h))
+        cropped = cover_image(image, rect)
         return cropped, _dominant_colour(cropped)
     scale = min(rect.w / image.width, rect.h / image.height)
     width = max(1, min(rect.w, round(image.width * scale)))
@@ -364,6 +392,17 @@ def _program(spans: Iterable[_Span]) -> list[str]:
     return [fill_run(span.x, span.y, span.w, span.h, rgb_to_rgb565(span.rgb)) for span in spans]
 
 
+#: How far below the bisection's answer ``_compile`` looks for a finer grid that
+#: still fits. The run count is *not* monotone in the cell size - tolerance
+#: merging and the canvas drop make a coarser grid sometimes cost more runs (a
+#: measured photo: 162 runs at cell 6, 231 at cell 7, 242 at cell 8, 194 at cell
+#: 10) - so a bisection over "does it fit" can stop at a grid that is both coarser
+#: and dearer than one below it. Eight steps covers every dip measured on real
+#: pictures; each probe is one grid reduction, the same work the bisection
+#: already does per step.
+_FINEST_PROBE_STEPS: Final = 8
+
+
 def _compile(
     canvas: Image.Image,
     rect: Rect,
@@ -371,6 +410,7 @@ def _compile(
     *,
     budget: int,
     max_cell: int | None = None,
+    tolerance: int = COLOUR_TOLERANCE,
 ) -> tuple[list[str], int] | None:
     """Find the finest grid whose program fits ``budget`` runs and the firmware.
 
@@ -392,6 +432,10 @@ def _compile(
     can then drop it instead of replacing a good coarse picture with a worse
     one.
 
+    Because the run count is not monotone in the cell size, the bisection's
+    answer is then probed downwards (``_FINEST_PROBE_STEPS``) and the finest grid
+    that fits wins - which is what "the finest grid" in this docstring means.
+
     Returns:
         The ``fill`` instructions and the cell size in display pixels, or
         ``None`` when no grid at ``max_cell`` or below fits ``budget``.
@@ -407,7 +451,7 @@ def _compile(
             cols = math.ceil(rect.w / cell)
             rows = math.ceil(rect.h / cell)
             cache[cell] = None
-            spans = _spans(_cells(canvas, cols, rows), rect, cell, COLOUR_TOLERANCE, base)
+            spans = _spans(_cells(canvas, cols, rows), rect, cell, tolerance, base)
             program = [clear_run(rect, colour), *_program(spans)]
             if len(program) <= budget:
                 cache[cell] = (program, cell)
@@ -420,7 +464,14 @@ def _compile(
             high = middle
         else:
             low = middle + 1
-    return attempt(low)
+    best = attempt(low)
+    if best is None:
+        return None
+    for cell in range(low - 1, max(0, low - 1 - _FINEST_PROBE_STEPS), -1):
+        finer = attempt(cell)
+        if finer is not None:
+            best = finer
+    return best
 
 
 def image_plan(
@@ -465,17 +516,26 @@ def image_plan(
         )
     canvas, colour = fit_image(decode_image(data), rect)
     if progressive:
-        compiled = _compile(canvas, rect, colour, budget=min(PROGRESSIVE_RUNS, budget))
+        compiled = _compile(
+            canvas, rect, colour, budget=min(PROGRESSIVE_RUNS, budget), tolerance=tolerance
+        )
         if compiled is None:  # pragma: no cover - a single cell fits every budget
             raise ImageProgramError(f"no grid fits {min(PROGRESSIVE_RUNS, budget)} runs")
         coarse, coarse_cell = compiled
-        full = _compile(canvas, rect, colour, budget=budget - len(coarse), max_cell=coarse_cell)
+        full = _compile(
+            canvas,
+            rect,
+            colour,
+            budget=budget - len(coarse),
+            max_cell=coarse_cell,
+            tolerance=tolerance,
+        )
         if full is not None and full[1] < coarse_cell:
             return [coarse, full[0]], full[1]
         # The coarse pass is already at the finest grid or nothing finer fits
         # what it left: sending it twice would paint the same picture twice.
         return [coarse], coarse_cell
-    compiled = _compile(canvas, rect, colour, budget=budget)
+    compiled = _compile(canvas, rect, colour, budget=budget, tolerance=tolerance)
     if compiled is None:  # pragma: no cover - a single cell fits every budget
         raise ImageProgramError(f"no grid fits {budget} runs")
     return [compiled[0]], compiled[1]

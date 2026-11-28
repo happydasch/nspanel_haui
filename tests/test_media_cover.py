@@ -80,3 +80,13 @@ def test_a_url_that_is_not_a_picture_is_refused(monkeypatch):
 
     with pytest.raises(MediaCoverError):
         cover_runs("http://radio.example/cover.png", _RECT)
+
+
+def test_a_cover_url_that_is_not_http_is_refused():
+    """The URL is an integration's ``entity_picture``: it fetches nothing but a picture.
+
+    The scheme is checked before the request, so a string that names something else
+    fails here instead of leaving ``requests`` to decide what to do with it.
+    """
+    with pytest.raises(MediaCoverError, match="http"):
+        media_cover._download("file:///etc/passwd")

@@ -8,6 +8,7 @@ stop there: the rasteriser's own numbers are ``tests/test_image_program.py``.
 from __future__ import annotations
 
 import io
+import random
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,29 @@ from scripts.image_program.gen_image_preview import (
 
 def _png_bytes(size: tuple[int, int] = (8, 8)) -> bytes:
     image = Image.new("RGB", size, (255, 255, 255))
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+def _detail_png(size: int = 120) -> bytes:
+    """A picture whose full detail needs far more than a coarse pass's budget.
+
+    Random colour blocks survive a downscale, so cell 1 is thousands of runs and
+    the coarse grid really is coarser than the full one - which is what a
+    progressive draw is for. (A one-pixel checkerboard does not: averaged down it
+    is flat grey, so the coarse pass already reaches the finest grid the tolerance
+    merge allows and there is nothing left to sharpen.)
+    """
+    rnd = random.Random(3)
+    image = Image.new("RGB", (size, size), (12, 12, 16))
+    drawing = ImageDraw.Draw(image)
+    for y in range(0, size, 8):
+        for x in range(0, size, 8):
+            drawing.rectangle(
+                [x, y, x + 7, y + 7],
+                fill=(rnd.randrange(20, 240), rnd.randrange(20, 240), rnd.randrange(20, 240)),
+            )
     buffer = io.BytesIO()
     image.save(buffer, "PNG")
     return buffer.getvalue()
@@ -69,7 +93,13 @@ def test_a_render_writes_the_reference_and_one_tile_per_pass(tmp_path):
 
 
 def test_a_progressive_render_draws_the_coarse_pass_first(tmp_path):
-    passes = _render(tmp_path, data=_checkerboard_png(), progressive=True, budget=600)
+    passes = _render(
+        tmp_path,
+        data=_detail_png(),
+        rect=Rect(10, 10, 120, 120),
+        progressive=True,
+        budget=600,
+    )
 
     names = [name for name, _runs in passes]
     assert names == ["coarse", "full"]

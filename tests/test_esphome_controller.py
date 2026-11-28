@@ -522,6 +522,31 @@ def test_the_picture_does_not_grow_for_the_length_of_a_stream() -> None:
     assert controller.picture_commands(*area) == [whole], "one whole paint describes it again"
 
 
+def test_a_page_fill_tells_the_owner_of_that_rectangle() -> None:
+    """A fill from anywhere else wipes what a camera stream holds there.
+
+    ``draw_overlay`` and ``draw_runs`` already tell ``app.paint_rect``; a page's own
+    ``fill`` reaches the replay through the same recorder, so it has to say so too -
+    otherwise every delta after it keeps the ghost of the wiped area.
+    """
+    controller, _proxy, app = _drawing(draw_format=2)
+
+    controller.send_cmd("send_command", "fill 10,10,40,40,65535")
+
+    assert app.painted == [Rect(10, 10, 40, 40)]
+
+
+def test_a_draw_program_does_not_ask_the_stream_to_repaint_itself() -> None:
+    """The stream's own fills must not read as damage to its own rectangle."""
+    controller, _proxy, app = _drawing(draw_format=2)
+
+    controller.draw_stream_frame(["fill 10,10,40,40,65535"], full=True)
+    controller.on_draw_report(True)
+
+    assert controller.page_commands() == ["fill 10,10,40,40,65535"]
+    assert app.painted == [], "its own program is not another painter"
+
+
 def test_an_excluded_rectangle_leaves_the_other_commands_alone() -> None:
     """A viewer seeds a page's widgets without the picture it re-runs separately."""
     controller, _proxy, _app = _drawing(draw_format=2)

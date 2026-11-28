@@ -73,7 +73,9 @@ def _app(*, page: str = "home", display_state: str = "on", drawing: bool = False
     app = MagicMock()
     app.name = "panel"
     app.controller = {"navigation": navigation, "esphome": controller}
-    app.device.display_state = display_state
+    # The state the firmware reports, which is what the stream reads: an absent one
+    # is not "off" (``haui/device.py``).
+    app.device.device_info = {"display_state": display_state}
     app.async_run_on_worker = AsyncMock(side_effect=lambda fn, *args: fn(*args))
     app.log = MagicMock()
     return app
@@ -132,7 +134,7 @@ def test_a_frame_is_skipped_while_the_panel_is_still_drawing():
     app.controller["esphome"].draw_stream_frame.assert_not_called()
 
     current = stream.planner
-    _, _, planned = stream._plan(_frame())
+    _, _, planned = stream._plan(_frame(), stream.planner.clone())
     assert planned is not current
     assert current.frames == 0
     assert not current.painted
@@ -153,13 +155,13 @@ def test_a_pass_the_panel_lost_makes_the_next_frame_a_full_paint():
     """
     app = _app()
     stream = _stream(app)
-    stream._send_on_worker(*stream._plan(_frame()))
+    stream._send_on_worker(*stream._plan(_frame(), stream.planner.clone()))
     assert stream.planner.painted
 
     app.controller["esphome"].draw_failures = 1
-    stream._send_on_worker([], False, stream._plan(_frame())[2])
+    stream._send_on_worker([], False, stream._plan(_frame(), stream.planner.clone())[2])
 
-    runs, full, _planned = stream._plan(_frame())  # the same picture again
+    runs, full, _planned = stream._plan(_frame(), stream.planner.clone())  # the same picture again
 
     assert full, "the next frame paints the rectangle whole"
     assert runs[0] == f"fill {RECT.x},{RECT.y},{RECT.w},{RECT.h},{runs[0].split(',')[4]}"
@@ -174,11 +176,11 @@ def test_the_page_that_owns_the_rectangle_can_ask_for_the_picture_whole():
     """
     app = _app()
     stream = _stream(app)
-    stream._send_on_worker(*stream._plan(_frame()))
+    stream._send_on_worker(*stream._plan(_frame(), stream.planner.clone()))
 
     camera_stream.repaint_page_stream(app)
-    assert stream._send_on_worker(*stream._plan(_frame())) == "stale"
-    _runs, full, _planned = stream._plan(_frame())
+    assert stream._send_on_worker(*stream._plan(_frame(), stream.planner.clone())) == "stale"
+    _runs, full, _planned = stream._plan(_frame(), stream.planner.clone())
 
     assert full
 
@@ -200,12 +202,33 @@ def test_a_page_change_ends_the_stream(next_page):
     assert stream._send_on_worker(["fill 0,0,64,48,1024"]) == "stop"
 
 
-def test_a_sleeping_display_ends_the_stream():
-    """Painting into a dark panel wastes the link and the camera."""
+def test_a_sleeping_display_costs_nothing_and_wakes_whole():
+    """A dark panel is not a verdict: the stream waits, then paints whole again.
+
+    Ending the stream here left the panel frozen - a camera page is not re-rendered
+    by a wake, so nothing would start it again. The frame after the wake must paint
+    the rectangle whole: the panel may show anything after hours of being dark, and
+    the planner's model of it is that old too.
+    """
     app = _app(display_state="off")
     stream = _stream(app)
 
-    assert stream._send_on_worker(["fill 0,0,64,48,1024"]) == "stop"
+    assert stream._prepare_on_worker() == ("idle", None)
+    app.controller["esphome"].draw_stream_frame.assert_not_called()
+    assert camera_stream.stream_for(app) is stream, "the stream is still running"
+    assert stream._repaint_pending, "the frame after the wake paints the rectangle whole"
+
+    app.device.device_info["display_state"] = "on"
+    runs, full, _planned = stream._plan(_frame(), stream.planner.clone())
+    assert full and runs, "so the picture comes back at once, not as a delta"
+
+
+def test_a_reported_state_that_is_missing_is_not_off():
+    """A panel that has not said anything yet may be lit; it is not dark either."""
+    app = _app(display_state="")
+    stream = _stream(app)
+
+    assert stream._send_on_worker(["fill 0,0,64,48,1024"]) == "ok"
 
 
 def test_a_panel_without_the_draw_path_ends_the_stream_instead_of_spinning():
@@ -243,24 +266,59 @@ def test_an_image_over_the_picture_makes_the_stream_repaint_whole():
     """
     app = _app()
     stream = _stream(app)
-    stream._send_on_worker(*stream._plan(_frame()))
+    stream._send_on_worker(*stream._plan(_frame(), stream.planner.clone()))
     assert stream.planner.painted
 
     assert camera_stream.repaint_rect(app, Rect(0, 0, 8, 8)) is None  # it asked the stream
-    assert stream._send_on_worker(*stream._plan(_frame())) == "stale"
+    assert stream._send_on_worker(*stream._plan(_frame(), stream.planner.clone())) == "stale"
 
-    assert stream._plan(_frame())[1], "the next frame paints the rectangle whole"
+    assert stream._plan(_frame(), stream.planner.clone())[1], (
+        "the next frame paints the rectangle whole"
+    )
+
+
+def test_a_viewer_asks_for_a_whole_paint_but_not_on_every_render():
+    """A card renders on a schedule; a whole paint per render would flash the panel.
+
+    The request is coalesced: never two pending, and no two within
+    ``VIEWER_REPAINT_INTERVAL``. Real damage to the rectangle goes through
+    ``repaint`` instead, which is neither.
+    """
+    app = _app()
+    stream = _stream(app)
+
+    assert stream.repaint_for_viewer() is True
+    assert stream._repaint_pending
+    assert stream.repaint_for_viewer() is False, "one pending paint is enough"
+
+    stream._repaint_pending = False
+    stream._viewer_repaint_at = 0.0
+    assert stream.repaint_for_viewer() is True
+
+    assert stream.repaint_for_viewer() is False, "and the next render waits its turn"
+
+
+def test_the_page_that_owns_the_rectangle_is_not_put_off_by_the_viewer_window():
+    """A page render damaged the picture: that repaint is never coalesced away."""
+    app = _app()
+    stream = _stream(app)
+    stream.repaint_for_viewer()
+    stream._repaint_pending = False
+
+    camera_stream.repaint_page_stream(app)
+
+    assert stream._repaint_pending
 
 
 def test_an_image_in_another_rectangle_leaves_the_stream_alone():
     """A program that never touches the picture costs the stream nothing."""
     app = _app()
     stream = _stream(app)
-    stream._send_on_worker(*stream._plan(_frame()))
+    stream._send_on_worker(*stream._plan(_frame(), stream.planner.clone()))
 
     camera_stream.repaint_rect(app, Rect(100, 100, 8, 8))
 
-    runs, full, _planned = stream._plan(_frame())
+    runs, full, _planned = stream._plan(_frame(), stream.planner.clone())
     assert not runs and not full, "the picture the panel shows is still the stream's"
 
 
@@ -600,23 +658,84 @@ async def test_the_loop_sends_only_what_changed():
 
 
 @pytest.mark.asyncio
-async def test_a_camera_that_keeps_failing_ends_the_stream():
-    """A camera that is gone must not leave the panel repainting nothing forever."""
+async def test_a_camera_that_stops_answering_keeps_trying_instead_of_ending(monkeypatch):
+    """A camera that is gone must not leave the panel frozen for good.
+
+    Ending the stream left a stale picture on the wall until someone re-opened the
+    page: a cloud camera that reconnects, or an integration that reloads, never got
+    a second chance. The stream backs off and keeps trying at
+    ``CAMERA_RETRY_INTERVAL``, and the picture it already painted stays.
+    """
+    monkeypatch.setattr(camera_stream, "CAMERA_RETRY_INTERVAL", 0.05)
     app = _app()
     stream = _stream(app, fps=50)
     stream._snapshot = AsyncMock(side_effect=_CameraUnavailable("camera unavailable"))
 
     task = asyncio.create_task(stream._run())
-    for _ in range(200):
+    for _ in range(400):
         await asyncio.sleep(0.01)
-        if stream._snapshot.await_count >= MAX_CAMERA_FAILURES:
+        if stream._snapshot.await_count > MAX_CAMERA_FAILURES:
+            break
+    still_running = camera_stream.stream_for(app) is stream
+    stream._stopped.set()
+    await task
+
+    assert still_running, "the stream is still there after the camera went away"
+    assert stream._snapshot.await_count > MAX_CAMERA_FAILURES, "and it asked again"
+    app.controller["esphome"].draw_stream_frame.assert_not_called()
+    assert any("tries again every" in call.args[0] for call in app.log.call_args_list), (
+        "the panel keeps its picture, and the log says why"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_recovered_camera_answers_with_a_frame(monkeypatch):
+    """A snapshot that arrives after the outage paints, and the next frames follow."""
+    monkeypatch.setattr(camera_stream, "CAMERA_RETRY_INTERVAL", 0.05)
+    app = _app()
+    stream = _stream(app, fps=50, progressive=True)
+    stream._snapshot = AsyncMock(
+        side_effect=[_CameraUnavailable("camera unavailable"), _frame(), _frame((200, 40, 40))]
+    )
+
+    task = asyncio.create_task(stream._run())
+    for _ in range(400):
+        await asyncio.sleep(0.01)
+        if app.controller["esphome"].draw_stream_frame.called:
             break
     stream._stopped.set()
     await task
 
-    assert stream._snapshot.await_count == MAX_CAMERA_FAILURES
-    app.controller["esphome"].draw_stream_frame.assert_not_called()
-    assert camera_stream.stream_for(app) is None
+    assert app.controller["esphome"].draw_stream_frame.called, "the camera came back and painted"
+    assert any("answered again" in call.args[0] for call in app.log.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_two_panels_drawing_one_camera_share_a_snapshot(monkeypatch):
+    """One camera, one fetch per share window, however many panels draw it."""
+    calls: list[str] = []
+
+    async def _async_get_image(hass: Any, entity_id: str, **kwargs: Any) -> Any:
+        calls.append(entity_id)
+        return types.SimpleNamespace(content_type="image/png", content=_frame())
+
+    module = types.ModuleType("homeassistant.components.camera")
+    module.async_get_image = _async_get_image
+    monkeypatch.setitem(sys.modules, "homeassistant.components.camera", module)
+
+    first = _stream(_app())
+    # A second panel, which is what makes the share possible at all: a stream never
+    # reuses a frame it fetched itself.
+    second_app = _app()
+    second_app.name = "panel-2"
+    second = _stream(second_app)
+
+    assert await first._snapshot() == await second._snapshot()
+    assert len(calls) == 1, "the second panel reused the first panel's frame"
+
+    # A stream never reuses its own frame: that would halve its frame rate.
+    await first._snapshot()
+    assert len(calls) == 2
 
 
 @pytest.mark.asyncio

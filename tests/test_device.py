@@ -1412,3 +1412,21 @@ def test_a_date_format_set_on_the_device_replaces_the_locale_date_layout():
     device = _format_device({"date_format": "%m/%d/%Y"}, {"date_format_locale": "full"})
 
     assert device.get_date_format_locale() == ""
+
+
+def test_a_display_state_the_panel_never_reported_is_not_off():
+    """Unknown is not "off": it stopped work that had barely started, and said so.
+
+    Before the first handshake nothing knows whether the panel is lit, and every
+    reader of this property answered "off" for it - so anything that stops on a dark
+    display stopped before the device had said a word.
+    """
+    device = _format_device({}, {})
+
+    assert device.display_state == ""
+    assert device.display_visible is False, "not visible either - it is unknown"
+
+    device.set_device_info({"display_state": "dim"})
+
+    assert device.display_state == "dim"
+    assert device.display_visible is True

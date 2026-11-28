@@ -39,23 +39,27 @@ export const devicePanelStyles = css`  /* The Panels view's side stack: the sele
   /* The role toggles lead the card above its render; actions follow the facts.
      Keep the two controls together without a divider beneath them. */
   .haui-panel-info-roles,
-  .haui-panel-info-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .haui-panel-info-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  /* A pair sits on one row while both labels fit it and takes a row each when
+     they do not, so a longer language or a larger text size never spills a
+     chip's label out of the card. */
   .haui-panel-info-roles .haui-button,
-  .haui-panel-info-actions .haui-button { min-width: 0; min-height: 34px; padding: 0 12px; font-size: var(--haui-text-label); }
+  .haui-panel-info-actions .haui-button {
+    flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 0 12px;
+    font-size: var(--haui-text-label); line-height: var(--haui-line-height-tight);
+    white-space: normal; overflow-wrap: anywhere; text-align: center;
+  }
+  .haui-panel-info-roles .haui-button > ha-icon,
+  .haui-panel-info-actions .haui-button > ha-icon { flex: 0 0 auto; }
   .haui-panel-info-roles > :last-child:nth-child(odd),
   .haui-panel-info-actions > .haui-button:first-child:only-child,
-  .haui-panel-info-actions > .haui-button:first-child:nth-last-child(n + 3) { grid-column: 1 / -1; }
+  .haui-panel-info-actions > .haui-button:first-child:nth-last-child(n + 3) { flex-basis: 100%; }
   .haui-panel-info-roles .haui-button.is-active { border-color: var(--haui-surface-strong); background: var(--haui-surface-strong); font-weight: 500; }
   .haui-panel-info-roles .haui-button.is-active:hover:not(:disabled) { border-color: var(--divider-color); background: var(--haui-surface-strong); }
   /* A narrow card holds one fact per row. */
   @container haui-panel-info (max-width: 360px) {
     .haui-panel-info-facts { grid-template-columns: max-content minmax(0, 1fr); }
     .haui-panel-info-facts > div:nth-child(2n) > dt { padding-inline-start: 0; }
-  }
-  /* Narrower than this, a pair of buttons no longer fits: one per row. */
-  @container haui-panel-info (max-width: 320px) {
-    .haui-panel-info-roles,
-    .haui-panel-info-actions { grid-template-columns: minmax(0, 1fr); }
   }
   /* Delete reads as the destructive one. */
   .haui-panel-info .haui-button-danger { color: var(--haui-bad-text); }

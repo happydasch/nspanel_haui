@@ -411,3 +411,69 @@ def test_a_cropped_frame_fills_the_rectangle_instead_of_banding_it():
     assert covered.size == (rect.w, rect.h)
     assert reds(covered) == 0, "the crop takes the picture's middle as the whole area"
     assert reds(letterboxed) > 0, "the letterbox keeps the picture's full width"
+
+
+def test_a_clone_plans_without_touching_the_planner_it_came_from():
+    """A frame is planned on a copy, so the worker's planner is not written off it.
+
+    Planning runs in the executor while the worker may repaint or replace the
+    planner; the copy is what a clone is for, and it must share nothing planning
+    writes.
+    """
+    planner = DeltaPlanner(RECT, cell=8, refresh_every=0)
+    planner.plan(_scene())
+
+    copy = planner.clone()
+    copy.plan(_scene(subject_x=170))
+    copy.repaint()
+
+    assert planner._painted != copy._painted, "the copy moved on its own"
+    assert not planner._repaint, "and a repaint asked of the copy is not the original's"
+    assert planner.frames + 1 == copy.frames
+
+
+def test_a_refinement_waits_before_sharpening_again():
+    """Two whole paints within a few frames is a visible flash, so a refine buys a pause.
+
+    A scene that keeps a cheap patch moving produced exactly that: cell 4 to cell 2
+    within a handful of frames, two full repaints, for detail nobody had time to
+    see. Sharpening has to wait for a pause of its own.
+    """
+    planner = DeltaPlanner(RECT, cell=4, min_cell=MIN_CELL_PX, refresh_every=0)
+    planner.plan(_scene())
+    paints: list[int] = []
+    for step, x in enumerate(range(0, 80, 2)):
+        before = planner.full_paints
+        planner.plan(_dot(x))
+        if planner.full_paints > before:
+            paints.append(step)
+
+    assert len(paints) > 1, f"the fixture has to sharpen twice to mean anything ({paints})"
+    assert all(later - earlier >= 5 for earlier, later in zip(paints, paints[1:], strict=False)), (
+        f"refinements at frames {paints} are back to back"
+    )
+
+
+def test_the_stream_merge_never_mixes_two_display_colours():
+    """The stream's merge is exact, and that is what keeps its model true.
+
+    It is a separate function from ``image_program._spans`` on purpose: a still
+    image may merge neighbours within a colour tolerance because it is painted
+    once, while a span here that carried a colour its cells do not have would make
+    the model the next frame compares against drift from the display by that
+    tolerance, every frame.
+    """
+    from custom_components.nspanel_haui.haui.utils.image_stream import _merged
+
+    rnd = random.Random(11)
+    grid = [[rgb_to_rgb565((rnd.randrange(0, 40, 8), 32, 64)) for _ in range(9)] for _ in range(6)]
+
+    spans = _merged(grid)
+
+    assert spans, "the fixture has to merge into something"
+    for span in spans:
+        for row in range(span.y, span.y + span.h):
+            for col in range(span.x, span.x + span.w):
+                assert grid[row][col] == span.rgb565, (
+                    f"the span at ({span.x}, {span.y}) paints {span.rgb565} over {grid[row][col]}"
+                )

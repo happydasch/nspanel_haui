@@ -8,6 +8,7 @@ exact instruction strings.
 from __future__ import annotations
 
 import io
+import math
 import random
 
 import pytest
@@ -439,6 +440,76 @@ def test_the_top_of_the_range_is_sent_in_slices_the_panel_can_hold():
 def test_the_display_size_follows_the_orientation():
     assert display_size(portrait=False) == LANDSCAPE_SIZE
     assert display_size(portrait=True) == PORTRAIT_SIZE
+
+
+def _scene(size: int = 120) -> bytes:
+    """A picture whose run count is *not* monotone in the cell size.
+
+    A flat sky (what the canvas covers), a striped band and hard-edged blocks:
+    averaged coarser, the stripes and the blocks merge in ways that make the count
+    dip and rise again, which is what a search over "does this fit" gets wrong.
+    """
+    image = Image.new("RGB", (size, size), (0, 0, 0))
+    drawing = ImageDraw.Draw(image)
+    drawing.rectangle((0, 0, size, int(size * 0.55)), fill=(90, 140, 200))
+    for x in range(0, size, 3):
+        drawing.line((x, int(size * 0.55), x, int(size * 0.75)), fill=(90 + x, 120, 160))
+    for index in range(6):
+        drawing.rectangle(
+            (index * 20, int(size * 0.75), index * 20 + 15, size - 1),
+            fill=(30 + index * 25, 40, 60 + index * 20),
+        )
+    return _png(image)
+
+
+def _runs_at(data: bytes, rect: Rect, cell: int) -> int:
+    """Runs the program at exactly ``cell`` would carry."""
+    canvas, colour = image_program.fit_image(image_program.decode_image(data), rect)
+    spans = image_program._spans(
+        image_program._cells(canvas, math.ceil(rect.w / cell), math.ceil(rect.h / cell)),
+        rect,
+        cell,
+        COLOUR_TOLERANCE,
+        rgb565_to_rgb(colour),
+    )
+    return len(spans) + 1
+
+
+def test_the_finest_grid_that_fits_wins_where_runs_are_not_monotone():
+    """A coarser grid can cost *more* runs, so a bisection is not the answer.
+
+    Tolerance merging and the canvas drop make the run count jump around: on this
+    picture it dips and rises again, so a search that only asks "does this fit"
+    stops on a grid that is both coarser and dearer than the one below it. The
+    plan must be the finest grid that fits, whichever way the count wanders.
+    """
+    rect = Rect(0, 0, 120, 120)
+    data = _scene()
+    budget = MIN_RUN_BUDGET
+    (program,), cell = image_plan(data, rect, budget=budget)
+
+    assert len(program) <= budget
+    assert cell > 1, "the fixture only means something if the answer is not the floor"
+    for finer in range(1, cell):
+        assert _runs_at(data, rect, finer) > budget, (
+            f"cell {finer} fits {budget} runs, so cell {cell} is not the finest"
+        )
+
+
+def test_the_tolerance_the_caller_gives_is_the_one_applied():
+    """``tolerance`` is a real setting: a wider one merges more and costs fewer runs."""
+    rect = Rect(0, 0, 60, 60)
+    image = Image.new("RGB", (60, 60), (100, 100, 100))
+    drawing = ImageDraw.Draw(image)
+    # Neighbours a few levels apart: one run at the default tolerance, two at zero.
+    for y in range(0, 60, 6):
+        drawing.rectangle((30, y, 59, y + 5), fill=(104, 104, 104))
+    data = _png(image)
+
+    (exact,), _cell = image_plan(data, rect, budget=MAX_RUN_BUDGET, tolerance=0)
+    (merged,), _cell = image_plan(data, rect, budget=MAX_RUN_BUDGET, tolerance=COLOUR_TOLERANCE)
+
+    assert len(merged) < len(exact)
 
 
 def test_the_plan_reports_the_cell_the_image_is_drawn_in():

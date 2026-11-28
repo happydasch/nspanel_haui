@@ -15,7 +15,6 @@ from ..utils.draw_wire import (
     DRAW_FORMAT_PACKED,
     LEGACY_SLICE_RUNS,
     RUN_MS_CEILING,
-    decode_program,
     display_run,
     draw_format,
     pack_program,
@@ -257,7 +256,18 @@ class HAUIESPHomeController(HAUIBase):
             if (rect := _fill_rect(command)) is not None and _covers(area, rect)
         ]
 
-    def _record_page_command(self, command: str) -> None:
+    def _record_page_command(self, command: str, *, own_draw: bool = False) -> None:
+        """Record one display command for the page replay.
+
+        Args:
+            command: The display command the panel took.
+            own_draw: This fill is part of a draw program this controller sent, so
+                whoever owns its rectangle is not told about it. Every other fill
+                is a program from elsewhere - a page's own script, a service image
+                - and the stream that owns that area must paint it whole again
+                instead of sending deltas against a picture the panel no longer
+                shows (``app.paint_rect``).
+        """
         rect = _fill_rect(command)
         # A different colour at exactly the same position overwrites the same
         # pixels. The latest write keeps its position relative to widget paints.
@@ -268,6 +278,8 @@ class HAUIESPHomeController(HAUIBase):
             self._fills.pop(target, None)
             self._fills[target] = rect
             self._trim_replay()
+            if not own_draw:
+                self.app.paint_rect(Rect(*rect))
 
     def _forget_page_command(self, target: str) -> None:
         """Drop a recorded command, and the fill that claims its pixels with it."""
@@ -308,7 +320,7 @@ class HAUIESPHomeController(HAUIBase):
                 if _covers(cover, rect):
                     self._forget_page_command(target)
         for run in runs:
-            self._record_page_command(run)
+            self._record_page_command(run, own_draw=True)
         self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs, external=self._draw_external)
 
     def cancel_draw(self) -> None:
@@ -534,7 +546,10 @@ class HAUIESPHomeController(HAUIBase):
             )
             self._fail_draw()
             return
-        self._draw_in_flight = decode_program(program)
+        # The slice as display instructions, which is what this is: the program was
+        # packed from ``runs``, so inside, the two forms are the same slice. It is
+        # what a confirmed slice enters the replay as (``_confirm_draw_slice``).
+        self._draw_in_flight = list(runs)
         expected = len(runs) * RUN_MS_CEILING / 1000
         self._draw_timer = self.app.run_in(self._draw_slice_timeout, expected + DRAW_SLICE_GRACE)
 
@@ -657,7 +672,10 @@ def _fill_rect(command: str) -> tuple[int, int, int, int] | None:
 
     The replay holds display commands, so a fill is ``fill x,y,w,h,colour`` -
     width and height, not a second corner. Used to decide which recorded fills a
-    new image already paints over.
+    new image already paints over, and which rectangle a page's own fill damaged.
+
+    A fill off the display (a negative origin, no area) is ``None``: it is not a
+    rectangle anything can reason about, and ``Rect`` would refuse it.
     """
     if not command.startswith("fill "):
         return None
@@ -668,6 +686,6 @@ def _fill_rect(command: str) -> tuple[int, int, int, int] | None:
         x, y, w, h = (int(field) for field in fields[:4])
     except ValueError:
         return None
-    if w < 1 or h < 1:
+    if x < 0 or y < 0 or w < 1 or h < 1:
         return None
     return x, y, w, h

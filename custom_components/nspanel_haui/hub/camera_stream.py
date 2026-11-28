@@ -23,15 +23,22 @@ Three rules shape the loop, and all three come from the display's limits:
   the same way the service does. Confirmed fills are already in the page replay;
   ending the stream never paints an old picture back over them.
 
-A camera that fails is retried a few times and then ends the stream: a panel that
-keeps redrawing a stale picture is worse than one that stops.
+A camera that fails is retried: a snapshot that does not arrive is one frame the
+panel did not get, and after a few in a row the stream backs off and keeps trying.
+Ending it instead would leave the panel frozen for as long as the outage lasts -
+a doorbell that renegotiates, a camera integration that reloads - because nothing
+would start it again until the page is set anew.
+
+The same holds for a display that switches itself off: painting into a dark panel
+is invisible work, so the loop idles instead of ending, and the frame after the
+display comes back paints the rectangle whole (the panel may show anything by
+then, and the planner's model has been idle for hours).
 """
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from copy import deepcopy
 from time import monotonic
 from typing import TYPE_CHECKING, Any, Final
 
@@ -55,14 +62,28 @@ if TYPE_CHECKING:
     from ..haui.abstract.haui_page import HAUIPage
     from .app import NSPanelHAUI
 
-#: Snapshots a camera may fail to deliver before the stream ends. A camera that
-#: misses one frame - it is reconnecting, or renegotiating with its doorbell - is
-#: normal and the stream rides it out; one that misses this many in a row is not
-#: coming back on its own.
+#: Snapshots a camera may miss in a row before the stream says so and slows down.
+#: A camera that misses one frame - it is reconnecting, or renegotiating with its
+#: doorbell - is normal and the stream rides it out at its own rate.
 MAX_CAMERA_FAILURES: Final = 5
-#: Seconds one snapshot may take before it counts as a failure. A cloud camera can
+#: Seconds between attempts once a camera is ``MAX_CAMERA_FAILURES`` down. The
+#: stream keeps running, so a camera that comes back paints again on its own; at
+#: this cadence a dead one costs a request every half minute and a log line every
+#: few minutes, instead of ending a stream nothing would restart.
+CAMERA_RETRY_INTERVAL: Final = 30
+#: Seconds between attempts a camera is allowed for one snapshot. A cloud camera can
 #: legitimately take a couple of seconds; a stalled one must not hold the stream.
 SNAPSHOT_TIMEOUT: Final = 10
+#: Seconds a snapshot is reused across the streams of this hub. Two panels showing
+#: the same camera at the same size asked it for a snapshot each, every frame, and
+#: decoded both; within this window the second one reuses the first one's frame.
+SNAPSHOT_SHARE_SECONDS: Final = 0.5
+#: Seconds between two whole paints a *viewer* may ask for. A dashboard card draws
+#: the page every few seconds and has no picture while the replay cannot describe
+#: the area whole, so an unthrottled request per render would repaint the panel
+#: continuously - and a whole paint of a camera rectangle is the visible flash the
+#: camera page avoids everywhere else.
+VIEWER_REPAINT_INTERVAL: Final = 10.0
 #: Seconds a startup pass may stay unacknowledged before the loop gives up on it.
 #: The panel answers each slice with a fence and the controller has its own per
 #: slice timer, so this only catches a draw nobody will ever report - and the loop
@@ -72,6 +93,11 @@ STARTUP_ACK_TIMEOUT: Final = SNAPSHOT_TIMEOUT + DRAW_SLICE_GRACE
 #: The stream running on each panel, by app name. A panel shows one at a time:
 #: a second start replaces the first, the way a second draw replaces the first.
 _STREAMS: dict[str, CameraStream] = {}
+#: The snapshots in flight, by entity and requested size: one camera, one fetch per
+#: ``SNAPSHOT_SHARE_SECONDS``, however many panels draw it. The owner's name is kept
+#: so a stream never reuses its own frame (that would halve a stream's frame rate),
+#: and the entries are pruned when they are past their window.
+_SNAPSHOTS: dict[tuple[str, int, int], tuple[float, bytes, str]] = {}
 
 
 class CameraStream:
@@ -163,6 +189,11 @@ class CameraStream:
         self._completed = 0
         self._unchanged = 0
         self._failed_draws = 0
+        #: Frames dropped because the display was dark; the frame after it comes
+        #: back paints the rectangle whole.
+        self._idle = 0
+        #: When a viewer last asked for a whole paint (``repaint_for_viewer``).
+        self._viewer_repaint_at = 0.0
         #: Frames refused because the picture moved while they were being planned;
         #: they were not sent, and the next one is planned from the new baseline.
         self._stale = 0
@@ -229,16 +260,23 @@ class CameraStream:
             self._task.cancel()
             try:
                 await self._task
-            except asyncio.CancelledError, Exception:  # noqa: BLE001 - a dead task must not block cleanup
-                pass
+            except asyncio.CancelledError:
+                # Awaiting the task we just cancelled raises here, and that is the
+                # normal path. Only a cancellation of *this* caller goes on.
+                current = asyncio.current_task()
+                if current is not None and current.cancelling():
+                    raise
+            except Exception as exc:  # noqa: BLE001 - a dead task must not block cleanup
+                self.app.log(f"camera stream: the loop ended with {exc!r}", level="DEBUG")
             self._task = None
         if _STREAMS.get(self.app.name) is self:
             del _STREAMS[self.app.name]
         self.app.log(
             f"camera stream from {self.entity_id} stopped: {self.frames} frame(s), "
             f"{self._completed} completed, {self._unchanged} unchanged, "
-            f"{self.skipped} busy skips, {self._stale} stale, "
-            f"{self._failed_draws} failed draws, cell {self.planner.cell} px"
+            f"{self.skipped} busy skips, {self._idle} dark-display skips, "
+            f"{self._stale} stale, {self._failed_draws} failed draws, "
+            f"cell {self.planner.cell} px"
         )
 
     def request_stop(self) -> None:
@@ -282,6 +320,21 @@ class CameraStream:
         startup_frame: bytes | None = None
         while not self._stopped.is_set():
             started = loop.time()
+            # Asked before the snapshot: a display that is dark, or one still
+            # painting, costs nothing at the camera. The worker also hands back the
+            # planner to plan on, so the frame is planned against a picture taken
+            # while it is still the worker's (``_prepare_on_worker``).
+            status, planner = await self.app.async_run_on_worker(self._prepare_on_worker)
+            if status == "stop":
+                break
+            if status != "ok":
+                if status == "busy":
+                    self.skipped += 1
+                else:
+                    self._idle += 1
+                startup_frame = None
+                await self._sleep_until(started + interval)
+                continue
             try:
                 frame = startup_frame if startup_frame is not None else await self._snapshot()
             except asyncio.CancelledError:
@@ -289,33 +342,38 @@ class CameraStream:
             except Exception as exc:  # noqa: BLE001 - a background loop must survive any camera failure
                 # Whatever the camera raised - Home Assistant's own error, a
                 # timeout, a driver exception - it is a frame that did not arrive.
-                # It is logged and counted, and the stream ends after too many.
+                # The stream keeps running: nothing would start it again, and the
+                # panel keeps the picture it has until the camera answers.
                 self._failures += 1
-                self.app.log(
-                    f"camera stream: {self.entity_id} gave no snapshot "
-                    f"({self._failures}/{MAX_CAMERA_FAILURES}): {exc}",
-                    level="WARNING",
-                )
-                if self._failures >= MAX_CAMERA_FAILURES:
+                delay = interval
+                if self._failures < MAX_CAMERA_FAILURES:
                     self.app.log(
-                        f"camera stream from {self.entity_id} stopped: the camera did not answer",
+                        f"camera stream: {self.entity_id} gave no snapshot "
+                        f"({self._failures}/{MAX_CAMERA_FAILURES}): {exc}",
                         level="WARNING",
                     )
-                    break
-                await self._sleep_until(started + interval)
+                else:
+                    delay = max(interval, CAMERA_RETRY_INTERVAL)
+                    if self._failures == MAX_CAMERA_FAILURES:
+                        self.app.log(
+                            f"camera stream: {self.entity_id} has not answered "
+                            f"{self._failures} times; the panel keeps its picture and the "
+                            f"stream tries again every {delay:.0f} s",
+                            level="WARNING",
+                        )
+                await self._sleep_until(started + delay)
                 continue
+            if self._failures:
+                self.app.log(
+                    f"camera stream: {self.entity_id} answered again after "
+                    f"{self._failures} missed snapshot(s)"
+                )
             self._failures = 0
             snapshot_ready = monotonic()
-            verdict = await self.app.async_run_on_worker(self._prepare_on_worker)
-            if verdict == "stop":
-                break
-            if verdict == "busy":
-                self.skipped += 1
-                startup_frame = None
-                await self._sleep_until(started + interval)
-                continue
             try:
-                runs, full, planner = await self.hass.async_add_executor_job(self._plan, frame)
+                runs, full, planned = await self.hass.async_add_executor_job(
+                    self._plan, frame, planner
+                )
             except ImageStreamError as exc:
                 self.app.log(
                     f"camera stream: {self.entity_id} frame refused: {exc}", level="WARNING"
@@ -326,7 +384,7 @@ class CameraStream:
             # neither polls the camera repeatedly nor idles for the stream's FPS.
             painted: asyncio.Future[bool] | None = None
             on_done: Callable[[bool], None] | None = None
-            if planner.starting_up:
+            if planned.starting_up:
                 painted = loop.create_future()
 
                 def _signal(ok: bool, future: asyncio.Future[bool] = painted) -> None:
@@ -337,11 +395,13 @@ class CameraStream:
                     loop.call_soon_threadsafe(_resolve)
 
                 on_done = _signal
-            verdict = await self._send(runs, full, planner, snapshot_ready, on_done)
+            verdict = await self._send(runs, full, planned, snapshot_ready, on_done)
             if verdict == "stop":
                 break
             if verdict == "busy":
                 self.skipped += 1
+            elif verdict == "idle":
+                self._idle += 1
             elif verdict == "stale":
                 self._stale += 1
             elif verdict == "ok":
@@ -381,9 +441,20 @@ class CameraStream:
         PNG the camera produced, scaled by the camera when it can - not pixels,
         so decoding belongs to the stream's own CPU step (``_plan``) and never to
         the event loop.
+
+        A snapshot is shared with the hub's other streams of the same camera at the
+        same size (``_SNAPSHOTS``): two panels drawing one camera asked it for a
+        snapshot each, every frame, and decoded both.
         """
         from homeassistant.components.camera import async_get_image
 
+        key = (self.entity_id, self.rect.w, self.rect.h)
+        cached = _SNAPSHOTS.get(key)
+        now = monotonic()
+        if cached is not None and cached[2] != self.app.name:
+            taken, content, _owner = cached
+            if now - taken <= SNAPSHOT_SHARE_SECONDS:
+                return content
         snapshot = await async_get_image(
             self.hass,
             self.entity_id,
@@ -391,10 +462,23 @@ class CameraStream:
             width=self.rect.w,
             height=self.rect.h,
         )
+        self._remember_snapshot(key, monotonic(), snapshot.content)
         return snapshot.content
 
-    def _plan(self, frame: bytes) -> tuple[list[str], bool, DeltaPlanner]:
+    def _remember_snapshot(self, key: tuple[str, int, int], taken: float, content: bytes) -> None:
+        """Keep a snapshot for the hub's other streams, and drop the ones past their window."""
+        _SNAPSHOTS[key] = (taken, content, self.app.name)
+        for stale in [k for k, entry in _SNAPSHOTS.items() if taken - entry[0] > 60]:
+            del _SNAPSHOTS[stale]
+
+    def _plan(self, frame: bytes, planner: DeltaPlanner) -> tuple[list[str], bool, DeltaPlanner]:
         """Decode one frame and plan the program that shows it (executor side).
+
+        Args:
+            frame: The encoded snapshot.
+            planner: A copy of this stream's planner, taken on the worker
+                (``DeltaPlanner.clone``) - planning must not read state the worker
+                may be replacing while it runs.
 
         Returns:
             The program, whether it paints the whole rectangle, and the planner
@@ -407,7 +491,6 @@ class CameraStream:
                 picture has no pixels. To the loop both mean the same thing: this
                 frame cannot be drawn, and the next one may be fine.
         """
-        planner = deepcopy(self.planner)
         full_before = planner.full_paints
         try:
             runs = planner.plan(decode_image(frame))
@@ -445,15 +528,23 @@ class CameraStream:
             return "stop"
 
     def _frame_status(self) -> str:
-        """Check the page and draw slot on the worker, where they are owned."""
+        """Check the page and draw slot on the worker, where they are owned.
+
+        Returns:
+            ``"stop"`` when this stream is over, ``"idle"`` while the display is
+            dark (the stream keeps running and paints whole again when it wakes),
+            ``"busy"`` while a pass is in flight, ``"ok"`` when a frame may go.
+        """
         if self._stopped.is_set():
             return "stop"
         if self._current_page() is not self._page:
             self.app.log(f"camera stream from {self.entity_id}: the page changed, stopping")
             return "stop"
-        if self.app.device.display_state == "off":
-            self.app.log(f"camera stream from {self.entity_id}: the display is off, stopping")
-            return "stop"
+        if self.app.device.device_info.get("display_state") == "off":
+            # Not a verdict: the display came back by itself before, and nothing
+            # would restart this stream if it stopped here. Painting into a dark
+            # panel is invisible work, so the frame waits (``_idle``).
+            return "idle"
         update = self.app.controller.get("update")
         if update is not None and update.tft_install_active:
             # The panel is taking a new TFT: it answers no page ack, refuses every
@@ -481,11 +572,24 @@ class CameraStream:
         self.planner.repaint()
         return True
 
-    def _prepare_on_worker(self) -> str:
+    def _prepare_on_worker(self) -> tuple[str, DeltaPlanner | None]:
+        """Decide whether this frame may be drawn, and what to plan it against.
+
+        Returns:
+            The verdict (see ``_frame_status``) and, when it is ``"ok"``, the copy
+            of the planner the frame is to be planned on - taken here, on the
+            worker, because planning runs in the executor and the worker may
+            repaint or replace the planner while it does.
+        """
         status = self._frame_status()
         if status == "ok":
             self._invalidate_baseline()
-        return status
+            return status, self.planner.clone()
+        if status == "idle":
+            # Whatever the panel shows when it comes back, the stream's model of it
+            # is hours old: the first frame after the wake paints the rectangle whole.
+            self._repaint_pending = True
+        return status, None
 
     def _send_on_worker(
         self,
@@ -497,6 +601,10 @@ class CameraStream:
     ) -> str:
         """Submit the frame, committing its picture only on completion."""
         status = self._frame_status()
+        if status == "idle":
+            # The display went dark while this frame was planned: the next one after
+            # the wake paints the rectangle whole (``_prepare_on_worker``).
+            self._repaint_pending = True
         if status != "ok":
             return status
         if self._invalidate_baseline() and not full:
@@ -569,6 +677,31 @@ class CameraStream:
         """
         if not self.rect.overlaps(rect):
             return False
+        self.repaint()
+        return True
+
+    def repaint_for_viewer(self) -> bool:
+        """Ask for a whole paint because a viewer has no picture of this rectangle.
+
+        A dashboard card renders the page and needs the fills the panel received;
+        the replay cannot describe the area once the stream's oldest fills were
+        trimmed (``picture_commands``), so the stream paints it whole and the next
+        render carries a picture instead of the page's placeholder.
+
+        Coalesced twice, because a card renders on a schedule and this costs a full
+        pass: a request never stacks on one already pending, and no two of them
+        land within ``VIEWER_REPAINT_INTERVAL``. Real damage to the rectangle goes
+        through ``repaint`` instead, which is neither coalesced nor delayed.
+
+        Returns:
+            Whether a paint was requested.
+        """
+        if self._repaint_pending:
+            return False
+        now = monotonic()
+        if now - self._viewer_repaint_at < VIEWER_REPAINT_INTERVAL:
+            return False
+        self._viewer_repaint_at = now
         self.repaint()
         return True
 
@@ -729,7 +862,7 @@ def stop_page_stream(app: NSPanelHAUI) -> None:
     _schedule(app, lambda: _apply_stop(app, stream))
 
 
-def repaint_page_stream(app: NSPanelHAUI) -> None:
+def repaint_page_stream(app: NSPanelHAUI, *, for_viewer: bool = False) -> None:
     """Ask the stream on ``app`` to paint its whole picture again (worker).
 
     For the page that owns the rectangle: a render puts the page's own widgets
@@ -737,9 +870,18 @@ def repaint_page_stream(app: NSPanelHAUI) -> None:
     stale picture through a second path the stream's model knows nothing about.
     The stream paints the rectangle whole instead, and stays the only thing that
     draws there (``DeltaPlanner.repaint``).
+
+    Args:
+        app: The panel to ask.
+        for_viewer: A viewer has no picture rather than the page having damaged
+            one, so the request is coalesced (``CameraStream.repaint_for_viewer``).
     """
     stream = _STREAMS.get(app.name)
-    if stream is not None:
+    if stream is None:
+        return
+    if for_viewer:
+        stream.repaint_for_viewer()
+    else:
         stream.repaint()
 
 

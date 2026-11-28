@@ -31,7 +31,7 @@ from ..utils.image_stream import DEFAULT_QUALITY, QUALITY, PictureQuality
 #: compiled from, and ``tests/test_page_camera.py`` checks them against both
 #: generated layouts.
 PICTURE_RECT: dict[str, Rect] = {
-    "landscape": Rect(12, 70, 426, 170),
+    "landscape": Rect(12, 65, 260, 240),
     "portrait": Rect(12, 55, 296, 335),
 }
 

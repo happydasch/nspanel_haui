@@ -158,6 +158,18 @@ The bad case is a camera that pans or zooms: 12 px per frame moves every pixel, 
 
 What is *not* the limit: the hub. A delta frame costs 0.9–3 ms at cell 8–12 on the host (`_cells` + span merge, frame already decoded), so the cost per frame is the publish and the fence round trip, not the arithmetic. It leaks the other way too — keep frames out of the preview and page-replay paths, or a stream rewrites `_page_commands` on every frame.
 
+### A stream pauses, it does not stop
+
+`hub/camera_stream.py` ends a stream only when the page changed or a TFT install owns the display — both are verdicts nothing would undo. A **dark display** is not one: the firmware switches the panel off after its own idle timeout and wakes it on a touch, and no wake re-renders the page, so a stream that stopped there left the last picture frozen on the wall until someone navigated away and back. It now idles instead (`_frame_status` → `"idle"`): no snapshot is fetched, nothing is painted, and the first frame after the wake is a full paint — hours of being dark leave the planner's model of the display worthless.
+
+A **failing camera** is not a verdict either: `MAX_CAMERA_FAILURES` consecutive misses are reported once and the retry interval drops to `CAMERA_RETRY_INTERVAL` (30 s), so a doorbell that renegotiates or an integration that reloads carries on by itself. The picture the panel already has stays until then, which is the honest state.
+
+Two smaller rules of the loop: the frame is planned on a `DeltaPlanner.clone()` **taken on the worker** (`deepcopy` on the executor read state the worker was replacing), and a snapshot is shared between the hub's streams of the same entity at the same size for `SNAPSHOT_SHARE_SECONDS` — two panels drawing one camera used to fetch and decode it twice per frame.
+
+### Refining waits
+
+A stream with `min_cell` below its cell sharpens when the deltas are cheap (`_should_refine`), and each refinement throws the model away for a **full paint**. A scene that keeps a cheap patch moving therefore walked from cell 4 to cell 2 within three frames on a 426x170 rectangle: two whole repaints for detail nobody had time to see, which reads as a flash. `REFINE_COOLDOWN` frames pass after a refinement before another is considered.
+
 
 
 ### What a draw program is
@@ -178,6 +190,16 @@ span wherever it is, and cutting a span up to drop a piece of it would cost the
 row and column merges that made it cheap. A program therefore never costs more
 runs than painting every block at the same grid, and the clearing fill counts as
 one of the budget's runs.
+
+The grid is found by searching for the **finest** cell whose program fits the
+budget — and that search cannot be a plain bisection, because the run count is not
+monotone in the cell size: tolerance merging and the canvas drop make a coarser
+grid sometimes cost *more* runs (a measured photo: 162 runs at cell 6, 231 at
+cell 7, 242 at cell 8, 194 at cell 10). `_compile()` therefore bisects for a grid
+that fits and then probes a bounded window below it
+(`_FINEST_PROBE_STEPS`), taking the finest one that still fits. Before that probe
+a budget could land on a grid that was both coarser and dearer than one below it —
+at `quality: 200` the plan was cell 10 (190 runs) where cell 6 needed 157.
 
 Every pass starts with that fill, including the coarse pass of a progressive
 draw, so the full pass wipes the coarse one before its own blocks go down and

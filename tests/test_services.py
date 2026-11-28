@@ -891,17 +891,23 @@ def _png_bytes() -> bytes:
 
 
 def _checkerboard_png(size: int = 40) -> bytes:
-    """A PNG with no flat area: every grid costs close to one run per cell."""
+    """A PNG with no flat area: every grid costs close to one run per cell.
+
+    Per-pixel noise rather than a one-pixel checkerboard: averaged down, a
+    checkerboard is flat grey - the canvas colour covers it, so even a coarse grid
+    is already the finest picture the tolerance allows and a progressive draw has
+    nothing to sharpen.
+    """
     import io
+    import random
 
-    from PIL import Image, ImageDraw
+    from PIL import Image
 
-    image = Image.new("RGB", (size, size), (0, 0, 0))
-    drawing = ImageDraw.Draw(image)
-    for y in range(size):
-        for x in range(size):
-            if (x + y) % 2:
-                drawing.point((x, y), fill=(255, 255, 255))
+    rnd = random.Random(5)
+    image = Image.new("RGB", (size, size))
+    image.putdata(
+        [(rnd.randrange(256), rnd.randrange(256), rnd.randrange(256)) for _ in range(size * size)]
+    )
     buffer = io.BytesIO()
     image.save(buffer, "PNG")
     return buffer.getvalue()

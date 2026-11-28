@@ -366,6 +366,20 @@ class NSPanelHAUI(HAAdapter):
 
         repaint_page_stream(self)
 
+    def request_camera_page_picture(self) -> None:
+        """Ask the stream for a whole paint because a viewer has no picture (worker).
+
+        A card render replays the fills the panel received
+        (``camera_page_frame``); once the stream has run long enough for its
+        oldest fills to be trimmed, that replay cannot describe the area and the
+        card would show the page's placeholder for ever. It asks here instead, and
+        the next render carries the picture - coalesced, because a card renders on
+        a schedule and a whole paint is not free (``CameraStream.repaint_for_viewer``).
+        """
+        from .camera_stream import repaint_page_stream
+
+        repaint_page_stream(self, for_viewer=True)
+
     # media cover art
 
     def request_media_cover(

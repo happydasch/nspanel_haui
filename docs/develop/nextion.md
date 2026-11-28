@@ -76,11 +76,40 @@ A page render is a burst the display has to survive while it re-lays-out widgets
 So `draw_runs` switches the pacer off for the duration of a program (`draw_spacing: '0'`, `image.yaml`) and flow-controls the stream by the display's own acknowledgements:
 
 - `haui_draw_runs` sets the spacing to 0 and restores `command_spacing` in `haui_draw_report` — the single script every way a draw ends goes through (finished, refused, stalled, display gone). A pacer left at 0 would send page renders as fast as the UART takes them.
+- A run counts as sent only when the queue grew: `send_command()` answers for the display's state, not for the entry, and a full queue or a failed allocation drops the run without an error. Counting it would leave a gap the report calls a success, so the slice fails instead and the hub re-sends the pass. Since the window check (`queue_size() < draw_window`) runs before every send, the queue can only be full through something other than this program — the check makes that visible rather than silent.
+- A finished program is forgotten: `haui_draw_report` clears `haui_draw_program`, `ok` and `awaiting` after it built the payload and before it publishes it. A later buffer overflow therefore cannot re-send a band of an image that is long done, and `haui_draw_retry` gets a `retry` parameter so a re-send starts with the one-shot guard already set instead of clearing it.
+- A page change ends a draw. The hub cancels its slice queue when it sends `goto_page`, and `goto_page` (the firmware script) stops `haui_draw_runs` and `haui_draw_enqueue_batch`, clears the same program state and restores the pacer before it queues the page — the band already sent finishes on the old page and nothing follows it onto the new one. `_handle_page_event` cancels again for a page the display switched to on its own, and a report that still arrives for the cancelled pass finds no draw in flight and is ignored.
 - The enqueue pass keeps `draw_window` fills in flight — unsent or unacknowledged, which is exactly what `queue_size()` counts — and looks again every `draw_queue_poll` (one component phase). A run only goes out when an acknowledgement freed a place, so **the display's own rate is the rate of the draw**: a slow display is never overrun (12 × a 40-byte fill is a fifth of its 1 KB buffer) and a quick one is streamed until the UART is the limit — 921600 baud carries a 25-byte `fill` every 0.27 ms, about 3 700 a second against the pacer's 500.
 - With the pacer off, one phase transmits everything queued up to `max_commands_per_loop` (12, matching the window), so no phase can dump more than ~300 bytes at the display.
 - A display that stops acknowledging is caught by the draw itself: after `draw_stall_polls` passes with neither a freed place nor a queued run it fails the program and reports — the queue's own 8 s `max_queue_age` would be a long time to leave the pacer off.
 
 The hub plans its run budget at the pacer's pace anyway (`draw_wire.COMMAND_SPACING_MS`), because that is a number it can trust, and `res_draw`'s `elapsed_ms` reports what the panel really took — the hub logs it as `runs/s`. The fence timeout uses `draw_wire.RUN_MS_CEILING` (8 ms per run) instead: a slow panel legitimately takes longer than the planned pace, and a slice cut short is not harmless, because the next one restarts the firmware's program (`mode: restart`).
+
+### What a draw program is
+
+A pass is two steps, and only the second one is detail. One `fill` covers the
+whole rectangle in the picture's **own most common colour**, and the blocks that
+differ from that colour follow. `image_program._dominant_colour()` finds it on a
+sampled histogram, bucketed to four bits a channel — the size of the tolerance a
+block may differ by and still count as covered — so a logo's field, a photo's sky
+and the margins a letterbox leaves are painted by that single instruction instead
+of thousands of blocks of their own. On flat art that halves the count; on a
+picture with a large area of one tone it saves a quarter; a gradient saves almost
+nothing, and a photograph is still a mosaic that belongs in a page background
+picture.
+
+The covered blocks are dropped as **whole spans**, never cells: a flat area is one
+span wherever it is, and cutting a span up to drop a piece of it would cost the
+row and column merges that made it cheap. A program therefore never costs more
+runs than painting every block at the same grid, and the clearing fill counts as
+one of the budget's runs.
+
+Every pass starts with that fill, including the coarse pass of a progressive
+draw, so the full pass wipes the coarse one before its own blocks go down and
+nothing of the approximation survives. The preview replays exactly these runs:
+the editor's Nextion simulator and the dashboard card paint the hub's program,
+and `scripts/image_program/gen_image_preview.py` replays it offline in the
+display's own 65 536 colours, so a tile there is what the panel shows.
 
 ### A panel that drops runs
 

@@ -1057,6 +1057,13 @@ class HAUINavigationController(HAUIBase):
 
     def _handle_page_event(self, event: HAUIEvent) -> None:
         """A page-change ack arrived from the device."""
+        # A page switch ends a draw in flight with it. The hub cancels when it
+        # sends the switch; this is the backstop for one the display reported on
+        # its own (a page the HMI switched to), where the firmware stops its
+        # stream too and any late report belongs to a pass that is over.
+        esp_ctrl = self.app.controller.get("esphome")
+        if esp_ctrl is not None and hasattr(esp_ctrl, "cancel_draw"):
+            esp_ctrl.cancel_draw()
         # cancel page timeout if any
         self._cancel_timer("_page_timeout")
         self._page_change_ts = 0.0

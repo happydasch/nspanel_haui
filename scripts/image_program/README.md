@@ -6,14 +6,19 @@ action is called.
 
 An image on the panel is not a picture: the hub reduces it to a bounded program
 of Nextion `fill` rectangles (`custom_components/nspanel_haui/haui/utils/image_program.py`)
-and the firmware streams that to the display. The run count is therefore the
-latency — at most `runs * COMMAND_SPACING_MS`, the pace the hub plans for, while
-a draw is streamed at the display's own acknowledgement rate — and the cell size
-the rasteriser settles on is the detail: it is never finer than one display
-pixel, and for a large rectangle the run budget decides how close to that it
-gets, because a pass is sent in slices and length is never what stops it. This
-script runs the real rasteriser over a local file and draws every `fill` onto a
-canvas the size of the display, beside the ideal fit.
+and the firmware streams that to the display. A pass is one `fill` in the
+picture's own most common colour — its canvas, so a flat field and the margins of
+a fitted image cost nothing — followed by the blocks that differ from it. The run
+count is therefore the latency — at most `runs * COMMAND_SPACING_MS`, the pace the
+hub plans for, while a draw is streamed at the display's own acknowledgement rate
+— and the cell size the rasteriser settles on is the detail: it is never finer
+than one display pixel, and for a large rectangle the run budget decides how close
+to that it gets, because a pass is sent in slices and length is never what stops
+it. This script runs the real rasteriser over a local file and replays the runs it
+returns onto a canvas the size of the display, beside the ideal fit — both in the
+colours the panel can show (RGB565), because a tile drawn from `fill` colours and
+a reference drawn from the source's 8-bit ones would disagree about a correct
+picture.
 
 ```bash
 source .venv/bin/activate
@@ -22,9 +27,9 @@ python -m scripts.image_program.gen_image_preview nextion/images/logo_ha.png \
 ```
 
 ```
-coarse   59 runs     810 chars  ~118 ms planned, 1 slice(s)
-full    265 runs    3681 chars  ~530 ms planned, 1 slice(s)  drawn in 1 px blocks
-rasterised in 38 ms here, rect at (20, 60) 160x160
+coarse   57 runs     830 chars  ~114 ms planned, 1 slice(s)
+full    152 runs    2204 chars  ~304 ms planned, 1 slice(s)  drawn in 4 px blocks
+rasterised in 16 ms here, rect at (20, 60) 160x160
 wrote .dev/image-preview.png — tiles: ideal fit | coarse | full
 ```
 
@@ -36,7 +41,6 @@ wrote .dev/image-preview.png — tiles: ideal fit | coarse | full
 | `--budget` | `300` | The service's `quality` option, 60 up to 12000 |
 | `--progressive` | off | Render the coarse pass first, the way the action does |
 | `--portrait` | off | 320x480 instead of 480x320 |
-| `--background` | `4226` | Page background as RGB565 (`4226` is the default theme's) |
 | `--scale` | `2` | Zoom of the saved tiles, so a 1 px cell is visible |
 | `--out` | `.dev/image-preview.png` | Where to write the sheet (git-ignored) |
 

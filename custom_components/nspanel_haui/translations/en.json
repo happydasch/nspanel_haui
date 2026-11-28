@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Quality",
-          "description": "How many rectangles the image may use; more is sharper and slower (0.12 s to about 24 s at the pace the hub plans for, while the panel streams a draw several times faster), down to one rectangle per display pixel in a small rectangle."
+          "description": "How many rectangles the whole draw may use, the coarse pass included; more is sharper and slower (0.12 s to about 24 s at the pace the hub plans for, while the panel streams a draw several times faster), down to one rectangle per display pixel in a small rectangle."
         }
       }
     },

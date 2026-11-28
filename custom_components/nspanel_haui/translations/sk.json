@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Kvalita",
-          "description": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až približne 24 s pri tempe, s ktorým počíta hub, kým panel kreslí obrázok niekoľkonásobne rýchlejšie), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
+          "description": "Počet obdĺžnikov, ktoré môže použiť celá kresba, vrátane hrubého prechodu; viac znamená ostrejší a pomalší obraz (0,12 s až približne 24 s pri tempe, s ktorým počíta hub, kým panel kreslí obrázok niekoľkonásobne rýchlejšie), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
         }
       }
     },

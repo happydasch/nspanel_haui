@@ -189,6 +189,16 @@ script:
       - lambda: |-
           if (page != "") {
             ESP_LOGI("haui", "goto_page '%s'", page.c_str());
+            // A page change ends a draw in flight: the fills already queued paint
+            // before the switch, and nothing may follow them onto the new page.
+            // Stopping the scripts is not enough on its own - the pacer is off
+            // for a draw - so restore it here as haui_draw_report would.
+            id(haui_draw_runs).stop();
+            id(haui_draw_enqueue_batch).stop();
+            id(haui_draw_program) = "";
+            id(haui_draw_ok) = false;
+            id(haui_draw_awaiting) = false;
+            id(haui_disp).set_command_spacing(${command_spacing_ms});
             id(haui_disp).goto_page(page.c_str());
           }
 

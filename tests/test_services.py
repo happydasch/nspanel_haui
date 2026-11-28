@@ -880,6 +880,23 @@ def _png_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def _checkerboard_png(size: int = 40) -> bytes:
+    """A PNG with no flat area: every grid costs close to one run per cell."""
+    import io
+
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", (size, size), (0, 0, 0))
+    drawing = ImageDraw.Draw(image)
+    for y in range(size):
+        for x in range(size):
+            if (x + y) % 2:
+                drawing.point((x, y), fill=(255, 255, 255))
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return buffer.getvalue()
+
+
 def _make_drawable_app(mock_nav, mock_esphome_ctrl, **kwargs):
     """An app whose panel can draw: known display, new firmware, no install running."""
     from custom_components.nspanel_haui.haui.version import DRAW_RUNS_FIRMWARE_VERSION
@@ -1062,15 +1079,16 @@ async def test_show_image_surfaces_an_undecodable_image(
 
 
 @pytest.mark.asyncio
-async def test_show_image_paints_the_rectangle_black_before_the_image(
+async def test_show_image_paints_every_block_of_the_rectangle(
     mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
 ):
-    """The area is cleared first, so nothing that was on the page shows through.
+    """Nothing that was on the page shows through: the program covers the area.
 
-    A pass skips the cells that already match the colour it draws on, so without
-    this first fill an older image - or a widget the page put there - would stay
-    visible wherever the new picture has that colour.
+    One clearing fill covers the whole rectangle in the picture's canvas colour,
+    and the blocks that differ from it follow - so an older image, a widget or a
+    picture background underneath cannot survive anywhere in the rectangle.
     """
+    from custom_components.nspanel_haui.haui.utils.image_program import Rect
     from custom_components.nspanel_haui.services import _handle_show_image
 
     app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
@@ -1079,7 +1097,15 @@ async def test_show_image_paints_the_rectangle_black_before_the_image(
     await _handle_show_image(mock_hass, _image_call())
 
     (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
-    assert runs[0] == "fill 10,10,40,40,0", "a black rectangle over the whole area"
+    rect = Rect(10, 10, 40, 40)
+    covered = set()
+    for run in runs:
+        _keyword, geometry = run.split(" ")
+        x, y, w, h, _colour = (int(part) for part in geometry.split(","))
+        covered.update((px, py) for py in range(y, y + h) for px in range(x, x + w))
+    assert covered == {
+        (x, y) for y in range(rect.y, rect.bottom) for x in range(rect.x, rect.right)
+    }
 
 
 @pytest.mark.asyncio
@@ -1102,12 +1128,21 @@ async def test_show_image_draws_the_program_on_the_panel(
 
 @pytest.mark.asyncio
 async def test_show_image_queues_the_coarse_pass_before_the_full_one(
-    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+    mock_hass, mock_nav, mock_esphome_ctrl, monkeypatch
 ):
     """Progressive painting in one queue, so the coarse pass is not cut short."""
+    from custom_components.nspanel_haui import services
     from custom_components.nspanel_haui.haui.utils.image_program import PROGRESSIVE_RUNS
     from custom_components.nspanel_haui.services import _handle_show_image
 
+    # A picture with no flat area, so the coarse pass has to trade detail for
+    # runs and the two passes really are different grids.
+    checkerboard = _checkerboard_png()
+
+    async def _fetch(*_args, **_kwargs):
+        return checkerboard
+
+    monkeypatch.setattr(services, "_fetch_image", _fetch)
     app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
@@ -1116,21 +1151,20 @@ async def test_show_image_queues_the_coarse_pass_before_the_full_one(
     # One draw, the coarse runs first: a second call would restart the panel's
     # program and cut the coarse pass short instead of letting it finish.
     from custom_components.nspanel_haui.haui.utils.image_program import (
-        BACKDROP,
         Rect,
         image_plan,
     )
 
-    (coarse, full), _cell = image_plan(
-        _png_bytes(),
+    programs, _cell = image_plan(
+        checkerboard,
         Rect(10, 10, 40, 40),
-        background=BACKDROP,
         budget=300,
         progressive=True,
     )
     (sent,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
-    assert 0 < len(coarse) <= PROGRESSIVE_RUNS
-    assert sent == [*coarse, *full]
+    assert len(programs) == 2
+    assert 0 < len(programs[0]) <= PROGRESSIVE_RUNS
+    assert sent == [run for program in programs for run in program]
 
 
 # A file from ``<config>/www`` instead of a URL (the ``path`` field).
@@ -1248,6 +1282,31 @@ def test_the_image_schema_refuses_a_call_that_names_no_image():
 
     with pytest.raises(vol.Invalid, match="url or path"):
         SERVICE_SHOW_IMAGE_SCHEMA({"x": 0, "y": 0, "w": 10, "h": 10})
+
+
+@pytest.mark.parametrize(("field", "source"), [("url", "  "), ("path", ""), ("path", "   ")])
+def test_an_empty_image_source_is_refused(field, source):
+    """An empty field gets no further than the validator, not to a failed read."""
+    from custom_components.nspanel_haui.services import _one_image_source
+
+    with pytest.raises(vol.Invalid, match="empty"):
+        _one_image_source({field: source})
+
+
+@pytest.mark.asyncio
+async def test_an_empty_path_reads_the_file_folder_instead_of_a_url(
+    mock_hass, config_www, monkeypatch
+):
+    """``path`` is chosen by presence, not truthiness: no silent URL fallback."""
+    from custom_components.nspanel_haui import services
+
+    async def _unreachable(_hass, url):
+        raise AssertionError(f"a path must not download {url}")
+
+    monkeypatch.setattr(services, "_fetch_image", _unreachable)
+
+    with pytest.raises(_ServiceValidationError, match="does not exist"):
+        await services._read_image(mock_hass, _file_call(""))
 
 
 def test_show_image_service_metadata_and_schema_agree():

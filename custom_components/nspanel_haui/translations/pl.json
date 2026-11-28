@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Jakość",
-          "description": "Liczba prostokątów, których może użyć obraz; więcej oznacza ostrzej i wolniej (0,12 s do około 24 s w tempie, które zakłada hub, podczas gdy panel rysuje obraz kilkukrotnie szybciej), w małym prostokącie nawet jeden prostokąt na piksel wyświetlacza."
+          "description": "Liczba prostokątów, których może użyć cały rysunek, wraz z grubą wersją; więcej oznacza ostrzej i wolniej (0,12 s do około 24 s w tempie, które zakłada hub, podczas gdy panel rysuje obraz kilkukrotnie szybciej), w małym prostokącie nawet jeden prostokąt na piksel wyświetlacza."
         }
       }
     },

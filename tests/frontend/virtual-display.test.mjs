@@ -173,23 +173,98 @@ test('a hub draw program paints fills and a repeated rectangle replaces itself',
   assert.equal(display.drawings.length, 2);
 });
 
-test('a fill survives a page command batch but not the next page', () => {
+test('a widget repaint keeps the image outside its rectangle', () => {
   const { display } = makeDisplay();
   display.gotoPage('clock');
+  const time = display.component('tTime').attrs;
+  // The image covers the whole screen; the clock's text update repaints only
+  // the widget's own rectangle, so the picture survives around it - and a
+  // viewer that attaches late must see the same thing the panel shows.
   display.exec(['fill 0,0,480,320,4226', 'tTime.txt="12:00"']);
-  assert.equal(display.drawings.length, 1);
+  assert.ok(display.drawings.length > 0, 'the image outside the widget survives');
+  for (const d of display.drawings) {
+    const overlaps = d.x < time.x + time.w && d.x + d.w > time.x
+      && d.y < time.y + time.h && d.y + d.h > time.y;
+    assert.equal(overlaps, false, 'the widget paints its rectangle over the image');
+  }
   display.gotoPage('grid');
   assert.equal(display.drawings.length, 0);
+});
+
+test('a touch paints only when the widget has a pressed look', () => {
+  const { display } = makeDisplay();
+  display.gotoPage('grid');
+  display.exec('fill 0,0,480,320,4226');
+  // A text keeps the same colours while touched, so the panel repaints nothing
+  // and the image must stay whole.
+  display.touchEvent(display.component('tHeader'), 'down');
+  display.touchEvent(display.component('tHeader'), 'up');
+  assert.deepEqual(
+    display.drawings.map(d => [d.x, d.y, d.w, d.h]),
+    [[0, 0, 480, 320]],
+    'a text has no pressed look, so it does not cut the image',
+  );
+  // A button's pressed background differs, so its rectangle paints over the
+  // image; the picture outside it survives. The bare HMI page hides the grid
+  // controls until the hub reveals them, so show it before the image goes down.
+  display.exec('vis g1Btn,1');
+  display.exec('fill 0,0,480,320,4226');
+  const button = display.component('g1Btn');
+  const { x, y, w, h } = button.attrs;
+  display.touchEvent(button, 'down');
+  assert.ok(display.drawings.length > 0, 'the image outside the button survives');
+  for (const d of display.drawings) {
+    const overlaps = d.x < x + w && d.x + d.w > x && d.y < y + h && d.y + d.h > y;
+    assert.equal(overlaps, false, 'the pressed button paints its rectangle');
+  }
+});
+
+test('a button whose press changes no colour keeps the image', () => {
+  const { display } = makeDisplay();
+  display.gotoPage('grid');
+  display.exec('vis g1Btn,1');
+  const button = display.component('g1Btn');
+  button.attrs.bco2 = button.attrs.bco;
+  button.attrs.pco2 = button.attrs.pco;
+  button.attrs.pic2 = button.attrs.pic;
+  button.attrs.picc2 = button.attrs.picc;
+  display.exec('fill 0,0,480,320,4226');
+  display.touchEvent(button, 'down');
+  assert.deepEqual(
+    display.drawings.map(d => [d.x, d.y, d.w, d.h]),
+    [[0, 0, 480, 320]],
+    'the pressed look is the normal one, so nothing is painted',
+  );
 });
 
 test('ref clears shapes drawn over a widget', () => {
   const { display } = makeDisplay();
   display.gotoPage('light');
-  const wheel = display.component('pColorWheel').attrs;
-  display.exec(`cirs ${wheel.x + 10},${wheel.y + 10},6,65535`);
+  const wheel = display.component('pColorWheel');
+  display.exec(`vis ${wheel.name},1`);
+  display.exec(`cirs ${wheel.attrs.x + 10},${wheel.attrs.y + 10},6,65535`);
   assert.equal(display.drawings.length, 1);
-  display.exec(`ref ${display.component('pColorWheel').id}`);
+  display.exec(`ref ${wheel.id}`);
   assert.equal(display.drawings.length, 0);
+});
+
+test('a hidden widget, a hotspot and a timer do not cut the image', () => {
+  const { display } = makeDisplay();
+  display.gotoPage('grid');
+  display.exec(['fill 0,0,480,320,4226', 'vis tHeader,0', 'tHeader.txt="x"']);
+  display.exec('vis g1Overlay,1');
+  assert.deepEqual(
+    display.drawings.map(d => [d.x, d.y, d.w, d.h]),
+    [[0, 0, 480, 320]],
+    'a hidden text and a hotspot paint nothing',
+  );
+  display.gotoPage('system');
+  display.exec(['fill 0,0,480,320,4226', 'tmSpinner.en=1', 'vPosX.val=3']);
+  assert.deepEqual(
+    display.drawings.map(d => [d.x, d.y, d.w, d.h]),
+    [[0, 0, 480, 320]],
+    'a timer and a variable paint nothing',
+  );
 });
 
 test('read requests are answered like the firmware does', () => {

@@ -207,6 +207,48 @@ def test_the_page_replay_keeps_the_whole_pass_not_just_the_first_slice() -> None
     assert controller.page_commands() == runs
 
 
+def test_a_second_image_in_the_same_rectangle_replaces_the_first_in_the_replay() -> None:
+    """A late viewer sees the picture the panel shows, not both painted over.
+
+    The pass is bounded by the rectangle it covers: the bounding box of its own
+    runs, which is the clear rectangle a real program starts with.
+    """
+    controller, _proxy, _app = _drawing()
+    first = ["fill 10,10,40,40,65535", "fill 50,10,40,40,255"]
+    second = ["fill 10,10,20,40,4226", "fill 30,10,60,40,2047"]
+
+    controller.send_cmd("draw_runs", first)
+    controller.send_cmd("draw_runs", second)
+
+    assert controller.page_commands() == second
+
+
+def test_an_image_in_another_rectangle_leaves_the_first_one_alone() -> None:
+    """Two images in different rectangles compose on the panel: so they do here."""
+    controller, _proxy, _app = _drawing()
+    first = ["fill 10,10,40,40,65535"]
+    elsewhere = ["fill 200,10,40,40,255"]
+
+    controller.send_cmd("draw_runs", first)
+    controller.send_cmd("draw_runs", elsewhere)
+
+    assert controller.page_commands() == [*first, *elsewhere]
+
+
+def test_a_clear_removes_only_the_image_it_covers_from_the_replay() -> None:
+    """A cleared rectangle is one fill; an image in another rectangle stays."""
+    controller, _proxy, _app = _drawing()
+    first = ["fill 10,10,40,40,65535"]
+    elsewhere = ["fill 200,10,40,40,255"]
+    cleared = ["fill 10,10,40,40,4660"]
+
+    controller.send_cmd("draw_runs", first)
+    controller.send_cmd("draw_runs", elsewhere)
+    controller.send_cmd("draw_runs", cleared)
+
+    assert controller.page_commands() == [*elsewhere, *cleared]
+
+
 def test_the_preview_hears_about_a_pass_once_and_gets_every_run() -> None:
     """The previews slice the pass themselves, so they need all of it, once."""
     controller, _proxy, app = _drawing()
@@ -297,3 +339,41 @@ def test_a_panel_with_the_acknowledged_draw_gets_full_slices() -> None:
 
     assert len(proxy.programs) == 1
     assert len(proxy.programs[0]) <= DRAW_SLICE_CHARS
+
+
+def test_a_page_switch_cancels_the_draw_in_flight() -> None:
+    """The page owns the display: the rest of the image must not follow it."""
+    controller, _proxy, _app = _drawing()
+    controller.send_cmd("draw_runs", _runs(1200))
+    assert controller._draw_slices
+
+    controller.send_cmd("goto_page", "6")
+
+    assert controller._draw_slices == []
+    assert controller._draw_runs == []
+    assert controller._draw_timer is None
+
+
+def test_a_late_report_after_a_page_switch_is_ignored() -> None:
+    """The firmware cancels its own stream too; a report can still be in flight."""
+    controller, proxy, _app = _drawing()
+    controller.send_cmd("draw_runs", _runs(1200))
+    sent = len(proxy.programs)
+
+    controller.send_cmd("goto_page", "6")
+    controller.on_draw_report(True)
+
+    assert len(proxy.programs) == sent
+    assert controller._draw_slices == []
+
+
+def test_a_late_failure_after_the_last_slice_does_not_repaint() -> None:
+    """A finished pass is forgotten, so a stale report cannot start it again."""
+    controller, proxy, _app = _drawing()
+    controller.send_cmd("draw_runs", _runs(10))
+    controller.on_draw_report(True)
+    sent = len(proxy.programs)
+
+    controller.on_draw_report(False)
+
+    assert len(proxy.programs) == sent

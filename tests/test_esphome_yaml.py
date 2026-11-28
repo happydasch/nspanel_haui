@@ -767,6 +767,18 @@ def test_no_api_action_passes_one_of_its_variables_as_a_bare_word():
     assert not offenders, f"wrap the value in !lambda 'return x;': {offenders}"
 
 
+def test_the_hub_and_firmware_agree_on_the_command_spacing():
+    """The draw path plans at the pacer's pace, so the two numbers are one.
+
+    ``draw_wire.COMMAND_SPACING_MS`` is what the hub multiplies a run budget by;
+    ``base.yaml``'s ``command_spacing_ms`` is what the panel actually paces at.
+    A drift between them makes every ``quality`` time estimate wrong.
+    """
+    from custom_components.nspanel_haui.haui.utils.draw_wire import COMMAND_SPACING_MS
+
+    assert COMMAND_SPACING_MS == _pace_ms()
+
+
 def test_a_draw_slice_the_hub_builds_is_never_over_the_firmware_limit():
     """The hub slices a pass; the device's own backstop must be above one slice."""
     from custom_components.nspanel_haui.haui.utils.draw_wire import DRAW_SLICE_CHARS
@@ -833,15 +845,77 @@ def test_one_unpaced_phase_sends_no_more_than_the_draw_window():
 def test_a_draw_streams_unpaced_and_every_way_it_ends_restores_the_pacer():
     """Only a draw leaves the pacer, and its report is the only way back.
 
-    A refusal, a stalled display and a finished program all end in
-    ``haui_draw_report``, which is where the spacing comes back: a pacer left at
-    zero would send page renders as fast as the UART takes them.
+    A refusal, a stalled display, a finished program and a page change all end
+    in a restored spacing: a pacer left at zero would send page renders as fast
+    as the UART takes them.
     """
     image = _read("image.yaml")
     assert int(_substitution(image, "draw_spacing")) < _pace_ms()
     assert "id(haui_disp).set_command_spacing(${draw_spacing})" in image
     report = image.split("id: haui_draw_report", 1)[1]
     assert "set_command_spacing(${command_spacing_ms})" in report
+    goto = _read("scripts_display.yaml").split("id: goto_page", 1)[1].split("- id:", 1)[0]
+    assert "id(haui_draw_runs).stop();" in goto
+    assert "id(haui_draw_enqueue_batch).stop();" in goto
+    assert "set_command_spacing(${command_spacing_ms})" in goto
+
+
+def test_a_run_is_counted_sent_only_when_the_queue_grew():
+    """``send_command()`` reports the display's state, not the queued entry.
+
+    A full queue or a failed allocation drops the run without an error; counting
+    it would report a gap in the picture as a finished slice.
+    """
+    image = _read("image.yaml")
+    assert "const size_t queued = id(haui_disp).queue_size();" in image
+    assert "id(haui_disp).queue_size() <= queued" in image
+    assert "the queue dropped a run" in image
+
+
+def test_a_finished_draw_is_forgotten_so_a_late_overflow_cannot_retry():
+    """The report clears the program after building the payload, before publishing."""
+    report = _read("image.yaml").split("id: haui_draw_report", 1)[1].split("- id:", 1)[0]
+    built = report.index("std::string body")
+    cleared = report.index('id(haui_draw_program) = ""')
+    published = report.index("publish_event_native")
+    assert built < cleared < published
+    assert "id(haui_draw_ok) = false;" in report
+    assert "id(haui_draw_awaiting) = false;" in report
+
+
+def test_a_draw_retry_stays_one_shot():
+    """The retry's guard must survive ``haui_draw_runs`` resetting its state."""
+    scripts = _load_tagged(ROOT / "image.yaml")["script"]
+    runs = next(script for script in scripts if script["id"] == "haui_draw_runs")
+    assert runs["parameters"] == {"program": "std::string", "retry": "bool"}
+    image = _read("image.yaml")
+    assert "id(haui_draw_resent) = retry;" in image
+    assert "id(haui_draw_runs).execute(id(haui_draw_program), true);" in image
+    actions = _load_tagged(ROOT / "api.yaml")["api"]["actions"]
+    draw = next(action for action in actions if action["action"] == "draw_runs")
+    parameters = [
+        (name, value)
+        for script, name, value in _script_parameters(draw["then"])
+        if script == "haui_draw_runs"
+    ]
+    # A hub slice is not a retry; only haui_draw_retry passes true.
+    assert ("retry", "!lambda") in parameters
+
+
+def test_the_hub_packs_only_numbers_the_firmware_decoder_accepts():
+    """The base-36 decoder is bounded at 65535 per field; the packer must agree."""
+    from custom_components.nspanel_haui.haui.utils.draw_wire import pack_run, unpack_run
+
+    for run in (
+        "fill 0,0,1,1,0",
+        "fill 479,319,1,1,65535",
+        "fill 65535,65535,65535,65535,65535",
+    ):
+        packed = pack_run(run)
+        assert all(0 <= int(part, 36) <= 65535 for part in packed.split(","))
+        assert unpack_run(packed) == run
+    # The decoder rejects a field before it can overflow the packed number.
+    assert "field[index] > 65535 / 36" in _read("image.yaml")
 
 
 def test_a_draw_that_stalls_is_reported_instead_of_polling_forever():

@@ -32,6 +32,39 @@ const defaultScheduler = {
   cancel: handle => clearInterval(handle),
 };
 
+// Components whose repaint paints nothing: hotspots are touch zones, a timer and
+// a variable have no pixels. Their visibility change must not cut a drawn image.
+const NON_PAINTING = new Set([TYPE.PAGE, TYPE.VARIABLE, TYPE.TIMER, TYPE.HOTSPOT]);
+
+/** The identity of a fill: painting the same rectangle again replaces it. */
+function fillKey(fill) {
+  return `${fill.x},${fill.y},${fill.w},${fill.h}`;
+}
+
+/**
+ * Split a fill around a rectangle a widget repaints.
+ *
+ * A widget repaints its own rectangle over the image, so the parts of the fill
+ * inside it are gone and the parts outside survive - up to four rectangles.
+ * Returns `[fill]` when the two do not overlap.
+ */
+function subtractRect(fill, rect) {
+  const left = Math.max(fill.x, rect.x);
+  const top = Math.max(fill.y, rect.y);
+  const right = Math.min(fill.x + fill.w, rect.x + rect.w);
+  const bottom = Math.min(fill.y + fill.h, rect.y + rect.h);
+  if (left >= right || top >= bottom) return [fill];
+  const pieces = [];
+  const add = (x, y, w, h) => {
+    if (w > 0 && h > 0) pieces.push({ ...fill, x, y, w, h });
+  };
+  add(fill.x, fill.y, fill.w, top - fill.y);
+  add(fill.x, bottom, fill.w, fill.y + fill.h - bottom);
+  add(fill.x, top, left - fill.x, bottom - top);
+  add(right, top, fill.x + fill.w - right, bottom - top);
+  return pieces;
+}
+
 export class NextionDisplay {
   /**
    * @param {object} layout - parsed layout JSON
@@ -51,6 +84,10 @@ export class NextionDisplay {
     this.components = new Map(); // name -> { id, name, type, attrs, events, touch }
     this.byId = new Map();
     this.drawings = [];
+    // The rectangles of the fills in `drawings`, so a refined image replaces
+    // its own runs instead of scanning every drawing for each of the thousands
+    // of runs a full pass sends.
+    this._fillKeys = new Set();
     this.warnings = [];
     // Global-scope widgets keep their attributes across page changes; keyed
     // "<page>.<widget>".
@@ -86,6 +123,7 @@ export class NextionDisplay {
       this.page = page;
       this.pageId = page.id;
       this.drawings = [];
+      this._fillKeys.clear();
       this.components = new Map();
       this.byId = new Map();
       for (const comp of page.components) {
@@ -220,7 +258,46 @@ export class NextionDisplay {
       if (value) this._startTimer(target);
       else this._stopTimer(target);
     }
+    if (!ref.page || ref.page === this.page?.name) this._clipFillsUnder(target);
     this._changed();
+  }
+
+  /** Whether a widget's repaint paints its rectangle; hidden and non-drawing widgets do not. */
+  _draws(comp) {
+    return !comp.hidden && !NON_PAINTING.has(comp.type);
+  }
+
+  /**
+   * Paint a widget's rectangle over a drawn image: keep the parts of a fill
+   * outside it.
+   *
+   * The hub's image program paints after the page's widgets, but the panel does
+   * not keep the image on top: a widget the hub updates (a clock tick, a value,
+   * a visibility change, a `ref`) repaints its own rectangle over it. Only the
+   * image outside that rectangle survives, which is why a fill is split instead
+   * of dropped - a whole fill would take the picture around the widget with it.
+   * A hidden widget and one without pixels (a hotspot, a timer, a variable)
+   * paint nothing, so the image under them stays.
+   */
+  _clipFillsUnder(comp) {
+    if (!this._draws(comp)) return;
+    const { x, y, w, h } = comp.attrs;
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) return;
+    const rect = { x, y, w, h };
+    const next = [];
+    let changed = false;
+    for (const drawing of this.drawings) {
+      if (drawing.kind !== 'fill') {
+        next.push(drawing);
+        continue;
+      }
+      const pieces = subtractRect(drawing, rect);
+      if (pieces.length !== 1 || pieces[0] !== drawing) changed = true;
+      next.push(...pieces);
+    }
+    if (!changed) return;
+    this.drawings = next;
+    this._fillKeys = new Set(next.filter(d => d.kind === 'fill').map(fillKey));
   }
 
   command(name, args) {
@@ -228,9 +305,14 @@ export class NextionDisplay {
       case 'vis': {
         const visible = Boolean(args[1]);
         if (args[0] === '255') {
-          for (const comp of this.components.values()) comp.hidden = !visible;
+          for (const comp of this.components.values()) {
+            comp.hidden = !visible;
+            this._clipFillsUnder(comp);
+          }
         } else {
-          this._commandTarget(args[0]).hidden = !visible;
+          const comp = this._commandTarget(args[0]);
+          comp.hidden = !visible;
+          this._clipFillsUnder(comp);
         }
         this._changed();
         return;
@@ -272,22 +354,34 @@ export class NextionDisplay {
         // a second corner (the Nextion instruction set's own example:
         // `fill 20,20,150,50,1024` paints 150x50 from (20,20)). Painting the
         // same rectangle again replaces the previous fill, so a refined image
-        // does not accumulate runs.
+        // does not accumulate runs; the key set keeps that a lookup per run
+        // instead of a scan of every drawing.
         const [x, y, w, h, color] = args;
         const fill = { kind: 'fill', x, y, w, h, color };
-        this.drawings = this.drawings.filter(
-          d => d.kind !== 'fill' || d.x !== x || d.y !== y || d.w !== w || d.h !== h,
-        );
+        const key = fillKey(fill);
+        if (this._fillKeys.has(key)) {
+          this.drawings = this.drawings.filter(
+            d => d.kind !== 'fill' || d.x !== x || d.y !== y || d.w !== w || d.h !== h,
+          );
+        }
         this.drawings.push(fill);
+        this._fillKeys.add(key);
         this._changed();
         return;
       }
       case 'ref': {
-        // Redrawing a widget paints over shapes drawn on top of it.
-        const { x, y, w, h } = this._commandTarget(args[0]).attrs;
-        const before = this.drawings.length;
-        this.drawings = this.drawings.filter(d => !(d.x >= x && d.x < x + w && d.y >= y && d.y < y + h));
-        if (this.drawings.length !== before) this._changed();
+        // Redrawing a widget paints its rectangle over the image, so a fill
+        // that overlaps it is split around it (the picture outside stays); a
+        // shape drawn inside the widget goes completely.
+        const comp = this._commandTarget(args[0]);
+        this._clipFillsUnder(comp);
+        if (this._draws(comp)) {
+          const { x, y, w, h } = comp.attrs;
+          this.drawings = this.drawings.filter(
+            d => d.kind === 'fill' || !(d.x >= x && d.x < x + w && d.y >= y && d.y < y + h),
+          );
+        }
+        this._changed();
         return;
       }
       case 'sendme':
@@ -304,9 +398,24 @@ export class NextionDisplay {
     return comp;
   }
 
+  /**
+   * Whether a press repaints the widget's rectangle.
+   *
+   * Only a button draws a pressed look (``fillAttrs`` takes its "2" set), and
+   * only when that set differs from the normal one. A touch on a text, a slider
+   * or a button whose pressed colours match its normal ones paints nothing, so
+   * it must not cut a drawn image.
+   */
+  _pressRepaints(comp) {
+    if (!this._draws(comp) || comp.type !== TYPE.BUTTON) return false;
+    const a = comp.attrs;
+    return a.bco2 !== a.bco || a.pco2 !== a.pco || a.pic2 !== a.pic || a.picc2 !== a.picc;
+  }
+
   /** Press (`down`) or release (`up`) a widget: its pressed look and its Touch Press/Release code. */
   touchEvent(comp, edge) {
     comp.pressed = edge === 'down';
+    if (this._pressRepaints(comp)) this._clipFillsUnder(comp);
     this._runEvent(comp, edge);
     this._changed();
   }

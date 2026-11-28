@@ -99,9 +99,7 @@ class HAUIESPHomeController(HAUIBase):
 
         Cancels all ESPHome event bus listeners registered during start_part.
         """
-        self._cancel_timer("_draw_timer")
-        self._draw_slices.clear()
-        self._draw_runs = []
+        self.cancel_draw()
         self.esphome.cancel_listen_events()
 
     # public
@@ -148,7 +146,11 @@ class HAUIESPHomeController(HAUIBase):
         self.log(f"Publishing command: {bare_cmd}", level="DEBUG")
         published = self.esphome.publish(bare_cmd, value)
         if bare_cmd == ESPAction.GOTO_PAGE:
-            # The display loads the page with its compiled widgets again.
+            # A page switch ends a draw in flight - the firmware stops its own
+            # stream at the same point - and the display loads the page's
+            # compiled widgets again.
+            if published:
+                self.cancel_draw()
             self._page_commands.clear()
         elif published and bare_cmd == ESPAction.SEND_COMMAND:
             self._record_page_command(str(value))
@@ -200,19 +202,48 @@ class HAUIESPHomeController(HAUIBase):
         self._page_commands[target] = command
 
     def _record_draw_program(self, runs: list[str]) -> None:
-        """Replace the replayable image program with ``runs``.
+        """Record a draw pass in the page replay, replacing only what it covers.
 
-        Each ``fill`` is its own target (it sets no attribute), so the previous
-        program would otherwise stay in the replay and paint over — or under —
-        the new one. One image program on the page is the whole point: a viewer
-        that attaches late sees the same picture the panel shows.
+        A drawn rectangle is one target per ``fill``. A new pass replaces the
+        fills that lie inside the rectangle the pass covers - the bounding box of
+        its own runs, which is the rectangle the caller asked for - so drawing
+        over the same rectangle replaces that image, and a clear removes the
+        fills it covers. Fills outside that rectangle are another image and stay:
+        two images in different rectangles compose on the panel, and a late
+        viewer must see the same page.
         """
-        for target in [t for t in self._page_commands if t.startswith("fill ")]:
-            del self._page_commands[target]
+        cover = _pass_rect(runs)
+        if cover is not None:
+            left, top, width, height = cover
+            right, bottom = left + width, top + height
+            covered = [
+                target
+                for target in self._page_commands
+                if (rect := _fill_rect(target)) is not None
+                and rect[0] >= left
+                and rect[1] >= top
+                and rect[0] + rect[2] <= right
+                and rect[1] + rect[3] <= bottom
+            ]
+            for target in covered:
+                del self._page_commands[target]
         for run in runs:
             self._record_page_command(str(run))
 
     # image drawing
+
+    def cancel_draw(self) -> None:
+        """Stop the draw pass in flight: a page switch owns the display now.
+
+        The slice already on the panel finishes painting (the firmware stops
+        after the band it queued), and any report it still sends is ignored
+        because no pass is remembered. Used when the hub sends a page switch and
+        as the backstop for one the display reports; ``_handle_page_event``
+        cancels before the page render starts.
+        """
+        self._cancel_timer("_draw_timer")
+        self._draw_slices.clear()
+        self._draw_runs = []
 
     def _draw_packer(self) -> Callable[[str], str]:
         """The packing this panel's firmware decodes (``draw_wire.draw_format``).
@@ -352,6 +383,15 @@ class HAUIESPHomeController(HAUIBase):
                 picture with gaps in it. Only a second failure drops the rest.
         """
         self._cancel_timer("_draw_timer")
+        if not self._draw_runs and not self._draw_slices:
+            # A report from a pass that was cancelled (a page switch) or already
+            # finished on its last slice: there is nothing to advance.
+            self.log(
+                "draw_runs: a report arrived with no draw in flight; ignoring it",
+                level="DEBUG",
+            )
+            return
+        last_slice = not self._draw_slices
         if not ok:
             if self._draw_runs and not self._draw_retried:
                 self._draw_retried = True
@@ -366,8 +406,13 @@ class HAUIESPHomeController(HAUIBase):
                 level="WARNING",
             )
             self._draw_slices.clear()
+            self._draw_runs = []
             return
         self._send_draw_slice()
+        if last_slice:
+            # The pass is through; forget it so a late report from an earlier
+            # draw cannot make it paint again.
+            self._draw_runs = []
 
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.
@@ -414,3 +459,46 @@ def command_target(command: str) -> str:
             return command[:comma]
     # Drawing, ref, click: each distinct command is one target.
     return command
+
+
+def _pass_rect(runs: list[str]) -> tuple[int, int, int, int] | None:
+    """The rectangle a draw pass covers: the bounding box of its ``fill`` runs.
+
+    A pass starts with the clear covering the whole requested rectangle, so the
+    box is that rectangle; a ``clear_image`` program is that one fill, and the
+    bounding box is still right for a legacy program that has no clear.
+    """
+    left = top = right = bottom = None
+    for command in runs:
+        rect = _fill_rect(command)
+        if rect is None:
+            continue
+        x, y, w, h = rect
+        left = x if left is None else min(left, x)
+        top = y if top is None else min(top, y)
+        right = x + w if right is None else max(right, x + w)
+        bottom = y + h if bottom is None else max(bottom, y + h)
+    if left is None or top is None or right is None or bottom is None:
+        return None
+    return left, top, right - left, bottom - top
+
+
+def _fill_rect(command: str) -> tuple[int, int, int, int] | None:
+    """The ``x,y,w,h`` a ``fill`` command covers, or ``None`` for anything else.
+
+    The replay holds display commands, so a fill is ``fill x,y,w,h,colour`` -
+    width and height, not a second corner. Used to decide which recorded fills a
+    new image already paints over.
+    """
+    if not command.startswith("fill "):
+        return None
+    fields = command[len("fill ") :].split(",")
+    if len(fields) != 5:
+        return None
+    try:
+        x, y, w, h = (int(field) for field in fields[:4])
+    except ValueError:
+        return None
+    if w < 1 or h < 1:
+        return None
+    return x, y, w, h

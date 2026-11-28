@@ -27,6 +27,15 @@
 # streamed until the UART is the limit. ``haui_draw_report`` puts the pacer back,
 # so page renders keep the pacing that protects the receive buffer.
 #
+# A run counts as sent only when the queue grew: ``send_command()`` answers for
+# the display's state, not for the entry, and a full queue or a failed allocation
+# would otherwise leave a hole the report calls success. A finished program is
+# forgotten (``haui_draw_report`` clears it), so a buffer overflow later cannot
+# re-send a band of an image that is long done, and a retry stays one-shot. A
+# page change ends a draw: ``goto_page`` stops both draw scripts, clears the same
+# state and restores the pacer, so the already queued band finishes and nothing
+# follows it onto the new page.
+#
 # The Nextion queues serial instructions and executes them one at a time
 # (instruction set, general rule 20), so there is no "stop updating while
 # painting" on the display side: ``com_stop`` would stop our own fills too and
@@ -62,9 +71,11 @@ substitutions:
   draw_program_max: '9000'
   # Free contiguous heap a slice needs besides its own length: the action's
   # argument and the staged copy are two of it while it moves into place, and the
-  # run queue, the report and the API's own buffers come on top. A slice that
-  # would not leave this much is refused by name instead of aborting the panel on
-  # a failed allocation.
+  # run queue, the report and the API's own buffers come on top. The queue's own
+  # entries carry a pending command string each while a run waits; ``draw_window``
+  # bounds those to twelve, well inside this reserve. A slice that would not leave
+  # this much is refused by name instead of aborting the panel on a failed
+  # allocation.
   draw_heap_reserve: '10000'
   # Marker written into the Nextion's ``system.resVal`` as the fence that ends a
   # program. The hub reads resVal too, so only this value ends a draw.
@@ -150,10 +161,14 @@ sensor:
 script:
   # Accept a program and stream it. ``mode: restart`` cancels a program still in
   # flight: a second image should replace the first, not queue behind it.
+  # ``retry`` is true only when ``haui_draw_retry`` re-sends a program after a
+  # buffer overflow: it starts with the guard already set, so the re-send stays
+  # one-shot instead of resetting the flag that stops it looping.
   - id: haui_draw_runs
     mode: restart
     parameters:
       program: std::string
+      retry: bool
     then:
       # Validate and stage the program; a refusal leaves haui_draw_ok false and
       # the tail of this script reports it instead of drawing.
@@ -163,7 +178,7 @@ script:
           id(haui_draw_sent) = 0;
           id(haui_draw_rejected) = 0;
           id(haui_draw_awaiting) = false;
-          id(haui_draw_resent) = false;
+          id(haui_draw_resent) = retry;
           id(haui_draw_ok) = false;
           id(haui_draw_queue_mark) = 0;
           id(haui_draw_stall_polls) = 0;
@@ -283,15 +298,27 @@ script:
               if (!decode(packed, run, sizeof(run))) {
                 ESP_LOGE("haui", "draw_runs: '%.20s' is not a run", packed.c_str());
                 id(haui_draw_rejected)++;
-              } else if (id(haui_disp).send_command(run)) {
-                id(haui_draw_sent)++;
               } else {
-                // The command was not taken at all, so this would spin: the
-                // display went away mid-program. Stop and report the partial
-                // draw.
-                ESP_LOGW("haui", "draw_runs: the display refused a command");
-                id(haui_draw_ok) = false;
-                break;
+                const size_t queued = id(haui_disp).queue_size();
+                if (!id(haui_disp).send_command(run)) {
+                  // The command was not taken at all, so this would spin: the
+                  // display went away mid-program. Stop and report the partial
+                  // draw.
+                  ESP_LOGW("haui", "draw_runs: the display refused a command");
+                  id(haui_draw_ok) = false;
+                  break;
+                }
+                if (id(haui_disp).queue_size() <= queued) {
+                  // send_command() only reports the display as awake and set up;
+                  // a full queue or a failed allocation drops the run without an
+                  // error. Counting it would leave a gap the report calls a
+                  // success, so fail the slice instead.
+                  ESP_LOGE("haui", "draw_runs: the queue dropped a run (%u pending)",
+                           static_cast<unsigned>(queued));
+                  id(haui_draw_ok) = false;
+                  break;
+                }
+                id(haui_draw_sent)++;
               }
             }
             cursor = end + 1;
@@ -345,7 +372,7 @@ script:
           id(haui_draw_resent) = true;
           ESP_LOGW("haui", "draw_runs: re-sending %d runs after a buffer overflow",
                    id(haui_draw_run_count));
-          id(haui_draw_runs).execute(id(haui_draw_program));
+          id(haui_draw_runs).execute(id(haui_draw_program), true);
 
   # Report a finished or refused draw; the hub logs ok and elapsed_ms. Every way
   # a program ends comes through here, which is why the pacer is restored here
@@ -366,4 +393,11 @@ script:
           };
           ESP_LOGD("haui", "draw_runs: %d runs, %d rejected, ok=%d, %d ms", id(haui_draw_sent),
                    id(haui_draw_rejected), ok ? 1 : 0, elapsed_ms);
-          id(publish_event_native).execute("esphome.res_draw", json::build_json(payload));
+          std::string body = json::build_json(payload);
+          // The program is over: forget it after the payload is built, so a
+          // buffer overflow later cannot re-send a band of a finished image and
+          // the staged slice's copy is freed. A retry sets the flag again.
+          id(haui_draw_program) = "";
+          id(haui_draw_ok) = false;
+          id(haui_draw_awaiting) = false;
+          id(publish_event_native).execute("esphome.res_draw", body);

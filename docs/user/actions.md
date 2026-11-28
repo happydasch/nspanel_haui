@@ -132,7 +132,7 @@ Two actions do this:
 | `w` | yes | — | Width of the rectangle, in display pixels |
 | `h` | yes | — | Height of the rectangle, in display pixels |
 | `progressive` | no | `true` | Draw a coarse version first, so the image appears at once and then sharpens |
-| `quality` | no | `300` | How many rectangles the image may use, 60–12000. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
+| `quality` | no | `300` | How many rectangles the whole draw may use, 60–12000; more is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
 
 ```yaml
 action: nspanel_haui.show_image
@@ -184,30 +184,36 @@ data:
 
 ### What the image looks like
 
-- **The rectangle is painted black first.** One instruction clears the whole area
-  before the picture goes down, so whatever was there — an older image, a widget,
-  a picture background — cannot show through; the picture is drawn on a black
-  card and its margins are black too.
+- **The rectangle is painted entirely.** One rectangle covers the whole area in
+  the picture's own most common colour, and only the blocks that differ from it
+  follow — so whatever was there, an older image, a widget or a picture
+  background, cannot show through, while a large flat area of the picture costs a
+  single instruction instead of thousands. The area the picture does not fill is
+  painted in that colour too, which is why a fitted image looks like one card
+  instead of a picture floating on a black box.
 - **It is rebuilt from rectangles, not pixels.** The display link is fast enough
   for a few hundred rectangles, not for a photograph's pixels, so the image is
   drawn as blocks in the display's own 65 536 colours — gradients stay gradients.
   A logo, an icon, a QR code or a chart comes out crisp; a photo comes out as a
   coarse mosaic.
-- **It is fast, and the count is the time.** Every rectangle is one instruction the
-  panel draws in turn, so `quality` trades time for detail: the hub plans for 2 ms
-  per rectangle — `60` is about 0.12 s, `300` about 0.6 s, and the top of its
-  range, `12000`, about 24 s — and the panel streams a draw at the rate its
-  display acknowledges the rectangles, which is several times faster, so a draw
-  usually finishes in a fraction of that plan. The Home Assistant log prints what
-  it actually took. The grid never gets finer than one display pixel. A page with
-  large flat areas merges down to a few thousand rectangles and is drawn at that
-  resolution even at `4000`, while a photograph needs one rectangle per pixel —
-  153 600 for a whole 480x320 page — so the cell size is whatever the budget
-  allows, which is what a page background picture is for.
+- **It is fast, and the count is the time.** `quality` is the total number of
+  rectangles the whole draw may use — the coarse pass is part of it, not extra.
+  Every rectangle is one instruction the panel draws in turn, so it trades time
+  for detail: the hub plans for 2 ms per rectangle — `60` is about 0.12 s, `300`
+  about 0.6 s, and the top of its range, `12000`, about 24 s — and the panel
+  streams a draw at the rate its display acknowledges the rectangles, which is
+  several times faster, so a draw usually finishes in a fraction of that plan.
+  The Home Assistant log prints what it actually took. The grid never gets finer
+  than one display pixel. A page with large flat areas merges down to a few
+  thousand rectangles and is drawn at that resolution even at `4000`, while a
+  photograph needs one rectangle per pixel — 153 600 for a whole 480x320 page —
+  so the cell size is whatever the budget allows, which is what a page background
+  picture is for.
 - **A long image arrives in bands.** The hub sends the rectangles in slices the
   panel can hold in memory and sends the next one as each finishes, so a big,
   detailed image starts drawing at once and fills in rather than waiting. A page
-  change in the middle stops it, like any other re-render.
+  change in the middle stops it: the band already on its way finishes, the page
+  loads and nothing else is painted.
 - **Thin gaps or stray colour strips mean the panel's firmware is old.** A
   detailed image is thousands of one-pixel-high rectangles, which a display draws
   slower than the old firmware streams them, so its receive buffer overruns and
@@ -220,10 +226,11 @@ data:
   (that is what a panel with a picture background is for). If the image comes out
   blocky, Home Assistant logs a warning with the block size it reached.
 - **The image keeps its aspect ratio.** It is fitted into the rectangle, and the
-  margins are the black of the cleared area.
+  margins are painted in the picture's own canvas colour.
 - **It disappears on the next page change** — opening a panel, going to the idle
-  page, a notification, any re-render of that page. Call the action again if the
-  image should stay.
+  page, a notification. A re-render of the same page only repaints the widgets it
+  touches, so the image stays everywhere else. Call the action again if the image
+  should stay.
 - **`clear_image` only paints a flat colour.** On a page whose background is a
   picture (clock, clock two, weather) the rectangle stays a visible block; change
   the page instead.

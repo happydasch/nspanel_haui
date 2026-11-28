@@ -19,14 +19,13 @@ from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .haui.mapping.const import DEFAULT_NOTIFICATION_SOUND, SOUND_NAMES
 from .haui.utils.image_program import (
-    BACKDROP,
     MAX_RECOMMENDED_CELL_PX,
     MAX_RUN_BUDGET,
     MIN_RUN_BUDGET,
     RUN_BUDGET,
     ImageProgramError,
     Rect,
-    backdrop_run,
+    clear_run,
     display_size,
     image_plan,
 )
@@ -135,10 +134,12 @@ SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
 # image comes from a URL or from a file in ``<config>/www`` — exactly one of the
 # two, so a call can never guess.
 def _one_image_source(value: dict[str, Any]) -> dict[str, Any]:
-    """Refuse a draw call that names no image at all.
+    """Refuse a draw call that names no image, or names an empty one.
 
     ``vol.Exclusive`` already refuses both sources; this refuses neither, which
-    would otherwise get as far as fetching nothing.
+    would otherwise get as far as fetching nothing. An empty string passes the
+    field schema (``cv.string``), so it is refused here too instead of being
+    read as a URL or resolved to the ``www`` folder itself.
 
     Args:
         value: The validated service call data.
@@ -147,10 +148,15 @@ def _one_image_source(value: dict[str, Any]) -> dict[str, Any]:
         The same data, for the next validator.
 
     Raises:
-        vol.Invalid: When neither ``url`` nor ``path`` is given.
+        vol.Invalid: When neither ``url`` nor ``path`` is given, or the one
+            that is has no content.
     """
     if "url" not in value and "path" not in value:
         raise vol.Invalid("give url or path: the image to draw")
+    if "url" in value and not str(value["url"]).strip():
+        raise vol.Invalid("url is empty: name the image to fetch")
+    if "path" in value and not str(value["path"]).strip():
+        raise vol.Invalid("path is empty: name a file in www/")
     return value
 
 
@@ -693,13 +699,16 @@ async def _read_image_file(hass: HomeAssistant, path: str, *, service: str) -> b
 async def _read_image(hass: HomeAssistant, call: ServiceCall) -> bytes:
     """The image a draw call asks for: the file it names or the URL it fetches.
 
+    The field's presence picks the source, not truthiness: the schema already
+    refused an empty value, and a present-but-falsy one must not silently turn a
+    file request into a URL lookup.
+
     Raises:
         ServiceValidationError: When the path is refused or names no file.
         HomeAssistantError: When the URL or the file cannot be read.
     """
-    path = call.data.get("path")
-    if path:
-        return await _read_image_file(hass, str(path), service=call.service)
+    if "path" in call.data:
+        return await _read_image_file(hass, str(call.data["path"]), service=call.service)
     return await _fetch_image(hass, str(call.data["url"]))
 
 
@@ -729,7 +738,7 @@ def _clear_rect(app: NSPanelHAUI, dev_name: str, rect: Rect) -> None:
     if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
         _LOGGER.warning("%s: no ESPHome controller — the image was not cleared", dev_name)
         return
-    esp_ctrl.draw_runs([backdrop_run(rect, _page_background(app))])
+    esp_ctrl.draw_runs([clear_run(rect, _page_background(app))])
 
 
 async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -764,7 +773,6 @@ async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
                     image_plan,
                     data,
                     rect,
-                    background=BACKDROP,
                     budget=budget,
                     progressive=progressive,
                 )

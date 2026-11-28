@@ -33,14 +33,16 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from custom_components.nspanel_haui.haui.utils.color import rgb565_to_rgb  # noqa: E402
+from custom_components.nspanel_haui.haui.utils.color import (  # noqa: E402
+    rgb565_to_rgb,
+    rgb_to_rgb565,
+)
 from custom_components.nspanel_haui.haui.utils.draw_wire import (  # noqa: E402
     COMMAND_SPACING_MS,
     DRAW_SLICE_CHARS,
     program_slices,
 )
 from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E402
-    BACKDROP,
     MAX_RECOMMENDED_CELL_PX,
     MIN_RUN_BUDGET,
     RUN_BUDGET,
@@ -54,10 +56,31 @@ from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E
     program_length,
 )
 
-# The colour the rectangle is cleared to before the picture goes down - the same
-# black ``nspanel_haui.show_image`` draws on (``image_program.BACKDROP``).
-DEFAULT_BACKGROUND = BACKDROP
+# What the page shows outside the rectangle. This renderer models the picture
+# only - the page's own background belongs to the panel - and the rectangle itself
+# is always covered by the program's clearing fill.
+PAGE_RGB = rgb565_to_rgb(0x0000)
 DEFAULT_OUTPUT = ROOT / ".dev" / "image-preview.png"
+# RGB565 keeps each channel to itself, so the colours the display can show are one
+# 256-entry table per bit depth: ``fill`` carries a packed colour, and a picture
+# the panel draws can never be finer than this.
+_RED = [rgb565_to_rgb(rgb_to_rgb565((value, 0, 0)))[0] for value in range(256)]
+_GREEN = [rgb565_to_rgb(rgb_to_rgb565((0, value, 0)))[1] for value in range(256)]
+_BLUE = [rgb565_to_rgb(rgb_to_rgb565((0, 0, value)))[2] for value in range(256)]
+
+
+def in_display_colours(image: Image.Image) -> Image.Image:
+    """``image`` in the colours the panel can show, so a tile is not flattered.
+
+    The reference tile is judged next to the passes, and the passes are drawn from
+    packed RGB565 fills: comparing them against the source's 8-bit colours would
+    call a correct draw wrong.
+    """
+    red, green, blue = image.split()
+    return Image.merge(
+        "RGB",
+        (red.point(_RED), green.point(_GREEN), blue.point(_BLUE)),
+    )
 
 
 def load_image(source: str) -> bytes:
@@ -81,6 +104,10 @@ def load_image(source: str) -> bytes:
 def paint(portrait: bool, runs: list[str]) -> Image.Image:
     """A display-sized canvas with every ``fill`` of one pass drawn on it.
 
+    The runs are replayed in the order the panel receives them, the clearing fill
+    in front of a pass included, so the tile is what the display shows and not a
+    second rasteriser that could disagree with it.
+
     Args:
         portrait: Draw on the 320x480 display instead of the 480x320 one.
         runs: ``fill x,y,w,h,color`` instructions, as the rasteriser emits them.
@@ -88,7 +115,7 @@ def paint(portrait: bool, runs: list[str]) -> Image.Image:
     Returns:
         The canvas, in RGB like the display.
     """
-    canvas = Image.new("RGB", display_size(portrait), rgb565_to_rgb(DEFAULT_BACKGROUND))
+    canvas = Image.new("RGB", display_size(portrait), PAGE_RGB)
     draw = ImageDraw.Draw(canvas)
     for run in runs:
         _keyword, geometry = run.split(" ")
@@ -101,11 +128,14 @@ def paint(portrait: bool, runs: list[str]) -> Image.Image:
 def ideal_tile(data: bytes, rect: Rect, portrait: bool) -> Image.Image:
     """The image as it would look if the rectangle had no run budget.
 
-    The reference the passes are judged against: the rasteriser's own fit, so the
-    comparison is about the budget and not about the fitting.
+    The reference the passes are judged against: the rasteriser's own fit - the
+    picture on its canvas colour, margins included - in the colours the display
+    can show (``in_display_colours``), so the comparison is about the budget and
+    not about the fitting or the panel's colour depth.
     """
-    canvas = Image.new("RGB", display_size(portrait), rgb565_to_rgb(DEFAULT_BACKGROUND))
-    canvas.paste(_fit(_decode(data), rect, rgb565_to_rgb(DEFAULT_BACKGROUND)), (rect.x, rect.y))
+    canvas = Image.new("RGB", display_size(portrait), PAGE_RGB)
+    fitted, _colour = _fit(_decode(data), rect)
+    canvas.paste(in_display_colours(fitted), (rect.x, rect.y))
     return canvas
 
 
@@ -113,7 +143,6 @@ def render_preview(
     *,
     data: bytes,
     rect: Rect,
-    background: int,
     budget: int,
     progressive: bool,
     portrait: bool,
@@ -125,8 +154,6 @@ def render_preview(
     Args:
         data: The encoded image.
         rect: Where the call would paint it.
-        background: The colour the rectangle is cleared to, as RGB565; the image is
-            composited onto it and cells matching it are skipped.
         budget: The service's ``quality`` option.
         progressive: Whether the call draws the coarse pass too.
         portrait: Draw on the portrait display.
@@ -148,9 +175,7 @@ def render_preview(
             f"{width}x{height} display"
         )
     started = time.perf_counter()
-    programs, cell = image_plan(
-        data, rect, background=background, budget=budget, progressive=progressive
-    )
+    programs, cell = image_plan(data, rect, budget=budget, progressive=progressive)
     elapsed_ms = (time.perf_counter() - started) * 1000
 
     passes = [
@@ -220,13 +245,6 @@ def main(argv: list[str] | None = None) -> int:
         "--progressive", action="store_true", help="render the coarse pass the way the call does"
     )
     parser.add_argument("--portrait", action="store_true", help="320x480 instead of 480x320")
-    parser.add_argument(
-        "--background",
-        type=int,
-        default=DEFAULT_BACKGROUND,
-        help="the colour the rectangle is cleared to, as RGB565 "
-        f"(default {DEFAULT_BACKGROUND}, black)",
-    )
     parser.add_argument("--scale", type=int, default=2, help="zoom of the saved tiles (default 2)")
     parser.add_argument(
         "--out",
@@ -242,7 +260,6 @@ def main(argv: list[str] | None = None) -> int:
         render_preview(
             data=data,
             rect=rect,
-            background=args.background,
             budget=args.budget,
             progressive=args.progressive,
             portrait=args.portrait,

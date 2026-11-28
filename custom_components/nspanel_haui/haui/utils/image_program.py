@@ -15,9 +15,12 @@ close a large rectangle gets to it. Length is no longer a limit: the program is
 sent in slices (``draw_wire.DRAW_SLICE_CHARS``), so more runs cost time and
 nothing else.
 
-Every pass starts by filling the whole rectangle with the backdrop colour, since
-a pass skips the cells that already show it: without that fill an older image or
-a widget underneath would show through the new picture.
+The rectangle is painted in two steps. One ``fill`` covers all of it in the
+picture's own most common colour (``_dominant_colour``) - the letterbox margins
+and the largest flat area come free that way - and only the blocks that colour
+does not already cover follow. Dropping those blocks is what a canvas buys, and
+the picture's own colour is the best one available, so it is found rather than
+fixed.
 
 Pure and synchronous, no Home Assistant and no asyncio: the service calls it in
 the executor, the firmware streams what it returns.
@@ -59,10 +62,23 @@ COLOUR_TOLERANCE: Final = 8
 MAX_RECOMMENDED_CELL_PX: Final = 12
 # The progressive pass: a coarse version in ~0.12 s, then the full program.
 PROGRESSIVE_RUNS: Final = 60
-# The colour an image is drawn on, as RGB565: the rectangle is painted black
-# before the runs go down, so an older image, a widget or a picture background
-# cannot show through the cells a pass skips.
-BACKDROP: Final = 0x0000
+# The canvas the picture is composited onto is its own most common colour
+# (``_dominant_colour``): the margins a letterbox leaves are then the colour it
+# already is, and every block that colour covers costs no run at all - one
+# clearing fill paints them (``_compile``). The histogram is counted on a sample
+# of at most this many pixels a side, so it costs the same whatever the size of
+# the picture and counts cells rather than single pixels, which is the scale a
+# program is drawn at.
+CANVAS_SAMPLE: Final = 64
+# Bits kept per channel while counting: four leaves a bucket 16 wide, which is
+# the +/-``COLOUR_TOLERANCE`` a cell may differ from the canvas by and still be
+# counted as a block the clear already paints.
+CANVAS_BUCKET_BITS: Final = 4
+# Ceiling on the source image's pixel count. Pillow's own decompression-bomb
+# guard sits far above this (89 million by default), and a small PNG can decode
+# to gigabytes; the service downloads up to 4 MiB, so the dimension check is what
+# bounds memory before ``load()``.
+MAX_SOURCE_PIXELS: Final = 16_000_000
 
 # Display geometry of the two TFTs (``nextion/nspanel_haui*.HMI``).
 LANDSCAPE_SIZE: Final = (480, 320)
@@ -127,15 +143,27 @@ def _close(a: tuple[int, int, int], b: tuple[int, int, int], tolerance: int) -> 
 def _decode(data: bytes) -> Image.Image:
     """Decode image bytes into an RGB image.
 
+    The dimensions are checked before ``load()``: a 4 MiB file can describe a
+    canvas far larger than the panel will ever use, and decoding it would spend
+    the executor's memory on pixels no draw could address.
+
     Raises:
-        ImageProgramError: When the bytes are not a decodable image.
+        ImageProgramError: When the bytes are not a decodable image, or the
+            image decodes to more than ``MAX_SOURCE_PIXELS`` pixels.
     """
     if not data:
         raise ImageProgramError("the image is empty")
     try:
         with Image.open(io.BytesIO(data)) as opened:
+            width, height = opened.size
+            if width * height > MAX_SOURCE_PIXELS:
+                raise ImageProgramError(
+                    f"the image is {width}x{height} pixels, over the {MAX_SOURCE_PIXELS} pixel cap"
+                )
             opened.load()
             image = opened.convert("RGB")
+    except Image.DecompressionBombError as exc:
+        raise ImageProgramError(f"the image is too large to decode: {exc}") from exc
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise ImageProgramError(f"the image could not be decoded: {exc}") from exc
     if image.width < 1 or image.height < 1:
@@ -143,23 +171,64 @@ def _decode(data: bytes) -> Image.Image:
     return image
 
 
-def _fit(image: Image.Image, rect: Rect, background: tuple[int, int, int]) -> Image.Image:
-    """Letterbox ``image`` into ``rect`` on the page's background colour.
+def _dominant_colour(picture: Image.Image) -> int:
+    """The picture's most common colour, as the display's RGB565.
 
-    The margins are background coloured on purpose: the rasteriser skips cells
-    that already match the page, so a letterboxed image costs nothing outside its
-    own aspect ratio. Opaque, too - a PNG with alpha must not punch through the
-    page's widgets.
+    Counted on a sample (``CANVAS_SAMPLE``) with ``CANVAS_BUCKET_BITS`` per
+    channel, so the answer is the colour of the largest area at the scale the
+    program is drawn at instead of the one pixel value that happens to repeat,
+    and the cost does not grow with the picture. The bucket's mean is the colour:
+    it sits in the middle of the values that filled it, which is what the
+    tolerance around the canvas covers.
+
+    Ties go to the highest bucket, so the answer never depends on the order the
+    picture's colours happened to be counted in.
+
+    Returns:
+        The colour as RGB565, the value a ``fill`` instruction carries.
+    """
+    scale = min(1.0, CANVAS_SAMPLE / max(picture.width, picture.height))
+    cols = max(1, round(picture.width * scale))
+    rows = max(1, round(picture.height * scale))
+    sample = picture.resize((cols, rows), Image.Resampling.BOX)
+    shift = 8 - CANVAS_BUCKET_BITS
+    # count, then the sums the bucket's mean comes from.
+    tally: dict[tuple[int, int, int], list[int]] = {}
+    raw = sample.tobytes()
+    for index in range(0, len(raw), 3):
+        red, green, blue = raw[index], raw[index + 1], raw[index + 2]
+        key = (red >> shift, green >> shift, blue >> shift)
+        entry = tally.get(key)
+        if entry is None:
+            tally[key] = [1, red, green, blue]
+        else:
+            entry[0] += 1
+            entry[1] += red
+            entry[2] += green
+            entry[3] += blue
+    _key, (count, red, green, blue) = max(tally.items(), key=lambda item: (item[1][0], item[0]))
+    return rgb_to_rgb565((red // count, green // count, blue // count))
+
+
+def _fit(image: Image.Image, rect: Rect) -> tuple[Image.Image, int]:
+    """Letterbox ``image`` into ``rect`` on the picture's own canvas colour.
+
+    The margins take the picture's most common colour (``_dominant_colour``)
+    rather than a fixed one: they are then the colour the picture already is, so
+    the clearing fill paints them and they cost no run of their own. Opaque, too
+    - a PNG with alpha must not punch through the page's widgets.
+
+    Returns:
+        The fitted canvas and the colour it is cleared to, as RGB565.
     """
     scale = min(rect.w / image.width, rect.h / image.height)
     width = max(1, min(rect.w, round(image.width * scale)))
     height = max(1, min(rect.h, round(image.height * scale)))
-    canvas = Image.new("RGB", (rect.w, rect.h), background)
-    canvas.paste(
-        image.resize((width, height), Image.Resampling.LANCZOS),
-        ((rect.w - width) // 2, (rect.h - height) // 2),
-    )
-    return canvas
+    picture = image.resize((width, height), Image.Resampling.LANCZOS)
+    colour = _dominant_colour(picture)
+    canvas = Image.new("RGB", (rect.w, rect.h), rgb565_to_rgb(colour))
+    canvas.paste(picture, ((rect.w - width) // 2, (rect.h - height) // 2))
+    return canvas, colour
 
 
 def _cells(canvas: Image.Image, cols: int, rows: int) -> list[list[tuple[int, int, int]]]:
@@ -181,15 +250,20 @@ def _spans(
     cells: list[list[tuple[int, int, int]]],
     rect: Rect,
     cell: int,
-    background: tuple[int, int, int],
     tolerance: int,
+    canvas: tuple[int, int, int],
 ) -> list[_Span]:
     """Merge the cell grid into rectangles, top to bottom.
 
     Three merges, in the order that buys the most runs: equal cells within a row,
     a row span the next row repeats (vertical, so a flat block is one run and not
-    one per row), and neighbours within ``tolerance``. Cells that already match
-    the page background are dropped entirely - the page shows that colour.
+    one per row), and neighbours within ``tolerance``.
+
+    The spans that ``canvas`` already covers are dropped at the end - the
+    clearing fill in front of the program paints them (``_compile``), and
+    dropping them is the whole point of choosing the canvas. Whole spans, never
+    cells: a flat area is one span wherever it is, and breaking a span up to drop
+    a piece of it would cost the merges that made it cheap.
     """
     spans: list[_Span] = []
     previous: list[_Span] = []
@@ -226,21 +300,19 @@ def _spans(
                 merged.append(above)
                 continue
             merged.append(span)
-            if not _close(span.rgb, background, tolerance):
-                spans.append(span)
+            spans.append(span)
         # Grown spans are already in ``spans``; only new ones are appended.
         previous = merged
     spans.sort(key=lambda span: (span.y, span.x))
-    return spans
+    return [span for span in spans if not _close(span.rgb, canvas, tolerance)]
 
 
-def backdrop_run(rect: Rect, colour: int) -> str:
-    """One ``fill`` covering the whole rectangle: what an image is drawn on.
+def clear_run(rect: Rect, colour: int) -> str:
+    """One ``fill`` covering the whole rectangle.
 
-    A pass skips every cell that already matches its backdrop, so the rectangle
-    has to be painted before the runs go down: the area may hold an older image,
-    a widget the page drew, or a picture background, and a skipped cell does not
-    overwrite any of it. One flat fill is one run, the cheapest there is.
+    The cheapest run there is, and the one an image program starts with: it
+    paints the canvas colour over everything the blocks after it do not cover.
+    ``clear_image`` sends it alone, in the page's background colour.
     """
     return f"fill {rect.x},{rect.y},{rect.w},{rect.h},{colour}"
 
@@ -258,10 +330,11 @@ def _program(spans: Iterable[_Span]) -> list[str]:
 def _compile(
     canvas: Image.Image,
     rect: Rect,
+    colour: int,
     *,
     budget: int,
-    background: tuple[int, int, int],
-) -> tuple[list[str], int]:
+    max_cell: int | None = None,
+) -> tuple[list[str], int] | None:
     """Find the finest grid whose program fits ``budget`` runs and the firmware.
 
     Cell size is searched by bisection - the coarsest limit is a single cell, so
@@ -271,10 +344,25 @@ def _compile(
     can show, which is where the remaining detail is. The result is verified,
     never truncated: a grid over the budget is made coarser instead.
 
+    The program is the clearing fill in ``colour`` followed by the blocks of the
+    grid that colour does not already cover, and the clear counts as one of the
+    budget's runs. Dropping the covered cells is what makes the grid affordable:
+    at the same budget it is finer than a grid that paints every cell.
+
+    ``max_cell`` caps how coarse the grid may get: the progressive full pass may
+    not be coarser than the coarse pass it paints over. Only a pass that cannot
+    fit at that cap returns ``None`` - a caller with a share of the budget left
+    can then drop it instead of replacing a good coarse picture with a worse
+    one.
+
     Returns:
-        The ``fill`` instructions and the cell size in display pixels.
+        The ``fill`` instructions and the cell size in display pixels, or
+        ``None`` when no grid at ``max_cell`` or below fits ``budget``.
     """
     worst = max(rect.w, rect.h)
+    if max_cell is not None:
+        worst = max(1, min(worst, max_cell))
+    base = rgb565_to_rgb(colour)
     cache: dict[int, tuple[list[str], int] | None] = {}
 
     def attempt(cell: int) -> tuple[list[str], int] | None:
@@ -282,8 +370,8 @@ def _compile(
             cols = math.ceil(rect.w / cell)
             rows = math.ceil(rect.h / cell)
             cache[cell] = None
-            spans = _spans(_cells(canvas, cols, rows), rect, cell, background, COLOUR_TOLERANCE)
-            program = _program(spans)
+            spans = _spans(_cells(canvas, cols, rows), rect, cell, COLOUR_TOLERANCE, base)
+            program = [clear_run(rect, colour), *_program(spans)]
             if len(program) <= budget:
                 cache[cell] = (program, cell)
         return cache[cell]
@@ -295,17 +383,13 @@ def _compile(
             high = middle
         else:
             low = middle + 1
-    found = attempt(low)
-    if found is None:  # pragma: no cover - the single-cell grid always fits
-        raise ImageProgramError(f"no grid fits {budget} runs")
-    return found
+    return attempt(low)
 
 
 def image_plan(
     data: bytes,
     rect: Rect,
     *,
-    background: int,
     budget: int = RUN_BUDGET,
     progressive: bool = False,
     tolerance: int = COLOUR_TOLERANCE,
@@ -315,14 +399,12 @@ def image_plan(
     Args:
         data: The encoded image (any format Pillow decodes).
         rect: Where to paint, in display pixels.
-        background: The backdrop the rectangle is painted in first, as RGB565.
-            The image is composited onto it, and cells that already match it are
-            skipped - which is why the rectangle is filled with it before the
-            first run, instead of leaving whatever was on the page there.
-        budget: Run budget; latency is at most ``budget * COMMAND_SPACING_MS``.
-            The grid never gets finer than one pixel per cell, so at the top of
-            the range a small rectangle is drawn at the display's own
-            resolution.
+        budget: Total run budget for the draw; latency is at most
+            ``budget * COMMAND_SPACING_MS``. With ``progressive`` the coarse
+            pass's runs come out of the full pass's share, so the two together
+            stay inside it. The grid never gets finer than one pixel per cell,
+            so at the top of the range a small rectangle is drawn at the
+            display's own resolution.
         progressive: Also return a coarse pass, so the image appears in ~0.12 s
             and sharpens. Its cells are larger than the full program's, so it is
             not a prefix of it - the full pass paints over it.
@@ -330,8 +412,11 @@ def image_plan(
 
     Returns:
         The programs (``[full]``, or ``[coarse, full]`` with ``progressive``,
-        each a list of ``fill`` instructions starting with the backdrop) and the
-        cell size of the full pass in display pixels.
+        each a list of ``fill`` instructions that covers its whole rectangle:
+        one clearing fill in the picture's canvas colour, then the blocks that
+        colour does not cover) and the cell size of the finest pass. When
+        nothing finer than the coarse pass fits what it left of the budget, that
+        pass is the picture and only it is returned.
 
     Raises:
         ImageProgramError: When the image cannot be decoded, the rect has no
@@ -341,24 +426,28 @@ def image_plan(
         raise ImageProgramError(
             f"budget {budget} is outside the {MIN_RUN_BUDGET}-{MAX_RUN_BUDGET} run range"
         )
-    background_rgb = rgb565_to_rgb(background)
-    canvas = _fit(_decode(data), rect, background_rgb)
-    full, cell = _compile(canvas, rect, budget=budget, background=background_rgb)
+    canvas, colour = _fit(_decode(data), rect)
     if progressive:
-        coarse, _coarse_cell = _compile(
-            canvas, rect, budget=min(PROGRESSIVE_RUNS, budget), background=background_rgb
-        )
-        coarse.insert(0, backdrop_run(rect, background))
-        return [coarse, full], cell
-    full.insert(0, backdrop_run(rect, background))
-    return [full], cell
+        compiled = _compile(canvas, rect, colour, budget=min(PROGRESSIVE_RUNS, budget))
+        if compiled is None:  # pragma: no cover - a single cell fits every budget
+            raise ImageProgramError(f"no grid fits {min(PROGRESSIVE_RUNS, budget)} runs")
+        coarse, coarse_cell = compiled
+        full = _compile(canvas, rect, colour, budget=budget - len(coarse), max_cell=coarse_cell)
+        if full is not None and full[1] < coarse_cell:
+            return [coarse, full[0]], full[1]
+        # The coarse pass is already at the finest grid or nothing finer fits
+        # what it left: sending it twice would paint the same picture twice.
+        return [coarse], coarse_cell
+    compiled = _compile(canvas, rect, colour, budget=budget)
+    if compiled is None:  # pragma: no cover - a single cell fits every budget
+        raise ImageProgramError(f"no grid fits {budget} runs")
+    return [compiled[0]], compiled[1]
 
 
 def image_runs(
     data: bytes,
     rect: Rect,
     *,
-    background: int,
     budget: int = RUN_BUDGET,
     progressive: bool = False,
     tolerance: int = COLOUR_TOLERANCE,
@@ -367,7 +456,6 @@ def image_runs(
     programs, _cell = image_plan(
         data,
         rect,
-        background=background,
         budget=budget,
         progressive=progressive,
         tolerance=tolerance,

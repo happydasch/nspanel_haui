@@ -257,6 +257,26 @@ def test_page_event_no_display_when_already_started():
     assert nav.calls["display_panel"] == []
 
 
+def test_page_event_cancels_a_draw_in_flight():
+    """A page switch ends the image too, including one the display started."""
+
+    class _ESP:
+        cancelled = 0
+
+        def cancel_draw(self):
+            self.cancelled += 1
+
+    nav = _make_nav()
+    esp = _ESP()
+    nav.app.controller["esphome"] = esp
+    nav.panel = DummyPanel("p1")
+    nav.page = FakePage(page_id=3, started=True)
+
+    nav.process_event(HAUIEvent(ESPEvent.PAGE, "3"))
+
+    assert esp.cancelled == 1
+
+
 # --- level-triggered idle check --------------------------------------------
 
 

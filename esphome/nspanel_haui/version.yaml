@@ -7,7 +7,8 @@ substitutions:
   tft_version: '1.1.0'
   # Contract version between this firmware and the hub. Bump the major version
   # only for an incompatible change to the handshake or the event payloads.
-  hub_api_version: '1.0'  # The program format of the ``draw_runs`` action's argument: 1 = the runs are
+  hub_api_version: '1.0'
+  # The program format of the ``draw_runs`` action's argument: 1 = the runs are
   # display ``fill`` instructions, 2 = five base-36 numbers each, decoded back to
   # the instruction (haui/utils/draw_wire.py). The hub sends what the panel says
   # it decodes - a firmware that reports nothing is sent instructions - so bump

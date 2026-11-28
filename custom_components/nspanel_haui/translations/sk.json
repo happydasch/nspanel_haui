@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Kvalita",
-          "description": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až približne 6 s), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
+          "description": "Počet obdĺžnikov, ktoré môže obrázok použiť; viac znamená ostrejší a pomalší obraz (0,12 s až približne 8 s), v malom obdĺžniku až jeden obdĺžnik na pixel displeja."
         }
       }
     },

@@ -35,11 +35,13 @@ from .draw_wire import COMMAND_SPACING_MS, pack_program
 TARGET_DRAW_MS: Final = 600
 RUN_BUDGET: Final = TARGET_DRAW_MS // COMMAND_SPACING_MS
 # The ``quality`` service option's range: a coarser image in 0.12 s, or as fine
-# as an image can be in about 6 s. The ceiling is a deliberate time cap, not a
-# format one - the program is sliced (``draw_wire``), so more runs only cost
-# seconds on the pacer.
+# as an image can be in about 8 s. That top is the display's own resolution, not
+# a format or memory limit - the program is sliced (``draw_wire``) - and above
+# it the grid cannot get finer, so it is where the range ends. A full 480x320
+# page at one rectangle per pixel takes 3635 runs; anything less is a coarser
+# grid, anything more spends time for nothing.
 MIN_RUN_BUDGET: Final = 60
-MAX_RUN_BUDGET: Final = 3000
+MAX_RUN_BUDGET: Final = 4000
 # Per-channel delta that still merges into one run. Flat art, gradients and
 # anti-aliased edges are where the runs are, and this is cheap detail to lose.
 COLOUR_TOLERANCE: Final = 8

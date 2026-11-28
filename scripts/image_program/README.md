@@ -32,7 +32,7 @@ wrote .dev/image-preview.png — tiles: ideal fit | coarse | full
 | `image` | — | Path or `http(s)` URL of the image |
 | `--x`, `--y` | `20`, `20` | Top left of the rectangle, in display pixels |
 | `--w`, `--h` | `160`, `160` | Size of the rectangle, in display pixels |
-| `--budget` | `300` | The service's `quality` option, 60 up to 3000 |
+| `--budget` | `300` | The service's `quality` option, 60 up to 4000 |
 | `--progressive` | off | Render the coarse pass first, the way the action does |
 | `--portrait` | off | 320x480 instead of 480x320 |
 | `--background` | `4226` | Page background as RGB565 (`4226` is the default theme's) |

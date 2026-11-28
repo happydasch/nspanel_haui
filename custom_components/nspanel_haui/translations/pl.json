@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Jakość",
-          "description": "Liczba prostokątów, których może użyć obraz; więcej oznacza ostrzej i wolniej (0,12 s do około 6 s), w małym prostokącie nawet jeden prostokąt na piksel wyświetlacza."
+          "description": "Liczba prostokątów, których może użyć obraz; więcej oznacza ostrzej i wolniej (0,12 s do około 8 s), w małym prostokącie nawet jeden prostokąt na piksel wyświetlacza."
         }
       }
     },

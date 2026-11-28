@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Quality",
-          "description": "How many rectangles the image may use; more is sharper and slower (0.12 s to about 6 s), down to one rectangle per display pixel in a small rectangle."
+          "description": "How many rectangles the image may use; more is sharper and slower (0.12 s to about 8 s), down to one rectangle per display pixel in a small rectangle."
         }
       }
     },

@@ -53,9 +53,11 @@ api:
             url: !lambda return url;
             md5: !lambda return md5sum;
 
-    # Stream a draw program: Nextion ``fill`` instructions joined with ';'
-    # (see image.yaml). This is what puts an image on the panel; the hub's
-    # nspanel_haui.show_image rasterises it.
+    # Stream one slice of a draw program: runs as ``x,y,w,h,colour`` in base 36,
+    # joined with ';' (see image.yaml and haui/utils/draw_wire.py). Several of
+    # these make one image; each is reported back as ``res_draw``, which is what
+    # releases the next one. This is what puts an image on the panel; the hub's
+    # nspanel_haui.show_image rasterises and slices it.
     - action: draw_runs
       variables:
         program: string

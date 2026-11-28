@@ -45,6 +45,7 @@ from ...haui.mapping.const import (
 )
 from ...haui.mapping.descriptor import _
 from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
+from ...haui.utils.draw_wire import unpack_run
 from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
 from ...haui.utils.text import get_translation
 from ...haui.version import get_integration_version
@@ -180,6 +181,12 @@ class InertUpdateController(HAUIUpdateController):
 
 
 class VirtualESPHomeProxy:
+    """The firmware a Simulated preview runs against, in the browser."""
+
+    #: Everything here paints as it is recorded, so a sliced draw needs no
+    #: fence between slices (``HAUIESPHomeController._send_draw_slice``).
+    simulated = True
+
     """Stands in for ``ESPHomeProxy`` and for the firmware behind it."""
 
     def __init__(self, app: VirtualNSPanelHAUI, sink: Sink, device_info: dict[str, Any]) -> None:
@@ -226,7 +233,10 @@ class VirtualESPHomeProxy:
         elif name == "send_commands":
             self._sink({"type": "commands", "commands": list(value)})
         elif name == "draw_runs":
-            self._sink({"type": "commands", "commands": list(value)})
+            # The hub sends a packed slice (``haui/utils/draw_wire.py``); the
+            # browser paints display commands, exactly as the panel decodes them.
+            runs = value if isinstance(value, list) else str(value).split(";")
+            self._sink({"type": "commands", "commands": [unpack_run(run) for run in runs]})
         elif name == "goto_page":
             self._page = int(value)
             self._sink({"type": "page", "page": self._page})

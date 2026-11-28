@@ -33,9 +33,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from custom_components.nspanel_haui.haui.utils.color import rgb565_to_rgb  # noqa: E402
-from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E402
+from custom_components.nspanel_haui.haui.utils.draw_wire import (  # noqa: E402
     COMMAND_SPACING_MS,
-    IMAGE_PROGRAM_MAX,
+    DRAW_SLICE_CHARS,
+    program_slices,
+)
+from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E402
     MAX_RECOMMENDED_CELL_PX,
     MIN_RUN_BUDGET,
     RUN_BUDGET,
@@ -151,16 +154,18 @@ def render_preview(
         for index, runs in enumerate(programs)
     ]
     for name, runs in passes:
+        slices = program_slices(runs)
         print(
             f"{name:6} {len(runs):4} runs  {program_length(runs):6} chars  "
-            f"~{len(runs) * COMMAND_SPACING_MS} ms on the panel"
-            + (f"  drawn in {cell} px blocks" if name == "full" else "")
+            f"~{len(runs) * COMMAND_SPACING_MS} ms on the panel, "
+            f"{len(slices)} slice(s)" + (f"  drawn in {cell} px blocks" if name == "full" else "")
         )
-        if program_length(runs) > IMAGE_PROGRAM_MAX:
-            print(
-                f"       over the firmware's {IMAGE_PROGRAM_MAX} character limit: "
-                "the device would drop this program"
-            )
+        for part in slices:
+            if program_length(part) > DRAW_SLICE_CHARS:
+                print(
+                    f"       a slice is over the {DRAW_SLICE_CHARS}-character slice the "
+                    "panel stages"
+                )
     # The coarse pass is coarse on purpose; only the final image is judged.
     if cell > MAX_RECOMMENDED_CELL_PX:
         print(

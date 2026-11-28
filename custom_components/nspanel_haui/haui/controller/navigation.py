@@ -1117,10 +1117,16 @@ class HAUINavigationController(HAUIBase):
         tune the pacing from (``runs * command_spacing``) instead of a guess.
         """
         payload = event.as_json()
+        ok = bool(payload.get("ok", False))
         self.log(
             f"Draw program finished: {payload.get('runs', 0)} runs, "
-            f"ok={payload.get('ok', False)}, {payload.get('elapsed_ms', 0)} ms"
+            f"ok={ok}, {payload.get('elapsed_ms', 0)} ms"
         )
+        # An image is drawn in slices, and this is the fence that ends one: the
+        # ESPHome controller sends the next slice, or drops the rest.
+        esp_ctrl = self.app.controller.get("esphome")
+        if esp_ctrl is not None:
+            esp_ctrl.on_draw_report(ok)
 
     def _handle_buffer_overflow_event(self, _event: HAUIEvent) -> None:
         """esphome.buffer_overflow — Nextion RX buffer overflowed, commands lost.

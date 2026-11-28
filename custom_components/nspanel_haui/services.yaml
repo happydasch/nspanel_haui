@@ -399,16 +399,16 @@ show_image:
     quality:
       name: "Quality"
       description: >-
-        How many rectangles the image may use.  More is sharper and slower:
-        60 runs take about 0.12 s, 300 about 0.6 s, and the top of the range
-        about 2.5 s.  A small rectangle reaches one rectangle per display pixel;
-        a large one stops where the panel's 30 000-character program does.
+        How many rectangles the image may use.  More is sharper and slower: the
+        panel paints about 500 of them a second, so 60 runs take about 0.12 s,
+        300 about 0.6 s, and the top of the range about 6 s.  A small rectangle
+        reaches one rectangle per display pixel.
       required: false
       default: 300
       selector:
         number:
           min: 60
-          max: 1153
+          max: 3000
           unit_of_measurement: "runs"
           mode: slider
 

@@ -1,10 +1,19 @@
 ---
 # Drawing over the current page
 #
-# ``draw_runs`` streams a program of Nextion ``fill`` instructions that the hub
-# rasterised from an image (``haui/utils/image_program.py``). One program is one
-# pass: the pacer sends one command per component phase (``command_spacing: 2ms``,
-# display.yaml), so the latency of an image is its run count, and keeping the
+# ``draw_runs`` streams a *slice* of a draw program to the Nextion. The hub cuts
+# one image into slices (``haui/utils/draw_wire.py``) because a pass is longer
+# than one API message and far bigger than this panel's heap: each slice is
+# staged, streamed, and reported, and the hub sends the next one when that report
+# arrives. The picture appears in bands; RAM stays the size of one slice.
+#
+# A run on the wire is ``x,y,w,h,colour`` with every number in base 36
+# ("3c,1s,8,8,1ekf"), a third shorter than the display's own
+# ``fill 120,64,8,8,65535``; the enqueue lambda decodes it back. Runs are joined
+# with ';'. Everything above the firmware keeps speaking display commands.
+#
+# The pacer sends one command per component phase (``command_spacing: 2ms``,
+# display.yaml), so the latency of a slice is its run count, and keeping the
 # device's queue full of runs puts any hub command that follows *behind* them -
 # the image completes first instead of interleaving with a page render or a
 # clock tick. The program is held once: the action hands its argument over with
@@ -30,13 +39,16 @@ substitutions:
   # pass, so this only bounds how late a refill reacts - and 400 entries at 2 ms
   # drain in ~0.8 s, far inside max_queue_age (8 s).
   draw_queue_poll: '20ms'
-  # Longest program accepted (characters of runs joined with ';'). The hub caps
-  # its own program at the same number, so this is only the device's backstop.
-  draw_program_max: '30000'
-  # Free contiguous heap the run queue, the report and the API's own buffers
-  # need besides the program itself. A program that would not leave this much is
-  # refused by name instead of aborting on a failed allocation.
-  draw_heap_reserve: '12000'
+  # Longest slice accepted (packed characters). The hub slices a pass at 8 000
+  # (``draw_wire.DRAW_SLICE_CHARS``); this is the device's backstop, above it so
+  # the two never disagree, and far below the 32 KB API message limit.
+  draw_program_max: '9000'
+  # Free contiguous heap a slice needs besides its own length: the action's
+  # argument and the staged copy are two of it while it moves into place, and the
+  # run queue, the report and the API's own buffers come on top. A slice that
+  # would not leave this much is refused by name instead of aborting the panel on
+  # a failed allocation.
+  draw_heap_reserve: '10000'
   # Marker written into the Nextion's ``system.resVal`` as the fence that ends a
   # program. The hub reads resVal too, so only this value ends a draw.
   draw_fence_marker: '31337'
@@ -194,15 +206,43 @@ script:
           const size_t size = program.size();
           size_t cursor = id(haui_draw_cursor);
           const size_t level = ${draw_queue_level};
+          // A run is x,y,w,h,colour in base 36 ("3c,1s,8,8,1ekf") and the display
+          // wants "fill x,y,w,h,colour". Anything that does not decode is a wrong
+          // program and must not be sent: the display accepts garbage silently.
+          const auto decode = [](const std::string &packed, char *out, size_t out_size) -> bool {
+            long field[5] = {0, 0, 0, 0, 0};
+            int index = 0;
+            bool digits = false;
+            for (char c : packed) {
+              if (c == ',') {
+                if (!digits || index == 4) return false;
+                index++;
+                digits = false;
+                continue;
+              }
+              int digit = (c >= '0' && c <= '9')   ? c - '0'
+                          : (c >= 'a' && c <= 'z') ? c - 'a' + 10
+                          : (c >= 'A' && c <= 'Z') ? c - 'A' + 10
+                                                   : -1;
+              if (digit < 0 || field[index] > 65535 / 36) return false;
+              field[index] = field[index] * 36 + digit;
+              digits = true;
+            }
+            if (!digits || index != 4) return false;
+            const int written = snprintf(out, out_size, "fill %ld,%ld,%ld,%ld,%ld", field[0],
+                                         field[1], field[2], field[3], field[4]);
+            return written > 0 && static_cast<size_t>(written) < out_size;
+          };
           while (cursor < size && id(haui_disp).queue_size() < level) {
             size_t end = program.find(';', cursor);
             if (end == std::string::npos) end = size;
-            std::string run = program.substr(cursor, end - cursor);
-            if (!run.empty()) {
-              if (run.compare(0, 5, "fill ") != 0) {
-                ESP_LOGE("haui", "draw_runs: '%.40s' is not a fill instruction", run.c_str());
+            std::string packed = program.substr(cursor, end - cursor);
+            if (!packed.empty()) {
+              char run[40];
+              if (!decode(packed, run, sizeof(run))) {
+                ESP_LOGE("haui", "draw_runs: '%.20s' is not a run", packed.c_str());
                 id(haui_draw_rejected)++;
-              } else if (id(haui_disp).send_command(run.c_str())) {
+              } else if (id(haui_disp).send_command(run)) {
                 id(haui_draw_sent)++;
               } else {
                 // The queue did not grow, so this would spin: the display went

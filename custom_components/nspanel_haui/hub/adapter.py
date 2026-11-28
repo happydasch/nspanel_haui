@@ -269,7 +269,9 @@ class ESPHomeProxy:
         elif name == ESPAction.RESET_LAST_INTERACTION:
             service_data["offset"] = int(value) if value else 0
         elif name == ESPAction.DRAW_RUNS:
-            # One program string, runs joined with ';' (image.yaml).
+            # One slice of a draw pass: an already-packed program string
+            # (haui/utils/draw_wire.py). The list form is joined for an older
+            # caller that still hands over display commands.
             service_data["program"] = ";".join(value) if isinstance(value, list) else str(value)
         else:
             service_data["value"] = value

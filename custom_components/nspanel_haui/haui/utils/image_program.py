@@ -8,8 +8,10 @@ without pretending the result is a photograph: runs buy detail, so the same
 budget gives a sharp icon and a coarse mosaic for a full page.
 
 The grid is never finer than one pixel per cell, so the best a rectangle can get
-is the image at the display's own resolution - and the firmware's program length,
-not the time budget, is what caps how close a large rectangle gets to it.
+is the image at the display's own resolution - and the time budget is what caps
+how close a large rectangle gets to it. Length is no longer a limit: the program
+is sent in slices (``draw_wire.DRAW_SLICE_CHARS``), so more runs cost seconds on
+the pacer and nothing else.
 
 Pure and synchronous, no Home Assistant and no asyncio: the service calls it in
 the executor, the firmware streams what it returns.
@@ -26,25 +28,18 @@ from typing import Final, cast
 from PIL import Image, UnidentifiedImageError
 
 from .color import rgb565_to_rgb, rgb_to_rgb565
+from .draw_wire import COMMAND_SPACING_MS, pack_program
 
-# Latency is ``runs * command_spacing`` (``esphome/nspanel_haui/display.yaml``),
-# so the run budget *is* a time budget.
+# Latency is ``runs * COMMAND_SPACING_MS`` (``esphome/nspanel_haui/display.yaml``,
+# see ``draw_wire``), so the run budget *is* a time budget.
 TARGET_DRAW_MS: Final = 600
-COMMAND_SPACING_MS: Final = 2
 RUN_BUDGET: Final = TARGET_DRAW_MS // COMMAND_SPACING_MS
 # The ``quality`` service option's range: a coarser image in 0.12 s, or as fine
-# as an image can be.
+# as an image can be in about 6 s. The ceiling is a deliberate time cap, not a
+# format one - the program is sliced (``draw_wire``), so more runs only cost
+# seconds on the pacer.
 MIN_RUN_BUDGET: Final = 60
-# A run is at most ~26 characters ("fill 480,320,480,320,65535"), and the
-# firmware stages the whole program in RAM, so its length - not a time budget -
-# is what caps how fine the grid may be. 30 000 characters is what the panel can
-# hold twice over (the action's argument and the program it stages) while its
-# largest free block still has room for the run queue; the firmware refuses a
-# program that would not leave that headroom. ``_compile`` verifies both limits,
-# so the largest budget can still never build a program the device drops.
-IMAGE_PROGRAM_MAX: Final = 30000
-MAX_RUN_CHARS: Final = 26
-MAX_RUN_BUDGET: Final = IMAGE_PROGRAM_MAX // MAX_RUN_CHARS
+MAX_RUN_BUDGET: Final = 3000
 # Per-channel delta that still merges into one run. Flat art, gradients and
 # anti-aliased edges are where the runs are, and this is cheap detail to lose.
 COLOUR_TOLERANCE: Final = 8
@@ -248,8 +243,7 @@ def _compile(
     grid is never finer than the rectangle, so the best possible result is the
     image at the screen's own resolution. Every cell keeps the colour the display
     can show, which is where the remaining detail is. The result is verified,
-    never truncated: a program over the budget, or over ``IMAGE_PROGRAM_MAX``
-    characters, is made coarser instead.
+    never truncated: a grid over the budget is made coarser instead.
 
     Returns:
         The ``fill`` instructions and the cell size in display pixels.
@@ -264,7 +258,7 @@ def _compile(
             cache[cell] = None
             spans = _spans(_cells(canvas, cols, rows), rect, cell, background, COLOUR_TOLERANCE)
             program = _program(spans)
-            if len(program) <= budget and program_length(program) <= IMAGE_PROGRAM_MAX:
+            if len(program) <= budget:
                 cache[cell] = (program, cell)
         return cache[cell]
 
@@ -352,5 +346,5 @@ def image_runs(
 
 
 def program_length(runs: Iterable[str]) -> int:
-    """Characters the firmware receives for ``runs`` joined with ``;``."""
-    return len(";".join(runs))
+    """Characters the panel receives for ``runs``: the packed program (``draw_wire``)."""
+    return len(pack_program(runs))

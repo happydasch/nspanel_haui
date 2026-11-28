@@ -754,12 +754,24 @@ def test_no_api_action_passes_one_of_its_variables_as_a_bare_word():
     assert not offenders, f"wrap the value in !lambda 'return x;': {offenders}"
 
 
-def test_a_draw_program_the_hub_builds_is_never_over_the_firmware_limit():
-    """The rasteriser caps its own program; the device's cap must be above it."""
-    from custom_components.nspanel_haui.haui.utils.image_program import IMAGE_PROGRAM_MAX
+def test_a_draw_slice_the_hub_builds_is_never_over_the_firmware_limit():
+    """The hub slices a pass; the device's own backstop must be above one slice."""
+    from custom_components.nspanel_haui.haui.utils.draw_wire import DRAW_SLICE_CHARS
 
     firmware_max = int(_substitution(_read("image.yaml"), "draw_program_max"))
-    assert firmware_max >= IMAGE_PROGRAM_MAX
+    assert firmware_max >= DRAW_SLICE_CHARS
+
+
+def test_the_firmware_decodes_a_packed_run_back_into_a_fill():
+    """The wire format carries five base-36 numbers, not the display command."""
+    image = _read("image.yaml")
+
+    # The enqueue lambda rebuilds "fill x,y,w,h,colour" from five numbers, and a
+    # run it cannot decode is counted instead of sent. Verified against the hub's
+    # packer by compiling the lambda on the host (haui/utils/draw_wire.pack_run).
+    assert '"fill %ld,%ld,%ld,%ld,%ld"' in image
+    assert "base 36" in image
+    assert "id(haui_draw_rejected)++" in image
 
 
 def test_a_draw_queue_fill_drains_before_the_queued_runs_expire():

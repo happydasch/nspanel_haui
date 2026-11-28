@@ -14,9 +14,12 @@ import pytest
 from PIL import Image, ImageDraw
 
 from custom_components.nspanel_haui.haui.utils.color import rgb_to_rgb565
+from custom_components.nspanel_haui.haui.utils.draw_wire import (
+    DRAW_SLICE_CHARS,
+    program_slices,
+)
 from custom_components.nspanel_haui.haui.utils.image_program import (
     COLOUR_TOLERANCE,
-    IMAGE_PROGRAM_MAX,
     LANDSCAPE_SIZE,
     MAX_RECOMMENDED_CELL_PX,
     MAX_RUN_BUDGET,
@@ -135,7 +138,9 @@ def test_every_image_lands_under_the_run_budget(data, rect):
     (program,) = image_runs(data, rect, background=BLACK)
 
     assert 0 < len(program) <= RUN_BUDGET
-    assert program_length(program) <= IMAGE_PROGRAM_MAX
+    # A default pass is one slice: the wire length is what the panel is sent.
+    assert len(program_slices(program)) == 1
+    assert program_length(program) <= DRAW_SLICE_CHARS
 
 
 @pytest.mark.parametrize(
@@ -277,12 +282,16 @@ def test_the_top_of_the_range_draws_at_the_displays_own_resolution():
     assert len(rows(MIN_RUN_BUDGET)) < 40
 
 
-def test_the_top_of_the_range_stays_inside_the_firmware_program():
-    """However fine ``quality`` asks for, the device gets a program it accepts."""
+def test_the_top_of_the_range_is_sent_in_slices_the_panel_can_hold():
+    """However fine ``quality`` asks for, no slice outgrows the panel."""
     (program,) = image_runs(_photo(), Rect(0, 0, 480, 320), background=BLACK, budget=MAX_RUN_BUDGET)
 
     assert len(program) <= MAX_RUN_BUDGET
-    assert program_length(program) <= IMAGE_PROGRAM_MAX
+    slices = program_slices(program)
+    assert len(slices) > 1, "a full-page image at the top of the range needs several calls"
+    assert [run for part in slices for run in part] == program
+    for part in slices:
+        assert program_length(part) <= DRAW_SLICE_CHARS
 
 
 def test_the_display_size_follows_the_orientation():

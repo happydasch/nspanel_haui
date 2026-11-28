@@ -9,6 +9,12 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT, ESPAction
+from ..utils.draw_wire import COMMAND_SPACING_MS, pack_program, program_slices
+
+#: Seconds a slice gets on top of its own drawing time before the hub sends the
+#: next one without a report: a fence lost to a busy event loop must not wedge
+#: the rest of the image.
+DRAW_SLICE_GRACE: float = 2.0
 
 
 class HAUIESPHomeController(HAUIBase):
@@ -39,6 +45,10 @@ class HAUIESPHomeController(HAUIBase):
         self._page_commands: dict[str, str] = {}
         self._event_callback = event_callback
         self._device_names: list[str] = []
+        # Slices of a draw pass still to send, and the timer that sends the next
+        # one if its fence never reports (see ``_start_draw``).
+        self._draw_slices: list[list[str]] = []
+        self._draw_timer: str | None = None
 
         # Build list of configured device names
         devices = self.config.get("devices", [])
@@ -72,6 +82,8 @@ class HAUIESPHomeController(HAUIBase):
 
         Cancels all ESPHome event bus listeners registered during start_part.
         """
+        self._cancel_timer("_draw_timer")
+        self._draw_slices.clear()
         self.esphome.cancel_listen_events()
 
     # public
@@ -97,6 +109,10 @@ class HAUIESPHomeController(HAUIBase):
         if value is None:
             value = ""
 
+        if bare_cmd == ESPAction.DRAW_RUNS:
+            self._start_draw(value)
+            return
+
         # Dedup only single commands; batches are deduped in haui_base and
         # transport dedup would drop chunks.
         dedup_key = (bare_cmd, value if isinstance(value, str) else str(value))
@@ -121,14 +137,10 @@ class HAUIESPHomeController(HAUIBase):
         elif published and bare_cmd == ESPAction.SEND_COMMANDS:
             for command in value if isinstance(value, list) else [value]:
                 self._record_page_command(str(command))
-        elif published and bare_cmd == ESPAction.DRAW_RUNS:
-            runs = value if isinstance(value, list) else [value]
-            self._record_draw_program([str(run) for run in runs])
         if published and bare_cmd in (
             ESPAction.SEND_COMMAND,
             ESPAction.SEND_COMMANDS,
             ESPAction.GOTO_PAGE,
-            ESPAction.DRAW_RUNS,
         ):
             self.app.publish_preview_output(bare_cmd, value)
         # Only a command the device got may hold back the same one next time.
@@ -181,6 +193,88 @@ class HAUIESPHomeController(HAUIBase):
             del self._page_commands[target]
         for run in runs:
             self._record_page_command(str(run))
+
+    # image drawing
+
+    def _start_draw(self, value: str | dict | list) -> None:
+        """Paint a pass of ``fill`` instructions, one slice at a time.
+
+        A pass is far longer than one API message and far bigger than the
+        panel's heap, so it is cut into slices (``draw_wire.program_slices``)
+        that the firmware stages one after another: the panel reports a slice
+        when its last run is on the wire and the next one follows
+        (``on_draw_report``). The picture therefore appears in bands while RAM
+        stays the size of a single slice.
+
+        The whole pass - not the slice - is what the page replay keeps, so a
+        viewer that attaches late still sees the finished image.
+        """
+        runs = [str(run) for run in (value if isinstance(value, list) else [value])]
+        if not runs:
+            return
+        self._record_draw_program(runs)
+        self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
+        self._cancel_timer("_draw_timer")
+        self._draw_slices = program_slices(runs)
+        self._send_draw_slice()
+
+    def _send_draw_slice(self) -> None:
+        """Send the next slice, and arm the timer that covers a lost report."""
+        while True:
+            self._cancel_timer("_draw_timer")
+            if not self._draw_slices:
+                return
+            runs = self._draw_slices.pop(0)
+            program = pack_program(runs)
+            self.log(
+                f"draw_runs: {len(runs)} run(s), {len(program)} characters, "
+                f"{len(self._draw_slices)} slice(s) to go",
+                level="DEBUG",
+            )
+            if not self.esphome.publish(ESPAction.DRAW_RUNS, program):
+                self.log(
+                    "draw_runs: the panel did not take a slice; the rest is dropped",
+                    level="WARNING",
+                )
+                self._draw_slices.clear()
+                return
+            if not getattr(self.esphome, "simulated", False):
+                expected = len(runs) * COMMAND_SPACING_MS / 1000
+                self._draw_timer = self.app.run_in(
+                    self._draw_slice_timeout, expected + DRAW_SLICE_GRACE
+                )
+                return
+            # The simulator paints as it records, so there is no fence to wait
+            # for: send every remaining slice straight away.
+
+    def _draw_slice_timeout(self, **_kwargs: Any) -> None:
+        """Send the next slice although the panel never reported the last one."""
+        self._draw_timer = None
+        if not self._draw_slices:
+            return
+        self.log(
+            "draw_runs: no report for a slice within its drawing time; sending the next one",
+            level="WARNING",
+        )
+        self._send_draw_slice()
+
+    def on_draw_report(self, ok: bool) -> None:
+        """esphome.res_draw - a slice is through: send the next one.
+
+        Args:
+            ok: Whether the panel took every run of the slice. A refused slice
+                means the rest of the image would paint over a half-drawn
+                picture, so it is dropped instead.
+        """
+        self._cancel_timer("_draw_timer")
+        if not ok:
+            self.log(
+                "draw_runs: the panel refused a slice; the rest of the image is dropped",
+                level="WARNING",
+            )
+            self._draw_slices.clear()
+            return
+        self._send_draw_slice()
 
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.

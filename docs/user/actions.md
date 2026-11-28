@@ -132,7 +132,7 @@ Two actions do this:
 | `w` | yes | — | Width of the rectangle, in display pixels |
 | `h` | yes | — | Height of the rectangle, in display pixels |
 | `progressive` | no | `true` | Draw a coarse version first, so the image appears at once and then sharpens |
-| `quality` | no | `300` | How many rectangles the image may use, 60–1153. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
+| `quality` | no | `300` | How many rectangles the image may use, 60–3000. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
 
 ```yaml
 action: nspanel_haui.show_image
@@ -191,10 +191,14 @@ data:
   coarse mosaic.
 - **It takes about half a second.** Every rectangle is one instruction the panel
   draws in turn, at about 500 a second. `quality` trades that time for detail:
-  `60` is about 0.12 s, `300` about 0.6 s, and the top of its range about 2.5 s.
+  `60` is about 0.12 s, `300` about 0.6 s, and the top of its range about 6 s.
   The ceiling is that instruction rate, not the size of the image: a full page
   needs tens of thousands of rectangles, which would take minutes, so it stays a
   mosaic however high `quality` goes.
+- **A long image arrives in bands.** The hub sends the rectangles in slices the
+  panel can hold in memory and sends the next one as each finishes, so a big,
+  detailed image starts drawing at once and fills in rather than waiting. A page
+  change in the middle stops it, like any other re-render.
 - **The rectangle decides the detail.** The block never gets finer than one
   display pixel, so a rectangle of a few hundred pixels is drawn at the screen's
   own resolution, while the same budget over the whole page gives a coarse mosaic

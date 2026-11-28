@@ -149,6 +149,7 @@ SAMPLE_ENTITIES: dict[str, tuple[str, dict[str, Any]]] = {
             ],
         },
     ),
+    "camera.front_door": ("idle", {"friendly_name": "Front Door"}),
     "alarm_control_panel.home": (
         "disarmed",
         {

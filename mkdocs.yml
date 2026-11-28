@@ -97,6 +97,7 @@ nav:
       - QR Code: user/panels/panel_qr.md
       - Cover: user/panels/panel_cover.md
       - Climate: user/panels/panel_climate.md
+      - Camera: user/panels/panel_camera.md
       - Timer: user/panels/panel_timer.md
       - Alarm: user/panels/panel_alarm.md
       - About: user/panels/panel_about.md

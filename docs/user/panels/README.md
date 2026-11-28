@@ -5,7 +5,7 @@ description: All panel types available for NSPanel HAUI
 
 # Panel Types
 
-A panel is one screen on the display. There are **13 panel types** you can add, plus built-in popups and system panels. The **Add panel** catalog groups the types under **Backgrounds**, **Entities**, **Grouping** and **Tools**, and also lists **Extend a popup** and **Copy an existing panel**. Select a panel below to read what it shows and which options it has.
+A panel is one screen on the display. There are **14 panel types** you can add, plus built-in popups and system panels. The **Add panel** catalog groups the types under **Backgrounds**, **Entities**, **Grouping** and **Tools**, and also lists **Extend a popup** and **Copy an existing panel**. Select a panel below to read what it shows and which options it has.
 
 You add panels in the editor, see the [Editor overview](../editor/README.md). The [Screens overview](../screens.md) shows every panel in the landscape and the portrait layout.
 
@@ -39,6 +39,7 @@ Panels that control a single entity in full.
 | <a href="panel_vacuum.md"><img src="../../assets/screens/landscape/vacuum.png" alt="vacuum panel" width="120" height="85"></a> | [Vacuum](panel_vacuum.md) | `vacuum` | Start, stop, return to dock, fan speed and locate |
 | <a href="panel_cover.md"><img src="../../assets/screens/landscape/cover.png" alt="cover panel" width="120" height="85"></a> | [Cover](panel_cover.md) | `cover` | Open, stop, close and a position slider |
 | <a href="panel_climate.md"><img src="../../assets/screens/landscape/climate.png" alt="climate panel" width="120" height="85"></a> | [Climate](panel_climate.md) | `climate` | Target temperature, modes, fan, swing and presets |
+| <a href="panel_camera.md"><img src="../../assets/screens/landscape/camera.png" alt="camera panel" width="120" height="85"></a> | [Camera](panel_camera.md) | `camera` | One camera's picture, refreshed on the display |
 
 ## Tools
 

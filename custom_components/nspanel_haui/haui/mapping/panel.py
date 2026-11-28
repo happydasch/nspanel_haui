@@ -5,6 +5,7 @@ from ..abstract.haui_page import HAUIPage
 from ..page.about import AboutPage
 from ..page.alarm import AlarmPage
 from ..page.blank import BlankPage
+from ..page.camera import CameraPage
 from ..page.climate import ClimatePage
 from ..page.clock import ClockPage
 from ..page.clocktwo import ClockTwoPage
@@ -32,6 +33,7 @@ _page_classes: list[type[HAUIPage]] = [
     AboutPage,
     AlarmPage,
     BlankPage,
+    CameraPage,
     ClimatePage,
     ClockPage,
     ClockTwoPage,

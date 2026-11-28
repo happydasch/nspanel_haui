@@ -701,7 +701,12 @@ def test_current_page_sensor_names_match_the_hub_page_mapping():
     table = re.search(r"PAGE_NAMES\[\] = \{(.*?)\};", sensors, re.DOTALL)
     assert table is not None
     names = re.findall(r'"([^"]+)"', table.group(1))
-    assert names == [PAGE_MAPPING[page_id] for page_id in range(len(PAGE_MAPPING))]
+    # By id, not by position: the table is the display's page list, so it also
+    # names a page no panel type renders yet (an HMI page can land before its
+    # page class does), and such an id is simply absent from PAGE_MAPPING.
+    for page_id, page_name in PAGE_MAPPING.items():
+        assert page_id < len(names), f"the table is too short for page id {page_id}"
+        assert names[page_id] == page_name
     assert "id(current_page).publish_state(" in sensors
 
 

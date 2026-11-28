@@ -172,6 +172,23 @@ def _cover() -> dict[str, Rect]:
     return layout
 
 
+def _fan() -> dict[str, Rect]:
+    # The fan page is the cover page with speed buttons: same three buttons on the
+    # left, the same slider beside them and the same info line below. No page class
+    # renders it yet, but the spec is complete, so the geometry cannot drift.
+    layout = _header()
+    layout.update(
+        {
+            "bUp": (68, 96, 60, 60),
+            "bStop": (68, 202, 60, 60),
+            "bDown": (68, 308, 60, 60),
+            "hVertPos": (146, 74, 90, 304),
+            "tInfo": (12, 390, 296, 36),
+        }
+    )
+    return layout
+
+
 def _grid() -> dict[str, Rect]:
     layout = _header()
     tile_w, tile_h = 147, 130
@@ -188,6 +205,17 @@ def _grid() -> dict[str, Rect]:
                 f"{g}Power": (x + 39, y + 16, 68, 68),
             }
         )
+    return layout
+
+
+def _info() -> dict[str, Rect]:
+    # The info page carries the largest text area of any page above a row of six
+    # mode buttons. The camera page uses that area as its picture (``PICTURE_RECT``
+    # in ``haui/page/camera.py``) and keeps the mode buttons hidden.
+    layout = _header()
+    layout["tText"] = (12, 55, 296, 335)
+    for i in range(6):
+        layout[f"btMode{i + 1}"] = (10 + 50 * i, 417, 50, 50)
     return layout
 
 
@@ -390,7 +418,9 @@ PORTRAIT_LAYOUT: dict[str, dict[str, Rect]] = {
     "clock": _clock(),
     "clocktwo": _clocktwo(),
     "cover": _cover(),
+    "fan": _fan(),
     "grid": _grid(),
+    "info": _info(),
     "light": _light(),
     "media": _media(),
     "notify": _notify(),

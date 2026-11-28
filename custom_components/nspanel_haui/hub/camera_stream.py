@@ -30,6 +30,7 @@ keeps redrawing a stale picture is worse than one that stops.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
 from ..haui.utils.image_program import Rect
@@ -76,6 +77,7 @@ class CameraStream:
         band: int = DEAD_BAND,
         max_runs: int = DEFAULT_FRAME_RUNS,
         refresh_every: int = REFRESH_EVERY,
+        on_first_frame: Callable[[], None] | None = None,
     ) -> None:
         """Prepare a stream; ``async_start`` puts it to work.
 
@@ -90,6 +92,9 @@ class CameraStream:
             max_runs: Runs one frame may cost.
             refresh_every: Frames between two full repaints, so the dead band
                 cannot accumulate error; 0 disables them.
+            on_first_frame: Run on the worker once the panel shows a frame, for
+                the page that gives up its picture area (it drops its placeholder
+                then). Never called when the stream sent nothing.
         """
         self.hass = hass
         self.app = app
@@ -103,11 +108,13 @@ class CameraStream:
             max_runs=max_runs,
             refresh_every=refresh_every,
         )
+        self._on_first_frame = on_first_frame
         self._task: asyncio.Task[None] | None = None
         self._stopped = asyncio.Event()
         self._page: str | None = None
         self._last_runs: list[str] = []
         self._failures = 0
+        self._first_frame_done = False
         self.frames = 0
         self.skipped = 0
 
@@ -261,6 +268,9 @@ class CameraStream:
         if runs:
             esp.draw_stream_frame(runs)
             self._last_runs = runs
+            if not self._first_frame_done and self._on_first_frame is not None:
+                self._first_frame_done = True
+                self._on_first_frame()
         return "ok"
 
     def _record_last_frame(self, runs: list[str]) -> None:
@@ -310,3 +320,61 @@ async def stop_all_streams() -> None:
     """Stop every stream, for an integration unload."""
     for stream in list(_STREAMS.values()):
         await stream.async_stop()
+
+
+def start_page_stream(
+    app: NSPanelHAUI,
+    *,
+    entity_id: str,
+    rect: Rect,
+    fps: float,
+    on_first_frame: Callable[[], None] | None = None,
+) -> None:
+    """Show a camera on the panel's current page, replacing any other stream.
+
+    Called from the app's worker (a page hands over its picture area while it is
+    being shown), so the stop and the start are scheduled on the event loop as
+    one step: they must not interleave with each other or with a service call.
+    Nothing here waits for the loop, and nothing here touches the display - the
+    loop reaches back into the worker for every command.
+
+    Args:
+        app: The panel to draw on.
+        entity_id: The camera entity to draw.
+        rect: The page's picture area, in display pixels.
+        fps: Frames per second; ``CameraStream`` clamps it.
+        on_first_frame: Run on the worker once the panel shows a frame.
+    """
+    hass = app.hass
+
+    async def _replace() -> None:
+        await stop_stream(app)
+        stream = CameraStream(
+            hass,
+            app,
+            entity_id=entity_id,
+            rect=rect,
+            fps=fps,
+            on_first_frame=on_first_frame,
+        )
+        await stream.async_start()
+        app.log(
+            f"camera page: {entity_id} into {rect.w}x{rect.h} at "
+            f"({rect.x}, {rect.y}), {stream.fps:.1f} fps"
+        )
+
+    _schedule(app, _replace)
+
+
+def stop_page_stream(app: NSPanelHAUI) -> None:
+    """Stop the stream a page started, if one runs; called from the worker."""
+    _schedule(app, lambda: stop_stream(app))
+
+
+def _schedule(app: NSPanelHAUI, work: Callable[[], Any]) -> None:
+    """Run ``work`` on the event loop as a task, from the worker or from the loop."""
+    hass = app.hass
+    try:
+        hass.loop.call_soon_threadsafe(lambda: hass.async_create_task(work()))
+    except RuntimeError:  # the loop is closed: the integration is going away
+        app.log("camera page: the event loop is closed, nothing scheduled")

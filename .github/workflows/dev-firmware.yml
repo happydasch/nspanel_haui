@@ -7,7 +7,8 @@ name: Development Firmware
 # version matters: an integration installed from `dev` and custom firmware built from it
 # report it, and the hub finds the matching TFT manifest by that version. Because that
 # bot commit is what carries the version, a build continues the cycle the branch already
-# reports, so one dispatch with a `base` opens a cycle for every build after it.
+# reports, so one dispatch with a `base` opens a cycle for every build after it, and a dev
+# release that is already out stays a floor under the next build.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +17,8 @@ on:
           Base version for a new minor or major cycle, as that cycle's first dev
           version (for example 0.6.0.dev0, which builds 0.6.0.dev<run>). Empty
           continues the cycle the branch reports, raised to the next patch of the
-          newest vX.Y.Z tag when that is newer.
+          newest vX.Y.Z tag and to the cycle of a dev release already tagged when
+          either is newer, so a build never publishes below one that exists.
         type: string
         default: ""
 
@@ -66,7 +68,9 @@ jobs:
       - name: Derive the build version
         # X.Y.Z.dev<run>, one PEP 440 string for the image, the tag and the manifest.
         # The cycle comes from the branch's manifest.json, which the last build
-        # committed, so a `base` opens a cycle for every build after it.
+        # committed, so a `base` opens a cycle for every build after it. The tags
+        # are fetched already: a dev release that is out stays a floor, because
+        # Home Assistant, the hub and the GitHub release list order by version.
         id: version
         env:
           BASE: ${{ inputs.base }}

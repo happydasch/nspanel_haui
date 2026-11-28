@@ -143,6 +143,12 @@ PANELS: list[dict[str, Any]] = [
         "title": "Alarm",
         "item": {"item": "alarm_control_panel.home"},
     },
+    {
+        "type": "camera",
+        "key": "camera_0",
+        "title": "Front Door",
+        "item": {"item": "camera.front_door"},
+    },
 ]
 
 

@@ -189,6 +189,25 @@ subject: ~24 runs at cell 8, ~10 at cell 12, 0 when nothing moves - and 786-1998
 runs for a camera that pans, which is why a moving camera is the one case this
 cannot make usable.
 
+### The camera page is one of the stream's callers
+
+`haui/page/camera.py` does not draw anything itself: it owns the display's info page
+(page id 20), hands that page's text area to the stream as its rectangle
+(`PICTURE_RECT`, per orientation), and stays out of the way. Three things follow from
+a stream being started by a page rather than by a service:
+
+- **The bridge is worker-to-loop, never a wait.** A page renders on the app's
+  worker; `NSPanelHAUI.start_camera_page_stream` / `stop_camera_page_stream` only
+  schedule `start_page_stream` / `stop_page_stream` on the event loop, and stopping
+  and starting a replacement happen as one step there, so they cannot interleave.
+- **A render restarts the stream.** `render_panel` repaints the page background over
+  the picture, so the page asks for a fresh stream - whose planner starts from an
+  empty painted model and therefore paints the whole rectangle - instead of leaving
+  half the area blank until something happens to change there.
+- **The placeholder belongs to the page.** The text area is shown with *Waiting for
+  the camera* until `on_first_frame` fires on the worker (the stream reports its first
+  sent frame), which is also why a card render - which never streams - keeps it.
+
 ## Page
 
 - `page` (0–255): the page id the display shows; its `on_value` publishes `esphome.page`.

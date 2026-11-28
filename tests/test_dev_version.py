@@ -70,6 +70,20 @@ def test_a_build_continues_the_cycle_the_branch_reports():
     assert dev_version.resolve_cycle(None, "0.10.0.dev5", "0.9.0") == "0.10.0"
 
 
+def test_a_published_dev_release_is_a_floor_the_build_continues():
+    """Every ``X.Y.Z.devN`` tag orders below the build that comes after it.
+
+    The regression this guards: ``0.5.9.dev100`` was published after ``0.6.0.dev97``,
+    so the newest dev build sorted below an older one and neither Home Assistant, the
+    hub's update check nor the GitHub release list could offer it.
+    """
+    assert dev_version.resolve_cycle(None, "0.5.9.dev100", "0.5.8", ["0.6.0.dev97"]) == "0.6.0"
+    assert (
+        dev_version.resolve_cycle(None, "0.5.9.dev100", "0.5.8", ["0.5.7.dev94", "0.5.9.dev99"])
+        == "0.5.9"
+    )
+
+
 def test_a_stable_branch_version_starts_its_successor():
     """A merged release leaves a stable version on the branch; dev moves on."""
     assert dev_version.resolve_cycle(None, "0.6.0", "0.6.0") == "0.6.1"
@@ -83,10 +97,24 @@ def test_a_released_hotfix_is_a_floor_dev_cannot_go_below():
 def test_a_requested_base_below_the_branch_is_refused():
     with pytest.raises(ValueError, match="never counts backwards"):
         dev_version.resolve_cycle("0.5.9.dev0", "0.6.0.dev97", "0.5.8")
+    # A base below a dev release that is already out is refused the same way.
+    with pytest.raises(ValueError, match="never counts backwards"):
+        dev_version.resolve_cycle("0.5.9.dev0", "0.5.9.dev100", "0.5.8", ["0.6.0.dev97"])
     # Opening the cycle the branch already reports is not a downgrade, and a minor
     # or major step up is what the input is for.
     assert dev_version.resolve_cycle("0.6.0.dev0", "0.6.0.dev97", "0.5.8") == "0.6.0"
     assert dev_version.resolve_cycle("0.7.0.dev0", "0.6.0.dev97", "0.5.8") == "0.7.0"
+
+
+def test_a_version_that_orders_below_a_published_one_is_refused():
+    """The tag is what Home Assistant and GitHub compare, so the build must be newest."""
+    published = ["0.5.9.dev100", "0.6.0.dev97"]
+    assert dev_version.refuse_below_published("0.6.0.dev101", published) is None
+    assert dev_version.refuse_below_published("0.6.0.dev98", []) is None
+    with pytest.raises(ValueError, match="must be the highest version so far"):
+        dev_version.refuse_below_published("0.6.0.dev97", published)
+    with pytest.raises(ValueError, match="must be the highest version so far"):
+        dev_version.refuse_below_published("0.5.9.dev101", published)
 
 
 def test_the_base_comes_from_the_newest_release_tag(tmp_path: Path):
@@ -103,6 +131,22 @@ def test_the_base_comes_from_the_newest_release_tag(tmp_path: Path):
 
     git("tag", "-a", "v0.5.4", "-m", "v0.5.4")
     assert dev_version.base_from_tags(tmp_path) == "0.5.4"
+
+
+def test_the_published_dev_versions_are_the_dev_tags(tmp_path: Path):
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    git("commit", "-q", "--allow-empty", "-m", "one")
+    assert dev_version.published_dev_versions(tmp_path) == []
+
+    for tag in ("v0.5.8", "0.6.0.dev97", "0.5.9.dev100", "nightly"):
+        git("tag", tag)
+    # Stable releases and odd tags are not dev versions; the list is in version order.
+    assert dev_version.published_dev_versions(tmp_path) == ["0.5.9.dev100", "0.6.0.dev97"]
 
 
 def test_the_branch_version_is_the_manifest_version(tmp_path: Path):
@@ -122,6 +166,7 @@ def test_a_build_changes_no_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(dev_version, "shipped_tft_version", lambda: "1.1.0")
     monkeypatch.setattr(dev_version, "branch_version", lambda root: "0.5.5.dev76")
     monkeypatch.setattr(dev_version, "base_from_tags", lambda root: "0.5.4")
+    monkeypatch.setattr(dev_version, "published_dev_versions", lambda root: ["0.5.5.dev76"])
 
     assert dev_version.main(["77"]) == 0
     written = output.read_text(encoding="utf-8")
@@ -138,8 +183,31 @@ def test_a_build_that_would_count_backwards_fails_before_bumping(
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
     monkeypatch.setattr(dev_version, "branch_version", lambda root: "0.6.0.dev97")
     monkeypatch.setattr(dev_version, "base_from_tags", lambda root: "0.5.8")
+    monkeypatch.setattr(dev_version, "published_dev_versions", lambda root: ["0.6.0.dev97"])
 
     # Nothing is written and no version is printed, so the workflow cannot publish.
     assert dev_version.main(["99", "--base", "0.5.9.dev0"]) == 1
     assert not output.exists()
     assert "never counts backwards" in capsys.readouterr().err
+
+
+def test_a_build_behind_a_published_dev_release_fails_before_bumping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """The newest build must order above the dev releases that are already out."""
+    output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(dev_version, "shipped_tft_version", lambda: "1.1.0")
+    monkeypatch.setattr(dev_version, "branch_version", lambda root: "0.5.9.dev100")
+    monkeypatch.setattr(dev_version, "base_from_tags", lambda root: "0.5.8")
+    monkeypatch.setattr(dev_version, "published_dev_versions", lambda root: ["0.6.0.dev97"])
+
+    # The cycle comes from the published dev release, not from the branch's own ...
+    assert dev_version.main(["101"]) == 0
+    assert "version=0.6.0.dev101" in output.read_text(encoding="utf-8")
+
+    # ... so a run number below the published build's is refused instead of published.
+    output.unlink()
+    assert dev_version.main(["42"]) == 1
+    assert not output.exists()
+    assert "already published" in capsys.readouterr().err

@@ -95,6 +95,7 @@ class PageApp:
         controller: Controller | None = None,
         temperature_unit: str = "°C",
         device_settings: dict[str, Any] | None = None,
+        portrait: bool = False,
     ) -> None:
         self.entities = entities
         self.theme = Theme()
@@ -104,7 +105,11 @@ class PageApp:
         controller = controller or Controller()
         self.controller: dict[str, Any] = {"esphome": controller, "notification": controller}
         self.device = Device(device_settings)
+        self.device.is_portrait = portrait
         self.device_config = DeviceConfig()
+        # what the hub's camera stream was asked to do, in order
+        self.camera_streams: list[dict[str, Any]] = []
+        self.camera_stream_stops = 0
 
     @property
     def cmds(self) -> list[str]:
@@ -148,3 +153,11 @@ class PageApp:
 
     def cancel_timer(self, handle: str) -> None:
         pass
+
+    def start_camera_page_stream(self, **kwargs: Any) -> None:
+        """Record what the camera page hands to the hub's stream."""
+        self.camera_streams.append(kwargs)
+
+    def stop_camera_page_stream(self) -> None:
+        """Record that the page gave its picture area back."""
+        self.camera_stream_stops += 1

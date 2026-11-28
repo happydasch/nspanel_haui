@@ -199,4 +199,13 @@ THEME_FOREGROUNDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("bStop", "component_active"),
         ("bDown", "component_active"),
     ),
+    "info": (
+        ("tText", "component_text"),
+        ("btMode1", "component_text"),
+        ("btMode2", "component_text"),
+        ("btMode3", "component_text"),
+        ("btMode4", "component_text"),
+        ("btMode5", "component_text"),
+        ("btMode6", "component_text"),
+    ),
 }

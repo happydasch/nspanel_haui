@@ -123,6 +123,83 @@ def test_a_panel_without_the_draw_path_ends_the_stream_instead_of_spinning():
     assert _stream(app)._send_on_worker(["fill 0,0,64,48,1024"]) == "stop"
 
 
+def test_the_placeholder_goes_away_once_the_first_frame_is_drawn():
+    """The page keeps its placeholder until a real frame has painted over it."""
+    app = _app()
+    hidden = []
+    stream = _stream(app, on_first_frame=lambda: hidden.append("hidden"))
+
+    stream._send_on_worker(["fill 0,0,64,48,1024"])
+    stream._send_on_worker(["fill 0,0,8,8,2048"])
+
+    assert hidden == ["hidden"]
+
+
+def test_an_empty_frame_leaves_the_placeholder_alone():
+    """An idle camera sends nothing, so nothing has painted over the placeholder."""
+    app = _app()
+    hidden = []
+    stream = _stream(app, on_first_frame=lambda: hidden.append("hidden"))
+
+    assert stream._send_on_worker([]) == "ok"
+
+    assert hidden == []
+
+
+def _loop_hass() -> tuple[Any, list[Any]]:
+    """A Home Assistant that runs scheduled callbacks now and hands back its tasks."""
+    created: list[Any] = []
+    hass = MagicMock()
+    hass.loop = MagicMock()
+    hass.loop.call_soon_threadsafe = MagicMock(side_effect=lambda fn: fn())
+    hass.async_create_task = MagicMock(side_effect=lambda coro: created.append(coro) or MagicMock())
+    return hass, created
+
+
+@pytest.mark.asyncio
+async def test_a_page_start_is_scheduled_on_the_loop_not_run_on_the_worker(monkeypatch):
+    """A page hands over its rectangle from the worker; the stream starts on the loop."""
+    app = _app()
+    hass, created = _loop_hass()
+    app.hass = hass
+    made: list[dict[str, Any]] = []
+
+    class _RecordingStream:
+        def __init__(self, stream_hass: Any, stream_app: Any, **kwargs: Any) -> None:
+            made.append(kwargs)
+            self.fps = kwargs["fps"]
+
+        async def async_start(self) -> None:
+            made[0]["started"] = True
+
+    monkeypatch.setattr(camera_stream, "CameraStream", _RecordingStream)
+
+    camera_stream.start_page_stream(
+        app, entity_id="camera.front_door", rect=RECT, fps=3.0, on_first_frame=lambda: None
+    )
+
+    assert len(created) == 1, "the worker scheduled the work instead of awaiting it"
+    await created[0]
+    assert made[0]["entity_id"] == "camera.front_door"
+    assert made[0]["rect"] == RECT
+    assert made[0]["fps"] == 3.0
+    assert made[0]["started"] is True
+
+
+@pytest.mark.asyncio
+async def test_leaving_the_page_stops_the_stream_from_the_worker():
+    """The page's cleanup is scheduled too: it must not wait for the loop."""
+    app = _app()
+    hass, created = _loop_hass()
+    app.hass = hass
+
+    camera_stream.stop_page_stream(app)
+
+    assert len(created) == 1
+    await created[0]
+    assert camera_stream.stream_for(app) is None
+
+
 @pytest.mark.asyncio
 async def test_the_loop_sends_only_what_changed():
     """An unchanged frame costs nothing; a changed one is one program."""

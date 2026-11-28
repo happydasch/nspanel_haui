@@ -18,6 +18,10 @@ render), and the code it demands is the backgrounds only.
 Run it after every HMI change; ``--check`` (run by the test suite) fails when a
 layout file is out of date or a page's theme code is missing or stale.
 
+An HMI page that no panel type renders is skipped, with a line on stdout: the
+layout is what the hub draws, so a page it never draws has no entry. A page class
+whose page is missing from the HMI is still a failure.
+
 Usage::
 
     python -m scripts.hmi_layout.gen_virtual_layout [--check]
@@ -403,16 +407,30 @@ def build_layout(orientation: str) -> dict[str, Any]:
     hmi = Nextion2Text.HMI(str(path))
     page_ids = {name: page_id for page_id, name in PAGE_MAPPING.items()}
     pages: dict[str, Any] = {}
+    unrendered: list[str] = []
     for page in hmi.pages:
         comps = sorted((_component(c) for c in page.components), key=lambda c: c["id"])
         page_comp = next(c for c in comps if c["type"] == TYPE_PAGE)
         name = page_comp["name"]
         if name not in page_ids:
-            raise SystemExit(f"{path.name}: page '{name}' has no page id in PAGE_MAPPING")
+            # The layout is the hub's own render, replayed, so a page that no panel
+            # type renders has nothing to put in it: an HMI page can reach the TFT
+            # before its page class does. It is reported rather than dropped, so an
+            # unfinished page stays visible in the build log.
+            unrendered.append(name)
+            continue
         pages[str(page_ids[name])] = {"name": name, "components": comps}
     missing = set(page_ids) - {p["name"] for p in pages.values()}
     if missing:
         raise SystemExit(f"{path.name}: pages missing from the HMI: {sorted(missing)}")
+    if unrendered:
+        # stderr: ``--theme-code`` prints code to stdout, and ``--check``'s scripts
+        # parse that.
+        print(
+            f"{path.name}: {', '.join(sorted(unrendered))}: "
+            "no panel type renders these pages yet, skipped",
+            file=sys.stderr,
+        )
     return {
         "orientation": orientation,
         "width": width,

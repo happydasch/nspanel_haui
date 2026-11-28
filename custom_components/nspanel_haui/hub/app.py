@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import datetime
 import threading
 from collections.abc import Callable
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from homeassistant.util import slugify
 
@@ -26,6 +28,9 @@ from ..haui.version import (
     integration_version_mismatch,
 )
 from .adapter import HAAdapter
+
+if TYPE_CHECKING:
+    from ..haui.utils.image_program import Rect
 
 
 class ControllerDict(TypedDict, total=True):
@@ -275,6 +280,34 @@ class NSPanelHAUI(HAAdapter):
             return
         nav_ctrl.refresh_panel()
         self.log("Display refreshed")
+
+    # camera page
+
+    def start_camera_page_stream(
+        self,
+        *,
+        entity_id: str,
+        rect: Rect,
+        fps: float,
+        on_first_frame: Callable[[], None] | None = None,
+    ) -> None:
+        """Draw ``entity_id`` into ``rect`` while the camera page is shown (worker).
+
+        The page owns the rectangle and the entity; fetching, planning and sending
+        frames is the stream's job. A second call replaces the running stream, so a
+        re-rendered page starts from a full paint.
+        """
+        from .camera_stream import start_page_stream
+
+        start_page_stream(
+            self, entity_id=entity_id, rect=rect, fps=fps, on_first_frame=on_first_frame
+        )
+
+    def stop_camera_page_stream(self) -> None:
+        """Stop the stream the camera page started; a no-op when none runs (worker)."""
+        from .camera_stream import stop_page_stream
+
+        stop_page_stream(self)
 
     async def _async_update_request(self, method: str, **kwargs: Any) -> dict[str, Any]:
         """Await an updater operation whose network stage completes off-worker."""

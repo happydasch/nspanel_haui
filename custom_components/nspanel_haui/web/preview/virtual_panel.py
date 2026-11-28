@@ -875,6 +875,16 @@ class _RenderApp:
             return None
         return self._service_responses.get(service)
 
+    # The camera page hands its picture area to a stream, and a stream is not part
+    # of a page render: it fetches snapshots from Home Assistant and paints on a
+    # real panel. A card render therefore keeps the placeholder, which is also what
+    # the panel shows before its first frame.
+    def start_camera_page_stream(self, **kwargs: Any) -> None:
+        """Ignore a page's request to stream a camera into its picture area."""
+
+    def stop_camera_page_stream(self) -> None:
+        """Nothing was started, so nothing is stopped."""
+
 
 class _StreamApp(_RenderApp):
     """The shared virtual app as a dashboard card's home stream sees it.

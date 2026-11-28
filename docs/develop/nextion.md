@@ -45,7 +45,7 @@ These live in `esphome/nspanel_haui/display.yaml`:
 
 ## Panel rendering and refresh
 
-The HA layer batches commands to keep the native API payload small, ESPHome queues them and the `command_spacing` pacer writes them to the UART. The pacer, not HA batching, is what protects the Nextion's 1 KB RX buffer.
+The HA layer batches commands to keep the native API payload small, ESPHome queues them and the `command_spacing` pacer writes them to the UART. The pacer, not HA batching, is what protects the Nextion's 1 KB RX buffer — except while a draw streams, which paces itself ([below](#a-draw-paces-itself-instead)).
 
 ### Command pacing costs one component phase per command
 
@@ -68,6 +68,19 @@ Measured against the hub's own renders (`tests/page_commands_golden.json`, and a
 | One `next_page` on a row | 32 | 0.51 s | 0.06 s |
 
 Those counts are flat in the number of panel items (only the visible tiles render), so the cost is set by the pacing alone. The headroom check: an average command is ~14 characters plus the three `0xFF` terminators, so 2 ms per command is ~8.6 KB/s, well under the 921600 UART's ~92 KB/s — the display keeps up while it is idle, and its 1 KB RX buffer covers ~60 commands (120 ms) while it is busy drawing a page. `4ms` is the safer fallback if overflows appear on a slow display: ~4.3 KB/s, still 4× faster than the old behaviour.
+
+### A draw paces itself instead
+
+A page render is a burst the display has to survive while it re-lays-out widgets, so the pacer keeps it slow. A draw is the opposite problem: thousands of `fill` instructions, none of which the display has to think about, and a fixed 2 ms per fill made an image cost `runs × 2 ms` — 24 s for the top of the `quality` range, while the display paints a fill in a fraction of that.
+
+So `draw_runs` switches the pacer off for the duration of a program (`draw_spacing: '0'`, `image.yaml`) and flow-controls the stream by the display's own acknowledgements:
+
+- `haui_draw_runs` sets the spacing to 0 and restores `command_spacing` in `haui_draw_report` — the single script every way a draw ends goes through (finished, refused, stalled, display gone). A pacer left at 0 would send page renders as fast as the UART takes them.
+- The enqueue pass keeps `draw_window` fills in flight — unsent or unacknowledged, which is exactly what `queue_size()` counts — and looks again every `draw_queue_poll` (one component phase). A run only goes out when an acknowledgement freed a place, so **the display's own rate is the rate of the draw**: a slow display is never overrun (12 × a 40-byte fill is a fifth of its 1 KB buffer) and a quick one is streamed until the UART is the limit — 921600 baud carries a 25-byte `fill` every 0.27 ms, about 3 700 a second against the pacer's 500.
+- With the pacer off, one phase transmits everything queued up to `max_commands_per_loop` (12, matching the window), so no phase can dump more than ~300 bytes at the display.
+- A display that stops acknowledging is caught by the draw itself: after `draw_stall_polls` passes with neither a freed place nor a queued run it fails the program and reports — the queue's own 8 s `max_queue_age` would be a long time to leave the pacer off.
+
+The hub plans its run budget at the pacer's pace anyway (`draw_wire.COMMAND_SPACING_MS`), because that is a number it can trust, and `res_draw`'s `elapsed_ms` reports what the panel really took — the hub logs it as `runs/s`. The fence timeout uses `draw_wire.RUN_MS_CEILING` (8 ms per run) instead: a slow panel legitimately takes longer than the planned pace, and a slice cut short is not harmless, because the next one restarts the firmware's program (`mode: restart`).
 
 ### The pacing also sets the queue's drain rate
 

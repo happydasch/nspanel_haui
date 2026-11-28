@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Qualität",
-          "description": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis etwa 24 s), in einem kleinen Rechteck bis zu einem Rechteck pro Display-Pixel."
+          "description": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis etwa 24 s in dem Tempo, mit dem der Hub rechnet, während das Panel ein Bild mehrere Male schneller zeichnet), in einem kleinen Rechteck bis zu einem Rechteck pro Display-Pixel."
         }
       }
     },

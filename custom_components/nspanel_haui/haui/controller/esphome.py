@@ -11,7 +11,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT, ESPAction
 from ..utils.draw_wire import (
-    COMMAND_SPACING_MS,
+    RUN_MS_CEILING,
     display_run,
     draw_format,
     pack_program,
@@ -269,7 +269,7 @@ class HAUIESPHomeController(HAUIBase):
                 self._draw_slices.clear()
                 return
             if not getattr(self.esphome, "simulated", False):
-                expected = len(runs) * COMMAND_SPACING_MS / 1000
+                expected = len(runs) * RUN_MS_CEILING / 1000
                 self._draw_timer = self.app.run_in(
                     self._draw_slice_timeout, expected + DRAW_SLICE_GRACE
                 )

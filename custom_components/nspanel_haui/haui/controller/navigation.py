@@ -1113,15 +1113,17 @@ class HAUINavigationController(HAUIBase):
         """esphome.res_draw — a draw program ended, with its drained time.
 
         The firmware measures from the first run it queued to the readback that
-        can only answer after the last one was sent, so this is the figure to
-        tune the pacing from (``runs * command_spacing``) instead of a guess.
+        can only answer after the last one was sent, so ``elapsed_ms`` is how long
+        the panel really took - the pacer plays no part in a draw, the display's
+        own acknowledgements set the rate (``draw_window``, ``image.yaml``) - and
+        that rate is what a bigger run budget is spent against.
         """
         payload = event.as_json()
         ok = bool(payload.get("ok", False))
-        self.log(
-            f"Draw program finished: {payload.get('runs', 0)} runs, "
-            f"ok={ok}, {payload.get('elapsed_ms', 0)} ms"
-        )
+        runs = int(payload.get("runs", 0) or 0)
+        elapsed = int(payload.get("elapsed_ms", 0) or 0)
+        rate = f", {runs * 1000 // elapsed} runs/s" if elapsed > 0 and runs else ""
+        self.log(f"Draw program finished: {runs} runs, ok={ok}, {elapsed} ms{rate}")
         # An image is drawn in slices, and this is the fence that ends one: the
         # ESPHome controller sends the next slice, or drops the rest.
         esp_ctrl = self.app.controller.get("esphome")

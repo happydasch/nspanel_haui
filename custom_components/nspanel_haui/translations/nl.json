@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Kwaliteit",
-          "description": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot ongeveer 24 s), in een kleine rechthoek tot één rechthoek per beeldpunt."
+          "description": "Aantal rechthoeken dat de afbeelding mag gebruiken; meer betekent scherper en langzamer (0,12 s tot ongeveer 24 s in het tempo waarop de hub rekent, terwijl het paneel een afbeelding meerdere malen sneller tekent), in een kleine rechthoek tot één rechthoek per beeldpunt."
         }
       }
     },

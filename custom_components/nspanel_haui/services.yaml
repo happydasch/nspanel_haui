@@ -400,10 +400,13 @@ show_image:
       name: "Quality"
       description: >-
         How many rectangles the image may use.  More is sharper and slower: the
-        panel paints about 500 of them a second, so 60 runs take about 0.12 s,
-        300 about 0.6 s, and the top of the range about 24 s.  The grid never
-        gets finer than one rectangle per display pixel, so a small rectangle
-        reaches the display's own resolution before the top.
+        panel draws them one after another, and the hub plans for 2 ms each, so
+        60 runs take about 0.12 s, 300 about 0.6 s, and the top of the range
+        about 24 s at the slowest.  The panel streams a draw at the display's own
+        rate, several times faster than that plan, so it usually finishes in a
+        fraction of it.  The grid never gets finer than one rectangle per display
+        pixel, so a small rectangle reaches the display's own resolution before
+        the top.
       required: false
       default: 300
       selector:

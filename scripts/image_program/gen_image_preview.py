@@ -3,10 +3,11 @@
 
 An image on the panel is not a picture: it is a bounded program of Nextion
 ``fill`` rectangles (``haui/utils/image_program.py``), so what matters before a
-call is the run count — its latency is ``runs * COMMAND_SPACING_MS`` — and
-whether the result still reads as the logo or icon it came from. This replays
-the real rasteriser over a local file and draws every ``fill`` onto a canvas the
-size of the display, next to the ideal fit for comparison.
+call is the run count (at most ``runs * COMMAND_SPACING_MS``, the pace the hub
+plans for, while the firmware streams a draw at the display's own rate) and
+whether the result still reads as the logo or icon it came from. This replays the
+real rasteriser over a local file and draws every ``fill`` onto a canvas the size
+of the display, next to the ideal fit for comparison.
 
 Usage:
     python -m scripts.image_program.gen_image_preview logo.png
@@ -160,7 +161,7 @@ def render_preview(
         slices = program_slices(runs)
         print(
             f"{name:6} {len(runs):4} runs  {program_length(runs):6} chars  "
-            f"~{len(runs) * COMMAND_SPACING_MS} ms on the panel, "
+            f"~{len(runs) * COMMAND_SPACING_MS} ms planned, "
             f"{len(slices)} slice(s)" + (f"  drawn in {cell} px blocks" if name == "full" else "")
         )
         for part in slices:

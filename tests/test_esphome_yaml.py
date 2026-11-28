@@ -14,7 +14,7 @@ def _read(name: str) -> str:
 
 def _ms(text: str, key: str) -> int | None:
     """An option whose value is written as ``<n>ms``, or None when it is not set."""
-    match = re.search(rf"^\s+{key}:\s*(\d+)\s*ms\s*$", text, re.MULTILINE)
+    match = re.search(rf"^\s+{key}:\s*'?(\d+)\s*ms'?\s*$", text, re.MULTILINE)
     return int(match.group(1)) if match else None
 
 
@@ -163,8 +163,22 @@ def test_http_request_buffers_fit_github_redirect_headers():
     assert re.search(r"^\s+buffer_size_tx:\s*2048\s*$", base, re.MULTILINE)
 
 
+def _pace_ms() -> int:
+    """The pacer's spacing, in ms, from the one substitution that holds it.
+
+    ``display.yaml`` names ``${command_spacing_ms}`` (base.yaml) rather than
+    repeating the number, because the draw path restores the same value when a
+    program ends (``image.yaml``) - a second literal would be free to drift.
+    """
+    display = _read("display.yaml")
+    assert re.search(
+        r"^\s+command_spacing:\s*\$\{command_spacing_ms\}ms\s*$", display, re.MULTILINE
+    )
+    return int(_substitution(_read("base.yaml"), "command_spacing_ms"))
+
+
 def test_command_spacing_is_enabled_to_prevent_nextion_rx_overflow():
-    assert re.search(r"^\s+command_spacing:\s*2ms\s*$", _read("display.yaml"), re.MULTILINE)
+    assert _pace_ms() > 0
 
 
 def test_loop_interval_does_not_outrun_the_command_spacing():
@@ -176,8 +190,8 @@ def test_loop_interval_does_not_outrun_the_command_spacing():
     slower than configured — 16 ms per command is a panel page taking seconds.
     """
     loop = _ms(_read("base.yaml"), "loop_interval")
-    spacing = _ms(_read("display.yaml"), "command_spacing")
-    assert loop is not None and spacing is not None
+    spacing = _pace_ms()
+    assert loop is not None
     assert loop <= spacing
 
 
@@ -189,13 +203,12 @@ def test_a_full_command_queue_drains_before_its_entries_expire():
     queue needed 12.8 s against the component's 8 s default, and the tail of a
     heavy render was dropped unsent instead of merely arriving late.
     """
-    display = _read("display.yaml")
-    size = _count(display, "max_queue_size")
-    spacing = _ms(display, "command_spacing")
-    age = _ms(display, "max_queue_age")
+    size = _count(_read("display.yaml"), "max_queue_size")
+    spacing = _pace_ms()
+    age = _ms(_read("display.yaml"), "max_queue_age")
     if age is None:
         age = _component_default_ms("max_queue_age")
-    assert size is not None and spacing is not None and age is not None
+    assert size is not None and age is not None
     assert size * spacing <= age, (
         f"a full queue needs {size * spacing} ms to drain but entries expire after {age} ms"
     )
@@ -790,26 +803,60 @@ def test_the_firmware_reports_the_draw_format_it_decodes():
     assert events.count("int draw_format_val = ${draw_format};") == 2
 
 
-def test_a_draw_queue_fill_drains_before_the_queued_runs_expire():
-    """The queue is filled at once, so its oldest entry must not expire first."""
-    image = _read("image.yaml")
-    display = _read("display.yaml")
-    runs = int(_substitution(image, "draw_queue_level"))
-    spacing = _ms(display, "command_spacing")
-    age = _ms(display, "max_queue_age")
-    if age is None:
-        age = _component_default_ms("max_queue_age")
-    assert spacing is not None and age is not None
-    assert runs * spacing <= age, f"{runs} runs at {spacing} ms deep, age {age} ms"
+def test_a_draw_window_fits_the_display_receive_buffer():
+    """A draw runs unpaced, so its window is what the display's buffer holds.
 
-
-def test_the_draw_queue_fill_fits_the_command_queue():
-    """The queue is filled at once, so it must stay inside the component's limit."""
-    image = _read("image.yaml")
+    The window is the fills in flight - unsent or unacknowledged - and the pacer
+    no longer slows their arrival: a run is at most the firmware's 40-byte fill
+    buffer, so a window of N is at most N × 40 bytes of the Nextion's 1 KB
+    receive buffer, leaving room for page commands interleaved with the stream.
+    """
+    window = int(_substitution(_read("image.yaml"), "draw_window"))
+    assert window * 40 <= 1024 / 2
     size = _count(_read("display.yaml"), "max_queue_size")
-    level = int(_substitution(image, "draw_queue_level"))
-    assert size is not None
-    assert level <= size
+    assert size is not None and window <= size
+
+
+def test_one_unpaced_phase_sends_no_more_than_the_draw_window():
+    """The window is what one phase writes, and the component's own cap allows it.
+
+    ``max_commands_per_loop`` bounds a phase in which the pacer is off (it never
+    binds while the pacer is in force), so it has to be at least the window - and
+    a smaller cap would leave the stream idling between phases.
+    """
+    window = int(_substitution(_read("image.yaml"), "draw_window"))
+    per_phase = _count(_read("display.yaml"), "max_commands_per_loop")
+    assert per_phase is not None
+    assert window <= per_phase
+
+
+def test_a_draw_streams_unpaced_and_every_way_it_ends_restores_the_pacer():
+    """Only a draw leaves the pacer, and its report is the only way back.
+
+    A refusal, a stalled display and a finished program all end in
+    ``haui_draw_report``, which is where the spacing comes back: a pacer left at
+    zero would send page renders as fast as the UART takes them.
+    """
+    image = _read("image.yaml")
+    assert int(_substitution(image, "draw_spacing")) < _pace_ms()
+    assert "id(haui_disp).set_command_spacing(${draw_spacing})" in image
+    report = image.split("id: haui_draw_report", 1)[1]
+    assert "set_command_spacing(${command_spacing_ms})" in report
+
+
+def test_a_draw_that_stalls_is_reported_instead_of_polling_forever():
+    """A display that stops acknowledging must not hold the pacer off.
+
+    The queue's own ``max_queue_age`` would clear a stuck window after eight
+    seconds; the draw fails itself after ``draw_stall_polls`` passes instead, a
+    second at one pass per component phase.
+    """
+    image = _read("image.yaml")
+    polls = int(_substitution(image, "draw_stall_polls"))
+    poll = _ms(image, "draw_queue_poll")
+    assert poll is not None
+    assert polls * poll <= 2000
+    assert "id(haui_draw_stall_polls) >= ${draw_stall_polls}" in image
 
 
 def test_a_buffer_overflow_re_sends_the_draw_program():

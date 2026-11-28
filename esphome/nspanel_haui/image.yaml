@@ -12,12 +12,20 @@
 # ``fill 120,64,8,8,65535``; the enqueue lambda decodes it back. Runs are joined
 # with ';'. Everything above the firmware keeps speaking display commands.
 #
-# The pacer sends one command per component phase (``command_spacing: 2ms``,
-# display.yaml), so the latency of a slice is its run count, and keeping the
-# device's queue full of runs puts any hub command that follows *behind* them -
-# the image completes first instead of interleaving with a page render or a
-# clock tick. The program is held once: the action hands its argument over with
-# ``std::move``, and the hub keeps its own copy to re-send after an overflow.
+# A draw does not run at the pacer's pace. ``command_spacing`` leaves one command
+# per component phase - 2 ms per fill, 500 a second - which is the right pace for
+# a page render, where the display is busy re-laying-out widgets and its 1 KB
+# receive buffer has to survive the burst. A fixed 2 ms is also what made an
+# image cost its run count times 2 ms, while the display takes a fraction of that
+# per fill and the 921600-baud link carries a 25-byte fill every 0.27 ms.
+#
+# So a draw switches the spacing off (``draw_spacing``) and is flow-controlled by
+# the display instead: it keeps at most ``draw_window`` fills in flight - unsent
+# or unacknowledged, which is what ``queue_size()`` counts - and adds a run only
+# once an acknowledgement freed a place. A display that needs longer per fill is
+# therefore drawn at its own rate instead of being overrun, and a quick one is
+# streamed until the UART is the limit. ``haui_draw_report`` puts the pacer back,
+# so page renders keep the pacing that protects the receive buffer.
 #
 # The Nextion queues serial instructions and executes them one at a time
 # (instruction set, general rule 20), so there is no "stop updating while
@@ -28,17 +36,26 @@
 # ``fill`` takes x,y,w,h - width and height, not a second corner - and is
 # available on every Nextion model (instruction set section 4, `sAll`).
 substitutions:
-  # The queue is filled to this many entries and refilled as the pacer drains
-  # it. A fixed pass followed by a fixed delay let the queue grow - at 2 ms of
-  # pacing a 300-run pass drains slower than the next one arrives - and a queue
-  # at max_queue_size (display.yaml, 800) drops entries, so a long program lost
-  # runs it had counted. Filling to a level keeps the queue bounded and never
-  # idle: the draw runs at the pacer's own rate.
-  draw_queue_level: '400'
-  # How often a full queue is looked at again. It is filled to the level in one
-  # pass, so this only bounds how late a refill reacts - and 400 entries at 2 ms
-  # drain in ~0.8 s, far inside max_queue_age (8 s).
-  draw_queue_poll: '20ms'
+  # Fills in flight while a program streams: unsent or unacknowledged in the
+  # display's queue. The pacer is off for a draw, so this is what bounds it - a
+  # run only goes out once an acknowledgement freed a place, which makes the
+  # display's own rate the rate of the draw. In bytes it is ``draw_window`` times
+  # the 40-byte run buffer, a fifth of the display's 1 KB receive buffer even
+  # with page commands interleaved.
+  draw_window: '12'
+  # How often a full window is looked at again: one component phase
+  # (``loop_interval`` in base.yaml), so a freed place is taken at once and the
+  # stream never idles behind a poll.
+  draw_queue_poll: '2ms'
+  # The pacer's spacing while a program streams; 0 sends everything the window
+  # holds in the next phase. ``command_spacing_ms`` (base.yaml) is restored when
+  # the program reports, so only a draw runs unpaced.
+  draw_spacing: '0'
+  # Passes in a row without progress - no run queued and the queue no shorter -
+  # before the program is failed instead of polling forever. At 2 ms a pass this
+  # is one second; the queue's own ``max_queue_age`` would only clear it after
+  # eight, with the pacer still off.
+  draw_stall_polls: '500'
   # Longest slice accepted (packed characters). The hub slices a pass at 8 000
   # (``draw_wire.DRAW_SLICE_CHARS``); this is the device's backstop, above it so
   # the two never disagree, and far below the 32 KB API message limit.
@@ -54,7 +71,9 @@ substitutions:
   draw_fence_marker: '31337'
 
 globals:
-  # The program being streamed, and how far it got
+  # The program being streamed, and how far it got. It is held once: the action
+  # hands its argument over with ``std::move``, and the hub keeps its own copy to
+  # re-send the slice after an overflow.
   - id: haui_draw_program
     type: std::string
     restore_value: false
@@ -97,6 +116,16 @@ globals:
     type: bool
     restore_value: false
     initial_value: 'false'
+  # The queue depth the previous pass ended at: a window that neither took a run
+  # nor shrank means the display stopped acknowledging.
+  - id: haui_draw_queue_mark
+    type: size_t
+    restore_value: false
+    initial_value: '0'
+  - id: haui_draw_stall_polls
+    type: int
+    restore_value: false
+    initial_value: '0'
 
 sensor:
   # Fence: the reply to this read can only arrive after the program's last run
@@ -136,6 +165,8 @@ script:
           id(haui_draw_awaiting) = false;
           id(haui_draw_resent) = false;
           id(haui_draw_ok) = false;
+          id(haui_draw_queue_mark) = 0;
+          id(haui_draw_stall_polls) = 0;
           id(haui_draw_program) = "";
           if (program.empty()) {
             ESP_LOGW("haui", "draw_runs: empty program");
@@ -184,7 +215,15 @@ script:
           condition:
             lambda: return id(haui_draw_ok);
           then:
-            - lambda: id(haui_draw_started_ms) = millis();
+            # The pacer leaves for the duration of the program: one command per
+            # component phase is 2 ms per fill, while the display needs a
+            # fraction of that. The window the enqueue pass keeps in flight is
+            # what protects its receive buffer instead, and the report below puts
+            # the spacing back.
+            - lambda: |-
+                id(haui_disp).set_command_spacing(${draw_spacing});
+                id(haui_draw_started_ms) = millis();
+
             - script.execute: haui_draw_enqueue_batch
       - if:
           condition:
@@ -192,10 +231,10 @@ script:
           then:
             - lambda: id(haui_draw_report).execute(false, 0);
 
-  # Fill the command queue to ``draw_queue_level`` and, while runs remain, look
-  # again after ``draw_queue_poll``. The pacer drains one entry per 2 ms, so the
-  # draw proceeds at its own rate and the queue never reaches max_queue_size -
-  # which would drop runs that were already counted as sent.
+  # Keep at most ``draw_window`` runs in flight and, while runs remain, look
+  # again after ``draw_queue_poll``. A run only goes out when an acknowledgement
+  # freed a place, so the display's own rate is the rate of the draw - it is
+  # never handed more than it has taken, whatever the pacer is set to.
   # ``mode: restart``: a new program restarts this chain instead of leaving a
   # stale one enqueuing the previous image behind it.
   - id: haui_draw_enqueue_batch
@@ -205,7 +244,9 @@ script:
           const std::string &program = id(haui_draw_program);
           const size_t size = program.size();
           size_t cursor = id(haui_draw_cursor);
-          const size_t level = ${draw_queue_level};
+          const size_t window = ${draw_window};
+          const int sent_before = id(haui_draw_sent);
+          const size_t mark = id(haui_draw_queue_mark);
           // A run is x,y,w,h,colour in base 36 ("3c,1s,8,8,1ekf") and the display
           // wants "fill x,y,w,h,colour". Anything that does not decode is a wrong
           // program and must not be sent: the display accepts garbage silently.
@@ -233,7 +274,7 @@ script:
                                          field[1], field[2], field[3], field[4]);
             return written > 0 && static_cast<size_t>(written) < out_size;
           };
-          while (cursor < size && id(haui_disp).queue_size() < level) {
+          while (cursor < size && id(haui_disp).queue_size() < window) {
             size_t end = program.find(';', cursor);
             if (end == std::string::npos) end = size;
             std::string packed = program.substr(cursor, end - cursor);
@@ -245,8 +286,9 @@ script:
               } else if (id(haui_disp).send_command(run)) {
                 id(haui_draw_sent)++;
               } else {
-                // The queue did not grow, so this would spin: the display went
-                // away mid-program. Stop and report the partial draw.
+                // The command was not taken at all, so this would spin: the
+                // display went away mid-program. Stop and report the partial
+                // draw.
                 ESP_LOGW("haui", "draw_runs: the display refused a command");
                 id(haui_draw_ok) = false;
                 break;
@@ -255,6 +297,21 @@ script:
             cursor = end + 1;
           }
           id(haui_draw_cursor) = cursor;
+          // Progress is an acknowledgement freeing a place or a run going out. A
+          // window that does neither means the display stopped answering, and
+          // waiting for the queue's own age limit would leave the pacer off for
+          // eight seconds: fail the program instead.
+          id(haui_draw_queue_mark) = id(haui_disp).queue_size();
+          if (id(haui_draw_ok) && id(haui_draw_sent) == sent_before &&
+              id(haui_draw_queue_mark) == mark) {
+            if (++id(haui_draw_stall_polls) >= ${draw_stall_polls}) {
+              ESP_LOGE("haui", "draw_runs: the display stopped acknowledging, %d of %d runs out",
+                       id(haui_draw_sent), id(haui_draw_run_count));
+              id(haui_draw_ok) = false;
+            }
+          } else {
+            id(haui_draw_stall_polls) = 0;
+          }
       - if:
           condition:
             lambda: |-
@@ -290,12 +347,17 @@ script:
                    id(haui_draw_run_count));
           id(haui_draw_runs).execute(id(haui_draw_program));
 
-  # Report a finished or refused draw; the hub logs ok and elapsed_ms.
+  # Report a finished or refused draw; the hub logs ok and elapsed_ms. Every way
+  # a program ends comes through here, which is why the pacer is restored here
+  # rather than at the end of the stream: a refusal, a stall and a lost display
+  # all leave through this script, and a pacer left off would send page renders
+  # as fast as the UART takes them.
   - id: haui_draw_report
     parameters:
       ok: bool
       elapsed_ms: int
     then:
+      - lambda: id(haui_disp).set_command_spacing(${command_spacing_ms});
       - lambda: |-
           const json::json_build_t payload = [ok, elapsed_ms](JsonObject root) {
             root["runs"] = id(haui_draw_sent);

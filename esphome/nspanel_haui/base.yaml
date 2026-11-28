@@ -1,6 +1,13 @@
 ---
 substitutions:
   log_level: INFO
+  # The Nextion pacer's spacing in milliseconds (``command_spacing`` in
+  # display.yaml). Everything that is not a draw is sent at this pace: one
+  # command per component phase, which protects the display's 1 KB receive
+  # buffer while it is busy. A draw switches the pacer off for its duration and
+  # keeps a window of fills in flight instead (image.yaml), so this is both the
+  # pace pages render at and the pace a finished draw restores.
+  command_spacing_ms: '2'
 
 
 # ESP Configuration

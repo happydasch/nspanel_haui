@@ -6,13 +6,14 @@ action is called.
 
 An image on the panel is not a picture: the hub reduces it to a bounded program
 of Nextion `fill` rectangles (`custom_components/nspanel_haui/haui/utils/image_program.py`)
-and the firmware streams that through the pacer. The run count is therefore the
-latency (`runs * COMMAND_SPACING_MS`), and the cell size the rasteriser settles
-on is the detail — it is never finer than one display pixel, and for a large
-rectangle the panel's run budget decides how close to that it gets, because a
-pass is sent in slices and length is never what stops it. This script runs the
-real rasteriser over a local file and draws every `fill` onto a canvas the size
-of the display, beside the ideal fit.
+and the firmware streams that to the display. The run count is therefore the
+latency — at most `runs * COMMAND_SPACING_MS`, the pace the hub plans for, while
+a draw is streamed at the display's own acknowledgement rate — and the cell size
+the rasteriser settles on is the detail: it is never finer than one display
+pixel, and for a large rectangle the run budget decides how close to that it
+gets, because a pass is sent in slices and length is never what stops it. This
+script runs the real rasteriser over a local file and draws every `fill` onto a
+canvas the size of the display, beside the ideal fit.
 
 ```bash
 source .venv/bin/activate
@@ -21,8 +22,8 @@ python -m scripts.image_program.gen_image_preview nextion/images/logo_ha.png \
 ```
 
 ```
-coarse   59 runs     810 chars  ~118 ms on the panel, 1 slice(s)
-full    265 runs    3681 chars  ~530 ms on the panel, 1 slice(s)  drawn in 1 px blocks
+coarse   59 runs     810 chars  ~118 ms planned, 1 slice(s)
+full    265 runs    3681 chars  ~530 ms planned, 1 slice(s)  drawn in 1 px blocks
 rasterised in 38 ms here, rect at (20, 60) 160x160
 wrote .dev/image-preview.png — tiles: ideal fit | coarse | full
 ```
@@ -44,5 +45,7 @@ and a slice is `draw_wire.DRAW_SLICE_CHARS` (8 000) packed characters — and wa
 when the final pass needs cells over `MAX_RECOMMENDED_CELL_PX`, the mosaic the
 service logs about. Shrink the rectangle, or raise `--budget`.
 
-The printed delays are estimates from the run count; the real figure is in the
-panel's ESPHome log (`draw_runs: N runs, M rejected, ok=1, <ms>`).
+The printed delays are estimates from the run count (`runs × COMMAND_SPACING_MS`,
+the pace the hub plans for); what the panel really took is in the hub's log
+(`Draw program finished: N runs, ok=True, M ms, R runs/s`) and in the panel's own
+ESPHome log (`draw_runs: N runs, M rejected, ok=1, <ms>`).

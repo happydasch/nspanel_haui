@@ -1,17 +1,19 @@
 """Rasterise an image into a bounded program of Nextion ``fill`` instructions.
 
-The display link is the limit: the firmware pacer sends one command per 2 ms
-component phase, so the latency of an image is its *run count*, not its bytes.
-A run is one ``fill x1,y1,x2,y2,color`` instruction covering a rectangle of
-equal colour, and this module's job is to keep that count inside a time budget
-without pretending the result is a photograph: runs buy detail, so the same
-budget gives a sharp icon and a coarse mosaic for a full page.
+A run is one ``fill x1,y1,x2,y2,color`` instruction covering a rectangle of equal
+colour, and its count is what an image costs: the panel paints them one after
+another, so a budget of runs is a budget of time - at most
+``draw_wire.COMMAND_SPACING_MS`` per run, the pace this plans against, while the
+firmware streams a draw faster than that at the display's own
+acknowledgement rate. This module's job is to spend that count without
+pretending the result is a photograph: runs buy detail, so the same budget gives
+a sharp icon and a coarse mosaic for a full page.
 
 The grid is never finer than one pixel per cell, so the best a rectangle can get
-is the image at the display's own resolution - and the time budget is what caps
-how close a large rectangle gets to it. Length is no longer a limit: the program
-is sent in slices (``draw_wire.DRAW_SLICE_CHARS``), so more runs cost seconds on
-the pacer and nothing else.
+is the image at the display's own resolution - and the budget is what caps how
+close a large rectangle gets to it. Length is no longer a limit: the program is
+sent in slices (``draw_wire.DRAW_SLICE_CHARS``), so more runs cost time and
+nothing else.
 
 Every pass starts by filling the whole rectangle with the backdrop colour, since
 a pass skips the cells that already show it: without that fill an older image or
@@ -34,18 +36,19 @@ from PIL import Image, UnidentifiedImageError
 from .color import rgb565_to_rgb, rgb_to_rgb565
 from .draw_wire import COMMAND_SPACING_MS, pack_program
 
-# Latency is ``runs * COMMAND_SPACING_MS`` (``esphome/nspanel_haui/display.yaml``,
-# see ``draw_wire``), so the run budget *is* a time budget.
+# Latency is at most ``runs * COMMAND_SPACING_MS`` (the pacer's pace, see
+# ``draw_wire``), so the run budget is a time budget in the worst case.
 TARGET_DRAW_MS: Final = 600
 RUN_BUDGET: Final = TARGET_DRAW_MS // COMMAND_SPACING_MS
 # The ``quality`` service option's range: a coarser image in 0.12 s, or as fine
 # as a caller is willing to wait. The top is a time budget, not a format or
-# memory limit - the program is sliced (``draw_wire``) - because the display
-# paints about one rectangle every 2 ms (``COMMAND_SPACING_MS``): 12 000 runs is
-# 24 s, and the grid still cannot get finer than one rectangle per display pixel
-# (a full 480x320 page at that detail is 153 600 pixels, so its cell size is
-# always what the budget allows). Raise it only together with the service range
-# in ``services.yaml``, ``strings.json`` and the translations.
+# memory limit - the program is sliced (``draw_wire``) - planned at the pacer's
+# 2 ms per run (``COMMAND_SPACING_MS``): 12 000 runs is 24 s at that pace, and a
+# draw is streamed at the display's own, faster rate. The grid still cannot get
+# finer than one rectangle per display pixel (a full 480x320 page at that detail
+# is 153 600 pixels, so its cell size is always what the budget allows). Raise it
+# only together with the service range in ``services.yaml``, ``strings.json`` and
+# the translations.
 MIN_RUN_BUDGET: Final = 60
 MAX_RUN_BUDGET: Final = 12000
 # Per-channel delta that still merges into one run. Flat art, gradients and
@@ -237,7 +240,7 @@ def backdrop_run(rect: Rect, colour: int) -> str:
     A pass skips every cell that already matches its backdrop, so the rectangle
     has to be painted before the runs go down: the area may hold an older image,
     a widget the page drew, or a picture background, and a skipped cell does not
-    overwrite any of it. One flat fill is one run, about 2 ms.
+    overwrite any of it. One flat fill is one run, the cheapest there is.
     """
     return f"fill {rect.x},{rect.y},{rect.w},{rect.h},{colour}"
 
@@ -316,9 +319,10 @@ def image_plan(
             The image is composited onto it, and cells that already match it are
             skipped - which is why the rectangle is filled with it before the
             first run, instead of leaving whatever was on the page there.
-        budget: Run budget; latency is ``budget * COMMAND_SPACING_MS``. The
-            grid never gets finer than one pixel per cell, so at the top of the
-            range a small rectangle is drawn at the display's own resolution.
+        budget: Run budget; latency is at most ``budget * COMMAND_SPACING_MS``.
+            The grid never gets finer than one pixel per cell, so at the top of
+            the range a small rectangle is drawn at the display's own
+            resolution.
         progressive: Also return a coarse pass, so the image appears in ~0.12 s
             and sharpens. Its cells are larger than the full program's, so it is
             not a prefix of it - the full pass paints over it.

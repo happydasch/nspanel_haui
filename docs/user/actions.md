@@ -193,15 +193,17 @@ data:
   drawn as blocks in the display's own 65 536 colours — gradients stay gradients.
   A logo, an icon, a QR code or a chart comes out crisp; a photo comes out as a
   coarse mosaic.
-- **It takes about half a second.** Every rectangle is one instruction the panel
-  draws in turn, at about 500 a second, so the count is also the time.
-  `quality` trades that time for detail: `60` is about 0.12 s, `300` about 0.6 s,
-  and the top of its range, `12000`, about 24 s. The grid never gets finer than
-  one display pixel. A page with large flat areas merges down to a few thousand
-  rectangles and is drawn at that resolution even at `4000`, while a photograph
-  needs one rectangle per pixel — 153 600 for a whole 480x320 page — so the cell
-  size is whatever the budget allows, which is what a page background picture is
-  for.
+- **It is fast, and the count is the time.** Every rectangle is one instruction the
+  panel draws in turn, so `quality` trades time for detail: the hub plans for 2 ms
+  per rectangle — `60` is about 0.12 s, `300` about 0.6 s, and the top of its
+  range, `12000`, about 24 s — and the panel streams a draw at the rate its
+  display acknowledges the rectangles, which is several times faster, so a draw
+  usually finishes in a fraction of that plan. The Home Assistant log prints what
+  it actually took. The grid never gets finer than one display pixel. A page with
+  large flat areas merges down to a few thousand rectangles and is drawn at that
+  resolution even at `4000`, while a photograph needs one rectangle per pixel —
+  153 600 for a whole 480x320 page — so the cell size is whatever the budget
+  allows, which is what a page background picture is for.
 - **A long image arrives in bands.** The hub sends the rectangles in slices the
   panel can hold in memory and sends the next one as each finishes, so a big,
   detailed image starts drawing at once and fills in rather than waiting. A page

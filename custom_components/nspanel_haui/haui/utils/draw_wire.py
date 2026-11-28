@@ -36,10 +36,19 @@ DRAW_FORMAT_PACKED: Final = 2
 #: firmware stages it as a second copy, so this is the panel's RAM budget, not
 #: an API limit: a slice of 8 000 characters needs about 16 KB of heap.
 DRAW_SLICE_CHARS: Final = 8000
-#: Milliseconds the panel takes per run (``command_spacing`` in
-#: ``esphome/nspanel_haui/display.yaml``), so ``runs * COMMAND_SPACING_MS`` is the
-#: latency of a program and the time a slice has to report back.
+#: Milliseconds the hub plans for one run: the firmware's pacer
+#: (``command_spacing_ms``, ``esphome/nspanel_haui/base.yaml``), one command per
+#: component phase. A draw switches the pacer off for its duration and keeps a
+#: window of fills in flight instead (``image.yaml``), so the panel is usually
+#: much faster than this - it is the pace the run budget is planned against, not
+#: a measurement.
 COMMAND_SPACING_MS: Final = 2
+#: Milliseconds one run may take before the hub stops waiting for a slice's fence
+#: and sends the next one anyway. The pacer paces nothing during a draw - the
+#: pace is the display's own (``draw_window``) - and a slow panel legitimately
+#: takes several times ``COMMAND_SPACING_MS`` per run. A slice cut short is not
+#: harmless: the next one restarts the firmware's program, so this is pessimistic.
+RUN_MS_CEILING: Final = 8.0
 #: The display instruction a packed run expands to.
 RUN_PREFIX: Final = "fill "
 _RUN_FIELDS: Final = 5

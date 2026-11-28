@@ -5,7 +5,9 @@ name: Development Firmware
 # version into `manifest.json` and `version.yaml`, commits that one bump back to `dev`,
 # tags the commit, publishes it as a prerelease and prunes the older ones. The branch
 # version matters: an integration installed from `dev` and custom firmware built from it
-# report it, and the hub finds the matching TFT manifest by that version.
+# report it, and the hub finds the matching TFT manifest by that version. Because that
+# bot commit is what carries the version, a build continues the cycle the branch already
+# reports, so one dispatch with a `base` opens a cycle for every build after it.
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +15,8 @@ on:
         description: >-
           Base version for a new minor or major cycle, as that cycle's first dev
           version (for example 0.6.0.dev0, which builds 0.6.0.dev<run>). Empty
-          continues the newest vX.Y.Z tag as its next patch.
+          continues the cycle the branch reports, raised to the next patch of the
+          newest vX.Y.Z tag when that is newer.
         type: string
         default: ""
 
@@ -46,6 +49,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Take the newest dev commit
+        # A dispatch pins the SHA it was requested at, so a build that queued behind
+        # another one would read the version from before that build's bump commit and
+        # publish a lower one. Fast-forward to the branch's own tip first, tags with
+        # it: a rerun re-points its tag, so a plain --tags fetch would refuse.
+        run: |
+          git fetch --tags --force origin dev
+          git merge --ff-only origin/dev
+
       - uses: ./.github/actions/setup
         with:
           python: "3.14"
@@ -53,6 +65,8 @@ jobs:
 
       - name: Derive the build version
         # X.Y.Z.dev<run>, one PEP 440 string for the image, the tag and the manifest.
+        # The cycle comes from the branch's manifest.json, which the last build
+        # committed, so a `base` opens a cycle for every build after it.
         id: version
         env:
           BASE: ${{ inputs.base }}
@@ -102,13 +116,14 @@ jobs:
           TFT_VERSION: ${{ steps.version.outputs.tft_version }}
           REPO: ${{ github.repository }}
         run: |
-          short="${GITHUB_SHA:0:7}"
+          sha=$(git rev-parse HEAD)
+          short=$(git rev-parse --short=7 HEAD)
           previous=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -n "$previous" ]; then range="$previous..HEAD"; else range=HEAD; fi
           {
             printf 'Development firmware `%s`\n\n' "$VERSION"
             printf 'Firmware version: `%s` (reported by the image).\n' "$VERSION"
-            printf 'Build commit: [`%s`](https://github.com/%s/commit/%s)\n' "$short" "$REPO" "$GITHUB_SHA"
+            printf 'Build commit: [`%s`](https://github.com/%s/commit/%s)\n' "$short" "$REPO" "$sha"
             printf 'Firmware variant: `universal` (for universal test panels only).\n'
             printf 'Display TFT: `%s`.\n\n' "$TFT_VERSION"
             printf '## Commits in this build\n'

@@ -74,8 +74,9 @@ A TFT change that lands under no release needs its own bump before the next buil
 Dispatch **Actions → Development Firmware → Run workflow** on `dev`. The build takes the run number as a PEP 440 dev version, writes it into `manifest.json` and `version.yaml`, compiles the universal image, commits that bump to `dev`, tags the commit, publishes it as a prerelease and prunes the older ones:
 
 ```text
-base version   the newest vX.Y.Z tag as its next patch, or the `base` input for a
-               new cycle (0.6.0.dev0)
+base version   the cycle the branch reports (manifest.json), raised to the newest
+               vX.Y.Z tag's next patch when that is newer; the `base` input opens
+               a new cycle (0.6.0.dev0)
 version        the base as a dev version: X.Y.Z.dev<run>, one string for branch,
                image, tag and manifest
 verified       the compiled OTA reports that version before anything is published
@@ -85,9 +86,9 @@ pruned         all but the newest 10 X.Y.Z.devN prereleases, so the latest stabl
                release never leaves the Marketplace's or the hub's release lists
 ```
 
-A minor or major cycle passes its base explicitly, as that cycle's first dev version: `base: 0.6.0.dev0` builds `0.6.0.dev<run>`, the way every dev build of the cycle stays below the `0.6.0` it targets. A stable base is read as *its* next patch, so `base: 0.6.0` would build `0.6.1.dev<run>` and sort above the release the cycle is working toward. A patch cycle needs no step, because the first build takes the released version's next patch. The workflow is dispatch-only on `dev` and fails before the compile on any other ref — pick `dev` in the dispatch form, which preselects `master`, the repository default — so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
+A patch cycle needs no input: the first build after a release reads the released version's next patch, and every later build repeats it. A minor or major cycle passes its base once, as that cycle's first dev version: `base: 0.6.0.dev0` builds `0.6.0.dev<run>`, and because the bot commit writes that version into the branch's `manifest.json`, every later dispatch continues `0.6.0` without the input — the build reads the cycle from the branch, not from the newest tag. A stable base is read as *its* next patch, so `base: 0.6.0` would build `0.6.1.dev<run>` and sort above the release the cycle is working toward. Nothing publishes a version that counts backwards: the newest `vX.Y.Z` tag stays a floor as its next patch, so a hotfix released from `master` before its pull request merges back into `dev` cannot be built over, and a dispatch whose version would land below what the branch carries fails before it compiles. A build that queued behind another one fast-forwards to the tip of `dev` first, so it continues that build's version rather than the one from when it was requested. The workflow is dispatch-only on `dev` and fails before the compile on any other ref — pick `dev` in the dispatch form, which preselects `master`, the repository default — so the image carries the development code; a dispatch queues behind a running build rather than cancelling it.
 
-Opening a cycle is one commit on `dev` before its first dispatch: `ROADMAP.md` and `FEATURE_WISHLIST.md` name the new horizon, and `python -m scripts.bump_version X.Y.0.dev0` starts the version, so an integration installed from `dev` already reports the new cycle and no panel sees the closing patch's next number. Every later build repeats that branch version with its own run number.
+Opening a cycle is one commit on `dev` before its first dispatch: `ROADMAP.md` and `FEATURE_WISHLIST.md` name the new horizon, and `python -m scripts.bump_version X.Y.0.dev0` starts the version, so an integration installed from `dev` already reports the new cycle and no panel sees the closing patch's next number. Every later build repeats that branch version with its own run number, whether the cycle was opened by that commit or by the `base` input of a dispatch.
 
 The bot commit is what makes a branch install work: the integration installed from `dev` (or from the tagged source) reports the same version as the firmware, and the hub finds the release's TFT manifest by that version. `pyproject.toml` and `tft_version` keep their released values until the stable prep, which moves them with the release.
 

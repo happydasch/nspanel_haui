@@ -6,21 +6,25 @@ writes it into ``manifest.json`` and ``version.yaml``; the workflow commits that
 to ``dev`` and tags the commit, so the image, the tag and an integration installed
 from ``dev`` all report the same version.
 
-The base advances with the release: the newest ``vX.Y.Z`` tag reachable from HEAD
-gives ``X.Y.(Z+1)``, so the first build after a release is that release's
-successor and a patch cycle needs no bump commit. A minor or major cycle passes
-its base explicitly, as that cycle's first dev version (``--base 0.6.0.dev0``),
-because a dev base keeps its own ``X.Y.Z`` while a stable one is read as its next
-patch.
+The build continues the cycle the branch already reports, because that bot commit is
+what puts it there: after a cycle was opened with ``--base 0.6.0.dev0``, the branch
+carries ``0.6.0.dev<run>`` and every later build repeats ``0.6.0`` with its own run
+number. The newest ``vX.Y.Z`` tag reachable from HEAD only supplies a floor, as its
+next patch, so a hotfix released from ``master`` that ``dev`` does not carry yet cannot
+be built over; the newer of the two wins, so a development version never counts
+backwards below what the branch reports. A minor or major cycle passes its base
+explicitly, as that cycle's first dev version (``--base 0.6.0.dev0``), because a dev
+base keeps its own ``X.Y.Z`` while a stable one is read as its next patch.
 
 Usage:
-    python -m scripts.release.dev_version 77                     # from the newest tag
+    python -m scripts.release.dev_version 77                      # the branch's cycle
     python -m scripts.release.dev_version 77 --base 0.6.0.dev0    # a new cycle
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -29,8 +33,18 @@ from pathlib import Path
 
 from scripts.bump_tft_version import shipped_tft_version
 
-_STABLE_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+MANIFEST = Path("custom_components") / "nspanel_haui" / "manifest.json"
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)(\.dev\d+)?")
 _DEV_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)\.dev\d+")
+
+
+def _numbers(version: str) -> tuple[int, int, int] | None:
+    """The X.Y.Z numbers of a stable or dev version, or None for an unsupported one."""
+    match = _VERSION_RE.fullmatch(version)
+    if not match:
+        return None
+    major, minor, patch = match.group(1), match.group(2), match.group(3)
+    return int(major), int(minor), int(patch)
 
 
 def version_kind(version: str) -> str | None:
@@ -38,33 +52,77 @@ def version_kind(version: str) -> str | None:
 
     Shared with ``scripts.bump_version``: one definition of what each kind is.
     """
-    if _STABLE_RE.fullmatch(version):
-        return "stable"
-    if _DEV_RE.fullmatch(version):
-        return "dev"
-    return None
+    if _numbers(version) is None:
+        return None
+    return "dev" if _DEV_RE.fullmatch(version) else "stable"
 
 
 def next_patch(version: str) -> str:
     """The version after a stable ``X.Y.Z``: the next patch release."""
-    match = _STABLE_RE.fullmatch(version)
-    if not match:
+    numbers = _numbers(version)
+    if numbers is None or version_kind(version) != "stable":
         raise ValueError(f"Expected a stable X.Y.Z release, got {version!r}")
-    major, minor, patch = map(int, match.groups())
+    major, minor, patch = numbers
     return f"{major}.{minor}.{patch + 1}"
 
 
-def derive_dev_version(base_version: str, run_number: str | int) -> str:
-    """Derive the PEP 440 dev version from a base version and the run number.
+def cycle_of(version: str) -> str:
+    """The ``X.Y.Z`` a version belongs to: a dev version's own, a stable version's next patch.
+
+    A stable version is a release that is done, so the branch works toward its
+    successor; a dev version names the release its own builds lead to.
+    """
+    numbers = _numbers(version)
+    if numbers is None:
+        raise ValueError(f"Expected a stable X.Y.Z or a X.Y.Z.devN version, got {version!r}")
+    if version_kind(version) == "stable":
+        return next_patch(version)
+    major, minor, patch = numbers
+    return f"{major}.{minor}.{patch}"
+
+
+def _cycle_order(cycle: str) -> tuple[int, ...]:
+    """The numeric order of an ``X.Y.Z`` cycle, which as strings would sort 0.10 below 0.9."""
+    return tuple(int(part) for part in cycle.split("."))
+
+
+def resolve_cycle(requested: str | None, branch_version: str, released_version: str) -> str:
+    """The cycle of the build: the branch's own, never one that counts back.
+
+    Args:
+        requested: The ``--base`` input, or None to continue what the branch reports.
+        branch_version: The version ``manifest.json`` names on the branch.
+        released_version: The stable version the newest ``vX.Y.Z`` tag names.
+
+    Returns:
+        The ``X.Y.Z`` cycle for :func:`dev_version_for_cycle`.
+
+    Raises:
+        ValueError: The requested base is below the cycle the branch already reports.
+    """
+    current = cycle_of(branch_version)
+    if requested is None:
+        # A released hotfix reaches dev late (its pull request merges back after the
+        # tag), so the tag's successor stays a floor under the branch's own cycle.
+        return max((current, next_patch(released_version)), key=_cycle_order)
+
+    cycle = cycle_of(requested)
+    if _cycle_order(cycle) < _cycle_order(current):
+        raise ValueError(
+            f"--base {requested} builds {cycle}, below {branch_version} on the branch: "
+            "a development build never counts backwards"
+        )
+    return cycle
+
+
+def dev_version_for_cycle(cycle: str, run_number: str | int) -> str:
+    """The PEP 440 dev version of a cycle and a run number.
 
     ``run_number`` is the repository-wide Actions counter and is deliberately not
     reset, so every build stays unique and monotonic even when a run is cancelled
     or its tag push is retried.
     """
-    previous_dev = _DEV_RE.fullmatch(base_version)
-    base = ".".join(previous_dev.groups()) if previous_dev else next_patch(base_version)
-
-    version = f"{base}.dev{run_number}"
+    version = f"{cycle}.dev{run_number}"
     if not _DEV_RE.fullmatch(version):
         raise ValueError(f"{version!r} is not a publishable PEP 440 development version")
     return version
@@ -83,16 +141,26 @@ def base_from_tags(root: Path) -> str:
     return done.stdout.strip().removeprefix("v")
 
 
+def branch_version(root: Path) -> str:
+    """The version ``manifest.json`` names on the branch: the cycle the branch works toward."""
+    path = root / MANIFEST
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))["version"]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{path}: no integration version ({exc})") from exc
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print the version, and hand it to the workflow through GITHUB_OUTPUT."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("run_number", help="the workflow run number")
-    parser.add_argument("--base", help="the base version (default: from the newest tag)")
+    parser.add_argument("--base", help="the base version (default: from the branch and the tag)")
     args = parser.parse_args(argv)
 
     root = Path(__file__).resolve().parents[2]
     try:
-        version = derive_dev_version(args.base or base_from_tags(root), args.run_number)
+        cycle = resolve_cycle(args.base, branch_version(root), base_from_tags(root))
+        version = dev_version_for_cycle(cycle, args.run_number)
         tft_version = shipped_tft_version()
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"error: {exc}", file=sys.stderr)

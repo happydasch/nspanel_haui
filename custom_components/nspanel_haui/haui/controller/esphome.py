@@ -11,6 +11,8 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT, ESPAction
 from ..utils.draw_wire import (
+    DRAW_FORMAT_PACKED,
+    LEGACY_SLICE_RUNS,
     RUN_MS_CEILING,
     display_run,
     draw_format,
@@ -57,6 +59,10 @@ class HAUIESPHomeController(HAUIBase):
         # one if its fence never reports (see ``_start_draw``).
         self._draw_slices: list[list[str]] = []
         self._draw_timer: str | None = None
+        #: The pass being drawn, so a slice the panel failed can be re-sent once.
+        self._draw_runs: list[str] = []
+        self._draw_retried = False
+        self._draw_old_firmware_warned = False
         #: The packing the panel's firmware decodes, fixed per program: format 1
         #: takes the display instructions, 2 the base-36 runs (``draw_wire``).
         self._draw_pack: Callable[[str], str] = display_run
@@ -95,6 +101,7 @@ class HAUIESPHomeController(HAUIBase):
         """
         self._cancel_timer("_draw_timer")
         self._draw_slices.clear()
+        self._draw_runs = []
         self.esphome.cancel_listen_events()
 
     # public
@@ -216,8 +223,12 @@ class HAUIESPHomeController(HAUIBase):
         one paints nothing at all - the firmware refuses every run it cannot
         decode - so this is the one thing a draw must not guess.
         """
+        return run_packer(self._draw_format())
+
+    def _draw_format(self) -> int:
+        """The ``draw_format`` the panel's firmware reported (1 when it says nothing)."""
         info = self.app.device.device_info or {}
-        return run_packer(draw_format(info.get("draw_format")))
+        return draw_format(info.get("draw_format"))
 
     def _start_draw(self, value: str | dict | list) -> None:
         """Paint a pass of ``fill`` instructions, one slice at a time.
@@ -230,16 +241,58 @@ class HAUIESPHomeController(HAUIBase):
         stays the size of a single slice.
 
         The whole pass - not the slice - is what the page replay keeps, so a
-        viewer that attaches late still sees the finished image.
+        viewer that attaches late still sees the finished image, and it is also
+        what a failed pass is retried from (``on_draw_report``).
         """
         runs = [str(run) for run in (value if isinstance(value, list) else [value])]
         if not runs:
             return
+        self._draw_runs = runs
+        self._draw_retried = False
         self._record_draw_program(runs)
         self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
+        if self._draw_format() < DRAW_FORMAT_PACKED:
+            self._warn_about_an_old_firmware()
+        self._plan_draw_slices()
+
+    def _warn_about_an_old_firmware(self) -> None:
+        """Say once why a detailed image may lose runs on this panel.
+
+        A firmware that reports ``draw_format`` 1 streams a pass at the pacer's
+        fixed pace instead of waiting for the display to acknowledge each run,
+        and a hairline ``fill`` (one per display pixel, which is what a detailed
+        image is made of) takes the display longer than that pace. Its receive
+        buffer then overflows and the instructions in flight are lost or
+        truncated - the picture gets thin gaps and stray coloured strips, and the
+        panel reports success anyway, because every run was handed to the queue.
+        """
+        if self._draw_old_firmware_warned:
+            return
+        self._draw_old_firmware_warned = True
+        self.log(
+            "draw_runs: this panel runs a firmware without the acknowledged draw "
+            "(draw_format 1), which streams a pass faster than the display takes "
+            "it; a detailed image can lose runs. Update the panel's firmware.",
+            level="WARNING",
+        )
+
+    def _plan_draw_slices(self) -> None:
+        """Cut the remembered pass into slices for this panel and start sending.
+
+        A panel on a firmware without the acknowledged draw gets short slices: it
+        streams a slice at the pacer's fixed pace, and the display has to have
+        caught up before the next one lands, or its receive buffer overruns and
+        runs are lost (``draw_wire.LEGACY_SLICE_RUNS``).
+        """
+        runs = self._draw_runs
         self._cancel_timer("_draw_timer")
         self._draw_pack = self._draw_packer()
-        slices = program_slices(runs, pack=self._draw_pack)
+        legacy = self._draw_format() < DRAW_FORMAT_PACKED
+        slices = program_slices(
+            runs,
+            pack=self._draw_pack,
+            max_runs=LEGACY_SLICE_RUNS if legacy else None,
+        )
         self.log(
             f"draw_runs: {len(runs)} run(s), {len(slices)} slice(s), "
             f"{self._draw_pack(runs[0])!r} to start",
@@ -293,13 +346,23 @@ class HAUIESPHomeController(HAUIBase):
 
         Args:
             ok: Whether the panel took every run of the slice. A refused slice
-                means the rest of the image would paint over a half-drawn
-                picture, so it is dropped instead.
+                means the runs are missing from the picture it paints - a lost
+                acknowledgment or an overrun display drops them - so the whole
+                pass is re-sent once from its first run instead of leaving a
+                picture with gaps in it. Only a second failure drops the rest.
         """
         self._cancel_timer("_draw_timer")
         if not ok:
+            if self._draw_runs and not self._draw_retried:
+                self._draw_retried = True
+                self.log(
+                    "draw_runs: the panel did not take every run; re-sending the image once",
+                    level="WARNING",
+                )
+                self._plan_draw_slices()
+                return
             self.log(
-                "draw_runs: the panel refused a slice; the rest of the image is dropped",
+                "draw_runs: the panel refused a slice again; the rest of the image is dropped",
                 level="WARNING",
             )
             self._draw_slices.clear()

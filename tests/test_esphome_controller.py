@@ -13,6 +13,7 @@ from test_connection import DummyApp
 from custom_components.nspanel_haui.haui.controller.esphome import HAUIESPHomeController
 from custom_components.nspanel_haui.haui.utils.draw_wire import (
     DRAW_SLICE_CHARS,
+    LEGACY_SLICE_RUNS,
     decode_program,
     pack_run,
 )
@@ -171,17 +172,29 @@ def test_a_slice_that_never_reports_is_followed_by_the_next_one() -> None:
     assert any("no report for a slice" in message for message, _ in app.logged)
 
 
-def test_a_refused_slice_drops_the_rest_of_the_image() -> None:
-    """Painting the rest over a half-drawn picture is worse than stopping."""
+def test_a_refused_slice_re_sends_the_whole_image_once() -> None:
+    """A slice the panel did not take leaves gaps: paint the picture again.
+
+    Whatever the panel dropped - a lost acknowledgment, a run an overrun display
+    truncated - the pass is re-sent from its first run, and only a second failure
+    drops the rest instead of looping.
+    """
     controller, proxy, app = _drawing()
-    controller.send_cmd("draw_runs", _runs(1200))
+    runs = _runs(1200)
+    controller.send_cmd("draw_runs", runs)
+    assert len(proxy.programs) == 1
 
     controller.on_draw_report(False)
 
-    assert len(proxy.programs) == 1
+    assert len(proxy.programs) == 2
+    assert _sent(proxy)[1][0] == runs[0], "the retry starts the picture over"
+    assert any("re-sending the image once" in message for message, _ in app.logged)
+
+    controller.on_draw_report(False)
+
+    assert len(proxy.programs) == 2, "a second failure stops instead of looping"
     assert controller._draw_slices == []
-    assert app.timers == {}
-    assert any("refused a slice" in message for message, _ in app.logged)
+    assert any("refused a slice again" in message for message, _ in app.logged)
 
 
 def test_the_page_replay_keeps_the_whole_pass_not_just_the_first_slice() -> None:
@@ -233,3 +246,54 @@ def test_a_panel_that_reports_no_format_is_sent_display_instructions() -> None:
     controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
 
     assert proxy.programs == ["fill 20,40,120,120,4226"]
+
+
+def test_a_panel_without_the_acknowledged_draw_warns_once() -> None:
+    """A format-1 firmware streams at the pacer's pace and can drop fills.
+
+    That is invisible in the draw's own report - every run was handed to the
+    queue - so the hub says it once instead of leaving thin gaps and stray strips
+    in the picture unexplained.
+    """
+    controller, _proxy, app = _drawing(simulated=True)
+
+    controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
+    controller.send_cmd("draw_runs", ["fill 20,60,120,120,4226"])
+
+    warnings = [message for message, _ in app.logged if "draw_format 1" in message]
+    assert len(warnings) == 1
+
+
+def test_a_panel_with_the_acknowledged_draw_is_not_warned_about() -> None:
+    controller, _proxy, app = _drawing(draw_format=2, simulated=True)
+
+    controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
+
+    assert not [message for message, _ in app.logged if "draw_format 1" in message]
+
+
+def test_a_panel_without_the_acknowledged_draw_gets_short_slices() -> None:
+    """Its slices are cut by count, so the display catches up before the next one.
+
+    A format-1 firmware streams a slice at the pacer's fixed pace whatever the
+    display needs, and its receive buffer holds about 40 instructions: a full
+    8 000-character slice overruns it and runs are lost.
+    """
+    controller, proxy, _app = _drawing(simulated=True)
+    runs = _runs(400)
+
+    controller.send_cmd("draw_runs", runs)
+
+    assert len(proxy.programs) == 400 // LEGACY_SLICE_RUNS + 1
+    assert [run for part in _sent(proxy) for run in part] == runs
+
+
+def test_a_panel_with_the_acknowledged_draw_gets_full_slices() -> None:
+    """It paces itself with a window of fills, so only the length has to fit."""
+    controller, proxy, _app = _drawing(draw_format=2, simulated=True)
+    runs = _runs(400)
+
+    controller.send_cmd("draw_runs", runs)
+
+    assert len(proxy.programs) == 1
+    assert len(proxy.programs[0]) <= DRAW_SLICE_CHARS

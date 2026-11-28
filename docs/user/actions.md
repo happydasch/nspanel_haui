@@ -208,6 +208,12 @@ data:
   panel can hold in memory and sends the next one as each finishes, so a big,
   detailed image starts drawing at once and fills in rather than waiting. A page
   change in the middle stops it, like any other re-render.
+- **Thin gaps or stray colour strips mean the panel's firmware is old.** A
+  detailed image is thousands of one-pixel-high rectangles, which a display draws
+  slower than the old firmware streams them, so its receive buffer overruns and
+  single rectangles are lost or corrupted. The hub re-sends the image once when
+  the panel reports a failure and warns in the log; installing the current
+  firmware draws it cleanly.
 - **The rectangle decides the detail.** The block never gets finer than one
   display pixel, so a rectangle of a few hundred pixels is drawn at the screen's
   own resolution, while the same budget over the whole page gives a coarse mosaic

@@ -36,6 +36,16 @@ DRAW_FORMAT_PACKED: Final = 2
 #: firmware stages it as a second copy, so this is the panel's RAM budget, not
 #: an API limit: a slice of 8 000 characters needs about 16 KB of heap.
 DRAW_SLICE_CHARS: Final = 8000
+#: Runs one slice may carry on a firmware that has no acknowledged draw
+#: (``draw_format`` 1). Such a firmware streams a slice at the pacer's fixed pace
+#: whatever the display needs, so a slice longer than the display's receive buffer
+#: holds (about 40 instructions of 25 bytes) overruns it: the instructions in
+#: flight are lost or truncated, which leaves thin gaps and stray coloured strips
+#: in the picture. Cutting the slice short lets the fence - which the display only
+#: answers after its last run - drain that backlog before the next slice arrives.
+#: A firmware with the acknowledged draw needs none of this: it holds a window of
+#: ``draw_window`` fills and paces itself, so its slices are the full 8 000.
+LEGACY_SLICE_RUNS: Final = 64
 #: Milliseconds the hub plans for one run: the firmware's pacer
 #: (``command_spacing_ms``, ``esphome/nspanel_haui/base.yaml``), one command per
 #: component phase. A draw switches the pacer off for its duration and keeps a
@@ -162,13 +172,17 @@ def program_slices(
     runs: Sequence[str],
     *,
     max_chars: int = DRAW_SLICE_CHARS,
+    max_runs: int | None = None,
     pack: Callable[[str], str] = pack_run,
 ) -> list[list[str]]:
-    """Cut ``runs`` into ordered programs no longer than ``max_chars`` packed.
+    """Cut ``runs`` into ordered programs within ``max_chars`` and ``max_runs``.
 
     A slice has to fit the firmware's own program limit and the panel's heap, so
     the length that matters is the packed one - ``pack`` is the firmware's format
-    (``pack_run`` for 2, ``display_run`` for an older one).
+    (``pack_run`` for 2, ``display_run`` for an older one). ``max_runs`` bounds it
+    by count instead: on a firmware that streams a slice at a fixed pace, the
+    count is what decides whether the display's receive buffer overflows
+    (``LEGACY_SLICE_RUNS``).
 
     Order is preserved - the panel paints a slice as it arrives, so a slice is a
     band of the picture, not a random subset of it.
@@ -184,7 +198,8 @@ def program_slices(
         size = len(pack(run))
         if size > max_chars:
             raise DrawWireError(f"{run!r} does not fit a {max_chars}-character slice")
-        if current and length + 1 + size > max_chars:
+        full = length + 1 + size > max_chars
+        if current and (full or (max_runs is not None and len(current) >= max_runs)):
             slices.append(current)
             current = []
             length = 0

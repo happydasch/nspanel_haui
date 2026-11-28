@@ -82,6 +82,19 @@ So `draw_runs` switches the pacer off for the duration of a program (`draw_spaci
 
 The hub plans its run budget at the pacer's pace anyway (`draw_wire.COMMAND_SPACING_MS`), because that is a number it can trust, and `res_draw`'s `elapsed_ms` reports what the panel really took — the hub logs it as `runs/s`. The fence timeout uses `draw_wire.RUN_MS_CEILING` (8 ms per run) instead: a slow panel legitimately takes longer than the planned pace, and a slice cut short is not harmless, because the next one restarts the firmware's program (`mode: restart`).
 
+### A panel that drops runs
+
+A detailed image is thousands of *hairline* fills — one per display pixel — and a `fill` costs the display about 1–3 ms whatever its area, because the per-instruction cost dominates. The pacer's fixed 2 ms is therefore not a safe pace for a draw: a firmware that streams a pass at it (any build without the acknowledged draw, i.e. `draw_format` 1) pushes the display harder than it paints, its 1 KB receive buffer (about 40 instructions) overflows, and the instructions in flight are **lost or truncated**. A truncated instruction is the nastier case: it still parses, so a run paints a valid rectangle in a wrong colour, and the picture gets thin gaps and stray coloured strips while the draw reports `ok: true` — every run *was* handed to the queue.
+
+The acknowledged draw removes the overflow by construction (12 fills in flight, refilled only when the display answers), and four more things keep such a picture from staying wrong:
+
+- On a firmware without it the hub cuts a slice at `draw_wire.LEGACY_SLICE_RUNS` (64) runs instead of 8 000 characters: the fence only answers after the display's last run, so a short slice lets it drain the backlog before the next one lands. That is slower than the acknowledged draw — a round trip per 64 runs — and updating the panel's firmware is the faster fix.
+- `haui_draw_retry` re-sends the slice once after the display reports a buffer overflow (`0x24`, `on_buffer_overflow` in `display.yaml`).
+- `haui_draw_report` reports `ok: false` when the stall guard trips, and the hub re-sends the whole pass once from its first run before giving up (`on_draw_report`) — a retried pass repaints everything, so remnants of the previous attempt disappear.
+- The hub warns once per panel when its firmware reports `draw_format` 1, naming the state instead of leaving the artifacts unexplained.
+
+`tests/test_esphome_controller.py` and `tests/test_draw_wire.py` pin the short slices, the retry and the warning.
+
 ### The pacing also sets the queue's drain rate
 
 `max_queue_age` (the component's default is `8000ms`) purges a queue entry that has waited too long, whether or not it was ever sent. A full queue drains at one command per component phase, so the three settings are one equation:

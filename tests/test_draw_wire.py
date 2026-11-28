@@ -98,6 +98,22 @@ def test_a_run_longer_than_a_slice_is_refused() -> None:
         program_slices(["fill 65535,65535,65535,65535,65535"], max_chars=10)
 
 
+def test_a_slice_is_also_bounded_by_its_run_count() -> None:
+    """A firmware without the acknowledged draw needs slices the display can hold.
+
+    It streams a slice at the pacer's fixed pace, so the count - not the length -
+    decides whether the display's receive buffer overruns; the fence then drains
+    that backlog before the next slice arrives.
+    """
+    runs = [f"fill {index % 480},{index // 480},8,8,65535" for index in range(200)]
+
+    slices = program_slices(runs, max_runs=64)
+
+    assert [run for part in slices for run in part] == runs
+    assert all(len(part) <= 64 for part in slices)
+    assert len(slices) == 4
+
+
 # ── the two program formats ──────────────────────────────────────────────────
 
 

@@ -774,6 +774,22 @@ def test_the_firmware_decodes_a_packed_run_back_into_a_fill():
     assert "id(haui_draw_rejected)++" in image
 
 
+def test_the_firmware_reports_the_draw_format_it_decodes():
+    """The hub packs for the format the panel reports, so both payloads carry it.
+
+    A panel that says nothing is sent the display instructions themselves, which
+    an older firmware streams as they are - the alternative, packing for a
+    firmware without the decoder, painted nothing at all.
+    """
+    from custom_components.nspanel_haui.haui.utils.draw_wire import DRAW_FORMAT_PACKED
+
+    version = _read("version.yaml")
+    assert int(_substitution(version, "draw_format")) == DRAW_FORMAT_PACKED
+    events = _read("scripts_event.yaml")
+    assert events.count('root["draw_format"]') == 2
+    assert events.count("int draw_format_val = ${draw_format};") == 2
+
+
 def test_a_draw_queue_fill_drains_before_the_queued_runs_expire():
     """The queue is filled at once, so its oldest entry must not expire first."""
     image = _read("image.yaml")

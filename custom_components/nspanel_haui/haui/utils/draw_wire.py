@@ -8,6 +8,11 @@ firmware decodes a run back into the display instruction
 (``esphome/nspanel_haui/image.yaml``), so everything above this module - page
 replay, the previews, the golden tests - keeps speaking display commands.
 
+That packing is a firmware capability (``draw_format`` in
+``esphome/nspanel_haui/version.yaml``, read with ``draw_format()``): a firmware
+older than 2 has no decoder and streams the display instructions themselves, so
+it is sent ``display_run`` instead of ``pack_run`` and still paints the image.
+
 A pass is also too long for one API message and too big for the panel's heap, so
 it is sent as *slices*: ``program_slices`` cuts the ordered runs into programs the
 firmware can stage one after another. The panel reports each slice when its last
@@ -19,9 +24,14 @@ Pure and synchronous, no Home Assistant: the hub packs, the firmware unpacks.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Final
 
+#: The ``draw_format`` a firmware reports when its ``draw_runs`` action decodes
+#: base-36 runs (``esphome/nspanel_haui/version.yaml``). Firmware that reports 1
+#: - or reports nothing, which is what a build without the decoder does - takes
+#: the display instructions themselves.
+DRAW_FORMAT_PACKED: Final = 2
 #: Longest program (packed characters) one ``draw_runs`` call carries. The
 #: firmware stages it as a second copy, so this is the panel's RAM budget, not
 #: an API limit: a slice of 8 000 characters needs about 16 KB of heap.
@@ -73,8 +83,8 @@ def parse_base36(text: str) -> int:
     return value
 
 
-def pack_run(run: str) -> str:
-    """One display ``fill`` instruction as the ``x,y,w,h,colour`` the panel decodes.
+def _fill_numbers(run: str) -> list[int]:
+    """The five numbers of a display ``fill`` instruction.
 
     Raises:
         DrawWireError: When ``run`` is not a ``fill`` with five non-negative
@@ -92,7 +102,32 @@ def pack_run(run: str) -> str:
         raise DrawWireError(f"{run!r} holds a number that is not one: {exc}") from exc
     if any(number < 0 for number in numbers):
         raise DrawWireError(f"{run!r} holds a negative number")
-    return ",".join(base36(number) for number in numbers)
+    return numbers
+
+
+def pack_run(run: str) -> str:
+    """One display ``fill`` instruction as the ``x,y,w,h,colour`` the panel decodes.
+
+    Raises:
+        DrawWireError: When ``run`` is not a ``fill`` with five non-negative
+            numbers.
+    """
+    return ",".join(base36(number) for number in _fill_numbers(run))
+
+
+def display_run(run: str) -> str:
+    """``run`` unchanged: the program format of a firmware older than 2.
+
+    Those firmwares stream the display instructions themselves, so the only job
+    left here is the validation ``pack_run`` does - a run the device would drop
+    fails on the hub, where the source can be named.
+
+    Raises:
+        DrawWireError: When ``run`` is not a ``fill`` with five non-negative
+            numbers.
+    """
+    _fill_numbers(run)
+    return run
 
 
 def unpack_run(packed: str) -> str:
@@ -109,13 +144,22 @@ def unpack_run(packed: str) -> str:
     return RUN_PREFIX + ",".join(str(parse_base36(field)) for field in fields)
 
 
-def pack_program(runs: Iterable[str]) -> str:
-    """``runs`` as one program string, ``;`` separated."""
-    return ";".join(pack_run(run) for run in runs)
+def pack_program(runs: Iterable[str], *, pack: Callable[[str], str] = pack_run) -> str:
+    """``runs`` as one program string, ``;`` separated, each packed by ``pack``."""
+    return ";".join(pack(run) for run in runs)
 
 
-def program_slices(runs: Sequence[str], *, max_chars: int = DRAW_SLICE_CHARS) -> list[list[str]]:
+def program_slices(
+    runs: Sequence[str],
+    *,
+    max_chars: int = DRAW_SLICE_CHARS,
+    pack: Callable[[str], str] = pack_run,
+) -> list[list[str]]:
     """Cut ``runs`` into ordered programs no longer than ``max_chars`` packed.
+
+    A slice has to fit the firmware's own program limit and the panel's heap, so
+    the length that matters is the packed one - ``pack`` is the firmware's format
+    (``pack_run`` for 2, ``display_run`` for an older one).
 
     Order is preserved - the panel paints a slice as it arrives, so a slice is a
     band of the picture, not a random subset of it.
@@ -128,7 +172,7 @@ def program_slices(runs: Sequence[str], *, max_chars: int = DRAW_SLICE_CHARS) ->
     current: list[str] = []
     length = 0
     for run in runs:
-        size = len(pack_run(run))
+        size = len(pack(run))
         if size > max_chars:
             raise DrawWireError(f"{run!r} does not fit a {max_chars}-character slice")
         if current and length + 1 + size > max_chars:
@@ -140,3 +184,46 @@ def program_slices(runs: Sequence[str], *, max_chars: int = DRAW_SLICE_CHARS) ->
     if current:
         slices.append(current)
     return slices
+
+
+def decode_program(program: str) -> list[str]:
+    """The display instructions in ``program``, whichever format wrote them.
+
+    For the previews, which replay what the panel paints: a run of either format
+    decodes by its own shape - a packed run is five base-36 numbers and cannot
+    start with ``fill `` - so a viewer never has to know which firmware answered.
+
+    Raises:
+        DrawWireError: When a run is neither a ``fill`` instruction nor five
+            base-36 numbers.
+    """
+    return [
+        run if run.startswith(RUN_PREFIX) else unpack_run(run) for run in program.split(";") if run
+    ]
+
+
+def draw_format(reported: object) -> int:
+    """The draw program format a firmware reported; 1 when it says nothing.
+
+    ``device_info["draw_format"]`` (``esphome/nspanel_haui/version.yaml``) is the
+    firmware's own statement of what its ``draw_runs`` action decodes: ``1`` the
+    display instructions themselves, ``DRAW_FORMAT_PACKED`` the base-36 runs.
+    Reading it from the firmware is what keeps this honest - a version cannot: a
+    build of an earlier commit reports the same version as one that has the
+    packing, and the image would then not appear at all (every run is refused).
+
+    Anything unreadable counts as 1: firmware that predates the field can only
+    take display instructions, and whether it can draw at all is a separate
+    question (``firmware_supports_draw_runs``).
+    """
+    if isinstance(reported, bool) or not isinstance(reported, (int, str)):
+        return 1
+    try:
+        return int(str(reported).strip())
+    except ValueError:
+        return 1
+
+
+def run_packer(program_format: int) -> Callable[[str], str]:
+    """The packing ``program_format`` takes: base-36 runs, or the instructions."""
+    return pack_run if program_format >= DRAW_FORMAT_PACKED else display_run

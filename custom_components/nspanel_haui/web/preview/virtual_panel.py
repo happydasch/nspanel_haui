@@ -45,7 +45,7 @@ from ...haui.mapping.const import (
 )
 from ...haui.mapping.descriptor import _
 from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
-from ...haui.utils.draw_wire import unpack_run
+from ...haui.utils.draw_wire import DRAW_FORMAT_PACKED, decode_program
 from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
 from ...haui.utils.text import get_translation
 from ...haui.version import get_integration_version
@@ -233,10 +233,15 @@ class VirtualESPHomeProxy:
         elif name == "send_commands":
             self._sink({"type": "commands", "commands": list(value)})
         elif name == "draw_runs":
-            # The hub sends a packed slice (``haui/utils/draw_wire.py``); the
-            # browser paints display commands, exactly as the panel decodes them.
-            runs = value if isinstance(value, list) else str(value).split(";")
-            self._sink({"type": "commands", "commands": [unpack_run(run) for run in runs]})
+            # The hub sends one slice, packed for this firmware's ``draw_format``
+            # (``haui/utils/draw_wire.py``); the browser paints display commands,
+            # exactly as the panel decodes them.
+            program = value if isinstance(value, list) else str(value)
+            runs = program if isinstance(program, list) else [program]
+            commands: list[str] = []
+            for run in runs:
+                commands.extend(decode_program(str(run)))
+            self._sink({"type": "commands", "commands": commands})
         elif name == "goto_page":
             self._page = int(value)
             self._sink({"type": "page", "page": self._page})
@@ -329,6 +334,9 @@ class VirtualESPHomeProxy:
             # Empty means "unknown" to the hub, never "outdated".
             "tft_version": self._device_info.get("tft_version", ""),
             "firmware_variant": self._device_info.get("firmware_variant", ""),
+            # The sandbox firmware is this tree's, so it decodes the packed runs
+            # the hub sends and the preview replays them either way.
+            "draw_format": DRAW_FORMAT_PACKED,
             "ssid": "",
             "rssi": 0,
         }

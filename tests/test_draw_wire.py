@@ -8,10 +8,14 @@ from custom_components.nspanel_haui.haui.utils.draw_wire import (
     DRAW_SLICE_CHARS,
     DrawWireError,
     base36,
+    decode_program,
+    display_run,
+    draw_format,
     pack_program,
     pack_run,
     parse_base36,
     program_slices,
+    run_packer,
     unpack_run,
 )
 
@@ -92,3 +96,60 @@ def test_a_run_longer_than_a_slice_is_refused() -> None:
     """A run cannot be split across two calls, so it fails instead of truncating."""
     with pytest.raises(DrawWireError):
         program_slices(["fill 65535,65535,65535,65535,65535"], max_chars=10)
+
+
+# ── the two program formats ──────────────────────────────────────────────────
+
+
+def test_the_instruction_format_carries_the_display_command_unchanged() -> None:
+    """Format 1 is what a firmware without the decoder takes: the run itself."""
+    run = "fill 120,64,8,8,65535"
+
+    assert display_run(run) == run
+    assert pack_program([run], pack=display_run) == run
+
+
+def test_the_instruction_format_still_refuses_a_run_the_panel_could_not_draw() -> None:
+    """Packing is skipped, validating is not: the hub says which run is wrong."""
+    with pytest.raises(DrawWireError):
+        display_run("cirs 10,10,6,0")
+
+
+def test_a_slice_is_sized_by_the_format_the_panel_decodes() -> None:
+    """An unpacked run is half again as long, so a slice holds fewer of them."""
+    runs = [f"fill {index % 480},{index // 480},8,8,65535" for index in range(2000)]
+
+    packed = program_slices(runs)
+    displayed = program_slices(runs, pack=display_run)
+
+    assert [run for part in displayed for run in part] == runs
+    assert len(displayed) > len(packed)
+    for part in displayed:
+        assert 0 < len(pack_program(part, pack=display_run)) <= DRAW_SLICE_CHARS
+
+
+@pytest.mark.parametrize(
+    "reported,format_",
+    [
+        pytest.param(2, 2, id="the packed format"),
+        pytest.param("2", 2, id="the packed format as text"),
+        pytest.param(1, 1, id="the instruction format"),
+        pytest.param(None, 1, id="firmware that predates the field"),
+        pytest.param("", 1, id="an empty field"),
+        pytest.param("packed", 1, id="unreadable"),
+        pytest.param(True, 1, id="a boolean is not a format"),
+    ],
+)
+def test_the_format_a_firmware_reports_is_read_from_the_handshake(reported, format_) -> None:
+    assert draw_format(reported) == format_
+    assert run_packer(format_) is (pack_run if format_ == 2 else display_run)
+
+
+def test_a_program_is_decoded_by_the_shape_of_its_runs() -> None:
+    """The previews replay either format without being told which one it is."""
+    assert decode_program("3c,1s,8,8,1ekf") == ["fill 120,64,8,8,65535"]
+    assert decode_program("fill 120,64,8,8,65535") == ["fill 120,64,8,8,65535"]
+    assert decode_program("fill 1,2,3,4,5;6,7,8,9,a") == [
+        "fill 1,2,3,4,5",
+        "fill 6,7,8,9,10",
+    ]

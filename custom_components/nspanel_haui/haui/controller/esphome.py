@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -9,7 +10,14 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT, ESPAction
-from ..utils.draw_wire import COMMAND_SPACING_MS, pack_program, program_slices
+from ..utils.draw_wire import (
+    COMMAND_SPACING_MS,
+    display_run,
+    draw_format,
+    pack_program,
+    program_slices,
+    run_packer,
+)
 
 #: Seconds a slice gets on top of its own drawing time before the hub sends the
 #: next one without a report: a fence lost to a busy event loop must not wedge
@@ -49,6 +57,9 @@ class HAUIESPHomeController(HAUIBase):
         # one if its fence never reports (see ``_start_draw``).
         self._draw_slices: list[list[str]] = []
         self._draw_timer: str | None = None
+        #: The packing the panel's firmware decodes, fixed per program: format 1
+        #: takes the display instructions, 2 the base-36 runs (``draw_wire``).
+        self._draw_pack: Callable[[str], str] = display_run
 
         # Build list of configured device names
         devices = self.config.get("devices", [])
@@ -196,6 +207,18 @@ class HAUIESPHomeController(HAUIBase):
 
     # image drawing
 
+    def _draw_packer(self) -> Callable[[str], str]:
+        """The packing this panel's firmware decodes (``draw_wire.draw_format``).
+
+        Read from the handshake, not from the version: firmware 1 streams the
+        display instructions, 2 the base-36 runs, and a panel that reports
+        nothing predates the field and takes the instructions. Sending the wrong
+        one paints nothing at all - the firmware refuses every run it cannot
+        decode - so this is the one thing a draw must not guess.
+        """
+        info = self.app.device.device_info or {}
+        return run_packer(draw_format(info.get("draw_format")))
+
     def _start_draw(self, value: str | dict | list) -> None:
         """Paint a pass of ``fill`` instructions, one slice at a time.
 
@@ -215,7 +238,14 @@ class HAUIESPHomeController(HAUIBase):
         self._record_draw_program(runs)
         self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
         self._cancel_timer("_draw_timer")
-        self._draw_slices = program_slices(runs)
+        self._draw_pack = self._draw_packer()
+        slices = program_slices(runs, pack=self._draw_pack)
+        self.log(
+            f"draw_runs: {len(runs)} run(s), {len(slices)} slice(s), "
+            f"{self._draw_pack(runs[0])!r} to start",
+            level="DEBUG",
+        )
+        self._draw_slices = slices
         self._send_draw_slice()
 
     def _send_draw_slice(self) -> None:
@@ -225,7 +255,7 @@ class HAUIESPHomeController(HAUIBase):
             if not self._draw_slices:
                 return
             runs = self._draw_slices.pop(0)
-            program = pack_program(runs)
+            program = pack_program(runs, pack=self._draw_pack)
             self.log(
                 f"draw_runs: {len(runs)} run(s), {len(program)} characters, "
                 f"{len(self._draw_slices)} slice(s) to go",

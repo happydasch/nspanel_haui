@@ -18,7 +18,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
-- Hub: `show_image` `quality` reaches 4000 rectangles instead of 769 and a pass is streamed in slices the panel can hold instead of one program, so a larger rectangle is no longer limited by the panel's memory, and each run travels in a third less space (five base-36 numbers; the firmware decodes them back into `fill`) — the ceiling is now the display's own speed, about 500 rectangles a second, so a whole page at one rectangle per display pixel takes 3635 runs and about 7 s, and a photograph is still a mosaic that belongs in a page background picture ([Images on the panel](docs/user/actions.md#images-on-the-panel)).
+- Hub: `show_image` `quality` reaches 12 000 rectangles instead of 769 and a pass is streamed in slices the panel can hold instead of one program, so a larger rectangle is no longer limited by the panel's memory, and each run travels in a third less space (five base-36 numbers; the firmware decodes them back into `fill`) — the ceiling is now the time a caller is willing to wait: the display paints about 500 rectangles a second, so the top of the range is about 24 s, and a photograph is still a mosaic that belongs in a page background picture ([Images on the panel](docs/user/actions.md#images-on-the-panel)).
 - Hub: `show_image` clears its rectangle to black before drawing — one instruction over the whole area — so an older image, a widget or a picture background can no longer show through the cells the rasteriser skips, and the picture sits on a black card instead of on the page's own colour ([Images on the panel](docs/user/actions.md#images-on-the-panel)).
 - Editor: badges, count bubbles, the repeat count and the item type chip take their own type step one below the caption — `--haui-text-badge` at 11px — so a pill sits inside the row's text instead of competing with the meta line beside it ([Visual foundations](docs/develop/frontend-visuals.md#text-sizes)).
 - Editor: the inventory footer's update and integration-version figures line up at the card's end, the way the events footer's actions close the card beside it
@@ -26,6 +26,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Fixed
 
+- Hub: `show_image` sends the run format the panel's firmware reports (`draw_format`, new in the handshake) instead of always the base-36 one — a panel on firmware that predates the packing refused every run and drew nothing at all while the editor's preview showed the image, so the wire format is negotiated now and such a panel is sent the `fill` instructions themselves ([Images on the panel](docs/user/actions.md#images-on-the-panel)).
 - Editor: a Simulated preview's states end with the preview itself — leaving it for another device, the **Panels** view, Fleet or a sidebar, or closing the browser tab, drops them instead of leaving them on the device's virtual app for the next ten idle minutes, where a card render drew a simulated state as the panel's own; **Reset sandbox** in the Diagnostics card still does the same while the preview stays open ([The Live Preview](docs/user/editor/README.md#the-live-preview)).
 
 ## [0.5.8] — 2026-11-27

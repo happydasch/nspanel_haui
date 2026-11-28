@@ -36,6 +36,9 @@ script:
           // custom = built from install.yaml/nspanel_haui_dev.yaml; universal =
           // the prebuilt release image. The hub refuses to update across them.
           auto firmware_variant = "$firmware_variant";
+          // What the ``draw_runs`` action decodes: 1 = display instructions,
+          // 2 = base-36 runs. The hub packs for the format reported here.
+          int draw_format_val = ${draw_format};
           auto wifi_ssid_str = id(wifi_ssid).state;
           float wifi_rssi_val = id(wifi_rssi).state;
           // Whole seconds via millis_64() so long uptimes stay correct; the hub
@@ -43,7 +46,7 @@ script:
           auto uptime_secs = millis_64() / 1000;
           const json::json_build_t payload = [
               yaml_version, hub_api_version, name, friendly_name, ip,
-              wifi_ssid_str, wifi_rssi_val, uptime_secs, firmware_variant
+              wifi_ssid_str, wifi_rssi_val, uptime_secs, firmware_variant, draw_format_val
           ](JsonObject root) {
             root["yaml_version"] = yaml_version;
             root["hub_api_version"] = hub_api_version;
@@ -54,6 +57,7 @@ script:
             root["rssi"] = wifi_rssi_val;
             root["uptime"] = uptime_secs;
             root["firmware_variant"] = firmware_variant;
+            root["draw_format"] = draw_format_val;
           };
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.req_connection", payload_str);
@@ -96,6 +100,7 @@ script:
           auto hub_api_version = "$hub_api_version";
           auto tft_required_version = "$tft_version";
           auto firmware_variant = "$firmware_variant";
+          int draw_format_val = ${draw_format};
           // The rate the display answers at: 921600 with a current TFT, lower
           // when the boot scan fell back to an older or stock one. 0 while no
           // display answers, so the hub shows an unknown link instead of the
@@ -108,7 +113,7 @@ script:
               page_val, brightness_val, button_left_val, button_right_val,
               relay_left_val, relay_right_val, use_relay_left_val, use_relay_right_val,
               display_state_val, yaml_version, hub_api_version, tft_version_str, tft_required_version,
-              display_baud_val, wifi_ssid_str, wifi_rssi_val, firmware_variant
+              display_baud_val, wifi_ssid_str, wifi_rssi_val, firmware_variant, draw_format_val
           ](JsonObject root) {
             root["page"] = page_val;
             root["brightness"] = brightness_val;
@@ -127,6 +132,7 @@ script:
             root["ssid"] = wifi_ssid_str;
             root["rssi"] = wifi_rssi_val;
             root["firmware_variant"] = firmware_variant;
+            root["draw_format"] = draw_format_val;
           };
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.res_device_state", payload_str);

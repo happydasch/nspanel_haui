@@ -53,7 +53,7 @@ sequenceDiagram
 
 | # | Message | Sent by | Payload | Expected answer |
 |---|---------|---------|---------|-----------------|
-| 1 | `req_connection` | device | JSON: `yaml_version`, `hub_api_version`, `name`, `friendly_name`, `ip`, `ssid`, `rssi`, `uptime`, `firmware_variant` | `hub_connection_response` |
+| 1 | `req_connection` | device | JSON: `yaml_version`, `hub_api_version`, `name`, `friendly_name`, `ip`, `ssid`, `rssi`, `uptime`, `firmware_variant`, `draw_format` | `hub_connection_response` |
 | 2 | `hub_connection_response` | hub | `version` (integration version) | `res_connection` |
 | 3 | `res_connection` | device | JSON: `heartbeat_interval` | `req_device_state` |
 | 4 | `req_device_state` | hub | empty | `res_device_state` |

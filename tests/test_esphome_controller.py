@@ -13,7 +13,8 @@ from test_connection import DummyApp
 from custom_components.nspanel_haui.haui.controller.esphome import HAUIESPHomeController
 from custom_components.nspanel_haui.haui.utils.draw_wire import (
     DRAW_SLICE_CHARS,
-    unpack_run,
+    decode_program,
+    pack_run,
 )
 
 
@@ -107,9 +108,13 @@ class _DrawingProxy(_Proxy):
         return super().publish(name, value)
 
 
-def _drawing(*, simulated: bool = False) -> tuple[HAUIESPHomeController, _DrawingProxy, _App]:
+def _drawing(
+    *, simulated: bool = False, draw_format: int | None = None
+) -> tuple[HAUIESPHomeController, _DrawingProxy, _App]:
     proxy = _DrawingProxy(simulated=simulated)
     app = _App()
+    if draw_format is not None:
+        app.device.device_info = {"draw_format": draw_format}
     controller = HAUIESPHomeController(app, {"device_name": "kitchen"}, proxy, lambda e: None)
     return controller, proxy, app
 
@@ -121,7 +126,7 @@ def _runs(count: int) -> list[str]:
 
 def _sent(proxy: _DrawingProxy) -> list[list[str]]:
     """What the panel actually receives, decoded back to display commands."""
-    return [[unpack_run(run) for run in program.split(";")] for program in proxy.programs]
+    return [decode_program(program) for program in proxy.programs]
 
 
 def test_an_image_is_sent_one_slice_at_a_time() -> None:
@@ -205,3 +210,26 @@ def test_a_short_draw_is_a_single_slice() -> None:
     controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
 
     assert _sent(proxy) == [["fill 20,40,120,120,4226"]]
+
+
+def test_a_panel_that_reports_the_packed_format_is_sent_base_36_runs() -> None:
+    """Format 2 decodes ``x,y,w,h,colour``, so that is what the panel gets."""
+    controller, proxy, _app = _drawing(draw_format=2, simulated=True)
+
+    controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
+
+    assert proxy.programs == [pack_run("fill 20,40,120,120,4226")]
+
+
+def test_a_panel_that_reports_no_format_is_sent_display_instructions() -> None:
+    """Firmware older than the packing refuses a run it cannot decode.
+
+    Sending it the base-36 form painted nothing at all - the panel counted every
+    run as rejected and reported ``ok: false`` - so silence means the display
+    instructions themselves.
+    """
+    controller, proxy, _app = _drawing(simulated=True)
+
+    controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
+
+    assert proxy.programs == ["fill 20,40,120,120,4226"]

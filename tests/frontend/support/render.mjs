@@ -1,3 +1,5 @@
+import './canvas.mjs';
+
 import { render as renderLit } from '../../../custom_components/nspanel_haui/frontend/vendor/lit/index.js';
 
 /** Render a Lit template into a real happy-dom container. */

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ...hub.app import NSPanelHAUI
 
 from ..utils.debounce import Debouncer
+from ..utils.image_program import Rect
 from .display_interface import DisplayInterface, ESPHomeTransport
 from .haui_config_access import HAUIConfigAccess
 
@@ -267,7 +268,7 @@ class HAUIBase(HAUIConfigAccess):
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.send_cmds(cmds)
 
-    def draw_runs(self, runs: list[str]) -> None:
+    def draw_runs(self, runs: list[str], *, rect: Rect | None = None) -> None:
         """Paint an image: one program of ``fill`` instructions.
 
         A program is not a command batch: the firmware's ``draw_runs`` action
@@ -277,6 +278,9 @@ class HAUIBase(HAUIConfigAccess):
 
         Args:
             runs: ``fill`` instructions, in the order they are painted.
+            rect: The rectangle the program paints, when the caller knows it. Its
+                owner on the display - a camera stream - is told, so the picture it
+                holds there is painted whole again instead of keeping the hole.
         """
         if not runs:
             return
@@ -286,6 +290,8 @@ class HAUIBase(HAUIConfigAccess):
         self.log(f"draw_runs: {len(runs)} instruction(s)", level="DEBUG")
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.draw_runs(runs)
+        if rect is not None:
+            self.app.paint_rect(rect)
 
     def set_component_text(self, component: Component, text: str) -> None:
         """Sends a command to set the text of a component.

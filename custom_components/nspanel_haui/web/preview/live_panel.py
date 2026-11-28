@@ -13,7 +13,9 @@ The sandbox preview (``virtual_panel.py``) shares nothing with it.
   The first message is ``{"type": "started", ...}``. Attaching replays what
   the current page was sent since it loaded (its ``load_commands``, then the
   ESPHome controller's ``page_commands``), so the viewer gets every widget
-  without the panel drawing anything again.
+  without the panel drawing anything again - plus the picture a camera page is
+  showing, which is display output and not a widget: after that replay the
+  stream's frames arrive as they are sent.
 - ``nspanel_haui/live_panel/event`` passes a touch, swipe or hardware button.
 - ``nspanel_haui/live_panel/action`` toggles the idle page (opening it, or
   waking the panel back to the panel it covered or home) or resets the
@@ -140,7 +142,9 @@ class LivePanel:
 
         Seeding replays the page; a page the app has prepared but not drawn
         yet (waiting for the display's page event) gets its commands through
-        the subscription.
+        the subscription. A page that paints its area from a picture replays
+        that separately (``_seed_picture``): the fills that are a stream's
+        delta are not the page's widget commands.
         """
         source = self._source
         self._sink(
@@ -157,11 +161,29 @@ class LivePanel:
             # what it was sent since. Nothing goes to the panel.
             self._sink({"type": "commands", "commands": page.load_commands})
             self._sink({"type": "page", "page": page.page_id})
-            commands = source.controller["esphome"].page_commands()
+            rect = source.camera_page_rect()
+            commands = source.controller["esphome"].page_commands(exclude=rect)
             if commands:
                 self._sink({"type": "commands", "commands": commands})
+            if rect is not None:
+                self._seed_picture(source)
         self._report_entities()
         return unsubscribes, button_entity_ids(source.device)
+
+    def _seed_picture(self, source: Any) -> None:
+        """Send the picture the panel's camera page shows, or ask for a whole one.
+
+        The replay is the picture only while it can still describe the whole
+        area. When it cannot - the stream has run long enough for its oldest
+        fills to be dropped - the viewer would get a composite with holes in it,
+        so the stream is asked for a whole paint instead, and the picture arrives
+        as the frames it sends.
+        """
+        picture = source.camera_page_frame()
+        if picture:
+            self._sink({"type": "commands", "commands": picture})
+        else:
+            source.repaint_camera_page_frame()
 
     def _on_state(self, state: dict[str, Any]) -> None:
         self._sink(
@@ -174,8 +196,6 @@ class LivePanel:
                 "tft": state["tft"],
             }
         )
-        if state.get("event") == ESPEvent.PAGE and state.get("page") is not None:
-            self._sink({"type": "page", "page": int(state["page"])})
 
     def _on_output(self, command: str, value: Any) -> None:
         if command == ESPAction.SEND_COMMAND:

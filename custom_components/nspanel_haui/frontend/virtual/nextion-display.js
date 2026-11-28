@@ -35,10 +35,38 @@ const defaultScheduler = {
 // Components whose repaint paints nothing: hotspots are touch zones, a timer and
 // a variable have no pixels. Their visibility change must not cut a drawn image.
 const NON_PAINTING = new Set([TYPE.PAGE, TYPE.VARIABLE, TYPE.TIMER, TYPE.HOTSPOT]);
+const FILL_HISTORY_STEP = 8192;
 
-/** The identity of a fill: painting the same rectangle again replaces it. */
-function fillKey(fill) {
-  return `${fill.x},${fill.y},${fill.w},${fill.h}`;
+/** Whether ``fill`` paints over every rectangle inside ``box``. */
+function covers(fill, box) {
+  return fill.x <= box.x && fill.y <= box.y
+    && fill.x + fill.w >= box.x + box.w
+    && fill.y + fill.h >= box.y + box.h;
+}
+
+/** Grow ``box`` to hold ``fill``. */
+function grow(box, fill) {
+  const right = Math.max(box.x + box.w, fill.x + fill.w);
+  const bottom = Math.max(box.y + box.h, fill.y + fill.h);
+  const x = Math.min(box.x, fill.x);
+  const y = Math.min(box.y, fill.y);
+  return { x, y, w: right - x, h: bottom - y };
+}
+
+/**
+ * The box every fill of a list lies inside, or ``null`` when it has none.
+ *
+ * Recomputing is for a log that was rewritten (a widget repaint split its fills);
+ * appending extends the box instead (``grow``), so a program's thousands of runs
+ * cost one box each rather than a scan.
+ */
+function fillBox(drawings) {
+  let box = null;
+  for (const drawing of drawings) {
+    if (drawing.kind !== 'fill') continue;
+    box = box ? grow(box, drawing) : { x: drawing.x, y: drawing.y, w: drawing.w, h: drawing.h };
+  }
+  return box;
 }
 
 /**
@@ -84,10 +112,15 @@ export class NextionDisplay {
     this.components = new Map(); // name -> { id, name, type, attrs, events, touch }
     this.byId = new Map();
     this.drawings = [];
-    // The rectangles of the fills in `drawings`, so a refined image replaces
-    // its own runs instead of scanning every drawing for each of the thousands
-    // of runs a full pass sends.
-    this._fillKeys = new Set();
+    // The box every fill lies inside: a fill that covers it leaves nothing of the
+    // earlier ones showing, so the log starts again from it (`command('fill')`).
+    this._fillBox = null;
+    this._compactAfter = FILL_HISTORY_STEP;
+    // Increases whenever the fill log was rewritten instead of appended to (a
+    // widget repaint split a fill, a page change dropped them). A canvas paints
+    // only what a render added to the log, so it needs to know when the fills it
+    // holds are no longer the display's (`picture-layer.js`).
+    this.fillsRevision = 0;
     this.warnings = [];
     // Global-scope widgets keep their attributes across page changes; keyed
     // "<page>.<widget>".
@@ -123,7 +156,9 @@ export class NextionDisplay {
       this.page = page;
       this.pageId = page.id;
       this.drawings = [];
-      this._fillKeys.clear();
+      this._fillBox = null;
+      this._compactAfter = FILL_HISTORY_STEP;
+      this.fillsRevision += 1;
       this.components = new Map();
       this.byId = new Map();
       for (const comp of page.components) {
@@ -158,7 +193,9 @@ export class NextionDisplay {
   exec(commands) {
     const list = Array.isArray(commands) ? commands : [commands];
     this.batch(() => {
-      for (const cmd of list) runScript(cmd, this._host());
+      const host = this._host();
+      for (const cmd of list) runScript(cmd, host, { cache: false });
+      this._compactFillHistory();
     });
   }
 
@@ -297,7 +334,10 @@ export class NextionDisplay {
     }
     if (!changed) return;
     this.drawings = next;
-    this._fillKeys = new Set(next.filter(d => d.kind === 'fill').map(fillKey));
+    this._fillBox = fillBox(next);
+    // The fills the picture had are gone, split into pieces: a canvas holding the
+    // old ones shows parts of an image the display no longer has.
+    this.fillsRevision += 1;
   }
 
   command(name, args) {
@@ -334,12 +374,8 @@ export class NextionDisplay {
         return;
       case 'xpic': {
         const [x, y, w, h, sx, sy, pic] = args;
+        this._discardDrawings(d => d.kind === 'xpic' && d.x === x && d.y === y && d.w === w && d.h === h);
         this.drawings.push({ kind: 'xpic', x, y, w, h, sx, sy, pic });
-        this.drawings = this.drawings.filter(
-          (d, i, all) => d.kind !== 'xpic' || !all.slice(i + 1).some(
-            n => n.kind === 'xpic' && n.x === d.x && n.y === d.y && n.w === d.w && n.h === d.h,
-          ),
-        );
         this._changed();
         return;
       }
@@ -352,20 +388,24 @@ export class NextionDisplay {
       case 'fill': {
         // The hub's image program: `fill x,y,w,h,color` — width and height, not
         // a second corner (the Nextion instruction set's own example:
-        // `fill 20,20,150,50,1024` paints 150x50 from (20,20)). Painting the
-        // same rectangle again replaces the previous fill, so a refined image
-        // does not accumulate runs; the key set keeps that a lookup per run
-        // instead of a scan of every drawing.
+        // `fill 20,20,150,50,1024` paints 150x50 from (20,20)). The log is what
+        // the display painted, in order, and a painter follows it by appending:
+        // a rectangle painted again is a later entry, exactly as on the panel.
         const [x, y, w, h, color] = args;
         const fill = { kind: 'fill', x, y, w, h, color };
-        const key = fillKey(fill);
-        if (this._fillKeys.has(key)) {
-          this.drawings = this.drawings.filter(
-            d => d.kind !== 'fill' || d.x !== x || d.y !== y || d.w !== w || d.h !== h,
-          );
+        // A fill paints over what was drawn before it, so one that reaches over
+        // every fill of the log leaves nothing of them on the display: a picture
+        // sent again replaces the previous one instead of stacking on it, and a
+        // stream's log stays one picture plus the frames since - the rectangles
+        // under a re-painted picture are exactly the thousands of runs a delta
+        // would otherwise have to keep.
+        if (this._fillBox && covers(fill, this._fillBox)) {
+          this._discardDrawings(d => d.kind === 'fill');
+          this._fillBox = null;
+          this._compactAfter = FILL_HISTORY_STEP;
         }
         this.drawings.push(fill);
-        this._fillKeys.add(key);
+        this._fillBox = this._fillBox ? grow(this._fillBox, fill) : { x, y, w, h };
         this._changed();
         return;
       }
@@ -377,8 +417,8 @@ export class NextionDisplay {
         this._clipFillsUnder(comp);
         if (this._draws(comp)) {
           const { x, y, w, h } = comp.attrs;
-          this.drawings = this.drawings.filter(
-            d => d.kind === 'fill' || !(d.x >= x && d.x < x + w && d.y >= y && d.y < y + h),
+          this._discardDrawings(
+            d => d.kind !== 'fill' && d.x >= x && d.x < x + w && d.y >= y && d.y < y + h,
           );
         }
         this._changed();
@@ -389,6 +429,32 @@ export class NextionDisplay {
         return;
       default:
         this.warn(`unsupported command: ${name}`);
+    }
+  }
+
+  _compactFillHistory() {
+    if (this.drawings.length < this._compactAfter) return;
+    // Keep frame-to-frame canvas writes incremental. Sweep only occasionally,
+    // dropping fills whose exact rectangle was painted again, in any colour.
+    const latest = new Set();
+    const obsolete = new Set();
+    for (let i = this.drawings.length - 1; i >= 0; i -= 1) {
+      const d = this.drawings[i];
+      if (d.kind !== 'fill') continue;
+      const key = [d.x, d.y, d.w, d.h].join(',');
+      if (latest.has(key)) obsolete.add(d);
+      else latest.add(key);
+    }
+    if (obsolete.size) this._discardDrawings(d => obsolete.has(d));
+    this._compactAfter = this.drawings.length + FILL_HISTORY_STEP;
+  }
+
+  _discardDrawings(remove) {
+    const remaining = this.drawings.filter(d => !remove(d));
+    if (remaining.length !== this.drawings.length) {
+      // Removing a shape can join two fill runs, changing their canvas prefixes.
+      this.drawings = remaining;
+      this.fillsRevision += 1;
     }
   }
 

@@ -181,13 +181,22 @@ class InertUpdateController(HAUIUpdateController):
 
 
 class VirtualESPHomeProxy:
-    """The firmware a Simulated preview runs against, in the browser."""
+    """The firmware a Simulated preview runs against, in the browser.
 
-    #: Everything here paints as it is recorded, so a sliced draw needs no
-    #: fence between slices (``HAUIESPHomeController._send_draw_slice``).
-    simulated = True
+    It answers a draw slice with the same fence the panel sends
+    (``esphome.res_draw``), after the time those fills would take on the display,
+    so the preview shows the same busy display and the same refused slice the
+    panel does (``HAUIESPHomeController._send_draw_slice``).
+    """
 
-    """Stands in for ``ESPHomeProxy`` and for the firmware behind it."""
+    #: Fill instructions a second the modelled display paints, for the fence's
+    #: delay: the panel's own rate is what sets a draw's pace, and this is the
+    #: order of magnitude a Nextion manages for merged runs.
+    FILLS_PER_SECOND = 2500
+    #: Bounds of that delay: a fence must never be instant (nothing would ever look
+    #: busy) and never hold a preview up for a whole second.
+    MIN_FENCE_S = 0.02
+    MAX_FENCE_S = 1.0
 
     def __init__(self, app: VirtualNSPanelHAUI, sink: Sink, device_info: dict[str, Any]) -> None:
         self._app = app
@@ -198,6 +207,9 @@ class VirtualESPHomeProxy:
         self._page: int = 0
         self._idle = False
         self._entities: dict[str, str] = {}
+        # Debug switch: the next slice is drawn and then refused, so the preview
+        # can be put through the failure path a real panel has (#: see publish).
+        self.refuse_next_slice = False
 
     def set_device_info(self, device_info: dict[str, Any]) -> None:
         """Update the metadata reported by the simulated device."""
@@ -242,6 +254,7 @@ class VirtualESPHomeProxy:
             for run in runs:
                 commands.extend(decode_program(str(run)))
             self._sink({"type": "commands", "commands": commands})
+            self._schedule_fence(len(commands))
         elif name == "goto_page":
             self._page = int(value)
             self._sink({"type": "page", "page": self._page})
@@ -310,6 +323,20 @@ class VirtualESPHomeProxy:
         data = {"name": str(name), "value": value}
         for cb in list(self._listeners):
             self._app.hass.loop.call_soon_threadsafe(self._app.dispatch, cb, ESP_NS_EVENT, data, {})
+
+    def _schedule_fence(self, runs: int) -> None:
+        """Report the slice back when the modelled display has painted it.
+
+        The real firmware measures from the first run it queued to the readback
+        that can only answer after the last one was sent, and the hub sends the
+        next slice on that report (``HAUIESPHomeController.on_draw_report``). The
+        preview does the same, so a frame arriving mid-draw is skipped here too.
+        """
+        refused = self.refuse_next_slice
+        self.refuse_next_slice = False
+        delay = max(self.MIN_FENCE_S, min(self.MAX_FENCE_S, runs / self.FILLS_PER_SECOND))
+        payload = json.dumps({"ok": not refused, "runs": runs, "elapsed_ms": round(delay * 1000)})
+        self._app.run_in(lambda _kwargs: self.emit(ESPEvent.RES_DRAW, payload), delay)
 
     def _start_heartbeat(self) -> None:
         if self._heartbeat_handle is None:
@@ -754,6 +781,18 @@ class _RecordingESPHome:
     def reset_prev_cmd(self) -> None:
         pass
 
+    def draw_runs(self, runs: list[str]) -> None:
+        """Record a drawn picture as the ``fill`` commands it is.
+
+        A camera page paints its last frame as part of its render, so the card
+        shows the picture the panel shows; the runs are plain ``fill``
+        instructions and the browser's simulator paints them like any other.
+        """
+        if self.on_commands is not None:
+            self.on_commands(list(runs))
+        else:
+            self.commands.extend(runs)
+
     def publish_detached(self, cmd: str, value: Any = "") -> None:
         """Fire-and-forget actions (the heartbeat) have no live device here."""
 
@@ -842,9 +881,12 @@ class _RenderApp:
         esphome: _RecordingESPHome,
         service_responses: dict[str, Any],
         example_entities: dict[str, tuple[str, dict[str, Any]]],
+        camera_frame: list[str] | None = None,
     ) -> None:
         self._app = app
         self._service_responses = service_responses
+        self._recorder = esphome
+        self._camera_frame = list(camera_frame or [])
         self.sandbox = _RenderSandbox(app.sandbox, example_entities)
         self.controller = {
             **app.controller,
@@ -875,15 +917,39 @@ class _RenderApp:
             return None
         return self._service_responses.get(service)
 
-    # The camera page hands its picture area to a stream, and a stream is not part
-    # of a page render: it fetches snapshots from Home Assistant and paints on a
-    # real panel. A card render therefore keeps the placeholder, which is also what
-    # the panel shows before its first frame.
+    # A card render draws the page, not a stream: the camera page paints the
+    # device's last frame as part of that render (``camera_frame``), and nothing is
+    # fetched from Home Assistant here. A page that has no frame yet keeps its
+    # placeholder, which is also what the panel shows before its first frame.
+    def camera_page_frame(self) -> list[str]:
+        """The device's last camera frame, as the render was given it."""
+        return list(self._camera_frame)
+
+    def repaint_camera_page_frame(self) -> None:
+        """Record the picture the device holds, so the card replays it.
+
+        A card has no stream to ask: a render is one pass, so the frame the
+        device's stream last painted whole is what its page shows.
+        """
+        if self._camera_frame:
+            self._recorder.draw_runs(self._camera_frame)
+
     def start_camera_page_stream(self, **kwargs: Any) -> None:
-        """Ignore a page's request to stream a camera into its picture area."""
+        """A render never starts a stream: it would fetch and paint on a real panel."""
+
+    def paint_rect(self, rect: Any) -> None:
+        """A render paints nothing onto a display, so nothing else owns that area."""
 
     def stop_camera_page_stream(self) -> None:
         """Nothing was started, so nothing is stopped."""
+
+    def request_media_cover(self, url: str, rect: Any, on_done: Any) -> None:
+        """A render never fetches a cover: the card would wait for a download.
+
+        A card repaints from the page's own commands, and nothing here may reach
+        the network or the app's worker - the icon stands in for the player's
+        cover art, as it does on a panel that is still waiting for it.
+        """
 
 
 class _StreamApp(_RenderApp):
@@ -929,6 +995,7 @@ class _PanelRender:
         service_responses: dict[str, Any],
         *,
         stream: bool = False,
+        camera_frame: list[str] | None = None,
     ) -> None:
         panel_type = panel_config.get("type", "")
         page_id = get_page_id_for_panel(panel_type)
@@ -945,6 +1012,7 @@ class _PanelRender:
                 self._esphome,
                 service_responses,
                 PREVIEW_ENTITIES if not panel_config.get("key") else {},
+                camera_frame,
             )
         )
         kwargs = _navigation_kwargs(view, kwargs)
@@ -1007,6 +1075,7 @@ class VirtualPanelHost:
         device_info: dict[str, Any] | None = None,
     ) -> None:
         self._viewers: dict[str, Sink] = {}
+        self._ready_viewers: set[str] = set()
         # Physical notification id -> its copy in the virtual queue.
         self._preview_notification_ids: dict[str, str] = {}
         # The device's running app as followed for the cards (async_follow_panel).
@@ -1111,34 +1180,35 @@ class VirtualPanelHost:
             if command != ESPAction.DRAW_RUNS:
                 return
             navigation = running.controller["navigation"]
-            page = navigation.page
-            runs = [str(run) for run in (value if isinstance(value, list) else [value])]
+            panel = navigation.panel
+            if panel is None:
+                return
+            runs = list(value)
             self.app.hass.loop.call_soon_threadsafe(
                 self.app.dispatch,
                 self._mirror_draw,
-                page.page_id if page is not None else None,
+                running,
+                panel.get("key"),
                 runs,
             )
 
         self._unfollow_panel = running.subscribe_preview_state(_changed)
-        self._unfollow_output = running.subscribe_preview_output(_output)
+        self._unfollow_output = running.subscribe_preview_output(_output, overlays_only=True)
         state, snapshot = await running.async_run_on_worker(_read_panel, running, controller)
         await self.app.async_run_on_worker(self._sync_notifications, snapshot)
         await self.app.async_run_on_worker(self.home.set_panel, state, len(snapshot))
         await self.async_follow_buttons(running)
 
-    def _mirror_draw(self, page_id: str | None, runs: list[str]) -> None:
-        """Paint an image the panel drew on the virtual display (its worker).
-
-        Only while the virtual app shows the page the panel drew on: the panel's
-        image belongs to that page and would otherwise appear over a different
-        one. Like the real panel's, it is gone on the next page change.
-        """
-        navigation = self.app.controller["navigation"]
-        page = navigation.page
-        if page is None or page.page_id != page_id:
-            return
-        self.app.controller["esphome"].draw_runs(runs)
+    def _mirror_draw(self, source: Any, panel_key: str, runs: list[str]) -> None:
+        """Mirror service overlays only on the same configured panel, not just its HMI page."""
+        page = self.app.controller["navigation"].page
+        if (
+            source is self._panel_source
+            and page is not None
+            and page.panel is not None
+            and page.panel.get("key") == panel_key
+        ):
+            self.app.controller["esphome"].draw_stream_frame(runs, full=False)
 
     async def async_follow_buttons(self, running: Any) -> None:
         """Track the entities of the device's hardware buttons for the cards' frame."""
@@ -1200,15 +1270,7 @@ class VirtualPanelHost:
         """Attach a viewer; the first one boots the virtual display."""
         with self._viewers_lock:
             self._viewers[viewer_id] = sink
-        self.app.dispatch(self.app.start_button_state_tracking)
-        self.app.dispatch(
-            lambda: sink({"type": "sandbox", "changed": self.app.sandbox.has_changes})
-        )
-        if self._connected:
-            self.app.dispatch(self._redraw_for, sink)
-        else:
-            self._connected = True
-            self.app.virtual_esphome.connect()
+        self.app.dispatch(self._seed_viewer, viewer_id)
 
     def detach(self, viewer_id: str) -> bool:
         """Remove a viewer; returns whether it was attached.
@@ -1219,6 +1281,7 @@ class VirtualPanelHost:
         """
         with self._viewers_lock:
             removed = self._viewers.pop(viewer_id, None) is not None
+            self._ready_viewers.discard(viewer_id)
             last = removed and not self._viewers
         if last:
             self.app.dispatch(self._drop_sandbox)
@@ -1231,17 +1294,37 @@ class VirtualPanelHost:
 
     def _broadcast(self, message: dict[str, Any]) -> None:
         with self._viewers_lock:
-            sinks = list(self._viewers.values())
+            sinks = [self._viewers[key] for key in self._ready_viewers]
         for sink in sinks:
             sink(message)
 
-    def _redraw_for(self, sink: Sink) -> None:
+    def _seed_viewer(self, viewer_id: str) -> None:
+        # Seed from the worker before accepting live updates. Reloading the
+        # panel would clear its drawings for everyone, not just the new viewer.
+        with self._viewers_lock:
+            sink = self._viewers.get(viewer_id)
+        if sink is None:
+            return
         proxy = self.app.virtual_esphome
-        sink({"type": "idle", "active": proxy.idle})
-        sink({"type": "entities", "map": proxy.entities})
-        navigation = self.app.controller["navigation"]
-        if navigation.panel is not None:
-            navigation.reload_panel()
+        if self._connected:
+            sink({"type": "idle", "active": proxy.idle})
+            sink({"type": "entities", "map": proxy.entities})
+        sink({"type": "sandbox", "changed": self.app.sandbox.has_changes})
+        page = self.app.controller["navigation"].page
+        if page is not None:
+            sink({"type": "commands", "commands": page.load_commands})
+            sink({"type": "page", "page": page.page_id})
+            commands = self.app.controller["esphome"].page_commands()
+            if commands:
+                sink({"type": "commands", "commands": commands})
+        with self._viewers_lock:
+            if viewer_id not in self._viewers:
+                return
+            self._ready_viewers.add(viewer_id)
+        self.app.start_button_state_tracking()
+        if not self._connected:
+            self._connected = True
+            proxy.connect()
 
     # panel cards
 
@@ -1303,6 +1386,36 @@ class VirtualPanelHost:
             return {}
         return {"weather/get_forecasts": {"result": {"response": response}}}
 
+    async def _async_camera_frame(self, panel_config: dict[str, Any]) -> list[str]:
+        """The frame the device's camera page last put on its display.
+
+        A camera page paints its picture instead of describing it in widget
+        commands, so a render of that page has nothing to draw without the frame the
+        panel received. Read it only while the followed device shows that panel.
+        The card fetches no snapshot of its own; without one it keeps the page’s
+        placeholder.
+        """
+        source = self._panel_source
+        if source is None or panel_config.get("type") != "camera":
+            return []
+
+        def current_frame() -> list[str]:
+            page = source.controller["navigation"].page
+            if (
+                page is None
+                or page.panel is None
+                or page.panel.get("key") != panel_config.get("key")
+            ):
+                return []
+            return source.camera_page_frame()
+
+        try:
+            frame = await source.async_run_on_worker(current_frame)
+        except Exception as exc:  # noqa: BLE001 - a card renders without the device
+            _LOGGER.debug("Card render: the device gave no camera frame: %s", exc)
+            return []
+        return list(frame or [])
+
     async def async_render(
         self,
         panel_config: dict[str, Any],
@@ -1328,8 +1441,11 @@ class VirtualPanelHost:
         kwargs = {**preview_kwargs(self.app.hass, panel_config), **(kwargs or {})}
         render_config = {**panel_config, **kwargs}
         service_responses = await self._async_render_service_responses(render_config)
+        camera_frame = await self._async_camera_frame(panel_config)
         render = await self.app.async_run_on_worker(
-            _PanelRender, self.app, panel_config, kwargs, service_responses
+            lambda: _PanelRender(
+                self.app, panel_config, kwargs, service_responses, camera_frame=camera_frame
+            )
         )
         loop = asyncio.get_running_loop()
         started = False

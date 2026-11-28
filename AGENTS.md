@@ -158,7 +158,8 @@ Read the `docs/develop/frontend*.md` pages before a UI change; these are the rul
 - A concrete transport where `DisplayTransport` would do; `asyncio.run_coroutine_threadsafe` outside `HAAdapter`/`ESPHomeProxy`.
 - A fallback for a setting that has a declared default.
 - A second popover, sidebar, dialog frame, button, chip or card style; a second preview renderer; a forked copy of a shared UI idea.
-- Building DOM by hand in the editor (`innerHTML`, `insertAdjacentHTML`, manual creation) — return `html` templates; only `frontend/virtual/` renders display output.
+- Building DOM by hand in the editor (`innerHTML`, `insertAdjacentHTML`, manual creation) — return `html` templates; only `frontend/virtual/` renders display output, and only a draw program's canvas there is built imperatively (`picture-layer.js`: a 2D context has no template, and the runs must not become one element each).
+- A picture's `fill` runs as one element per rectangle — a run of fills is one canvas, repainted only when its runs changed (a camera stream repaints the whole rectangle several times a second).
 - Fetching outside `api/` (no `fetch`, `hass.fetchWithAuth`, `callWS`, `subscribeMessage` in views, components, dialogs or the shell).
 - Laying out with viewport media queries or inline `style=`; a non-literal `t()` argument; a hardcoded user-facing string.
 - A widget, geometry edit or event code that reaches only one HMI; a theme colour sent after a page is shown.

@@ -1009,7 +1009,7 @@ async def test_show_image_refuses_a_rect_off_the_display(
         await services._handle_show_image(mock_hass, _image_call(x=470, w=40))
 
     assert fetched == []
-    mock_esphome_ctrl.draw_runs.assert_not_called()
+    mock_esphome_ctrl.draw_overlay.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1027,7 +1027,7 @@ async def test_show_image_refuses_old_firmware_and_names_the_upgrade(
     with pytest.raises(_ServiceValidationError, match=DRAW_RUNS_FIRMWARE_VERSION):
         await _handle_show_image(mock_hass, _image_call())
 
-    mock_esphome_ctrl.draw_runs.assert_not_called()
+    mock_esphome_ctrl.draw_overlay.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1045,7 +1045,7 @@ async def test_show_image_refuses_while_a_tft_install_runs(
     with pytest.raises(_ServiceValidationError, match="installing a TFT"):
         await _handle_show_image(mock_hass, _image_call())
 
-    mock_esphome_ctrl.draw_runs.assert_not_called()
+    mock_esphome_ctrl.draw_overlay.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1065,7 +1065,7 @@ async def test_show_image_surfaces_a_fetch_failure(
     with pytest.raises(_HomeAssistantError, match="404"):
         await services._handle_show_image(mock_hass, _image_call())
 
-    mock_esphome_ctrl.draw_runs.assert_not_called()
+    mock_esphome_ctrl.draw_overlay.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1085,7 +1085,7 @@ async def test_show_image_surfaces_an_undecodable_image(
     with pytest.raises(_ServiceValidationError, match="could not be decoded"):
         await services._handle_show_image(mock_hass, _image_call())
 
-    mock_esphome_ctrl.draw_runs.assert_not_called()
+    mock_esphome_ctrl.draw_overlay.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1106,7 +1106,7 @@ async def test_show_image_paints_every_block_of_the_rectangle(
 
     await _handle_show_image(mock_hass, _image_call())
 
-    (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    (runs,), _kwargs = mock_esphome_ctrl.draw_overlay.call_args
     rect = Rect(10, 10, 40, 40)
     covered = set()
     for run in runs:
@@ -1116,6 +1116,28 @@ async def test_show_image_paints_every_block_of_the_rectangle(
     assert covered == {
         (x, y) for y in range(rect.y, rect.bottom) for x in range(rect.x, rect.right)
     }
+
+
+@pytest.mark.asyncio
+async def test_a_service_image_tells_the_rectangle_it_painted(
+    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+):
+    """Whoever owns that area on the display - a camera stream - has to know.
+
+    The image is not part of the stream's model of the panel, so without the
+    rectangle every later delta is planned against a picture that is no longer
+    there (``app.paint_rect``).
+    """
+    from custom_components.nspanel_haui.haui.utils.image_program import Rect
+    from custom_components.nspanel_haui.services import _handle_show_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    await _handle_show_image(mock_hass, _image_call())
+
+    _runs, kwargs = mock_esphome_ctrl.draw_overlay.call_args
+    assert kwargs["rect"] == Rect(10, 10, 40, 40)
 
 
 @pytest.mark.asyncio
@@ -1130,7 +1152,7 @@ async def test_show_image_draws_the_program_on_the_panel(
 
     await _handle_show_image(mock_hass, _image_call())
 
-    (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    (runs,), _kwargs = mock_esphome_ctrl.draw_overlay.call_args
     assert runs and all(run.startswith("fill ") for run in runs)
     assert len(runs) <= 300
     mock_hass.async_add_executor_job.assert_awaited()
@@ -1171,7 +1193,7 @@ async def test_show_image_queues_the_coarse_pass_before_the_full_one(
         budget=300,
         progressive=True,
     )
-    (sent,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    (sent,), _kwargs = mock_esphome_ctrl.draw_overlay.call_args
     assert len(programs) == 2
     assert 0 < len(programs[0]) <= PROGRESSIVE_RUNS
     assert sent == [run for program in programs for run in program]
@@ -1225,7 +1247,7 @@ async def test_show_image_draws_a_file_without_fetching_anything(
 
     await services._handle_show_image(mock_hass, _file_call())
 
-    (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    (runs,), _kwargs = mock_esphome_ctrl.draw_overlay.call_args
     assert runs and all(run.startswith("fill ") for run in runs)
 
 
@@ -1346,8 +1368,11 @@ def test_show_image_service_metadata_and_schema_agree():
 
 
 @pytest.mark.asyncio
-async def test_clear_image_paints_the_page_background(mock_hass, mock_nav, mock_esphome_ctrl):
-    """One fill in the page's own colour: no image, no program."""
+async def test_clear_image_paints_the_page_background_and_its_rectangle(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    """One fill in the page's own colour, and the area it wiped is reported."""
+    from custom_components.nspanel_haui.haui.utils.image_program import Rect
     from custom_components.nspanel_haui.services import _handle_clear_image
 
     app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
@@ -1358,7 +1383,9 @@ async def test_clear_image_paints_the_page_background(mock_hass, mock_nav, mock_
 
     await _handle_clear_image(mock_hass, call)
 
-    mock_esphome_ctrl.draw_runs.assert_called_once_with(["fill 10,20,30,40,4660"])
+    mock_esphome_ctrl.draw_overlay.assert_called_once_with(
+        ["fill 10,20,30,40,4660"], rect=Rect(10, 20, 30, 40)
+    )
 
 
 def test_both_camera_stream_services_are_registered(mock_hass):
@@ -1374,9 +1401,9 @@ def test_the_stream_schema_takes_its_documented_defaults():
     result = SERVICE_START_CAMERA_STREAM_SCHEMA({"camera": "camera.door", "w": 100, "h": 80})
 
     assert result["fps"] == 2.0
-    assert result["cell"] == 8
+    assert result["cell"] == 4
     assert result["band"] == 24
-    assert result["max_runs"] == 400
+    assert result["max_runs"] == 1200
     assert result["x"] == 0 and result["y"] == 0
 
 

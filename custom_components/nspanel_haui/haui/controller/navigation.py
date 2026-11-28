@@ -1057,20 +1057,10 @@ class HAUINavigationController(HAUIBase):
 
     def _handle_page_event(self, event: HAUIEvent) -> None:
         """A page-change ack arrived from the device."""
-        # A page switch ends a draw in flight with it. The hub cancels when it
-        # sends the switch; this is the backstop for one the display reported on
-        # its own (a page the HMI switched to), where the firmware stops its
-        # stream too and any late report belongs to a pass that is over.
-        esp_ctrl = self.app.controller.get("esphome")
-        if esp_ctrl is not None and hasattr(esp_ctrl, "cancel_draw"):
-            esp_ctrl.cancel_draw()
-        # cancel page timeout if any
-        self._cancel_timer("_page_timeout")
-        self._page_change_ts = 0.0
         if self.page is None:
             return
-        # mismatch - likely a stale echo of a previous goto.
-        # Don't reload; _page_timeout handles real failures.
+        # Only the expected page acknowledgement can settle this load. An echo
+        # cannot cancel a draw or reload a page that is already running.
         if self.page.page_id != event.as_int():
             self.log(
                 f"Stale page event {PAGE_MAPPING.get(event.as_int())} "
@@ -1078,8 +1068,13 @@ class HAUINavigationController(HAUIBase):
                 level="DEBUG",
             )
             return
+        self._cancel_timer("_page_timeout")
+        self._page_change_ts = 0.0
         # wait for the settle delay so the Nextion finishes initialising the page.
         if not self.page.is_started() and self.panel is not None:
+            esp_ctrl = self.app.controller.get("esphome")
+            if esp_ctrl is not None and hasattr(esp_ctrl, "cancel_draw"):
+                esp_ctrl.cancel_draw()
             delay = self.app.device.get("page_settle_delay")
             self._cancel_timer("_page_settle_timer")
             self._page_settle_timer = self.app.run_in(self._page_settle_callback, delay)
@@ -1135,7 +1130,7 @@ class HAUINavigationController(HAUIBase):
         # ESPHome controller sends the next slice, or drops the rest.
         esp_ctrl = self.app.controller.get("esphome")
         if esp_ctrl is not None:
-            esp_ctrl.on_draw_report(ok)
+            esp_ctrl.on_draw_report(ok, runs=runs if "runs" in payload else None)
 
     def _handle_buffer_overflow_event(self, _event: HAUIEvent) -> None:
         """esphome.buffer_overflow — Nextion RX buffer overflowed, commands lost.

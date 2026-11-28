@@ -13,8 +13,10 @@ import sys
 import threading
 import time
 import types
+from io import BytesIO
 
 import pytest
+from PIL import Image
 
 import custom_components.nspanel_haui as nspanel_haui
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
@@ -22,6 +24,8 @@ from custom_components.nspanel_haui.haui.mapping.const import ESPEvent
 from custom_components.nspanel_haui.haui.mapping.icons import ICO_PASSWORD
 from custom_components.nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
+from custom_components.nspanel_haui.haui.page.camera import CameraPage
+from custom_components.nspanel_haui.hub import camera_stream
 from custom_components.nspanel_haui.web.preview.virtual_panel import (
     InertUpdateController,
     VirtualPanelHost,
@@ -142,15 +146,6 @@ def _open(env, config, sink, **kwargs):
 
 def _commands(messages):
     return [c for m in messages if m["type"] == "commands" for c in m["commands"]]
-
-
-def _drawn_commands(app) -> list[str]:
-    """The image program recorded for the page replay (runs on the app's worker)."""
-    return [
-        command
-        for command in app.controller["esphome"].page_commands()
-        if command.startswith("fill ")
-    ]
 
 
 def _button(messages, side):
@@ -1269,6 +1264,40 @@ def _page_id(env, app) -> str | None:
     return None if page is None else page.page_id
 
 
+def _replay(env, app) -> list[str]:
+    """The commands the app's shown page was sent, as a viewer is seeded with them."""
+    return list(_run(env, app.async_run_on_worker(app.controller["esphome"].page_commands)))
+
+
+def test_a_simulated_camera_page_draws_with_no_physical_panel(env, monkeypatch):
+    """The camera page, planner, packed transport and browser feed are all real."""
+    panel = {"type": "camera", "key": "front", "item": {"item": "camera.front"}}
+    env._states["camera.front"] = _State("idle", {"friendly_name": "Front"})
+    env.async_create_task = env.loop.create_task
+    image = BytesIO()
+    Image.new("RGB", (64, 48), (255, 0, 0)).save(image, format="PNG")
+
+    async def snapshot(_stream):
+        return image.getvalue()
+
+    monkeypatch.setattr(camera_stream.CameraStream, "_snapshot", snapshot)
+    messages: list[dict] = []
+    host = _open(env, _config([panel], home_panel="front"), messages.append)
+    try:
+        _wait(lambda: any(command.startswith("fill ") for command in _commands(messages)))
+        page_index = messages.index({"type": "page", "page": CameraPage.DESCRIPTOR.page_id})
+        commands = _commands(messages[page_index + 1 :])
+        first = next(i for i, cmd in enumerate(commands) if cmd.startswith("fill "))
+        assert commands[first].endswith(",63488")
+        assert "vis tText,0" in commands[:first], "the placeholder is hidden before the paint"
+        late: list[dict] = []
+        env.loop.call_soon_threadsafe(lambda: host.attach("camera-late", late.append))
+        _wait(lambda: commands[first] in _commands(late))
+    finally:
+        _run(env, camera_stream.stop_stream(host.app))
+        _run(env, host.async_stop())
+
+
 def test_an_image_the_panel_draws_shows_in_the_simulated_preview(session, env):
     """``show_image`` is display output, not state: it must reach the preview too."""
     source = _open(env, _config(), lambda _message: None)
@@ -1281,37 +1310,38 @@ def test_an_image_the_panel_draws_shows_in_the_simulated_preview(session, env):
         _run(
             env,
             source.app.async_run_on_worker(
-                lambda: source.app.controller["esphome"].draw_runs(program)
+                lambda: source.app.controller["esphome"].draw_overlay(program)
             ),
         )
 
         _wait(lambda: all(run in _commands(session.messages) for run in program))
-        # Recorded like the page's own output, so a late viewer gets it too.
-        _wait(
-            lambda: all(
-                run in _run(env, session.app.async_run_on_worker(_drawn_commands, session.app))
-                for run in program
-            )
-        )
+        # A late viewer is seeded from the replay, not from the stream: the panel
+        # confirms a slice with a fence, and only then does the picture belong to it.
+        _wait(lambda: all(run in _replay(env, session.app) for run in program))
+        # A second viewer gets the drawn image without forcing a redraw for the first.
+        late: list[dict] = []
+        marker = len(session.messages)
+        env.loop.call_soon_threadsafe(lambda: session.attach("late", late.append))
+        _wait(lambda: all(run in _commands(late) for run in program))
+        assert not any(m["type"] == "page" for m in session.messages[marker:])
     finally:
         _run(env, source.async_stop())
 
 
-def test_an_image_drawn_on_another_page_stays_out_of_the_preview(session, env):
-    """The image belongs to the page the panel drew it on."""
-    source = _open(env, _config(), lambda _message: None)
+def test_an_image_drawn_on_another_panel_with_the_same_layout_stays_out(session, env):
+    """Two grid panels share an HMI page but have independent drawn content."""
+    other = {"type": "grid", "key": "other_grid", "items": [{"item": "light.lamp"}]}
+    source = _open(env, _config([other], home_panel="other_grid"), lambda _message: None)
     program = ["fill 10,10,20,20,63488"]
 
     try:
         _run(env, session.async_follow_panel(source.app))
-        shown = _page_id(env, session.app)
-        session.messages.clear()
+        _wait(lambda: _page_id(env, source.app) == _page_id(env, session.app) == GRID_PAGE_ID)
         _run(
             env,
-            source.app.async_run_on_worker(
-                lambda: session._mirror_draw(f"{shown}-elsewhere", program)
-            ),
+            source.app.async_run_on_worker(source.app.controller["esphome"].draw_overlay, program),
         )
+        _run(env, session.app.async_run_on_worker(lambda: None))
 
         assert program[0] not in _commands(session.messages)
     finally:

@@ -757,7 +757,7 @@ async def _read_image(hass: HomeAssistant, call: ServiceCall) -> bytes:
     return await _fetch_image(hass, str(call.data["url"]))
 
 
-def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]]) -> None:
+def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]], rect: Rect) -> None:
     """Send an image to the panel as one queue of runs, coarse pass first.
 
     The passes are flattened rather than sent one after the other: the panel
@@ -769,21 +769,21 @@ def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]]) -
     replay, which is worker-owned state.
     """
     esp_ctrl = app.controller.get("esphome")
-    if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
+    if esp_ctrl is None or not hasattr(esp_ctrl, "draw_overlay"):
         _LOGGER.warning("%s: no ESPHome controller — the image was not drawn", dev_name)
         return
     runs = [run for program in programs for run in program]
     if runs:
-        esp_ctrl.draw_runs(runs)
+        esp_ctrl.draw_overlay(runs, rect=rect)
 
 
 def _clear_rect(app: NSPanelHAUI, dev_name: str, rect: Rect) -> None:
     """Paint the rectangle in the page's background colour: a single ``fill``."""
     esp_ctrl = app.controller.get("esphome")
-    if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
+    if esp_ctrl is None or not hasattr(esp_ctrl, "draw_overlay"):
         _LOGGER.warning("%s: no ESPHome controller — the image was not cleared", dev_name)
         return
-    esp_ctrl.draw_runs([clear_run(rect, _page_background(app))])
+    esp_ctrl.draw_overlay([clear_run(rect, _page_background(app))], rect=rect)
 
 
 async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -835,7 +835,7 @@ async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
                 budget,
                 cell,
             )
-        app.dispatch(partial(_draw_programs, app, dev_name, programs))
+        app.dispatch(partial(_draw_programs, app, dev_name, programs, rect))
 
 
 async def _handle_clear_image(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -860,7 +860,8 @@ async def _handle_start_camera_stream(hass: HomeAssistant, call: ServiceCall) ->
     display fails without touching a camera - the same order ``show_image`` uses.
     The stream itself owns the frames from then on: it stops on a page change, a
     sleeping display, a panel installing a TFT, a camera that stops answering, or
-    ``stop_camera_stream``.
+    ``stop_camera_stream``. Starting it also stops whatever the panel streamed
+    before, so this handler never has to know about that stream.
 
     Raises:
         ServiceValidationError: When the rectangle is off the display, the panel
@@ -868,7 +869,7 @@ async def _handle_start_camera_stream(hass: HomeAssistant, call: ServiceCall) ->
     """
     from homeassistant.exceptions import ServiceValidationError
 
-    from .hub.camera_stream import CameraStream, stop_stream
+    from .hub.camera_stream import CameraStream
 
     targets = _resolve_required_targets(hass, call)
     rects = {dev_name: _image_rect(app, call) for dev_name, app in targets}
@@ -879,7 +880,6 @@ async def _handle_start_camera_stream(hass: HomeAssistant, call: ServiceCall) ->
         )
     try:
         for dev_name, app in targets:
-            await stop_stream(app)
             stream = CameraStream(
                 hass,
                 app,
@@ -889,6 +889,7 @@ async def _handle_start_camera_stream(hass: HomeAssistant, call: ServiceCall) ->
                 cell=int(call.data["cell"]),
                 band=int(call.data["band"]),
                 max_runs=int(call.data["max_runs"]),
+                progressive=True,
             )
             await stream.async_start()
             _LOGGER.info(

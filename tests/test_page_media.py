@@ -5,6 +5,9 @@ The page is constructed for real (so ``prepare()`` runs) and shown through
 on the Nextion commands sent and the media_player services called.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from support.page_app import Entity, PageApp
 
@@ -16,11 +19,18 @@ from custom_components.nspanel_haui.haui.features import MediaPlayerFeatures as 
 from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
 from custom_components.nspanel_haui.haui.page import media as media_module
-from custom_components.nspanel_haui.haui.page.media import MediaPage
+from custom_components.nspanel_haui.haui.page.media import ICON_RECT, MediaPage
+from custom_components.nspanel_haui.haui.utils.image_program import Rect
+from custom_components.nspanel_haui.haui.version import DRAW_RUNS_FIRMWARE_VERSION
 
 _COLORS = {"component_active": 1, "text_disabled": 2}
 _PAGE_ID = 14
 _ENTITY_ID = "media_player.kitchen"
+LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
+#: The device info a panel reports once it is connected; a firmware without the
+#: ``draw_runs`` action cannot paint a cover.
+_DEVICE_INFO = {"yaml_version": DRAW_RUNS_FIRMWARE_VERSION}
+_PICTURE = "/api/media_player_proxy/media_player.kitchen?token=abc"
 
 
 class _Device:
@@ -276,3 +286,134 @@ def test_a_light_theme_repaints_the_white_body_text():
     assert f"tMTitle.pco={light.get('component_text')}" in app.cmds
     assert f"m1Name.pco={light.get('component_text')}" in app.cmds
     assert f"m1Icon.pco={light.get('component_active')}" in app.cmds
+
+
+# cover art
+
+
+def _cover_app(picture=None, device_info=None):
+    """A real page app whose player publishes ``picture`` as its cover art."""
+    attributes = {"media_title": "Morning Coffee"}
+    if picture is not None:
+        attributes["entity_picture"] = picture
+    app = PageApp({_ENTITY_ID: Entity("playing", attributes)})
+    app.device.device_info = dict(_DEVICE_INFO if device_info is None else device_info)
+    return app
+
+
+def _show_cover(app):
+    page = MediaPage(app, {"page_id": _PAGE_ID})
+    page.set_panel(HAUIPanel(app, {"type": "media", "item": _ENTITY_ID}))
+    return page
+
+
+def _icon_commands(app):
+    return [cmd for cmd in app.cmds if cmd.startswith("tIcon.")]
+
+
+def test_the_icon_rectangle_is_the_one_both_hmis_compile():
+    """A cover is drawn where the icon widget is, per display model."""
+    app = PageApp({})
+    page = MediaPage(app, {"page_id": _PAGE_ID})
+
+    for orientation in ("landscape", "portrait"):
+        app.device.is_portrait = orientation == "portrait"
+        layout = json.loads((LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))
+        media = next(p for p in layout["pages"].values() if p["name"] == "media")
+        icon = next(c["attrs"] for c in media["components"] if c["name"] == "tIcon")
+
+        assert page.icon_rect == Rect(icon["x"], icon["y"], icon["w"], icon["h"]), orientation
+        assert ICON_RECT[orientation] == page.icon_rect
+
+
+def test_a_player_with_cover_art_draws_it_in_the_icon_rectangle():
+    app = _cover_app(_PICTURE)
+    page = _show_cover(app)
+
+    assert [request["url"] for request in app.cover_requests] == [_PICTURE]
+    assert app.cover_requests[0]["rect"] == page.icon_rect
+
+    app.cover(["fill 12,68,50,50,1"])
+
+    assert app.cmds[-1] == "fill 12,68,50,50,1"
+
+
+def test_a_player_without_cover_art_keeps_the_icon():
+    app = _cover_app()
+    _show_cover(app)
+
+    assert app.cover_requests == []
+    assert _icon_commands(app)
+
+
+def test_firmware_without_a_draw_action_keeps_the_icon():
+    """An old firmware would be sent a program it cannot paint."""
+    app = _cover_app(_PICTURE, device_info={})
+    page = _show_cover(app)
+
+    assert app.cover_requests == []
+    assert _icon_commands(app)
+    assert page._cover_supported is False
+
+
+def test_a_shown_cover_is_not_painted_over_by_the_icon():
+    app = _cover_app(_PICTURE)
+    page = _show_cover(app)
+    app.cover(["fill 12,68,50,50,1"])
+    app.cmds.clear()
+
+    page.refresh_panel()
+
+    assert _icon_commands(app) == []
+
+
+def test_the_cover_comes_back_when_the_player_drops_it():
+    app = _cover_app(_PICTURE)
+    page = _show_cover(app)
+    app.cover(["fill 12,68,50,50,1"])
+    app.cmds.clear()
+
+    app.entities[_ENTITY_ID].attributes.pop("entity_picture")
+    page.callback_media_entity(_ENTITY_ID, "entity_picture", None, None, {})
+
+    assert "fill" not in " ".join(app.cmds)
+    assert _icon_commands(app)
+
+
+def test_a_cover_for_the_previous_track_is_dropped():
+    app = _cover_app(_PICTURE)
+    page = _show_cover(app)
+    answer_first = app.cover_requests[0]["on_done"]
+
+    app.entities[_ENTITY_ID].attributes["entity_picture"] = "http://radio.example/other.png"
+    page.callback_media_entity(_ENTITY_ID, "entity_picture", _PICTURE, "other", {})
+    app.cmds.clear()
+    answer_first(["fill 12,68,50,50,1"], None)
+
+    assert [request["url"] for request in app.cover_requests][-1] == (
+        "http://radio.example/other.png"
+    )
+    assert app.cmds == []
+
+
+def test_a_cover_that_could_not_be_fetched_leaves_the_icon():
+    app = _cover_app(_PICTURE)
+    _show_cover(app)
+    app.cmds.clear()
+
+    app.cover(None, RuntimeError("404"))
+
+    assert "fill" not in " ".join(app.cmds)
+    assert _icon_commands(app)
+
+
+def test_a_cover_that_arrives_after_the_page_is_left_is_dropped():
+    app = _cover_app(_PICTURE)
+    page = _show_cover(app)
+    answer = app.cover_requests[0]["on_done"]
+
+    page.set_panel(None)
+    app.cmds.clear()
+    answer(["fill 12,68,50,50,1"], None)
+
+    assert app.cmds == []

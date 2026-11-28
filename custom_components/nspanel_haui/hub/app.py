@@ -31,6 +31,7 @@ from .adapter import HAAdapter
 
 if TYPE_CHECKING:
     from ..haui.utils.image_program import Rect
+    from ..haui.utils.image_stream import PictureQuality
 
 
 class ControllerDict(TypedDict, total=True):
@@ -73,7 +74,7 @@ class NSPanelHAUI(HAAdapter):
         self._tick_subscribers: dict[str, set[Callable[..., None]]] = {}
         self._tick_timers: dict[str, str] = {}
         self._preview_state_subscribers: set[Callable[[dict[str, Any]], None]] = set()
-        self._preview_output_subscribers: set[Callable[[str, Any], None]] = set()
+        self._preview_output_subscribers: dict[Callable[[str, Any], None], bool] = {}
         self._preview_state_lock = threading.Lock()
         # update requests waiting for their answer (event loop only)
         self._update_requests: set[asyncio.Future[dict[str, Any]]] = set()
@@ -288,19 +289,25 @@ class NSPanelHAUI(HAAdapter):
         *,
         entity_id: str,
         rect: Rect,
-        fps: float,
+        quality: PictureQuality,
         on_first_frame: Callable[[], None] | None = None,
     ) -> None:
         """Draw ``entity_id`` into ``rect`` while the camera page is shown (worker).
 
-        The page owns the rectangle and the entity; fetching, planning and sending
-        frames is the stream's job. A second call replaces the running stream, so a
-        re-rendered page starts from a full paint.
+        The page owns the rectangle, the entity and the quality it was given;
+        fetching, planning and sending frames is the stream's job, and so is how
+        the picture fills the area - the page hands over a rectangle, not a
+        presentation. A second call asking for the same picture leaves the
+        running stream alone, so a re-render keeps the picture it already has.
         """
         from .camera_stream import start_page_stream
 
         start_page_stream(
-            self, entity_id=entity_id, rect=rect, fps=fps, on_first_frame=on_first_frame
+            self,
+            entity_id=entity_id,
+            rect=rect,
+            quality=quality,
+            on_first_frame=on_first_frame,
         )
 
     def stop_camera_page_stream(self) -> None:
@@ -308,6 +315,76 @@ class NSPanelHAUI(HAAdapter):
         from .camera_stream import stop_page_stream
 
         stop_page_stream(self)
+
+    def camera_page_rect(self) -> Rect | None:
+        """The rectangle of the shown camera page's picture, when it shows one (worker)."""
+        from ..haui.page.camera import CameraPage
+
+        page = self.controller["navigation"].page
+        if not isinstance(page, CameraPage):
+            return None
+        return page.picture_rect
+
+    def camera_page_frame(self) -> list[str]:
+        """The confirmed picture on the current camera page, for a card render.
+
+        Empty when the replay can no longer describe that area whole (the stream
+        owns the picture, so it is the one to ask for a whole paint) or when the
+        current page shows no camera at all.
+        """
+        rect = self.camera_page_rect()
+        if rect is None:
+            return []
+        return self.controller["esphome"].picture_commands(rect.x, rect.y, rect.w, rect.h)
+
+    def paint_rect(self, rect: Rect) -> None:
+        """Tell the stream that owns ``rect``, if any, that something else painted there.
+
+        One owner per rectangle: the camera stream's planner holds the picture the
+        display was showing, and a program painted into its area - a service image,
+        a page drawing its own widgets - leaves that model wrong. The stream paints
+        the rectangle whole on its next frame, which is the only way the ghost goes
+        away (``camera_stream.repaint_rect``).
+        """
+        from .camera_stream import repaint_rect
+
+        repaint_rect(self, rect)
+
+    def repaint_camera_page_frame(self) -> None:
+        """Have the camera stream paint its whole rectangle again (worker).
+
+        A page that is drawn again puts its own widgets where the picture goes -
+        the placeholder, the theme's foregrounds - and only a whole paint of the
+        rectangle restores it. The stream does that itself
+        (``camera_stream.repaint_page_stream``) rather than the page replaying the
+        frame it remembers: replaying it would be a second paint path, can be cut
+        short by the pass already in flight, and is stale - the deltas that follow
+        are planned against a newer picture, so the cells that changed since would
+        keep the old colours for ever.
+        """
+        from .camera_stream import repaint_page_stream
+
+        repaint_page_stream(self)
+
+    # media cover art
+
+    def request_media_cover(
+        self,
+        url: str,
+        rect: Rect,
+        on_done: Callable[[list[str], BaseException | None], None],
+    ) -> None:
+        """Fetch a media player's cover art and plan the program that paints it (worker).
+
+        The page owns the picture it shows and the rectangle it goes in - its own
+        icon widget - and gets the runs back through ``on_done`` on this worker, so
+        the cover is painted in order with the rest of the page. A result that
+        arrives after another track, or another panel, took its place is the page's
+        to drop, which it knows by the token it keeps.
+        """
+        from .media_cover import request_cover
+
+        request_cover(self, url, rect, on_done)
 
     async def _async_update_request(self, method: str, **kwargs: Any) -> dict[str, Any]:
         """Await an updater operation whose network stage completes off-worker."""
@@ -568,22 +645,26 @@ class NSPanelHAUI(HAAdapter):
             except Exception as exc:
                 self.log(f"Error notifying live-preview state subscriber: {exc}", level="ERROR")
 
-    def subscribe_preview_output(self, callback: Callable[[str, Any], None]) -> Callable[[], None]:
-        """Subscribe to display output generated by this physical app."""
+    def subscribe_preview_output(
+        self, callback: Callable[[str, Any], None], *, overlays_only: bool = False
+    ) -> Callable[[], None]:
+        """Subscribe to the display, or to service images for a matching sandbox."""
         with self._preview_state_lock:
-            self._preview_output_subscribers.add(callback)
+            self._preview_output_subscribers[callback] = overlays_only
 
         def unsubscribe() -> None:
             with self._preview_state_lock:
-                self._preview_output_subscribers.discard(callback)
+                self._preview_output_subscribers.pop(callback, None)
 
         return unsubscribe
 
-    def publish_preview_output(self, command: str, value: Any) -> None:
+    def publish_preview_output(self, command: str, value: Any, *, external: bool = False) -> None:
         """Publish a display command to attached Live-preview mirrors."""
         with self._preview_state_lock:
-            subscribers = tuple(self._preview_output_subscribers)
-        for callback in subscribers:
+            subscribers = tuple(self._preview_output_subscribers.items())
+        for callback, overlays_only in subscribers:
+            if overlays_only and not external:
+                continue
             try:
                 callback(command, list(value) if isinstance(value, list) else value)
             except Exception as exc:

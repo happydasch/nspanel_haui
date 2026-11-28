@@ -321,11 +321,13 @@ function runNodes(nodes, host, budget) {
  *
  * @param {string} code - event code or one or more commands, one per line
  * @param {object} host - `{ getAttr(ref), setAttr(ref, value), command(name, args), warn(msg) }`
+ * @param {object} [options]
+ * @param {boolean} [options.cache] - only cache reusable HMI event bodies
  */
-export function runScript(code, host) {
+export function runScript(code, host, { cache = true } = {}) {
   let nodes;
   try {
-    nodes = parseScript(code);
+    nodes = cache ? parseScript(code) : parseLines(cleanLines(code));
   } catch (err) {
     host.warn(`${err.message} (in: ${code.slice(0, 80)})`);
     return;

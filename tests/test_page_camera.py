@@ -6,13 +6,22 @@ until the first frame arrives; the frames themselves are the stream's (see
 what the page asks the hub for.
 """
 
+import json
+from pathlib import Path
+
 from support.page_app import Entity, PageApp
 
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from custom_components.nspanel_haui.haui.page.camera import PICTURE_RECT, CameraPage
+from custom_components.nspanel_haui.haui.page.camera import (
+    PICTURE_RECT,
+    QUALITY_CHOICES,
+    CameraPage,
+)
 from custom_components.nspanel_haui.haui.utils.image_program import Rect
+from custom_components.nspanel_haui.haui.utils.image_stream import DEFAULT_QUALITY, QUALITY
 
 CAMERA = "camera.door"
+LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 
 
 def _show(*, portrait: bool = False, item: dict | None = None, **panel_cfg):
@@ -35,7 +44,7 @@ def test_page_streams_the_selected_camera_into_its_picture_area():
     started = app.camera_streams[0]
     assert started["entity_id"] == CAMERA
     assert started["rect"] == PICTURE_RECT["landscape"]
-    assert started["fps"] == 2.0
+    assert started["quality"] == QUALITY[DEFAULT_QUALITY], "the panel's default quality"
 
 
 def test_portrait_panel_paints_the_portrait_picture_area():
@@ -43,26 +52,82 @@ def test_portrait_panel_paints_the_portrait_picture_area():
 
     assert app.camera_streams[0]["rect"] == PICTURE_RECT["portrait"]
     assert page.picture_rect == PICTURE_RECT["portrait"]
-    # the rectangle is the info page's text area, inside the display
+    # the picture is the info page's text area, inside the display
     rect = app.camera_streams[0]["rect"]
     assert rect.x + rect.w <= 320
     assert rect.y + rect.h <= 480
 
 
-def test_fps_option_reaches_the_stream():
-    app, _page = _show(fps=5.5)
+def test_quality_option_reaches_the_stream():
+    """The panel's quality is what decides the density of the picture."""
+    app, _page = _show(quality="low")
 
-    assert app.camera_streams[0]["fps"] == 5.5
+    assert app.camera_streams[0]["quality"] == QUALITY["low"]
 
 
-def test_render_restarts_the_stream_so_the_picture_starts_from_nothing():
+def test_every_quality_the_editor_offers_has_a_profile():
+    """A choice without a profile is a panel that cannot draw its picture."""
+    offered = [value for value, _label in QUALITY_CHOICES]
+
+    assert DEFAULT_QUALITY in offered, "the default is one of the choices"
+    for value in offered:
+        assert value in QUALITY, f"{value!r} is offered but has no profile"
+    assert [profile.cell for profile in QUALITY.values()], "each profile sets a density"
+    # Finer means smaller cells: the setting a user picks says so.
+    assert QUALITY["high"].cell < QUALITY[DEFAULT_QUALITY].cell < QUALITY["low"].cell
+
+
+def test_an_unknown_quality_falls_back_and_says_so(monkeypatch):
+    """Only a hand-edited config can hold one; the page still has to draw."""
+    logged: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        CameraPage,
+        "log",
+        lambda self, message, **kwargs: logged.append((message, kwargs.get("level", ""))),
+    )
+
+    app, _page = _show(quality="ultra")
+
+    assert app.camera_streams[0]["quality"] == QUALITY[DEFAULT_QUALITY]
+    assert any(
+        "unknown picture quality" in message and level == "WARNING" for message, level in logged
+    ), "a value the editor does not offer is not silently swallowed"
+
+
+def test_a_refresh_neither_paints_the_picture_nor_starts_a_stream():
+    """A refresh repaints widgets, not the page: the picture is still on the display.
+
+    Painting it again would flash the whole area for a picture the panel already
+    shows, and the page would repaint itself whenever anything refreshes it - a
+    notification, a snapshot restore, a drain recovery. The stream is the panel's,
+    not the render's: it was asked for when the panel started.
+    """
     app, page = _show()
+    app.camera_frame = ["fill 0,0,480,268,1024"]
+    page.hide_placeholder()  # the first frame arrived
+    app.camera_paints.clear()
+    app.cmds.clear()
 
     page.refresh_panel()
 
-    # A second start: the planner of the first one holds a picture the page
-    # background has just painted over.
-    assert len(app.camera_streams) == 2
+    assert app.camera_paints == [], "a refresh draws no picture"
+    assert not [cmd for cmd in app.cmds if "tText" in cmd], (
+        "and does not put the placeholder back over the picture"
+    )
+    assert len(app.camera_streams) == 1, "the stream was started by the panel"
+
+
+def test_the_picture_is_painted_once_even_across_many_renders():
+    """Two refreshes in a row must not paint the frame twice either."""
+    app, page = _show()
+    app.camera_frame = ["fill 0,0,480,268,1024"]
+    page.set_panel(page.panel)  # the first render: the frame is painted
+    app.camera_paints.clear()
+
+    page.refresh_panel()
+    page.refresh_panel()
+
+    assert app.camera_paints == []
 
 
 # title and placeholder
@@ -85,6 +150,39 @@ def test_placeholder_says_the_picture_is_not_there_yet():
 
     assert "vis tText,1" in app.cmds
     assert 'tText.txt="Waiting for the camera"' in app.cmds
+
+
+def test_a_render_with_a_frame_paints_the_picture_instead_of_the_placeholder():
+    """The render is what a preview and a card replay, so the picture is part of it."""
+    app = PageApp({CAMERA: Entity("streaming", {"friendly_name": "Front Door"})})
+    app.camera_frame = ["fill 0,0,480,268,1024"]
+    panel = HAUIPanel(app, {"type": "camera", "item": {"item": CAMERA}})
+    page = CameraPage(app, {"page_id": 20})
+
+    page.set_panel(panel)
+
+    assert app.camera_paints == [["fill 0,0,480,268,1024"]]
+    assert "vis tText,0" in app.cmds, "the placeholder is hidden under the picture"
+    assert 'tText.txt="Waiting for the camera"' not in app.cmds
+
+
+def test_a_page_drawn_again_repaints_its_picture_whole():
+    """A page that is drawn again shows its own background where the picture was.
+
+    The frame the stream painted last may be minutes old - the deltas since are
+    planned against a newer picture - so the page asks the stream for a whole
+    paint instead of replaying it.
+    """
+    app, page = _show()
+    app.camera_frame = ["fill 0,0,480,268,1024"]
+    page.hide_placeholder()  # a picture is up
+    app.camera_paints.clear()
+    app.cmds.clear()
+
+    page.set_panel(page.panel)
+
+    assert app.camera_paints == [["fill 0,0,480,268,1024"]]
+    assert "vis tText,1" not in app.cmds, "and never puts the placeholder back over it"
 
 
 def test_page_without_a_camera_says_so_and_streams_nothing():
@@ -120,11 +218,15 @@ def test_page_descriptor_claims_the_info_page():
     assert CameraPage.DESCRIPTOR.type_key == "camera"
 
 
-def test_picture_area_is_the_info_page_text_widget():
-    assert CameraPage.COMPONENTS.picture_area.name == "tText"
-    # the stream paints over the widget, so the rect must be the widget's own
-    landscape = PICTURE_RECT["landscape"]
-    portrait = PICTURE_RECT["portrait"]
-    assert (landscape.x, landscape.y, landscape.w, landscape.h) == (12, 70, 426, 170)
-    assert (portrait.x, portrait.y, portrait.w, portrait.h) == (12, 55, 296, 335)
-    assert isinstance(landscape, Rect)
+def test_the_picture_rectangle_is_the_text_area_both_hmis_compile():
+    """The picture goes where the info page's big text area is, per display model."""
+    app, page = _show()
+
+    for orientation in ("landscape", "portrait"):
+        app.device.is_portrait = orientation == "portrait"
+        layout = json.loads((LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))
+        info = next(p for p in layout["pages"].values() if p["name"] == "info")
+        text = next(c["attrs"] for c in info["components"] if c["name"] == "tText")
+
+        assert page.picture_rect == Rect(text["x"], text["y"], text["w"], text["h"]), orientation
+        assert PICTURE_RECT[orientation] == page.picture_rect

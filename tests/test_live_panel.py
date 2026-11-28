@@ -33,14 +33,16 @@ from test_websocket_api import _Connection, _websocket_stub
 from test_websocket_api import _run as _run_ws
 
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.controller import esphome as esphome_controller
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, PopupPanelKey
+from custom_components.nspanel_haui.hub import camera_stream
 from custom_components.nspanel_haui.web.preview.live_panel import LivePanel
 
 _ROOT = Path(__file__).resolve().parent.parent
 _REPLAY = _ROOT / "tests" / "frontend" / "replay-renders.mjs"
 
 
-def _replay_live_attach(messages, page_id, tmp_path, expected):
+def _replay_live_attach(messages, page_id, tmp_path, expected, *, pixels=()):
     """Replay a real live attach command stream in the editor's Nextion simulator.
 
     ``expected`` lists ``{"component", "visible", "textIncludes"}`` checks of the
@@ -67,6 +69,7 @@ def _replay_live_attach(messages, page_id, tmp_path, expected):
             "before": _commands(messages[:page_index]),
             "commands": _commands(messages[page_index + 1 : end]),
             "expected": expected,
+            "pixels": pixels,
         }
     }
     renders_path = tmp_path / "live-attach.json"
@@ -205,6 +208,91 @@ def test_attaching_a_live_viewer_sends_nothing_to_the_panel(env):
         assert any(command.startswith("tTime.txt=") for command in _commands(messages))
         assert [m for m in panel_output[marker:] if m["type"] in ("commands", "page")] == []
     finally:
+        _stop(env, viewer)
+        _run(env, source.async_stop())
+
+
+def test_a_late_viewer_of_an_incomplete_picture_asks_for_a_whole_paint(env, monkeypatch):
+    """A replay whose oldest fills were dropped has holes; the stream paints it again.
+
+    A camera page never repaints its rectangle whole (a full paint is a visible
+    flash), so the replay is the picture only while it can still describe the whole
+    area. Once it cannot, a viewer that replayed it would show a composite with the
+    page's own background coming through - so it asks the stream instead.
+    """
+    monkeypatch.setattr(esphome_controller, "REPLAY_FILLS", 8)
+    # The page's own stream would fetch a camera; this test is about the viewer.
+    monkeypatch.setattr(camera_stream, "start_page_stream", lambda *args, **kwargs: None)
+    panel = {"type": "camera", "key": "front", "item": {"item": "camera.front"}}
+    env._states["camera.front"] = _State("idle", {"friendly_name": "Front"})
+    source = _source(env, _config([panel], home_panel="front"))
+    esp = source.app.controller["esphome"]
+    rect = _run(env, source.app.async_run_on_worker(source.app.camera_page_rect))
+    viewer = None
+
+    def draw(program, *, full=True):
+        """Draw a pass and wait until the panel confirmed it."""
+        _run(env, source.app.async_run_on_worker(lambda: esp.draw_stream_frame(program, full=full)))
+        _wait(lambda: not _run(env, source.app.async_run_on_worker(lambda: esp.drawing)))
+
+    try:
+        whole = f"fill {rect.x},{rect.y},{rect.w},{rect.h},12000"
+        draw([whole])
+        assert _run(env, source.app.async_run_on_worker(source.app.camera_page_frame)) == [whole]
+
+        for step in range(10):
+            draw([f"fill {rect.x + step * 4},{rect.y},4,4,65535"], full=False)
+
+        assert _run(env, source.app.async_run_on_worker(source.app.camera_page_frame)) == [], (
+            "the replay can no longer describe the picture"
+        )
+        asked: list[bool] = []
+        source.app.repaint_camera_page_frame = lambda: asked.append(True)
+
+        viewer, messages = _live(env, source)
+
+        assert asked, "so the viewer asks the stream for a whole paint"
+        assert whole not in _commands(messages), "and it was not seeded with the leftovers"
+    finally:
+        if viewer is not None:
+            _stop(env, viewer)
+        _run(env, source.async_stop())
+
+
+@pytest.mark.parametrize("display_model", ["eu", "us"])
+def test_existing_and_late_live_viewers_see_the_latest_picture(env, tmp_path, display_model):
+    config = _config()
+    config["device"]["display_model"] = display_model
+    source = _source(env, config)
+    viewer, messages = _live(env, source)
+    late = None
+    picture = ["fill 0,52,310,250,12000", "fill 200,120,16,16,65535"]
+    delta = ["fill 200,120,16,16,2016"]
+
+    def draw(program, *, full=True):
+        """Draw a pass and wait until the panel confirmed it (a panel takes one at a time)."""
+        esp = source.app.controller["esphome"]
+        _run(env, source.app.async_run_on_worker(lambda: esp.draw_stream_frame(program, full=full)))
+        _wait(lambda: not _run(env, source.app.async_run_on_worker(lambda: esp.drawing)))
+
+    try:
+        draw(picture)
+        draw(delta, full=False)
+        # A late firmware acknowledgement must not reload the shown page.
+        _run(
+            env,
+            source.app.async_run_on_worker(
+                lambda: source.app.callback_event(HAUIEvent(ESPEvent.PAGE, str(GRID_PAGE_ID)))
+            ),
+        )
+        late, late_messages = _live(env, source)
+        pixels = [{"x": 201, "y": 121, "color": 2016}, {"x": 10, "y": 80, "color": 12000}]
+        for stream in (messages, late_messages):
+            assert [m["page"] for m in stream if m["type"] == "page"] == [GRID_PAGE_ID]
+            _replay_live_attach(stream, GRID_PAGE_ID, tmp_path, [], pixels=pixels)
+    finally:
+        if late is not None:
+            _stop(env, late)
         _stop(env, viewer)
         _run(env, source.async_stop())
 
@@ -350,25 +438,6 @@ def test_live_attach_shows_the_forecast_the_app_drew(env, tmp_path):
                 {"component": "f1Name", "visible": True},
             ],
         )
-    finally:
-        _stop(env, viewer)
-        _run(env, source.async_stop())
-
-
-def test_a_live_viewer_tracks_page_sensor_events(env):
-    source = _source(env, _config())
-    viewer, messages = _live(env, source)
-    page_id = source.app.controller["navigation"].page.page_id
-
-    try:
-        messages.clear()
-        _run(
-            env,
-            source.app.async_run_on_worker(
-                source.app.callback_event, HAUIEvent(ESPEvent.PAGE, str(page_id))
-            ),
-        )
-        _wait(lambda: {"type": "page", "page": page_id} in messages)
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())

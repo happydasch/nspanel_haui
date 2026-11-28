@@ -173,6 +173,25 @@ test('a hub draw program paints fills and a repeated rectangle replaces itself',
   assert.equal(display.drawings.length, 2);
 });
 
+test('a clear that covers the picture replaces it instead of stacking on it', () => {
+  const { display } = makeDisplay();
+  display.gotoPage('info');
+  // A picture is its clear fill plus details; the frames after it only cover what
+  // moved. A clear of the rectangle therefore covers every fill already there,
+  // and the log starts again from it - the picture a second pass paints must not
+  // leave the previous one under it, or every frame would repaint thousands of
+  // rectangles nothing can see.
+  const details = [];
+  for (let i = 0; i < 20; i += 1) details.push(`fill ${i * 4},60,4,4,${i}`);
+  display.exec(['fill 0,52,480,268,4226', ...details]);
+  assert.equal(display.drawings.length, 21);
+  display.exec('fill 0,52,480,268,2016');
+  assert.deepEqual(display.drawings.map(d => [d.x, d.y, d.w, d.h]), [[0, 52, 480, 268]]);
+  // A frame of the stream after it is appended to the picture, not a new one.
+  display.exec('fill 0,52,4,4,65535');
+  assert.equal(display.drawings.length, 2);
+});
+
 test('a widget repaint keeps the image outside its rectangle', () => {
   const { display } = makeDisplay();
   display.gotoPage('clock');
@@ -288,4 +307,24 @@ test('both layouts hold the same widgets on every page', () => {
   }
   assert.equal(landscape.width, 480);
   assert.equal(portrait.width, 320);
+});
+
+test('replacing an image does not erase a disjoint colour-wheel marker', () => {
+  const { display } = makeDisplay('landscape');
+  display.gotoPage('light');
+  display.exec(['vis pColorWheel,1', 'cirs 150,130,6,65535', 'fill 10,10,10,10,0']);
+  display.exec('fill 10,10,10,10,16');
+  assert.deepEqual(display.drawings.filter(d => d.kind === 'cirs' || d.kind === 'fill'), [
+    { kind: 'cirs', x: 150, y: 130, r: 6, color: 65535 },
+    { kind: 'fill', x: 10, y: 10, w: 10, h: 10, color: 16 },
+  ]);
+});
+
+test('old colours do not accumulate indefinitely in a long-running picture', () => {
+  const { display } = makeDisplay('landscape');
+  display.gotoPage('grid');
+  display.exec(['fill 0,52,320,200,0', 'fill 20,60,10,10,65535']);
+  const updates = Array.from({ length: 20000 }, (_, i) => 'fill 0,52,10,10,' + i);
+  display.exec(updates);
+  assert.deepEqual(display.drawings.filter(d => d.kind === 'fill').map(d => d.color), [0, 65535, 19999]);
 });

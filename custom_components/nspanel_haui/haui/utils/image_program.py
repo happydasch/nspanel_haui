@@ -114,6 +114,15 @@ class Rect:
         """First row past the rectangle."""
         return self.y + self.h
 
+    def overlaps(self, other: Rect) -> bool:
+        """Whether the two rectangles share a pixel; both are half-open."""
+        return (
+            self.x < other.right
+            and other.x < self.right
+            and self.y < other.bottom
+            and other.y < self.bottom
+        )
+
 
 def display_size(portrait: bool) -> tuple[int, int]:
     """The visible area of a panel's display, in its own orientation."""
@@ -140,12 +149,17 @@ def _close(a: tuple[int, int, int], b: tuple[int, int, int], tolerance: int) -> 
     )
 
 
-def _decode(data: bytes) -> Image.Image:
+def decode_image(data: bytes) -> Image.Image:
     """Decode image bytes into an RGB image.
 
     The dimensions are checked before ``load()``: a 4 MiB file can describe a
     canvas far larger than the panel will ever use, and decoding it would spend
     the executor's memory on pixels no draw could address.
+
+    Public because a camera stream receives the same encoded bytes - Home
+    Assistant's ``camera.async_get_image`` hands back the picture's JPEG, not
+    pixels - and must decode one frame per tick without re-encoding it just to
+    reach this function through ``image_plan``. Call it off the event loop.
 
     Raises:
         ImageProgramError: When the bytes are not a decodable image, or the
@@ -210,17 +224,41 @@ def _dominant_colour(picture: Image.Image) -> int:
     return rgb_to_rgb565((red // count, green // count, blue // count))
 
 
-def _fit(image: Image.Image, rect: Rect) -> tuple[Image.Image, int]:
-    """Letterbox ``image`` into ``rect`` on the picture's own canvas colour.
+def fit_image(image: Image.Image, rect: Rect, *, cover: bool = False) -> tuple[Image.Image, int]:
+    """Composite ``image`` into ``rect``, letterboxed or cropped to fill, on its own colour.
 
     The margins take the picture's most common colour (``_dominant_colour``)
     rather than a fixed one: they are then the colour the picture already is, so
     the clearing fill paints them and they cost no run of their own. Opaque, too
     - a PNG with alpha must not punch through the page's widgets.
 
+    Public because a camera stream composites one frame per tick and must not
+    re-encode it just to reach this through the bytes path: same letterbox or
+    crop, same canvas colour, so a stream frame looks exactly like a still of the
+    same picture.
+
+    Args:
+        image: The decoded picture, any mode Pillow can convert to RGB.
+        rect: Where the picture goes, in display pixels.
+        cover: Crop the picture to the rectangle instead of letterboxing it. A
+            camera page is the case for it: the panel's picture area is far
+            taller than a camera's frame, and margins there would spend the
+            display's few pixels on empty bands instead of on the picture.
+
     Returns:
-        The fitted canvas and the colour it is cleared to, as RGB565.
+        The fitted canvas (``rect.w`` x ``rect.h``) and the colour it is cleared
+        to, as RGB565.
     """
+    image = image.convert("RGB")
+    if cover:
+        scale = max(rect.w / image.width, rect.h / image.height)
+        width = max(rect.w, round(image.width * scale))
+        height = max(rect.h, round(image.height * scale))
+        picture = image.resize((width, height), Image.Resampling.LANCZOS)
+        left = (width - rect.w) // 2
+        top = (height - rect.h) // 2
+        cropped = picture.crop((left, top, left + rect.w, top + rect.h))
+        return cropped, _dominant_colour(cropped)
     scale = min(rect.w / image.width, rect.h / image.height)
     width = max(1, min(rect.w, round(image.width * scale)))
     height = max(1, min(rect.h, round(image.height * scale)))
@@ -229,34 +267,6 @@ def _fit(image: Image.Image, rect: Rect) -> tuple[Image.Image, int]:
     canvas = Image.new("RGB", (rect.w, rect.h), rgb565_to_rgb(colour))
     canvas.paste(picture, ((rect.w - width) // 2, (rect.h - height) // 2))
     return canvas, colour
-
-
-def fit_image(image: Image.Image, rect: Rect) -> tuple[Image.Image, int]:
-    """Composite a decoded image into ``rect``, letterboxed, on its own canvas colour.
-
-    The public face of ``_fit`` for callers that already hold a decoded picture -
-    a camera stream decodes one frame per tick and must not re-encode it just to
-    go through the bytes path. It is what makes a stream frame look exactly like
-    the same picture drawn by ``show_image``.
-
-    Args:
-        image: The decoded picture, any mode Pillow can convert to RGB.
-        rect: Where to paint, in display pixels.
-
-    Returns:
-        The fitted canvas (``rect.w`` x ``rect.h``) and the RGB565 colour its
-        margins and largest flat area take.
-    """
-    return _fit(image.convert("RGB"), rect)
-
-
-def dominant_colour(image: Image.Image) -> int:
-    """The picture's most common colour as RGB565; ``_dominant_colour``, public.
-
-    A stream uses it for the clearing fill of a full repaint, so the colour that
-    covers the most area costs one run instead of thousands of blocks.
-    """
-    return _dominant_colour(image.convert("RGB"))
 
 
 def _cells(canvas: Image.Image, cols: int, rows: int) -> list[list[tuple[int, int, int]]]:
@@ -294,7 +304,7 @@ def _spans(
     a piece of it would cost the merges that made it cheap.
     """
     spans: list[_Span] = []
-    previous: list[_Span] = []
+    previous: dict[tuple[int, int], _Span] = {}
     for row, row_cells in enumerate(cells):
         y = rect.y + row * cell
         if y >= rect.bottom:
@@ -310,29 +320,33 @@ def _spans(
                 current[-1].w += width
                 continue
             current.append(_Span(x, y, width, height, rgb))
-        merged: list[_Span] = []
+        # A span grows down into the row above it when that row has one with the
+        # same width and a colour within tolerance: a flat block is then one run.
+        merged: dict[tuple[int, int], _Span] = {}
         for span in current:
-            above = next(
-                (
-                    candidate
-                    for candidate in previous
-                    if candidate.x == span.x
-                    and candidate.w == span.w
-                    and candidate.y + candidate.h == span.y
-                    and _close(candidate.rgb, span.rgb, tolerance)
-                ),
-                None,
-            )
-            if above is not None:
+            above = previous.get((span.x, span.w))
+            if above is not None and _close(above.rgb, span.rgb, tolerance):
                 above.h += span.h
-                merged.append(above)
+                merged[(above.x, above.w)] = above
                 continue
-            merged.append(span)
+            merged[(span.x, span.w)] = span
             spans.append(span)
         # Grown spans are already in ``spans``; only new ones are appended.
         previous = merged
     spans.sort(key=lambda span: (span.y, span.x))
     return [span for span in spans if not _close(span.rgb, canvas, tolerance)]
+
+
+def fill_run(x: int, y: int, w: int, h: int, colour: int) -> str:
+    """One Nextion ``fill`` instruction: a rectangle of one RGB565 colour.
+
+    The wire format lives here and nowhere else, so a still image
+    (``clear_run``, ``_program``) and a stream frame (``image_stream``) cannot
+    disagree about it. ``fill`` takes ``x,y,w,h`` - width and height, not a
+    second corner (``fill 20,20,150,50,1024`` paints 150x50 from (20,20), per the
+    instruction set). ``draw`` and ``line`` use corners; ``fill`` does not.
+    """
+    return f"fill {x},{y},{w},{h},{colour}"
 
 
 def clear_run(rect: Rect, colour: int) -> str:
@@ -342,17 +356,12 @@ def clear_run(rect: Rect, colour: int) -> str:
     paints the canvas colour over everything the blocks after it do not cover.
     ``clear_image`` sends it alone, in the page's background colour.
     """
-    return f"fill {rect.x},{rect.y},{rect.w},{rect.h},{colour}"
+    return fill_run(rect.x, rect.y, rect.w, rect.h, colour)
 
 
 def _program(spans: Iterable[_Span]) -> list[str]:
-    """``fill`` instructions for the spans, top to bottom, left to right.
-
-    The Nextion's ``fill`` takes ``x,y,w,h,color`` — width and height, not a
-    second corner (``fill 20,20,150,50,1024`` paints 150x50 from (20,20), per
-    the instruction set). ``draw`` and ``line`` use corners; ``fill`` does not.
-    """
-    return [f"fill {span.x},{span.y},{span.w},{span.h},{rgb_to_rgb565(span.rgb)}" for span in spans]
+    """``fill`` instructions for the spans, top to bottom, left to right."""
+    return [fill_run(span.x, span.y, span.w, span.h, rgb_to_rgb565(span.rgb)) for span in spans]
 
 
 def _compile(
@@ -454,7 +463,7 @@ def image_plan(
         raise ImageProgramError(
             f"budget {budget} is outside the {MIN_RUN_BUDGET}-{MAX_RUN_BUDGET} run range"
         )
-    canvas, colour = _fit(_decode(data), rect)
+    canvas, colour = fit_image(decode_image(data), rect)
     if progressive:
         compiled = _compile(canvas, rect, colour, budget=min(PROGRESSIVE_RUNS, budget))
         if compiled is None:  # pragma: no cover - a single cell fits every budget

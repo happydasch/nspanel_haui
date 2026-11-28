@@ -26,11 +26,18 @@ Three things follow, and they are the whole design:
   frame. A frame that is skipped - the panel was still drawing - changes nothing.
 * A program may be **empty**. An idle camera sends nothing at all rather than
   repainting what is already right; the caller checks for that before publishing.
-* The dead band accumulates error, so a full repaint is forced every
-  ``refresh_every`` frames, and whenever the grid resolution changes.
+* The model is true only while the panel shows what the stream painted, so the
+  rectangle is painted whole again whenever that stopped being true: when the
+  grid resolution changes, every ``refresh_every`` frames (the dead band lets a
+  slow drift through - a wall that darkens one step at a time never crosses it),
+  and whenever the caller says so (``DeltaPlanner.repaint``): a page that drew
+  its own widgets over the rectangle, a pass the panel dropped before it
+  finished. Without that, a delta would keep the ghost of what is no longer
+  there, because nothing else ever clears the rectangle again.
 
 The rectangle is rasterised exactly as ``show_image`` does it (``fit_image``): same
-letterbox, same canvas colour, so a stream and a still of the same picture agree.
+letterbox or crop, same canvas colour, so a stream and a still of the same picture
+agree.
 
 Pure and synchronous, no Home Assistant: the caller fetches and decodes the frame,
 this decides what to paint.
@@ -45,7 +52,7 @@ from typing import Final, cast
 from PIL import Image
 
 from .color import rgb565_to_rgb, rgb_to_rgb565
-from .image_program import Rect, fit_image
+from .image_program import Rect, fill_run, fit_image
 
 #: Per-channel distance a cell must move beyond before it is repainted. Eight is
 #: what ``image_program`` merges neighbours by; a stream needs more, because a
@@ -59,17 +66,24 @@ DEAD_BAND: Final = 24
 #: frame or two a second.
 MIN_CELL_PX: Final = 2
 MAX_CELL_PX: Final = 24
-#: The cell a stream starts at: fine enough that a person walking across a
-#: full-page rectangle is clearly a person, coarse enough that a frame is a
-#: handful of runs.
-DEFAULT_CELL_PX: Final = 8
-#: Runs one frame may cost. A frame over this is made coarser before it is sent
+#: The cell a stream starts at. Four is the point where a 3.5" panel shows a face
+#: or a number plate as itself: at the eight a stream used to start at, a doorbell
+#: picture is 60 blocks across and nothing in it is recognisable.
+DEFAULT_CELL_PX: Final = 4
+#: Runs one *update* may cost. A frame over this is made coarser before it is sent
 #: rather than dribbling out for a second, because a stream's whole point is that
-#: the next frame arrives; at the display's measured ~1-3 ms per fill this is
-#: 0.4-1.2 s in the worst case, and a typical frame costs a tenth of it.
-DEFAULT_FRAME_RUNS: Final = 400
+#: the next frame arrives. It is the budget for what changed, not for the picture:
+#: a full paint has its own (``FIRST_FRAME_RUNS``).
+DEFAULT_FRAME_RUNS: Final = 1200
 MIN_FRAME_RUNS: Final = 40
 MAX_FRAME_RUNS: Final = 2400
+#: Runs a **full paint** may cost - the first frame of a stream, a repaint after a
+#: resolution change and the periodic refresh. A full paint is where the picture's
+#: detail comes from, and it happens once per stream (a few times an hour), so it
+#: may spend the wire's whole band: 6 000 runs is about 1.6 s at the ~3 700 fills a
+#: second a panel takes, and it buys a picture at cell 3-4 instead of a mosaic.
+FIRST_FRAME_RUNS: Final = 6000
+MAX_FIRST_FRAME_RUNS: Final = 12000
 #: Frames per second a stream may ask for. Two is a comfortable ceiling for this
 #: display - a full-page frame is 0.2-1 s of painting - but the range is wide
 #: because a small rectangle is much cheaper than a full page, and a stream drops
@@ -84,6 +98,46 @@ REFRESH_EVERY: Final = 60
 #: Frames a resolution change waits for, so a scene that hovers at the budget does
 #: not flip the cell size every frame.
 CELL_SETTLE_FRAMES: Final = 2
+#: Startup grids and their run limits. The first starts with one background fill.
+_STARTUP_PASSES: Final = ((32, 160), (16, 400), (8, 1200))
+
+
+@dataclass(frozen=True, slots=True)
+class PictureQuality:
+    """One setting of a panel's picture quality, as a stream takes it.
+
+    The quality is the *density* of the picture: the cell size the stream paints
+    at and never sharpens past. Everything else follows from it, because drawing
+    time is what limits a stream - a finer picture is more rectangles per frame,
+    so a finer quality aims at fewer frames a second and spends more of the wire
+    on the one paint that shows the picture.
+
+    Attributes:
+        cell: Cell size in display pixels; also the finest the picture gets.
+        fps: Frames a second the stream aims for.
+        max_runs: Runs one update may cost before it is painted coarser.
+        first_runs: Runs the paint that shows the picture may cost.
+    """
+
+    cell: int
+    fps: float
+    max_runs: int
+    first_runs: int
+
+
+#: The three quality presets. These are work limits, not throughput guarantees:
+#: the real fill rate depends on the panel and the shape of the draw.
+QUALITY: dict[str, PictureQuality] = {
+    "high": PictureQuality(
+        cell=2, fps=1.0, max_runs=MAX_FRAME_RUNS, first_runs=MAX_FIRST_FRAME_RUNS
+    ),
+    "mid": PictureQuality(
+        cell=3, fps=2.0, max_runs=DEFAULT_FRAME_RUNS, first_runs=FIRST_FRAME_RUNS
+    ),
+    "low": PictureQuality(cell=6, fps=4.0, max_runs=600, first_runs=3000),
+}
+#: The quality a panel uses when it has none stored.
+DEFAULT_QUALITY: Final = "mid"
 
 
 class ImageStreamError(ValueError):
@@ -111,7 +165,7 @@ class _Span:
         top = rect.y + self.y * cell
         width = min(self.w * cell, rect.right - left)
         height = min(self.h * cell, rect.bottom - top)
-        return f"fill {left},{top},{width},{height},{self.rgb565}"
+        return fill_run(left, top, width, height, self.rgb565)
 
 
 class DeltaPlanner:
@@ -124,6 +178,7 @@ class DeltaPlanner:
 
     Attributes:
         cell: Cell size in display pixels currently used.
+        min_cell: The finest cell this stream sharpens to.
         runs: Runs the last program carried.
         frames: Programs returned so far, empty ones included.
         full_paints: Times a whole rectangle was repainted.
@@ -134,18 +189,28 @@ class DeltaPlanner:
         rect: Rect,
         *,
         cell: int = DEFAULT_CELL_PX,
+        min_cell: int = MIN_CELL_PX,
         band: int = DEAD_BAND,
         max_runs: int = DEFAULT_FRAME_RUNS,
+        first_runs: int = FIRST_FRAME_RUNS,
         refresh_every: int = REFRESH_EVERY,
+        cover: bool = False,
+        progressive: bool = False,
     ) -> None:
         """Start a stream into ``rect``.
 
         Args:
             rect: The rectangle to paint, in display pixels.
             cell: Starting cell size; clamped to ``MIN_CELL_PX``-``MAX_CELL_PX``.
+            min_cell: The finest cell the stream sharpens to - a picture quality
+                pins the density it was asked for instead of finding its own.
             band: Per-channel dead band before a cell is repainted, 0-255.
-            max_runs: Runs one frame may cost; a frame over it is made coarser.
+            max_runs: Runs one update may cost; a frame over it is made coarser.
+            first_runs: Runs a full paint may cost - more than an update, because
+                the detail of the picture is decided by the paint that shows it.
             refresh_every: Frames between two full repaints; 0 disables them.
+            cover: Crop the frame to the rectangle instead of letterboxing it.
+            progressive: Paint coarse layers before reaching the requested grid.
 
         Raises:
             ImageStreamError: When a size or a band is outside its range.
@@ -156,19 +221,31 @@ class DeltaPlanner:
             raise ImageStreamError(
                 f"{max_runs} runs a frame is outside {MIN_FRAME_RUNS}-{MAX_FRAME_RUNS}"
             )
+        if not max_runs <= first_runs <= MAX_FIRST_FRAME_RUNS:
+            raise ImageStreamError(
+                f"{first_runs} runs a full paint is outside {max_runs}-{MAX_FIRST_FRAME_RUNS}"
+            )
         if refresh_every < 0:
             raise ImageStreamError(f"refresh_every {refresh_every} is negative")
         self.rect = rect
         self.band = band
         self.max_runs = max_runs
+        self.first_runs = first_runs
         self.refresh_every = refresh_every
+        self.cover = cover
+        self._startup_pass = 0 if progressive else len(_STARTUP_PASSES)
+        self._startup_cell: int | None = None
         self.cell = min(MAX_CELL_PX, max(MIN_CELL_PX, cell))
+        self.min_cell = min(self.cell, max(MIN_CELL_PX, min_cell))
         self.runs = 0
         self.frames = 0
         self.full_paints = 0
         #: The colours the panel shows, one RGB565 per cell; ``None`` until the
         #: first frame, which is then a full paint by definition.
         self._painted: list[list[int]] | None = None
+        #: Set when the panel may no longer show the painted model: the next
+        #: frame is then a full paint (``repaint``).
+        self._repaint = False
         #: Frames left before a full repaint; 0 means "the next one is full".
         self._until_refresh = 0
         #: Frames spent waiting before a resolution change is worth making.
@@ -179,12 +256,38 @@ class DeltaPlanner:
         """Whether the panel is showing a frame of this stream yet."""
         return self._painted is not None
 
+    @property
+    def starting_up(self) -> bool:
+        """Whether the last planned picture was a coarse startup layer."""
+        return self._startup_cell is not None
+
+    def repaint(self) -> None:
+        """Paint the rectangle whole on the next frame: the panel may not show it.
+
+        The painted model is what makes a delta cheap, and it is only true while
+        the panel still shows what this planner painted. Anything else that
+        touched the rectangle - a page that drew its own widgets over it, a pass
+        the panel dropped before it finished, another program into the same area
+        - breaks that, and a delta planned against it keeps the ghost of what is
+        no longer there, for ever: a stream reruns the clear only when it is
+        asked to. This is how it is asked.
+
+        During startup the layer being painted is repeated rather than skipped:
+        the panel just showed it cannot keep up, and the full-detail paint is the
+        slowest one there is.
+        """
+        self._repaint = True
+        if self._startup_cell is not None:
+            self._startup_pass = max(0, self._startup_pass - 1)
+            self._startup_cell = None
+
     def plan(self, image: Image.Image) -> list[str]:
         """The program that shows ``image``, and the painted model updated to it.
 
         Args:
-            image: The decoded frame. It is letterboxed into the rectangle exactly
-                as ``show_image`` would draw it.
+            image: The decoded frame. It is fitted into the rectangle exactly as
+                ``show_image`` would draw it (``cover`` crops instead of
+                letterboxing).
 
         Returns:
             The ``fill`` instructions to send, in the order they paint (top to
@@ -197,31 +300,44 @@ class DeltaPlanner:
         """
         if image.width < 1 or image.height < 1:
             raise ImageStreamError("the frame has no pixels")
-        canvas, colour = fit_image(image, self.rect)
+        canvas, _colour = fit_image(image, self.rect, cover=self.cover)
+        if (startup := self._plan_startup(canvas)) is not None:
+            return startup
         # The cell size is decided *before* the program is sent, never after: a
         # frame over the budget is replanned coarser here, so the panel receives one
         # program at the resolution it can keep up with instead of a fine one
-        # followed by a full repaint of the same picture.
+        # followed by a full repaint of the same picture. A full paint has the
+        # larger budget - it is the picture, and it happens rarely - while an update
+        # only pays for what changed and must leave room for the next one.
         while True:
             grid = _grid(canvas, self.rect, self.cell)
-            resized = self._painted is not None and _shape(self._painted) != _shape(grid)
             refresh_due = self.refresh_every > 0 and self._until_refresh <= 0
-            full = self._painted is None or resized or refresh_due
-            painted = self._painted
-            if full or painted is None:
-                clearing = _canvas_colour(grid, colour)
-                spans = [
-                    _Span(0, 0, len(grid[0]), len(grid), clearing),
-                    *_without(_full(grid), clearing),
-                ]
+            full = self._painted is None or self._repaint or refresh_due
+            if full and self._startup_cell is not None:
+                # Paint over the coarse image instead of clearing it for every pass.
+                spans = _merged(grid)
+                # A clear can sometimes fit a finer grid. Keep that quality rather
+                # than coarsening just to avoid the clear.
+                if len(spans) > self.first_runs:
+                    spans = _full_spans(grid)
             else:
-                spans = _spans(grid, painted, self.band)
-            if len(spans) <= self.max_runs or self.cell >= MAX_CELL_PX:
+                spans = _full_spans(grid) if full else _merged(grid, self._painted, self.band)
+            budget = self.first_runs if full else self.max_runs
+            if len(spans) <= budget or self.cell >= MAX_CELL_PX:
                 break
             self.cell += 1
             self._painted = None
             self._until_refresh = 0
+        if not full and self._should_refine(len(spans)):
+            finer_grid = _grid(canvas, self.rect, self.cell - 1)
+            finer_spans = _full_spans(finer_grid)
+            if len(finer_spans) <= self.first_runs:
+                self.cell -= 1
+                grid, spans, full = finer_grid, finer_spans, True
         if full:
+            self._startup_cell = None
+            self._settle = 0
+            self._repaint = False
             self.full_paints += 1
             self._until_refresh = self.refresh_every
         else:
@@ -230,31 +346,40 @@ class DeltaPlanner:
         self.frames += 1
         runs = [span.run(self.rect, self.cell) for span in spans]
         self.runs = len(runs)
-        self._refine()
         return runs
 
-    def _refine(self) -> None:
-        """Sharpen the picture while it is well inside the budget, with a settle delay.
+    def _plan_startup(self, canvas: Image.Image) -> list[str] | None:
+        """Cover the rectangle in stages without changing the requested detail."""
+        while self._startup_pass < len(_STARTUP_PASSES):
+            target, budget = _STARTUP_PASSES[self._startup_pass]
+            self._startup_pass += 1
+            cell = target
+            if cell <= self.cell:
+                break
+            while self._startup_cell is None or cell < self._startup_cell:
+                grid = _grid(canvas, self.rect, cell)
+                spans = _full_spans(grid) if self._startup_cell is None else _merged(grid)
+                if len(spans) <= budget:
+                    self._startup_cell = cell
+                    self.frames += 1
+                    self.full_paints += 1
+                    self.runs = len(spans)
+                    return [span.run(self.rect, cell) for span in spans]
+                cell += 1
+        return None
 
-        Only refining happens here - a frame over the budget was already replanned
-        coarser by ``plan``. Sharpening throws the painted model away, so the next
-        frame is a full paint: it is worth doing only when it is clearly affordable,
-        and only after ``CELL_SETTLE_FRAMES`` frames well under the budget, so a
-        scene that hovers near the limit cannot oscillate between two cell sizes.
-        """
-        if self._painted is None or self.cell == MIN_CELL_PX:
-            return
-        # An empty frame says nothing about the budget: the picture is already
-        # right, so refining would only force a full repaint to sharpen nothing.
-        if not self.runs or self.runs * 4 > self.max_runs:
+    def _should_refine(self, runs: int) -> bool:
+        """Probe a finer grid only after several cheap, non-empty deltas."""
+        if self.cell <= self.min_cell or not runs or runs * 4 > self.max_runs:
             self._settle = 0
-            return
+            return False
         self._settle += 1
-        if self._settle >= CELL_SETTLE_FRAMES:
-            self._settle = 0
-            # The painted grid no longer has this resolution, so the next frame is
-            # a full paint by itself (``plan`` sees the shape change).
-            self.cell -= 1
+        if self._settle < CELL_SETTLE_FRAMES:
+            return False
+        # A cheap delta does not prove a finer full paint fits. Test this frame
+        # without invalidating the current picture or rebuilding it at the old size.
+        self._settle = 0
+        return True
 
 
 def _shape(grid: list[list[int]]) -> tuple[int, int]:
@@ -291,35 +416,21 @@ def _far(a: int, b: int, band: int) -> bool:
     )
 
 
-def _full(grid: list[list[int]]) -> list[_Span]:
-    """Every cell of ``grid`` as spans, merged - a paint with no reference."""
-    return _merged(grid, None, 0)
-
-
-def _spans(grid: list[list[int]], painted: list[list[int]], band: int) -> list[_Span]:
-    """Spans over the cells that moved away from what the panel shows.
-
-    A cell is repainted when ``_far`` from its painted colour. Spans grow across a
-    row of equal colour and down into the next row when the span repeats, which is
-    what keeps a moving edge to a handful of runs instead of one per cell. Only
-    changed cells join a span: an unchanged neighbour is already right on the
-    panel, so painting it would be wasted traffic.
-    """
-    return _merged(grid, painted, band)
-
-
 def _merged(
     grid: list[list[int]],
-    painted: list[list[int]] | None,
-    band: int,
+    painted: list[list[int]] | None = None,
+    band: int = 0,
 ) -> list[_Span]:
     """Merge ``grid`` into spans, skipping what ``painted`` already covers.
 
     The one merge both paint kinds need: equal cells within a row, then a span the
-    next row repeats. ``painted`` is ``None`` for a full paint.
+    next row repeats. ``painted`` is ``None`` for a full paint; otherwise a cell is
+    repainted only when ``_far`` from its painted colour, so an unchanged
+    neighbour - already right on the panel - never joins a span, and what is
+    painted is only what changed.
     """
     spans: list[_Span] = []
-    previous: list[_Span] = []
+    previous: dict[tuple[int, int], _Span] = {}
     for row, cells in enumerate(grid):
         current: list[_Span] = []
         for col, colour in enumerate(cells):
@@ -329,30 +440,31 @@ def _merged(
                 current[-1].w += 1
                 continue
             current.append(_Span(col, row, 1, 1, colour))
-        grown: list[_Span] = []
+        # A span grows down into the row above it when that row has one with the
+        # same width and colour: a flat block is then one run, not one per row.
+        grown: dict[tuple[int, int], _Span] = {}
         for span in current:
-            above = next(
-                (
-                    candidate
-                    for candidate in previous
-                    if candidate.x == span.x
-                    and candidate.w == span.w
-                    and candidate.y + candidate.h == span.y
-                    and candidate.rgb565 == span.rgb565
-                ),
-                None,
-            )
-            if above is not None:
+            above = previous.get((span.x, span.w))
+            if above is not None and above.rgb565 == span.rgb565:
                 above.h += span.h
-                grown.append(above)
+                grown[(above.x, above.w)] = above
                 continue
-            grown.append(span)
+            grown[(span.x, span.w)] = span
             spans.append(span)
         previous = grown
     return spans
 
 
-def _canvas_colour(grid: list[list[int]], fallback: int) -> int:
+def _full_spans(grid: list[list[int]]) -> list[_Span]:
+    """Clear to the dominant colour, then paint the cells that differ."""
+    clearing = _canvas_colour(grid)
+    return [
+        _Span(0, 0, len(grid[0]), len(grid), clearing),
+        *(span for span in _merged(grid) if span.rgb565 != clearing),
+    ]
+
+
+def _canvas_colour(grid: list[list[int]]) -> int:
     """The colour a full paint clears the rectangle to: the most common cell.
 
     Counted on the grid, not on pixels: the clearing fill exists to cover the cells
@@ -364,19 +476,7 @@ def _canvas_colour(grid: list[list[int]], fallback: int) -> int:
     for cells in grid:
         for colour in cells:
             tally[colour] = tally.get(colour, 0) + 1
-    if not tally:
-        return fallback
     return max(tally.items(), key=lambda item: (item[1], item[0]))[0]
-
-
-def _without(spans: list[_Span], clearing: int) -> list[_Span]:
-    """The spans of a full paint that the clearing fill does not already cover.
-
-    Dropping them is what makes the clear worth sending; a whole span is dropped
-    or kept, never halved, because a half span breaks the merges that made it one
-    run.
-    """
-    return [span for span in spans if span.rgb565 != clearing]
 
 
 def _painted_after(

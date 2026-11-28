@@ -210,8 +210,9 @@ def _grid() -> dict[str, Rect]:
 
 def _info() -> dict[str, Rect]:
     # The info page carries the largest text area of any page above a row of six
-    # mode buttons. The camera page uses that area as its picture (``PICTURE_RECT``
-    # in ``haui/page/camera.py``) and keeps the mode buttons hidden.
+    # mode buttons. The camera page paints that text area as its picture
+    # (``PICTURE_RECT`` in ``haui/page/camera.py``: the ``tText`` widget's own
+    # rectangle), so the header, the margins and the mode buttons stay as they are.
     layout = _header()
     layout["tText"] = (12, 55, 296, 335)
     for i in range(6):

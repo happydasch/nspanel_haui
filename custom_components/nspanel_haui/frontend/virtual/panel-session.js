@@ -185,12 +185,13 @@ export class PanelSession {
     // A start again (a reconnect, a card's home panel after a save) draws on a
     // fresh display: what follows waits for it instead of drawing on the old one.
     const start = this._start = {};
+    this._queue = [];
     this.touch?.cancel();
     this.display?.dispose();
     this.display = null;
     Promise.all([this._loadLayout(this.orientation), this._loadIconMap()]).then(
       ([layout, iconChars]) => { if (this._start === start) this._attach(layout, iconChars); },
-      err => this.onError(err.message),
+      err => { if (this._start === start && !this._stopped) this.onError(err.message); },
     );
   }
 

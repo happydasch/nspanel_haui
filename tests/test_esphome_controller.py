@@ -6,6 +6,7 @@ end on the screen the panel shows, and stay small while a page is shown for days
 
 from __future__ import annotations
 
+import types
 from typing import Any
 
 from test_connection import DummyApp
@@ -17,6 +18,7 @@ from custom_components.nspanel_haui.haui.utils.draw_wire import (
     decode_program,
     pack_run,
 )
+from custom_components.nspanel_haui.haui.utils.image_program import Rect
 
 
 class _App(DummyApp):
@@ -24,7 +26,7 @@ class _App(DummyApp):
         super().__init__()
         self.previewed: list[tuple[str, Any]] = []
 
-    def publish_preview_output(self, command: str, value: Any) -> None:
+    def publish_preview_output(self, command: str, value: Any, *, external: bool = False) -> None:
         self.previewed.append((command, value))
 
 
@@ -96,11 +98,10 @@ def test_a_command_the_panel_did_not_get_is_sent_again() -> None:
 
 
 class _DrawingProxy(_Proxy):
-    """Records the draw programs it is handed; ``simulated`` skips the fence."""
+    """Records the draw programs it is handed."""
 
-    def __init__(self, *, simulated: bool = False) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self.simulated = simulated
         self.programs: list[str] = []
 
     def publish(self, name: str, value: Any = "") -> bool:
@@ -110,9 +111,9 @@ class _DrawingProxy(_Proxy):
 
 
 def _drawing(
-    *, simulated: bool = False, draw_format: int | None = None
+    *, draw_format: int | None = None
 ) -> tuple[HAUIESPHomeController, _DrawingProxy, _App]:
-    proxy = _DrawingProxy(simulated=simulated)
+    proxy = _DrawingProxy()
     app = _App()
     if draw_format is not None:
         app.device.device_info = {"draw_format": draw_format}
@@ -147,16 +148,26 @@ def test_an_image_is_sent_one_slice_at_a_time() -> None:
     assert [run for part in _sent(proxy) for run in part] == runs
 
 
-def test_a_simulated_panel_is_sent_every_slice_without_a_fence() -> None:
-    """The Simulated preview paints as it records, so nothing has to wait."""
-    controller, proxy, _app = _drawing(simulated=True)
+def test_a_simulated_panel_waits_for_the_fence_like_a_real_one() -> None:
+    """The virtual firmware answers a slice too, so the preview shows a busy display.
+
+    Painting as it records - the shortcut this replaces - hid two states the panel
+    lives in: ``drawing`` was never true, so a frame arriving mid-draw was never
+    skipped, and every pass was confirmed instantly, so a lost or refused slice
+    could not happen in the preview at all.
+    """
+    controller, proxy, app = _drawing()
     runs = _runs(1200)
 
     controller.send_cmd("draw_runs", runs)
 
-    assert len(proxy.programs) > 1
-    assert [run for slice_ in _sent(proxy) for run in slice_] == runs
-    assert controller._draw_timer is None
+    assert len(proxy.programs) == 1, "one slice at a time, as on the panel"
+    assert controller.drawing
+    assert controller._draw_timer is not None, "the fence is waited for, not bypassed"
+
+    controller.on_draw_report(True)
+
+    assert len(proxy.programs) == 2, "the next slice follows the report"
 
 
 def test_a_slice_that_never_reports_is_followed_by_the_next_one() -> None:
@@ -170,6 +181,47 @@ def test_a_slice_that_never_reports_is_followed_by_the_next_one() -> None:
 
     assert len(proxy.programs) == 2
     assert any("no report for a slice" in message for message, _ in app.logged)
+
+
+def test_a_camera_frame_can_follow_a_draw_that_lost_its_final_report() -> None:
+    controller, proxy, app = _drawing(draw_format=2)
+    results: list[bool] = []
+    controller.draw_stream_frame(_runs(12), on_done=results.append)
+    ((callback, kwargs),) = app.timers.values()
+
+    callback(**kwargs)
+
+    assert not controller.drawing
+    assert controller.draw_failures == 1
+    assert results == [False]
+    controller.draw_stream_frame(_runs(16), on_done=results.append)
+    assert _sent(proxy)[-1] == _runs(16)
+    controller.on_draw_report(True)
+    assert results == [False, True]
+
+
+def test_a_refused_publish_releases_the_draw_slot(monkeypatch) -> None:
+    controller, proxy, app = _drawing(draw_format=2)
+    results: list[bool] = []
+    monkeypatch.setattr(proxy, "publish", lambda *_args: False)
+    controller.draw_stream_frame(_runs(12), on_done=results.append)
+
+    assert not controller.drawing
+    assert not app.timers
+    assert controller.draw_failures == 1
+    assert results == [False]
+
+
+def test_a_cancelled_camera_draw_is_not_acknowledged() -> None:
+    controller, _proxy, _app = _drawing(draw_format=2)
+    results: list[bool] = []
+    controller.draw_stream_frame(_runs(12), on_done=results.append)
+
+    controller.cancel_draw()
+    controller.on_draw_report(True)
+
+    assert not controller.drawing
+    assert results == [False]
 
 
 def test_a_refused_slice_re_sends_the_whole_image_once() -> None:
@@ -197,66 +249,85 @@ def test_a_refused_slice_re_sends_the_whole_image_once() -> None:
     assert any("refused a slice again" in message for message, _ in app.logged)
 
 
-def test_the_page_replay_keeps_the_whole_pass_not_just_the_first_slice() -> None:
-    """A viewer attaching late must see the finished picture, not a band of it."""
-    controller, _proxy, _app = _drawing()
-    runs = _runs(1200)
+def test_live_and_late_replay_follow_acknowledged_slices_only() -> None:
+    controller, proxy, app = _drawing(draw_format=2)
+    controller.send_cmd("draw_runs", _runs(1200))
+    first = decode_program(proxy.programs[0])
 
-    controller.send_cmd("draw_runs", runs)
+    assert app.previewed == []
+    assert controller.page_commands() == []
+    controller.on_draw_report(True, runs=len(first) - 1)
+    assert app.previewed == []
+    assert controller.page_commands() == []
+    controller.on_draw_report(True, runs=len(first))
 
-    assert controller.page_commands() == runs
-
-
-def test_a_second_image_in_the_same_rectangle_replaces_the_first_in_the_replay() -> None:
-    """A late viewer sees the picture the panel shows, not both painted over.
-
-    The pass is bounded by the rectangle it covers: the bounding box of its own
-    runs, which is the clear rectangle a real program starts with.
-    """
-    controller, _proxy, _app = _drawing()
-    first = ["fill 10,10,40,40,65535", "fill 50,10,40,40,255"]
-    second = ["fill 10,10,20,40,4226", "fill 30,10,60,40,2047"]
-
-    controller.send_cmd("draw_runs", first)
-    controller.send_cmd("draw_runs", second)
-
-    assert controller.page_commands() == second
+    assert app.previewed == [("draw_runs", first)]
+    assert controller.page_commands() == first
+    controller.cancel_draw()
+    controller.on_draw_report(True)
+    assert app.previewed == [("draw_runs", first)]
+    assert controller.page_commands() == first
 
 
-def test_an_image_in_another_rectangle_leaves_the_first_one_alone() -> None:
-    """Two images in different rectangles compose on the panel: so they do here."""
-    controller, _proxy, _app = _drawing()
-    first = ["fill 10,10,40,40,65535"]
-    elsewhere = ["fill 200,10,40,40,255"]
+def test_a_refused_image_is_not_mirrored_or_replayed() -> None:
+    controller, proxy, app = _drawing()
+    proxy.connected = False
+    controller.send_cmd("draw_runs", ["fill 10,10,40,40,65535"])
 
-    controller.send_cmd("draw_runs", first)
-    controller.send_cmd("draw_runs", elsewhere)
-
-    assert controller.page_commands() == [*first, *elsewhere]
+    assert app.previewed == []
+    assert controller.page_commands() == []
 
 
 def test_a_clear_removes_only_the_image_it_covers_from_the_replay() -> None:
-    """A cleared rectangle is one fill; an image in another rectangle stays."""
-    controller, _proxy, _app = _drawing()
-    first = ["fill 10,10,40,40,65535"]
+    controller, _proxy, _app = _drawing(draw_format=2)
+    first = ["fill 10,10,40,40,65535", "fill 20,20,10,10,255"]
     elsewhere = ["fill 200,10,40,40,255"]
     cleared = ["fill 10,10,40,40,4660"]
 
-    controller.send_cmd("draw_runs", first)
-    controller.send_cmd("draw_runs", elsewhere)
-    controller.send_cmd("draw_runs", cleared)
+    for program in (first, elsewhere, cleared):
+        controller.send_cmd("draw_runs", program)
+        controller.on_draw_report(True)
 
     assert controller.page_commands() == [*elsewhere, *cleared]
 
 
-def test_the_preview_hears_about_a_pass_once_and_gets_every_run() -> None:
-    """The previews slice the pass themselves, so they need all of it, once."""
+def test_sparse_fills_do_not_erase_the_area_between_them_from_replay() -> None:
+    controller, _proxy, _app = _drawing(draw_format=2)
+    middle = "fill 20,20,10,10,255"
+    edges = ["fill 10,20,10,10,0", "fill 30,20,10,10,0"]
+    controller.send_cmd("draw_runs", [middle])
+    controller.on_draw_report(True)
+    controller.send_cmd("draw_runs", edges)
+    controller.on_draw_report(True)
+    assert controller.page_commands() == [middle, *edges]
+
+
+def test_camera_replay_keeps_the_latest_colours_and_their_order() -> None:
+    controller, _proxy, app = _drawing(draw_format=2)
+    background = "fill 0,52,480,268,12000"
+    first = "fill 40,60,20,20,65535"
+    latest = "fill 40,60,20,20,2016"
+    controller.draw_stream_frame([background, first])
+    controller.on_draw_report(True)
+    controller.send_cmd("send_command", 'tHeader.txt="Updated"')
+    controller.draw_stream_frame([latest], full=False)
+
+    assert controller.page_commands() == [background, first, 'tHeader.txt="Updated"']
+    controller.on_draw_report(True)
+
+    assert app.previewed[-1] == ("draw_runs", [latest])
+    assert controller.page_commands() == [background, 'tHeader.txt="Updated"', latest]
+    assert controller.picture_commands(0, 52, 480, 268) == [background, latest]
+
+
+def test_an_empty_stream_frame_is_not_published() -> None:
+    """A still scene sends nothing, and a viewer has nothing to repaint."""
     controller, _proxy, app = _drawing()
-    runs = _runs(1200)
 
-    controller.send_cmd("draw_runs", runs)
+    controller.draw_stream_frame([])
 
-    assert app.previewed == [("draw_runs", runs)]
+    assert app.previewed == []
+    assert not controller.drawing
 
 
 def test_a_short_draw_is_a_single_slice() -> None:
@@ -269,7 +340,7 @@ def test_a_short_draw_is_a_single_slice() -> None:
 
 def test_a_panel_that_reports_the_packed_format_is_sent_base_36_runs() -> None:
     """Format 2 decodes ``x,y,w,h,colour``, so that is what the panel gets."""
-    controller, proxy, _app = _drawing(draw_format=2, simulated=True)
+    controller, proxy, _app = _drawing(draw_format=2)
 
     controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
 
@@ -283,7 +354,7 @@ def test_a_panel_that_reports_no_format_is_sent_display_instructions() -> None:
     run as rejected and reported ``ok: false`` - so silence means the display
     instructions themselves.
     """
-    controller, proxy, _app = _drawing(simulated=True)
+    controller, proxy, _app = _drawing()
 
     controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
 
@@ -297,7 +368,7 @@ def test_a_panel_without_the_acknowledged_draw_warns_once() -> None:
     queue - so the hub says it once instead of leaving thin gaps and stray strips
     in the picture unexplained.
     """
-    controller, _proxy, app = _drawing(simulated=True)
+    controller, _proxy, app = _drawing()
 
     controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
     controller.send_cmd("draw_runs", ["fill 20,60,120,120,4226"])
@@ -307,7 +378,7 @@ def test_a_panel_without_the_acknowledged_draw_warns_once() -> None:
 
 
 def test_a_panel_with_the_acknowledged_draw_is_not_warned_about() -> None:
-    controller, _proxy, app = _drawing(draw_format=2, simulated=True)
+    controller, _proxy, app = _drawing(draw_format=2)
 
     controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
 
@@ -321,10 +392,12 @@ def test_a_panel_without_the_acknowledged_draw_gets_short_slices() -> None:
     display needs, and its receive buffer holds about 40 instructions: a full
     8 000-character slice overruns it and runs are lost.
     """
-    controller, proxy, _app = _drawing(simulated=True)
+    controller, proxy, _app = _drawing()
     runs = _runs(400)
 
     controller.send_cmd("draw_runs", runs)
+    while controller._draw_slices:
+        controller.on_draw_report(True)
 
     assert len(proxy.programs) == 400 // LEGACY_SLICE_RUNS + 1
     assert [run for part in _sent(proxy) for run in part] == runs
@@ -332,7 +405,7 @@ def test_a_panel_without_the_acknowledged_draw_gets_short_slices() -> None:
 
 def test_a_panel_with_the_acknowledged_draw_gets_full_slices() -> None:
     """It paces itself with a window of fills, so only the length has to fit."""
-    controller, proxy, _app = _drawing(draw_format=2, simulated=True)
+    controller, proxy, _app = _drawing(draw_format=2)
     runs = _runs(400)
 
     controller.send_cmd("draw_runs", runs)
@@ -352,6 +425,157 @@ def test_a_page_switch_cancels_the_draw_in_flight() -> None:
     assert controller._draw_slices == []
     assert controller._draw_runs == []
     assert controller._draw_timer is None
+
+
+# ── a picture the panel may not have ─────────────────────────────────────────
+
+
+def test_a_draw_is_refused_during_a_tft_install() -> None:
+    """The panel took an upload: a program written into it would corrupt the transfer."""
+    controller, proxy, app = _drawing(draw_format=2)
+    app.controller["update"] = types.SimpleNamespace(tft_install_active=True)
+
+    assert not controller.draw_stream_frame(_runs(12))
+    assert not controller.drawing, "a refused pass must not hold the draw slot"
+    assert not proxy.programs, "nothing reached the panel"
+
+    app.controller["update"].tft_install_active = False
+    assert controller.draw_stream_frame(_runs(12))
+    assert proxy.programs, "and the next one does"
+
+
+def test_an_overlay_reports_the_rectangle_it_painted() -> None:
+    """Whoever owns that area has to paint it whole again (``app.paint_rect``)."""
+    controller, _proxy, app = _drawing(draw_format=2)
+    painted: list[Rect] = []
+    app.paint_rect = painted.append
+    rect = Rect(10, 20, 40, 30)
+
+    controller.draw_overlay(["fill 10,20,40,30,4660"], rect=rect)
+
+    assert painted == [rect]
+
+
+def test_an_overlay_the_display_refused_reports_no_rectangle() -> None:
+    controller, _proxy, app = _drawing(draw_format=2)
+    painted: list[tuple[int, int, int, int]] = []
+    app.paint_rect = painted.append
+    app.controller["update"] = types.SimpleNamespace(tft_install_active=True)
+
+    controller.draw_overlay(["fill 10,20,40,30,4660"], rect=Rect(10, 20, 40, 30))
+
+    assert painted == [], "a pass that never painted may not claim the rectangle"
+
+
+def test_a_delta_paints_prune_what_they_cover() -> None:
+    """A pass repaints what its first fill covers, whether or not it is a whole one.
+
+    A delta planned against a picture that a partial paint covered would keep both
+    rectangles for ever, and every later viewer would replay both.
+    """
+    controller, _proxy, _app = _drawing(draw_format=2)
+    background = "fill 0,52,480,268,12000"
+    stale = "fill 40,60,20,20,65535"
+    controller.draw_stream_frame([background, stale])
+    controller.on_draw_report(True)
+
+    covering = "fill 40,60,40,40,2016"
+    controller.draw_stream_frame([covering], full=False)
+    controller.on_draw_report(True)
+
+    assert controller.page_commands() == [background, covering]
+
+
+def test_the_picture_does_not_grow_for_the_length_of_a_stream() -> None:
+    """A camera page never repaints its rectangle whole, so the replay must be bounded.
+
+    Every distinct fill rectangle a moving scene produces would otherwise stay in
+    the replay for the length of the stream, and a late viewer is sent all of it in
+    one message. When the oldest fills go, the replay says so - and one whole paint
+    of the area makes it describable again.
+    """
+    controller, _proxy, _app = _drawing(draw_format=2)
+    area = (0, 0, 64, 48)
+    whole = f"fill 0,0,{area[2]},{area[3]},1024"
+    controller.draw_stream_frame([whole])
+    controller.on_draw_report(True)
+    assert controller.picture_commands(*area) == [whole]
+
+    sent = 0
+    while controller.picture_commands(*area) and sent < 20_000:
+        # A delta of many cells, as a moving scene produces: one pass, not one
+        # fill per pass, or the test would spend its time in the replay's scans.
+        controller.draw_stream_frame(
+            [f"fill {n % 40},{n // 40},8,8,2048" for n in range(sent, sent + 200)],
+            full=False,
+        )
+        controller.on_draw_report(True)
+        sent += 200
+
+    assert sent < 20_000, "the replay dropped its oldest fills instead of growing for ever"
+    assert controller.picture_commands(*area) == [], "so it no longer describes the picture"
+    assert whole not in controller.page_commands(), "the oldest fills were the ones dropped"
+
+    controller.draw_stream_frame([whole])
+    controller.on_draw_report(True)
+
+    assert controller.picture_commands(*area) == [whole], "one whole paint describes it again"
+
+
+def test_an_excluded_rectangle_leaves_the_other_commands_alone() -> None:
+    """A viewer seeds a page's widgets without the picture it re-runs separately."""
+    controller, _proxy, _app = _drawing(draw_format=2)
+    controller.draw_stream_frame(["fill 10,20,40,40,65535", "fill 200,10,40,40,255"])
+    controller.on_draw_report(True)
+    controller.send_cmd("send_command", 'tHeader.txt="Camera"')
+
+    commands = controller.page_commands(exclude=Rect(10, 20, 40, 40))
+
+    assert commands == ["fill 200,10,40,40,255", 'tHeader.txt="Camera"']
+
+
+def test_a_pass_the_panel_took_whole_is_not_a_failure() -> None:
+    """Nothing to repaint: the counter stays where it was for a clean pass."""
+    controller, _proxy, _app = _drawing()
+
+    controller.send_cmd("draw_runs", _runs(1200))
+    while controller._draw_slices:
+        controller.on_draw_report(True)
+
+    assert controller.draw_failures == 0
+
+
+def test_a_slice_the_panel_never_took_is_a_failure() -> None:
+    """The panel keeps the runs it got, so part of the picture is missing."""
+    controller, proxy, _app = _drawing()
+    controller.send_cmd("draw_runs", _runs(1200))
+
+    proxy.connected = False
+    controller.on_draw_report(True)
+
+    assert controller.draw_failures == 1
+
+
+def test_a_slice_the_panel_refused_twice_is_a_failure() -> None:
+    """The retry is the last chance; after it the picture has gaps."""
+    controller, _proxy, _app = _drawing()
+    controller.send_cmd("draw_runs", _runs(1200))
+
+    controller.on_draw_report(False)  # re-sent once
+    assert controller.draw_failures == 0
+    controller.on_draw_report(False)  # dropped
+
+    assert controller.draw_failures == 1
+
+
+def test_a_pass_cut_short_by_another_pass_is_a_failure() -> None:
+    """The firmware restarts its own programme, so the rest of the first is lost."""
+    controller, _proxy, _app = _drawing()
+    controller.send_cmd("draw_runs", _runs(1200))
+
+    controller.send_cmd("draw_runs", ["fill 20,40,120,120,4226"])
+
+    assert controller.draw_failures == 1
 
 
 def test_a_late_report_after_a_page_switch_is_ignored() -> None:

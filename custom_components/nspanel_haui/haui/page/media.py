@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from functools import partial
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -31,11 +32,24 @@ from ..mapping.icons import (
     ICO_VOLUME_UP,
 )
 from ..utils.icon import get_icon
+from ..utils.image_program import Rect
 from ..utils.text import TextBox, fit_line
+from ..version import firmware_supports_draw_runs
 
 _MEDIA_NAME_BOXES = {
     "landscape": TextBox(90, 50, 2, 20),
     "portrait": TextBox(234, 50, 2, 20),
+}
+
+#: Where a player's cover art goes: the ``tIcon`` widget of the media page, in the
+#: display pixels of each HMI. The page hands this rectangle to the hub instead of
+#: asking the display for it - a Nextion reads back a widget's ``.txt`` and
+#: ``.val``, never its position or size - so the values are the ones its layout
+#: was compiled from, and ``tests/test_page_media.py`` checks them against both
+#: generated layouts.
+ICON_RECT: dict[str, Rect] = {
+    "landscape": Rect(12, 68, 50, 50),
+    "portrait": Rect(12, 58, 50, 50),
 }
 
 
@@ -159,6 +173,14 @@ class MediaPage(HAUIPage):
         self._media_interpret = ""
         self._handle_scrolling: str | None = None
         self._handle_progress: str | None = None
+        # cover art: where it goes, the picture the page is showing in the icon's
+        # place, whether that picture is on the display right now, and a token that
+        # drops an answer which arrives after a newer picture took its place
+        self._icon_rect: Rect | None = None
+        self._cover_url = ""
+        self._cover_shown = False
+        self._cover_token = 0
+        self._cover_supported = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # debug: panel config for media/override troubleshooting
@@ -199,11 +221,27 @@ class MediaPage(HAUIPage):
         self.set_media_item(item)
         # set title
         self._title = self._panel_title(panel, item, self.translate("Media"))
+        # store where a cover goes: the icon's own rectangle, read once here
+        # instead of on every track change
+        self._icon_rect = self.icon_rect
+        # a panel whose firmware has no draw action cannot paint a cover; it gets
+        # the icon instead, and says once why
+        self._cover_supported = firmware_supports_draw_runs(
+            (self.app.device.device_info or {}).get("yaml_version")
+        )
+        if not self._cover_supported:
+            self.log(
+                "media cover: this panel's firmware cannot draw an image, so the icon "
+                "stays in place of the player's cover art. Update the firmware to show it.",
+                level="WARNING",
+            )
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_media_item()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
+        # a cover still on its way belongs to a page that is gone
+        self._cover_token += 1
         if self._handle_progress is not None:
             self.app.cancel_timer(self._handle_progress)
             self._handle_progress = None
@@ -220,6 +258,59 @@ class MediaPage(HAUIPage):
         if len(self._media_interpret) > 30:
             self._media_interpret = self._media_interpret[1:] + self._media_interpret[0]
             self.set_component_text(self.COMPONENTS.t_m_interpret, self._media_interpret)
+
+    # cover art
+
+    @property
+    def icon_rect(self) -> Rect:
+        """The rectangle of the icon widget on this device's display."""
+        return ICON_RECT["portrait" if self.app.device.is_portrait else "landscape"]
+
+    def _apply_cover(self, url: str) -> None:
+        """Show the player's cover art in the icon's place, or keep the icon.
+
+        The picture that is already up stays while the next one is on its way, so
+        a track change does not flash the icon in between; a player that publishes
+        nothing drops it and gets its icon back.
+        """
+        if url == self._cover_url:
+            # the same picture: a re-render or another attribute changed, and the
+            # cover that is up is the one this track has
+            return
+        self._cover_url = url
+        if not url or not self._cover_supported or self._icon_rect is None:
+            # the icon stands in - the render this runs in puts it back, and the
+            # firmware's own log line was said once when the panel started
+            self._cover_shown = False
+            return
+        self._cover_token += 1
+        self.app.request_media_cover(
+            url, self._icon_rect, partial(self._cover_ready, self._cover_token)
+        )
+
+    def _cover_ready(self, token: int, runs: list[str] | None, error: BaseException | None) -> None:
+        """Paint the cover the hub fetched, once it is still this page's picture."""
+        if token != self._cover_token:
+            # another track, another panel or a closed page took its place
+            return
+        if error is not None or not runs:
+            self.log(
+                f"media cover: {self._cover_url} was not drawn"
+                f" ({error or 'no picture in it'}); the icon stays",
+                level="WARNING",
+            )
+            self._paint_icon()
+            return
+        self._cover_shown = True
+        self.draw_runs(runs, rect=self._icon_rect)
+
+    def _paint_icon(self) -> None:
+        """Put the player's icon back where a cover is not shown."""
+        self._cover_shown = False
+        if self._media_item is None:
+            return
+        self.set_component_text(self.COMPONENTS.t_icon, self._media_item.get_icon())
+        self.set_component_text_color(self.COMPONENTS.t_icon, self._media_item.get_color())
 
     def set_media_item(self, item: HAUIItem | None) -> None:
         self._media_item = item
@@ -343,6 +434,10 @@ class MediaPage(HAUIPage):
         if not self.item_is_available(self._media_item):
             has_entity = self._media_item is not None and self._media_item.has_item_id()
             message = self.translate("Unavailable") if has_entity else ""
+            # the icon repaint below clears whatever cover was in its place
+            self._cover_url = ""
+            self._cover_shown = False
+            self._cover_token += 1
             self.set_component_text(self.COMPONENTS.t_icon, "")
             self._media_title = ""
             self._media_interpret = ""
@@ -399,8 +494,12 @@ class MediaPage(HAUIPage):
         self._media_interpret = media_interpret
         if len(self._media_interpret) > 30:
             self._media_interpret = f"{self._media_interpret} {get_icon('minus')} "
-        self.set_component_text(self.COMPONENTS.t_icon, item.get_icon())
-        self.set_component_text_color(self.COMPONENTS.t_icon, item.get_color())
+        # the player's cover art takes the icon's place; while it is up, repainting
+        # the icon would paint over it, so the icon is only set when it is missing
+        self._apply_cover(str(item.get_item_attr("entity_picture", "") or ""))
+        if not self._cover_shown:
+            self.set_component_text(self.COMPONENTS.t_icon, item.get_icon())
+            self.set_component_text_color(self.COMPONENTS.t_icon, item.get_color())
         self.set_component_text(self.COMPONENTS.t_m_title, media_title)
         self.set_component_text(self.COMPONENTS.t_m_interpret, media_interpret)
         if self._handle_scrolling is None:

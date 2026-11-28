@@ -16,10 +16,11 @@ import pytest
 from PIL import Image, ImageDraw
 
 from custom_components.nspanel_haui.haui.utils.color import rgb_to_rgb565
-from custom_components.nspanel_haui.haui.utils.image_program import Rect
+from custom_components.nspanel_haui.haui.utils.image_program import Rect, fit_image
 from custom_components.nspanel_haui.haui.utils.image_stream import (
     DEFAULT_CELL_PX,
     DEFAULT_FRAME_RUNS,
+    FIRST_FRAME_RUNS,
     MAX_CELL_PX,
     MIN_CELL_PX,
     MIN_FRAME_RUNS,
@@ -113,7 +114,7 @@ def test_noise_and_flicker_inside_the_dead_band_never_reach_the_display():
 
 def test_a_frame_over_the_budget_is_replanned_coarser_before_it_is_sent():
     """A stream never spends more than its budget; it loses detail instead."""
-    planner = DeltaPlanner(RECT, cell=4, max_runs=300, refresh_every=0)
+    planner = DeltaPlanner(RECT, cell=4, max_runs=300, first_runs=300, refresh_every=0)
 
     runs = planner.plan(_scene())
 
@@ -125,14 +126,16 @@ def test_a_frame_over_the_budget_is_replanned_coarser_before_it_is_sent():
     assert planner.full_paints == 1
 
 
-def test_no_program_ever_exceeds_the_budget_before_the_cell_is_as_coarse_as_it_goes():
-    """The budget holds for every frame of a busy sequence, not just the first."""
+def test_an_update_never_exceeds_its_own_budget():
+    """A delta is what has to be cheap; the full paint that showed the picture is not."""
     planner = DeltaPlanner(RECT, cell=2, max_runs=120, refresh_every=0)
 
     for step in range(6):
+        before = planner.full_paints
         runs = planner.plan(_noisy(_scene(subject_x=100 + step * 12), sigma=20, seed=step))
-        assert len(runs) <= 120 or planner.cell == MAX_CELL_PX, (
-            f"frame {step}: {len(runs)} runs at cell {planner.cell}"
+        budget = planner.first_runs if planner.full_paints > before else planner.max_runs
+        assert len(runs) <= budget or planner.cell == MAX_CELL_PX, (
+            f"frame {step}: {len(runs)} runs at cell {planner.cell}, budget {budget}"
         )
 
 
@@ -159,6 +162,107 @@ def test_a_full_repaint_comes_round_on_its_own_so_band_error_cannot_accumulate()
         planner.plan(_scene(flicker=step / 200))
 
     assert planner.full_paints >= 2, "the periodic refresh never came round"
+
+
+def test_a_repaint_paints_the_whole_rectangle_again():
+    """A picture the panel may no longer show is not left to the deltas.
+
+    The clear is what only a full paint sends, and a stream never sends one by
+    itself: without this, anything that painted over the rectangle - a page's own
+    widgets, a pass the panel dropped - left the deltas composing on top of it.
+    """
+    planner = DeltaPlanner(RECT, cell=8, refresh_every=0)
+    first = planner.plan(_scene())
+    assert planner.plan(_scene()) == [], "nothing moved, so nothing is sent"
+
+    planner.repaint()
+    again = planner.plan(_scene())
+
+    assert again[0] == first[0], "the same clear covers the same rectangle"
+    assert again[0].startswith(f"fill {RECT.x},{RECT.y},{RECT.w},{RECT.h},")
+    assert planner.full_paints == 2
+    assert planner.plan(_scene()) == [], "and the picture is current again"
+
+
+def test_a_repaint_during_startup_repeats_the_current_layer():
+    """A pass that failed mid-startup is painted again, at the same coarseness.
+
+    Jumping to the full-detail picture would be the slowest paint there is, on a
+    panel that has just shown it cannot keep up with a coarse one.
+    """
+    image = _scene()
+    planner = DeltaPlanner(RECT, cell=4, min_cell=4, refresh_every=0, progressive=True)
+    first = planner.plan(image)
+    assert planner.starting_up
+
+    planner.repaint()
+    repeated = planner.plan(image)
+
+    assert planner.starting_up, "the coarse layer is being painted again"
+    assert repeated == first, "the layer that was not acknowledged, sent again"
+
+
+def _coverage(runs: list[str], rect: Rect) -> Image.Image:
+    """Every pixel of ``rect`` the program paints, in the order it paints them."""
+    mask = Image.new("L", (rect.w, rect.h), 0)  # the page, before the program
+    draw = ImageDraw.Draw(mask)
+    for run in runs:
+        x, y, width, height, _colour = (int(field) for field in run[len("fill ") :].split(","))
+        draw.rectangle(
+            [x - rect.x, y - rect.y, x - rect.x + width - 1, y - rect.y + height - 1], fill=1
+        )
+    return mask
+
+
+@pytest.mark.parametrize("rect", [Rect(0, 52, 480, 268), Rect(0, 52, 320, 428)])
+def test_progressive_start_covers_the_panel_and_keeps_the_requested_detail(rect):
+    image = _scene()
+    settings = dict(cell=4, min_cell=4, refresh_every=0, cover=True)
+    planner = DeltaPlanner(rect, **settings, progressive=True)
+    normal = DeltaPlanner(rect, **settings)
+
+    first = planner.plan(image)
+    backdrop = f"fill {rect.x},{rect.y},{rect.w},{rect.h},"
+    assert first[0].startswith(backdrop)
+    short_passes = [first]
+    while planner.starting_up:
+        short_passes.append(planner.plan(image))
+
+    assert len(short_passes) == 4
+    counts = [len(runs) for runs in short_passes]
+    assert counts == sorted(set(counts)), "each layer adds detail"
+    assert counts[0] < counts[-1] / 10
+    for runs in short_passes[1:]:
+        assert not runs[0].startswith(backdrop), "refine over the existing image"
+        assert _coverage(runs, rect).getextrema() == (1, 1)
+
+    def painted(runs):
+        pixels = Image.new("I", (rect.w, rect.h))
+        draw = ImageDraw.Draw(pixels)
+        for run in runs:
+            x, y, w, h, colour = map(int, run.removeprefix("fill ").split(","))
+            draw.rectangle((x - rect.x, y - rect.y, x - rect.x + w - 1, y - rect.y + h - 1), colour)
+        return pixels.tobytes()
+
+    assert painted(short_passes[-1]) == painted(normal.plan(image))
+    assert planner.plan(image) == []
+
+
+def test_a_full_paint_leaves_no_pixel_of_the_rectangle_unpainted():
+    """The picture is the whole area, background included - what a delta needs.
+
+    A frame that showed only the cells it thought had changed would leave the
+    page's own background showing through wherever it did not paint, so a full
+    paint has to cover every pixel: the clear first, the blocks over it.
+    """
+    planner = DeltaPlanner(RECT, cell=8, refresh_every=0)
+
+    first = planner.plan(_scene())
+    planner.repaint()
+    again = planner.plan(_scene(subject_x=140))
+
+    for runs, where in ((first, "the first frame"), (again, "a repaint")):
+        assert _coverage(runs, RECT).getextrema() == (1, 1), f"{where} left a gap"
 
 
 def test_every_painted_run_is_inside_the_rectangle_and_ordered_top_to_bottom():
@@ -195,6 +299,60 @@ def test_the_cell_size_is_clamped_instead_of_refused(cell):
     assert MIN_CELL_PX <= planner.cell <= MAX_CELL_PX
 
 
+def _dot(x: int) -> Image.Image:
+    """A picture that changes in one small place: cheap enough to sharpen on."""
+    image = Image.new("RGB", (240, 160), (30, 40, 50))
+    ImageDraw.Draw(image).rectangle([x, 40, x + 12, 52], fill=(240, 240, 240))
+    return image
+
+
+def test_a_pinned_density_is_the_finest_the_picture_gets():
+    """A quality pins its density: the picture never sharpens past what was asked.
+
+    Sharpening throws the painted model away and costs a full paint, so a stream
+    asked for a coarse picture must not spend that on detail nobody chose. The
+    service's ``cell`` is a starting point; a panel's quality is not.
+    """
+    planner = DeltaPlanner(
+        RECT, cell=6, min_cell=6, max_runs=DEFAULT_FRAME_RUNS, first_runs=FIRST_FRAME_RUNS
+    )
+
+    for x in range(0, 40, 2):
+        planner.plan(_dot(x))
+
+    assert planner.cell == 6
+
+
+def test_a_stream_that_chose_its_own_density_sharpens_while_it_is_cheap():
+    """Without a pinned density the stream finds the detail the budget allows."""
+    planner = DeltaPlanner(RECT, cell=6, max_runs=DEFAULT_FRAME_RUNS, first_runs=FIRST_FRAME_RUNS)
+
+    for x in range(0, 40, 2):
+        planner.plan(_dot(x))
+
+    assert planner.cell < 6, "a calm scene is painted finer than it started"
+    assert planner.cell >= MIN_CELL_PX
+
+
+def test_a_finer_grid_that_cannot_fit_keeps_the_current_picture():
+    """A cheap moving patch must not send the unchanged background over and over."""
+    rect = Rect(0, 0, 96, 64)
+    background = Image.new("RGB", (96, 64))
+    for y in range(0, 64, 4):
+        for x in range(0, 96, 4):
+            ImageDraw.Draw(background).rectangle(
+                (x, y, x + 3, y + 3),
+                fill=((41 * x + 17 * y) % 256, (23 * x + 43 * y) % 256, 112),
+            )
+    planner = DeltaPlanner(rect, cell=8, min_cell=7, max_runs=64, first_runs=110, refresh_every=0)
+    planner.plan(background)
+
+    for x in range(0, 80, 8):
+        frame = background.copy()
+        ImageDraw.Draw(frame).rectangle((x, 24, x + 7, 31), fill="white")
+        assert 0 < len(planner.plan(frame)) <= 4, "send the patch, not a full repaint"
+
+
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
@@ -202,6 +360,7 @@ def test_the_cell_size_is_clamped_instead_of_refused(cell):
         ({"band": 256}, "dead band"),
         ({"max_runs": MIN_FRAME_RUNS - 1}, "runs a frame"),
         ({"max_runs": 100_000}, "runs a frame"),
+        ({"max_runs": 800, "first_runs": 400}, "runs a full paint"),
         ({"refresh_every": -1}, "refresh_every"),
     ],
 )
@@ -217,3 +376,38 @@ def test_the_defaults_are_one_frame_of_a_full_page_rectangle():
 
     assert planner.cell == DEFAULT_CELL_PX
     assert planner.max_runs == DEFAULT_FRAME_RUNS
+    assert planner.first_runs > planner.max_runs, "the picture gets the larger budget"
+
+
+def test_a_full_paint_spends_more_than_an_update_so_the_picture_is_sharp():
+    """The picture's detail comes from the frame that shows it, not from a delta."""
+    rect = Rect(0, 0, 480, 268)
+    sharp = DeltaPlanner(rect, cell=3, max_runs=400, first_runs=FIRST_FRAME_RUNS)
+    thrifty = DeltaPlanner(rect, cell=3, max_runs=400, first_runs=400)
+
+    runs = sharp.plan(_scene())
+    thrifty.plan(_scene())
+
+    assert len(runs) > thrifty.max_runs, "more than an update may cost - it is the picture"
+    assert len(runs) <= FIRST_FRAME_RUNS
+    assert sharp.cell < thrifty.cell, "the larger budget keeps the finer picture"
+
+
+def test_a_cropped_frame_fills_the_rectangle_instead_of_banding_it():
+    """A landscape frame in a tall area: crop to the picture, do not paint bands."""
+    rect = Rect(0, 0, 120, 200)
+    frame = Image.new("RGB", (320, 180), (0, 0, 200))
+    ImageDraw.Draw(frame).rectangle([0, 0, 9, 179], fill=(255, 0, 0))
+
+    covered, _ = fit_image(frame, rect, cover=True)
+    letterboxed, _ = fit_image(frame, rect, cover=False)
+
+    def reds(image: Image.Image) -> int:
+        red, green, _blue = image.split()
+        return sum(
+            1 for r, g in zip(red.tobytes(), green.tobytes(), strict=True) if r > 200 and g < 60
+        )
+
+    assert covered.size == (rect.w, rect.h)
+    assert reds(covered) == 0, "the crop takes the picture's middle as the whole area"
+    assert reds(letterboxed) > 0, "the letterbox keeps the picture's full width"

@@ -164,23 +164,68 @@ What the hub does per frame, and why:
   per frame on the same sequence where the painted model needs 12.
 - `hub/camera_stream.py` owns the loop: one `asyncio` task per panel that fetches
   the snapshot (`camera.async_get_image`, scaled by the camera when it can),
-  plans in the executor, and sends on the app's worker. Every decision about
+  decodes and plans it in the executor, and sends on the app's worker.
+  `async_get_image` returns the camera's *encoded* bytes, not pixels, so the decode
+  is the stream's own step (`image_program.decode_image`) and a frame it cannot
+  read is one refused frame, not a dead stream. Every decision about
   whether a frame may be sent is made on the worker, where the page and the
   display state are owned, so the loop never reads worker state from the loop.
+- **Startup paints the same snapshot in stages:** one background fill with large
+  blocks, then finer layers up to the selected quality and full-paint budget.
+  An acknowledgement releases the next startup pass immediately, without waiting
+  for the steady-state frame timer or fetching another snapshot. The first draw's
+  log separates capture, submission, and completion time.
 - **A frame is dropped, never queued,** while `HAUIESPHomeController.drawing` is
-  true: the firmware restarts its program on a new call, so a frame sent mid-draw
-  would cut the previous one short. The planner's painted grid only advances for
-  frames that were actually sent, which keeps the model honest across a skip.
-- A stream frame goes through `draw_stream_frame`, which skips the page replay and
-  the Live preview: both are for a picture that stays, and a stream would rewrite
-  them several times a second. `record_stream_frame` records the **last** frame
-  once, when the stream ends, so a viewer that attaches later still sees what the
-  panel shows.
+  true. The loop normally checks the draw slot before decoding; the worker checks
+  again before submitting. The painted grid advances only after the final slice
+  is acknowledged. A failed or timed-out camera pass releases the draw slot and
+  invalidates the baseline so the next frame paints the whole rectangle instead
+  of sending a delta against a partial image.
+- A stream frame uses the same draw transport as a still image, and both transports
+  answer the same fence: the panel reports a slice when its last run is on the wire,
+  and the virtual firmware of a Simulated preview reports it after the time those
+  fills would take (`VirtualESPHomeProxy._schedule_fence`), so the preview shows the
+  same busy display and the same refused slice. Each successful slice goes into the
+  page replay and out to Live as the decoded instructions the firmware received.
+  Replay keeps the latest fill for an identical rectangle and prunes earlier fills
+  under the first fill of *every* confirmed pass, not under the bounding box of
+  sparse changes. It is also bounded (`REPLAY_FILLS` in this controller's module,
+  the size of one detailed full-page paint): a camera page never repaints its
+  rectangle whole, so without that bound every distinct fill a moving scene
+  produces would stay in the replay for the length of the stream. Attaching or
+  stopping a stream needs no extra draw and cannot replace the current picture with
+  its original baseline.
+- **After startup, a full paint is only for a new grid or recovery.** A page's
+  stream is built with `refresh_every=0` (`start_page_stream` fixes it), so it
+  does not schedule periodic full paints.
+  A delta is
+  only true while the panel still shows the picture the planner painted, so the
+  rectangle is painted whole again when it may not: a render that drew the page's
+  own widgets there (`NSPanelHAUI.repaint_camera_page_frame`), a pass the panel
+  lost (`draw_failures`), or any other program that painted into it - a
+  `show_image`/`clear_image`, the media page's cover art, a page's own draw - which
+  reports the rectangle it painted (`NSPanelHAUI.paint_rect` →
+  `camera_stream.repaint_rect`) and only wakes a stream whose rectangle it overlaps.
+  Without that the deltas would compose on top of a picture
+  that is no longer on the display - changed cells only, the rest left as it was.
+  A refresh repaints widgets, not the page background, so it asks for nothing.
+  A re-render also keeps the running stream: `CameraStream.signature` compares the
+  cell the page *asked* for, not the planner's, so a stream that had to coarsen
+  to keep up is still the picture the page wants - restarting it would paint the
+  whole rectangle again for a picture the display already shows. The stop a page's
+  cleanup asks for is only a *request* (`CameraStream.request_stop`): a page that is
+  set again starts its stream in the same worker turn, withdraws it
+  (`cancel_stop`) and keeps the picture, where the scheduled stop would otherwise
+  land on the stream the start had just decided to keep.
 - The stream ends on a page change, a sleeping display, a TFT install, an app that
   stopped, a camera that missed `MAX_CAMERA_FAILURES` snapshots in a row, or
   `stop_camera_stream`. All of those paths converge on the same teardown, which is
-  also where the last frame is recorded; `async_unload_entry` stops every stream
-  so none outlives the entry.
+  also where the camera fetch loop is removed; `async_unload_entry` stops every
+  stream so none outlives the entry. A TFT install is refused twice over: the loop
+  stops once (`CameraStream._frame_status` reads `update.tft_install_active`) and no
+  program may be started at all while it runs (`_start_draw` calls
+  `_display_busy()`), because the firmware answers `ok=false` to everything and the
+  panel reboots into a page that is drawn again.
 
 The frame budget is what the picture trades against: a frame over `max_runs` is
 planned again at a coarser cell (never truncated), and the cell stays coarser while
@@ -192,21 +237,45 @@ cannot make usable.
 ### The camera page is one of the stream's callers
 
 `haui/page/camera.py` does not draw anything itself: it owns the display's info page
-(page id 20), hands that page's text area to the stream as its rectangle
-(`PICTURE_RECT`, per orientation), and stays out of the way. Three things follow from
-a stream being started by a page rather than by a service:
+(page id 20) and hands that page's big text area (`tText`) to the stream as its
+rectangle (`PICTURE_RECT`, per orientation, cropped to fill) - the widget's own
+compiled coordinates, the way the media page's cover art goes where its icon widget
+is - and stays out of the way. Four things follow from a stream being started by a
+page rather than by a service:
 
-- **The bridge is worker-to-loop, never a wait.** A page renders on the app's
+- **The bridge is worker-to-loop, never a wait.** A page starts on the app's
   worker; `NSPanelHAUI.start_camera_page_stream` / `stop_camera_page_stream` only
-  schedule `start_page_stream` / `stop_page_stream` on the event loop, and stopping
-  and starting a replacement happen as one step there, so they cannot interleave.
-- **A render restarts the stream.** `render_panel` repaints the page background over
-  the picture, so the page asks for a fresh stream - whose planner starts from an
-  empty painted model and therefore paints the whole rectangle - instead of leaving
-  half the area blank until something happens to change there.
-- **The placeholder belongs to the page.** The text area is shown with *Waiting for
-  the camera* until `on_first_frame` fires on the worker (the stream reports its first
-  sent frame), which is also why a card render - which never streams - keeps it.
+  schedule `start_page_stream` / `stop_page_stream` on the event loop, so a
+  replacement cannot interleave with a service call - and it is one step, because
+  `CameraStream.async_start` stops the replaced stream itself: neither entry path
+  (the page or the service) stops it first. The stop a page's cleanup asks for is
+  a request until the loop acts on it, and a page that is set again withdraws it
+  in the same worker turn - see the stop token above.
+- **The panel start asks for the stream; a render does not.** `start_panel` hands
+  the rectangle over once, when the page that will show the picture is up. A render
+  repaints widgets, not the page background, so the picture on the display survives
+  it, and it costs nothing once the picture is up: the page asks for a stream with
+  the picture's own signature (camera, rectangle, cover, refresh, density and
+  budgets - a page's stream crops and never repaints on a timer, and those two are
+  fixed where it is built) and `start_page_stream` keeps the running one when it
+  matches - its
+  planner is the model of what the display shows, and a replacement would repaint a
+  whole frame the panel already has. A page that *is* drawn again - a reload, a
+  theme change, a second panel on the same page - asks that running stream for a
+  whole paint (`repaint_camera_page_frame`) instead of replaying the frame the page
+  remembers: one paint path, and it is the current picture, not the one from
+  minutes ago. A render that finds no picture (`camera_page_frame()` empty) leaves
+  the placeholder up.
+- **The placeholder belongs to the page.** The stream hides *Waiting for the
+  camera* before submitting the first draw; hiding it after acknowledgement could
+  repaint the widget over the picture. A card render that is not streaming can
+  still show the placeholder.
+- **The quality is the whole of the panel's tuning.** The page's `quality` option
+  resolves through `image_stream.QUALITY` to a cell size, a rate and two run
+  budgets, so the editor never offers a frame rate the display cannot paint: the
+  stream is started at the quality's density and `min_cell` pins it there, so a
+  calm scene cannot sharpen past what the panel was set to (the service's `cell`
+  is a mere starting point and still refines to `MIN_CELL_PX`).
 
 ## Page
 

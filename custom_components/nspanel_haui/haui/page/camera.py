@@ -1,14 +1,18 @@
 """The camera page: one camera's picture kept current on the panel.
 
-The picture is not part of the render. A Nextion has no image buffer and the page
-API can only replay commands, so the frame itself is a program of ``fill``
-rectangles that the hub's stream draws into the page's picture area after the page
-is up (``hub/camera_stream.py``). The page therefore owns three things: the
-picture area it hands over, the title and the placeholder that says the picture is
-not there yet.
+The picture is not part of the render's widget commands. A Nextion has no image
+buffer and the page API can only replay commands, so the frame itself is a program
+of ``fill`` rectangles that the hub's stream draws into the page's picture area
+after the page is up (``hub/camera_stream.py``). The page therefore owns the
+picture area it hands over, the title, the quality the picture is drawn at, and
+the placeholder that says the picture is not there yet.
 
-Both sizes carry the same widgets: the info page's text area (``tText``) is the
-picture, and its six mode buttons stay hidden until a page has a use for them.
+The area is the info page's big text widget, the way the media page's cover art
+goes where its icon widget is: the coordinates are the ones that widget was
+compiled at, so the picture lands in the page's text area and the header, the
+mode buttons and the page's own margins stay as they are. Frames are cropped to
+fill that area instead of letterboxed, because a camera's 16:9 image in a
+portrait panel's tall area would otherwise spend most of it on empty bands.
 """
 
 from __future__ import annotations
@@ -18,14 +22,28 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..utils.image_program import Rect
+from ..utils.image_stream import DEFAULT_QUALITY, QUALITY, PictureQuality
 
-#: Where the picture area (``tText``) sits, per orientation.  Read here instead of
-#: from the widget: the rect must be known before anything is drawn, and the pixel
-#: values are the HMI's (``scripts/hmi_layout`` keeps them in step with the TFT).
+#: Where the picture goes: the info page's big text area (``tText``), in the
+#: display pixels of each HMI. The page hands this rectangle to the hub instead of
+#: asking the display for it - a Nextion reads back a widget's ``.txt`` and
+#: ``.val``, never its position or size - so the values are the ones its layout was
+#: compiled from, and ``tests/test_page_camera.py`` checks them against both
+#: generated layouts.
 PICTURE_RECT: dict[str, Rect] = {
     "landscape": Rect(12, 70, 426, 170),
     "portrait": Rect(12, 55, 296, 335),
 }
+
+#: What the panel editor offers, in the order it lists it. The values are the
+#: profiles in ``image_stream.QUALITY``; the labels say what they buy, because
+#: "high" on its own does not tell a user that the picture is a third as grainy
+#: and arrives half as often.
+QUALITY_CHOICES: list[tuple[str, str]] = [
+    ("high", _("High (finest picture, slower)")),
+    ("mid", _("Medium")),
+    ("low", _("Low (coarsest picture, fastest)")),
+]
 
 
 class CameraPage(HAUIPage):
@@ -46,14 +64,13 @@ class CameraPage(HAUIPage):
                 section=_("Camera"),
             ),
             PageOption(
-                key="fps",
-                kind="float",
-                default=2.0,
-                label=_("Frames per second"),
-                description=_("Snapshots per second; more helps a moving camera."),
+                key="quality",
+                kind="select",
+                default=DEFAULT_QUALITY,
+                label=_("Picture quality"),
+                description=_("How fine the picture is, and how often a frame arrives."),
                 section=_("Camera"),
-                min=0.1,
-                max=10.0,
+                choices=QUALITY_CHOICES,
             ),
         ],
         icon="mdi:video-outline",
@@ -81,6 +98,10 @@ class CameraPage(HAUIPage):
     def prepare(self) -> None:
         self._entity_id = ""
         self._title = ""
+        #: Whether this page has put its picture on the display. A refresh
+        #: repaints widgets, not the page background, so once the picture is up it
+        #: stays up - drawing it again would flash the whole area for no gain.
+        self._picture_shown = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
         self.set_function_buttons(
@@ -93,11 +114,29 @@ class CameraPage(HAUIPage):
         self._entity_id = item.get_item_id() if item is not None else ""
         self._title = panel.get_title(item.get_name() if item is not None else "")
         self.set_title(self._title)
+        # The stream belongs to the panel, not to a render: it is asked for once,
+        # here, when the page that will show it is up. A start that asks for the
+        # picture already running is a no-op, so a panel that is set again keeps
+        # the stream - and its planner, which is the model of what the display
+        # shows.
+        self._start_stream(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_title(self._title)
-        # The placeholder is shown until the first frame arrives: a page that is
-        # still empty says so instead of looking like a broken camera.
+        if not self._picture_shown:
+            # This page has just been drawn, so the picture area shows whatever
+            # the page's own widgets put there. The picture is the stream's, and
+            # the stream paints the rectangle whole to put it back: replaying the
+            # frame the page remembers would be a second paint path - stale, and
+            # cut short by the pass already in flight.
+            if self.app.camera_page_frame():
+                self.hide_placeholder()
+            else:
+                self.show_placeholder()
+            self.app.repaint_camera_page_frame()
+
+    def show_placeholder(self) -> None:
+        """Say that the picture is not there yet, over an empty area."""
         self.show_component(self.COMPONENTS.picture_area)
         # ``component_text`` is the role the theme code gives this widget, so the
         # placeholder matches the body text of every other solid page.
@@ -110,11 +149,6 @@ class CameraPage(HAUIPage):
             if self._entity_id
             else self.translate("No camera selected"),
         )
-        # Every render repaints the page background over the last frame, and the
-        # stream's planner holds what it painted: only a fresh stream - which
-        # starts from an empty model and so paints the whole rectangle - brings
-        # the picture back without leaving the rest of it blank.
-        self._start_stream(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         self.app.stop_camera_page_stream()
@@ -129,9 +163,26 @@ class CameraPage(HAUIPage):
         self.app.start_camera_page_stream(
             entity_id=self._entity_id,
             rect=self.picture_rect,
-            fps=self.option(panel, "fps"),
+            quality=self.quality(panel),
             on_first_frame=self.hide_placeholder,
         )
+
+    def quality(self, panel: HAUIPanel) -> PictureQuality:
+        """The picture quality this panel is set to, with its density and budgets.
+
+        A value the editor does not offer can only come from a hand-edited
+        config; the page still has to draw something, so it says so and falls
+        back to the default.
+        """
+        value = str(self.option(panel, "quality"))
+        quality = QUALITY.get(value)
+        if quality is None:
+            self.log(
+                f"camera page: unknown picture quality {value!r}, using {DEFAULT_QUALITY}",
+                level="WARNING",
+            )
+            quality = QUALITY[DEFAULT_QUALITY]
+        return quality
 
     @property
     def picture_rect(self) -> Rect:
@@ -139,6 +190,7 @@ class CameraPage(HAUIPage):
         return PICTURE_RECT["portrait" if self.app.device.is_portrait else "landscape"]
 
     def hide_placeholder(self) -> None:
-        """Take the placeholder away once the stream has drawn its first frame."""
+        """Take the placeholder away: the picture is on the display now."""
+        self._picture_shown = True
         with self.rec_cmd:
             self.hide_component(self.COMPONENTS.picture_area)

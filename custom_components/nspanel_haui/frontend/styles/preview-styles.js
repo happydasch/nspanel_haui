@@ -130,6 +130,8 @@ export const previewStyles = css`
     touch-action: var(--vp-touch-action, none);
   }
   .vp-widget { position: absolute; box-sizing: border-box; overflow: hidden; }
+  /* A draw program's fills: one canvas per run, sized and placed inline in display pixels. */
+  .vp-drawing-layer { position: absolute; display: block; image-rendering: pixelated; pointer-events: none; }
   .vp-text { display: flex; }
   .vp-text-inner { max-width: 100%; }
   .vp-icon { vertical-align: middle; display: inline-flex; }

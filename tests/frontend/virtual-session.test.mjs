@@ -505,3 +505,17 @@ test('the hub\'s idle page state is tracked', async () => {
   push({ type: 'idle', active: false });
   assert.equal(session.idle, false);
 });
+
+test('a reconnect while assets load drops the previous session’s queued drawing', async () => {
+  const { push, resolveLayout, session } = await started({ Session: LivePanelSession });
+  const grid = Object.values(load('landscape').pages).find(page => page.name === 'grid');
+  push({ type: 'started', session_id: 'old', portrait: false });
+  push({ type: 'page', page: grid.id });
+  push({ type: 'commands', commands: ['fill 10,10,20,20,2016'] });
+  push({ type: 'started', session_id: 'new', portrait: false });
+  resolveLayout();
+  await flush();
+  assert.equal(session.sessionId, 'new');
+  assert.equal(session.display.page, null);
+  assert.deepEqual(session.display.drawings, []);
+});

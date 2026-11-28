@@ -170,7 +170,7 @@ pytest tests/test_live_panel.py tests/test_page_weather.py tests/test_card_rende
 node --test tests/frontend/virtual-session.test.mjs
 ```
 
-These cover a fresh full-page attach, replays of content drawn in different lifecycle hooks, reconnecting onto a blank simulator, live page switches and replaying real hub commands in the browser's Nextion simulator. Feed cross-layer tests with captured hub output instead of duplicating an expected command stream in JavaScript.
+These cover a fresh full-page attach, replays of content drawn in different lifecycle hooks, reconnecting onto a blank simulator, live page switches and replaying real hub commands in the browser's Nextion simulator. Feed cross-layer tests with captured hub output instead of duplicating an expected command stream in JavaScript. For a drawing change, assert the resulting fill colours or canvas paints as well as a warning-free replay: an ignored command can otherwise pass silently. Cover pages that share an HMI id, and viewers that attach after an initial paint and subsequent deltas.
 
 For live mode, verify on a connected device when one is available:
 

@@ -64,6 +64,13 @@ for (const [name, render] of Object.entries(renders)) {
       failures.push(`${name}: ${expected.component} text does not include ${expected.textIncludes}`);
     }
   }
+  for (const { x, y, color } of render.pixels || []) {
+    const fill = display.drawings.findLast(d => d.kind === 'fill'
+      && x >= d.x && x < d.x + d.w && y >= d.y && y < d.y + d.h);
+    if (fill?.color !== color) failures.push(
+      `${name}: at (${x}, ${y}) expected colour ${color}, got ${fill?.color}`,
+    );
+  }
   if (themedColors) {
     const hmi = new Map(layout.pages[render.page].components.map((c) => [c.name, c.attrs]));
     const page = layout.pages[render.page].components.find((c) => c.type === TYPE_PAGE).attrs;

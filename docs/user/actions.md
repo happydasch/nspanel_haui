@@ -259,6 +259,10 @@ of rectangles per frame.
 
 ### `nspanel_haui.start_camera_stream`
 
+The first snapshot is drawn in progressively finer layers: a background fill,
+large blocks, then smaller ones. After startup, subsequent snapshots update only
+what changed.
+
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `device` | no | all devices | The panel to draw on |
@@ -266,9 +270,9 @@ of rectangles per frame.
 | `x`, `y` | no | `0` | Top-left corner of the rectangle, in display pixels |
 | `w`, `h` | yes | — | Size of the rectangle, in display pixels |
 | `fps` | no | `2` | How often to try for a new frame, 0.1–10 |
-| `cell` | no | `8` | Size of one rectangle in pixels, 2–24 (smaller is sharper, slower) |
+| `cell` | no | `4` | Size of one rectangle in pixels, 2–24 (smaller is sharper, slower) |
 | `band` | no | `24` | How far a colour must move before it is repainted, per channel |
-| `max_runs` | no | `400` | The most rectangles one frame may cost, 40–2400 |
+| `max_runs` | no | `1200` | The most rectangles one *update* may cost, 40–2400 |
 
 ```yaml
 action: nspanel_haui.start_camera_stream
@@ -304,15 +308,21 @@ data:
 - **A still scene is free.** With nothing moving, no rectangles are sent — the
   panel and the camera keep running for nothing. A full repaint comes round every
   60 frames anyway, so a slow drift (a wall darkening through the evening) cannot
-  stay wrong.
+  stay wrong. The camera **panel** turns that timer off: its picture is painted
+  whole once, when it appears, and a drift is corrected cell by cell.
 - **A camera that moves is expensive.** Pan, tilt or zoom moves every part of the
-  picture, so a full-page rectangle at `cell: 8` costs about two thousand
-  rectangles a frame — near a second per frame. Fit a fixed camera; if the picture
-  must move, coarsen `cell` and lower `fps` until the log is quiet.
-- **It is soft.** The picture is a grid of `cell`-pixel rectangles, so it looks
-  like a mosaic of the size you pick. A 240x160 rectangle at `cell: 8` is 30x20
-  blocks — recognisable people and shapes, not a photograph.
-- **The stream coarsens itself.** A frame that would cost more than `max_runs` is
+  picture, so a full-page rectangle at `cell: 4` costs several thousand rectangles
+  a frame — a second or more per frame. Fit a fixed camera; if the picture must
+  move, coarsen `cell` and lower `fps` until the log is quiet.
+- **It is a mosaic, but a fine one.** The picture is a grid of `cell`-pixel
+  rectangles: a 480x268 rectangle at `cell: 4` is 120x67 blocks. A face is
+  recognisable at that size; a number plate usually is not. `cell: 2` is the finest
+  the display can take and costs four times the runs.
+- **The paint that shows the picture is the sharp one.** The first frame may spend
+  up to six times `max_runs` — a few thousand rectangles, about a second on the
+  wire — because that paint is where the detail comes from; the updates after it pay
+  only for what changed.
+- **The stream coarsens itself.** An update that would cost more than `max_runs` is
   drawn with bigger rectangles instead of taking longer, and the cell size stays
   there while the scene stays busy, so `cell` is a starting point.
 - **It draws over the page you are on, and stops when you leave.** The rectangle

@@ -217,6 +217,7 @@ def test_a_draw_program_replays_on_the_card(hub_loop, tmp_path, display_model, o
         "page": grid["page"],
         "before": grid["before"],
         "commands": [*grid["commands"], *program],
+        "pixels": [{"x": 21, "y": 21, "color": 63488}, {"x": 61, "y": 21, "color": 2016}],
     }
 
     _replay(tmp_path, orientation, renders)

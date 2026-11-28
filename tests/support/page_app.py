@@ -110,6 +110,13 @@ class PageApp:
         # what the hub's camera stream was asked to do, in order
         self.camera_streams: list[dict[str, Any]] = []
         self.camera_stream_stops = 0
+        # the frame a render repaints, and the frames the page painted itself
+        self.camera_frame: list[str] = []
+        self.camera_paints: list[list[str]] = []
+        # covers the page asked the hub to fetch, in order
+        self.cover_requests: list[dict[str, Any]] = []
+        # the areas another program painted, which their owner has to repaint
+        self.painted_rects: list[Any] = []
 
     @property
     def cmds(self) -> list[str]:
@@ -161,3 +168,24 @@ class PageApp:
     def stop_camera_page_stream(self) -> None:
         """Record that the page gave its picture area back."""
         self.camera_stream_stops += 1
+
+    def camera_page_frame(self) -> list[str]:
+        """The last frame the stream drew; a test sets it to pretend one arrived."""
+        return list(self.camera_frame)
+
+    def repaint_camera_page_frame(self) -> None:
+        """Record the picture the page asked the stream to paint again."""
+        if self.camera_frame:
+            self.camera_paints.append(list(self.camera_frame))
+
+    def paint_rect(self, rect: Any) -> None:
+        """Record an area another program painted: its owner has to repaint it."""
+        self.painted_rects.append(rect)
+
+    def request_media_cover(self, url: str, rect: Any, on_done: Any) -> None:
+        """Record a cover the page asked for; a test answers it with ``cover()``."""
+        self.cover_requests.append({"url": url, "rect": rect, "on_done": on_done})
+
+    def cover(self, runs: list[str] | None, error: BaseException | None = None) -> None:
+        """Answer the last cover request, the way the hub answers it on the worker."""
+        self.cover_requests[-1]["on_done"](runs, error)

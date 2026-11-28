@@ -24,6 +24,10 @@ export const deviceLayoutStyles = css`
   .haui-device-rail-item.active .haui-status-dot { background: currentColor; }
   .haui-device-rail-item > span:nth-of-type(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .haui-device-rail-update { color: var(--haui-warn-icon); }
+  /* The tone is mixed against the card and its soft tint, so on the selected chip's primary fill it
+     has no contrast left (1.3:1 on the default light theme's #03a9f4). The mark takes the label's
+     colour there, as the status dot does, and the triangle's shape carries the update. */
+  .haui-device-rail-item.active .haui-device-rail-update { color: currentColor; }
   /* Both columns stick to the viewport below the sticky titlebar; the taller one sets the
      scrolling range for the shorter one.
      In one column, the lead sits above the workspace and the side stack below. */

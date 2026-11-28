@@ -48,10 +48,9 @@ from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E
     RUN_BUDGET,
     ImageProgramError,
     Rect,
-    # The reference tile is the rasteriser's own fit, so private on purpose.
-    _decode,
-    _fit,
+    decode_image,
     display_size,
+    fit_image,
     image_plan,
     program_length,
 )
@@ -134,7 +133,7 @@ def ideal_tile(data: bytes, rect: Rect, portrait: bool) -> Image.Image:
     not about the fitting or the panel's colour depth.
     """
     canvas = Image.new("RGB", display_size(portrait), PAGE_RGB)
-    fitted, _colour = _fit(_decode(data), rect)
+    fitted, _colour = fit_image(decode_image(data), rect)
     canvas.paste(in_display_colours(fitted), (rect.x, rect.y))
     return canvas
 

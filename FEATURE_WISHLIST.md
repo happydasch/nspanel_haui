@@ -139,16 +139,6 @@ is to let the panel own a picture instead of an automation pushing one.
   [Images on the panel](docs/user/actions.md#images-on-the-panel)): it draws
   over the page instead of replacing an item's icon, and stays a mosaic at
   icon size, so crisp per-item assets are still wanted.
-- **Live media cover** — The media panel draws the player's cover art — its
-  `entity_picture` — in place of the music icon, replaced when the track, station
-  or source changes and hidden when the player publishes none. Today the panel
-  shows the MDI icon with title and interpretation only. A drawn cover is a
-  mosaic of `fill` rectangles, so it is a small square at a modest run count
-  rather than artwork: decide the size, where it sits on both display models, and
-  whether an uploaded per-item picture may replace the fetched one. Done: a
-  player that publishes cover art shows it in the media panel on both display
-  models, a track change replaces it, a player without one keeps the icon, and
-  the panel's buttons stay responsive while a cover draws.
 - **A picture in a notification** — Let `send_notification` and the notify
   entities carry an image — a URL, a file in the `www` folder or a camera entity
   — drawn in the popup beside the message instead of its icon, with the text

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from itertools import islice
+from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
     from ...hub.adapter import ESPHomeProxy
@@ -14,17 +15,25 @@ from ..utils.draw_wire import (
     DRAW_FORMAT_PACKED,
     LEGACY_SLICE_RUNS,
     RUN_MS_CEILING,
+    decode_program,
     display_run,
     draw_format,
     pack_program,
     program_slices,
     run_packer,
 )
+from ..utils.image_program import Rect
 
 #: Seconds a slice gets on top of its own drawing time before the hub sends the
 #: next one without a report: a fence lost to a busy event loop must not wedge
 #: the rest of the image.
 DRAW_SLICE_GRACE: float = 2.0
+
+#: Fills the page replay holds before its oldest ones are dropped. This is the
+#: size of one detailed whole paint (``image_stream.MAX_FIRST_FRAME_RUNS``), not
+#: of a stream: a page a camera draws on is shown for hours and never repaints its
+#: rectangle whole (``camera_stream.start_page_stream``).
+REPLAY_FILLS: Final = 12000
 
 
 class HAUIESPHomeController(HAUIBase):
@@ -53,6 +62,12 @@ class HAUIESPHomeController(HAUIBase):
         self.prev_cmd: tuple[str, str] | None = None
         # What the shown page was sent since it loaded: target -> last command.
         self._page_commands: dict[str, str] = {}
+        # The fills among them, with the rectangle each paints, in the order they
+        # were last written: what bounds the replay (``_trim_replay``).
+        self._fills: dict[str, tuple[int, int, int, int]] = {}
+        # The rectangle a completed whole pass has repainted since the fills were
+        # last trimmed: what the replay still describes completely, if anything.
+        self._replay_whole: tuple[int, int, int, int] | None = None
         self._event_callback = event_callback
         self._device_names: list[str] = []
         # Slices of a draw pass still to send, and the timer that sends the next
@@ -61,8 +76,21 @@ class HAUIESPHomeController(HAUIBase):
         self._draw_timer: str | None = None
         #: The pass being drawn, so a slice the panel failed can be re-sent once.
         self._draw_runs: list[str] = []
+        self._draw_in_flight: list[str] = []
+        #: The rectangle the pass being drawn paints whole - its first fill, when
+        #: it is a whole paint - so a completed pass can say which area the replay
+        #: describes completely again (``picture_commands``).
+        self._draw_whole: tuple[int, int, int, int] | None = None
+        self._draw_external = False
+        self._draw_done: Callable[[bool], None] | None = None
         self._draw_retried = False
         self._draw_old_firmware_warned = False
+        #: Passes that may not be on the display: a slice the panel never took, a
+        #: slice it refused twice, a pass another pass cut short. What arrived stays
+        #: on the screen, so a camera stream that owns the rectangle has to paint it
+        #: whole again instead of sending deltas against a picture the panel no
+        #: longer shows (``draw_failures``).
+        self._draw_failures = 0
         #: The packing the panel's firmware decodes, fixed per program: format 1
         #: takes the display instructions, 2 the base-36 runs (``draw_wire``).
         self._draw_pack: Callable[[str], str] = display_run
@@ -151,7 +179,11 @@ class HAUIESPHomeController(HAUIBase):
             # compiled widgets again.
             if published:
                 self.cancel_draw()
-            self._page_commands.clear()
+                self._page_commands.clear()
+                self._fills.clear()
+                # The display loads the page's compiled widgets: nothing the
+                # replay describes is on it any more.
+                self._replay_whole = None
         elif published and bare_cmd == ESPAction.SEND_COMMAND:
             self._record_page_command(str(value))
         elif published and bare_cmd == ESPAction.SEND_COMMANDS:
@@ -185,7 +217,7 @@ class HAUIESPHomeController(HAUIBase):
             value = ""
         self.esphome.publish_detached(cmd.removeprefix("esphome."), value)
 
-    def page_commands(self) -> list[str]:
+    def page_commands(self, *, exclude: Rect | None = None) -> list[str]:
         """The display commands the shown page was sent since it loaded.
 
         Only the last write to each target is kept (an attribute, a widget's
@@ -193,44 +225,91 @@ class HAUIESPHomeController(HAUIBase):
         of those last writes. Replayed on the freshly loaded page, after the
         page's ``load_commands``, they end on the screen the panel shows: what
         the Live preview gives a viewer that attaches to a shown page.
+
+        Args:
+            exclude: Leave out the fills inside this rectangle - a page that
+                paints its area from a picture the stream owns replays them
+                through ``picture_commands`` instead.
         """
-        return list(self._page_commands.values())
+        if exclude is None:
+            return list(self._page_commands.values())
+        area = (exclude.x, exclude.y, exclude.w, exclude.h)
+        return [
+            command
+            for command in self._page_commands.values()
+            if (rect := _fill_rect(command)) is None or not _covers(area, rect)
+        ]
+
+    def picture_commands(self, x: int, y: int, w: int, h: int) -> list[str]:
+        """Replay the confirmed fills contained in a panel's picture area.
+
+        Empty when the replay can no longer describe that area whole: the oldest
+        fills were dropped for room since a pass painted it, so what is left has
+        holes in it. A viewer asks the stream that owns the area for a whole paint
+        instead - a delta's worth of leftovers is not a picture.
+        """
+        area = (x, y, w, h)
+        if self._replay_whole is None or not _covers(self._replay_whole, area):
+            return []
+        return [
+            command
+            for command in self._page_commands.values()
+            if (rect := _fill_rect(command)) is not None and _covers(area, rect)
+        ]
 
     def _record_page_command(self, command: str) -> None:
-        target = command_target(command)
+        rect = _fill_rect(command)
+        # A different colour at exactly the same position overwrites the same
+        # pixels. The latest write keeps its position relative to widget paints.
+        target = f"fill {rect}" if rect is not None else command_target(command)
         self._page_commands.pop(target, None)
         self._page_commands[target] = command
+        if rect is not None:
+            self._fills.pop(target, None)
+            self._fills[target] = rect
+            self._trim_replay()
 
-    def _record_draw_program(self, runs: list[str]) -> None:
-        """Record a draw pass in the page replay, replacing only what it covers.
+    def _forget_page_command(self, target: str) -> None:
+        """Drop a recorded command, and the fill that claims its pixels with it."""
+        self._page_commands.pop(target, None)
+        self._fills.pop(target, None)
 
-        A drawn rectangle is one target per ``fill``. A new pass replaces the
-        fills that lie inside the rectangle the pass covers - the bounding box of
-        its own runs, which is the rectangle the caller asked for - so drawing
-        over the same rectangle replaces that image, and a clear removes the
-        fills it covers. Fills outside that rectangle are another image and stay:
-        two images in different rectangles compose on the panel, and a late
-        viewer must see the same page.
+    def _trim_replay(self) -> None:
+        """Keep the replay the size of a picture, not of a whole stream.
+
+        A camera streams for hours without ever painting its rectangle whole
+        again (``refresh_every`` is 0 on a camera page: a full paint is a visible
+        flash), so every distinct fill rectangle a moving scene produces would
+        stay in the replay for the length of the stream - and a late viewer is
+        sent all of it in one message. The oldest fills go first, which is what a
+        picture needs least.
         """
-        cover = _pass_rect(runs)
-        if cover is not None:
-            left, top, width, height = cover
-            right, bottom = left + width, top + height
-            covered = [
-                target
-                for target in self._page_commands
-                if (rect := _fill_rect(target)) is not None
-                and rect[0] >= left
-                and rect[1] >= top
-                and rect[0] + rect[2] <= right
-                and rect[1] + rect[3] <= bottom
-            ]
-            for target in covered:
-                del self._page_commands[target]
-        for run in runs:
-            self._record_page_command(str(run))
+        overflow = len(self._fills) - REPLAY_FILLS
+        if overflow <= 0:
+            return
+        for target in list(islice(self._fills, overflow)):
+            self._forget_page_command(target)
+        # The fills that just went may have been part of what a pass painted
+        # whole: what a viewer replays may now have holes, so it asks for a paint.
+        self._replay_whole = None
 
-    # image drawing
+    def _confirm_draw_slice(self) -> None:
+        """Record and mirror exactly the decoded slice the panel confirmed."""
+        runs, self._draw_in_flight = self._draw_in_flight, []
+        if not runs:
+            return
+        if cover := _fill_rect(runs[0]):
+            # Only the actual opaque first fill proves coverage. A bounding box
+            # around sparse fills (or a partly sent image) can contain holes. A
+            # pass repaints what its first fill covers whether or not it is a
+            # whole one, so this applies to every pass, not only a full paint -
+            # and it compares the stored rectangles, never the commands.
+            for target, rect in list(self._fills.items()):
+                if _covers(cover, rect):
+                    self._forget_page_command(target)
+        for run in runs:
+            self._record_page_command(run)
+        self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs, external=self._draw_external)
 
     def cancel_draw(self) -> None:
         """Stop the draw pass in flight: a page switch owns the display now.
@@ -241,9 +320,25 @@ class HAUIESPHomeController(HAUIBase):
         as the backstop for one the display reports; ``_handle_page_event``
         cancels before the page render starts.
         """
+        self._finish_draw(False)
+
+    def _finish_draw(self, ok: bool) -> None:
         self._cancel_timer("_draw_timer")
         self._draw_slices.clear()
         self._draw_runs = []
+        self._draw_in_flight = []
+        whole, self._draw_whole = self._draw_whole, None
+        if ok and whole is not None:
+            # The pass arrived whole: every pixel of its first fill has a colour
+            # in the replay now, whatever it painted over went with it.
+            self._replay_whole = whole
+        done, self._draw_done = self._draw_done, None
+        if done is not None:
+            done(ok)
+
+    def _fail_draw(self) -> None:
+        self._draw_failures += 1
+        self._finish_draw(False)
 
     def _draw_packer(self) -> Callable[[str], str]:
         """The packing this panel's firmware decodes (``draw_wire.draw_format``).
@@ -261,7 +356,14 @@ class HAUIESPHomeController(HAUIBase):
         info = self.app.device.device_info or {}
         return draw_format(info.get("draw_format"))
 
-    def _start_draw(self, value: str | dict | list, *, record: bool = True) -> None:
+    def _start_draw(
+        self,
+        value: str | dict | list,
+        *,
+        full: bool = True,
+        external: bool = False,
+        on_done: Callable[[bool], None] | None = None,
+    ) -> bool:
         """Paint a pass of ``fill`` instructions, one slice at a time.
 
         A pass is far longer than one API message and far bigger than the
@@ -271,25 +373,40 @@ class HAUIESPHomeController(HAUIBase):
         (``on_draw_report``). The picture therefore appears in bands while RAM
         stays the size of a single slice.
 
-        The whole pass - not the slice - is what the page replay keeps, so a
-        viewer that attaches late still sees the finished image, and it is also
-        what a failed pass is retried from (``on_draw_report``). A stream frame
-        passes ``record=False``: a camera at a few frames a second would rewrite
-        the replay and the preview on every frame for a picture that is replaced
-        before anyone sees it, so a stream records its last frame instead
-        (``record_stream_frame``).
+        The whole pass is kept for retries, but only confirmed slices enter
+        the page replay or reach Live. The same path handles still images and
+        camera deltas, including viewers that attach during a pass.
+
+        Returns:
+            Whether the pass was accepted for drawing. A pass the display cannot
+            take - a TFT install owns it, which no caller may write into - is
+            refused here rather than sliced and sent into the transfer.
         """
+        if self._display_busy():
+            self.log(
+                f"Dropped {len(value) if isinstance(value, list) else 1} draw run(s) "
+                "during a TFT install",
+                level="DEBUG",
+            )
+            self._fail_draw()
+            return False
         runs = [str(run) for run in (value if isinstance(value, list) else [value])]
         if not runs:
-            return
+            return False
+        if self.drawing:
+            # A new pass replaces the one in flight: the firmware stops its own
+            # stream, so the picture keeps whatever of the old pass arrived and
+            # nothing of the rest. Whoever owned that rectangle must repaint it.
+            self._fail_draw()
         self._draw_runs = runs
+        self._draw_done = on_done
         self._draw_retried = False
-        if record:
-            self._record_draw_program(runs)
-            self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
+        self._draw_whole = _fill_rect(runs[0]) if full else None
+        self._draw_external = external
         if self._draw_format() < DRAW_FORMAT_PACKED:
             self._warn_about_an_old_firmware()
         self._plan_draw_slices()
+        return True
 
     @property
     def drawing(self) -> bool:
@@ -302,31 +419,48 @@ class HAUIESPHomeController(HAUIBase):
         """
         return bool(self._draw_slices or self._draw_runs)
 
-    def draw_stream_frame(self, runs: list[str]) -> None:
-        """Paint one frame of a camera stream, without touching the page replay.
+    @property
+    def draw_failures(self) -> int:
+        """How many passes may have left the panel's picture incomplete.
 
-        The frame is an ordinary draw program (``image_stream.DeltaPlanner``), so
-        it goes through the same slicing, packing and pacing as an image from
-        ``show_image``. What is skipped is the bookkeeping that only makes sense
-        for a picture that stays: the page replay and the Live preview, both of
-        which a stream updates once, when it stops (``record_stream_frame``).
+        Counts every pass the display did not get whole: a slice the panel never
+        took, a slice it refused twice, a pass another pass cut short. The runs
+        that did arrive stay on the screen, so the panel now shows part of a
+        picture nobody meant to paint there - a camera stream compares this
+        counter and paints its rectangle whole again instead of sending deltas
+        against a picture the panel no longer shows.
+        """
+        return self._draw_failures
+
+    def draw_overlay(self, runs: list[str], *, rect: Rect | None = None) -> None:
+        """Paint a service image, which also belongs on a matching sandbox panel.
 
         Args:
-            runs: The frame's ``fill`` instructions; empty frames are never sent.
+            runs: ``fill`` instructions, in the order they paint.
+            rect: The rectangle the program paints, when it is one the caller
+                knows. Whoever owns that area on the display - a camera stream -
+                is told, so a picture it holds there is painted whole again
+                instead of being left with a hole in it (``app.paint_rect``).
         """
-        self._start_draw(runs, record=False)
+        if self._display_busy():
+            return
+        if self._start_draw(runs, external=True) and rect is not None:
+            self.app.paint_rect(rect)
 
-    def record_stream_frame(self, runs: list[str]) -> None:
-        """Record a stream's final frame for the page replay and the preview.
+    def draw_stream_frame(
+        self,
+        runs: list[str],
+        *,
+        full: bool = True,
+        external: bool = False,
+        on_done: Callable[[bool], None] | None = None,
+    ) -> bool:
+        """Draw a frame; commit the planner only after all of its slices drain.
 
-        The panel keeps the last picture after the stream ends, so a viewer that
-        attaches later - and the editor's preview - must be able to replay it.
-        Recording every frame instead would rewrite the replay on every tick for
-        a picture nobody sees.
+        Returns:
+            Whether the pass was accepted (see ``_start_draw``).
         """
-        if runs:
-            self._record_draw_program(runs)
-            self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
+        return self._start_draw(runs, full=full, external=external, on_done=on_done)
 
     def _warn_about_an_old_firmware(self) -> None:
         """Say once why a detailed image may lose runs on this panel.
@@ -375,38 +509,44 @@ class HAUIESPHomeController(HAUIBase):
         self._send_draw_slice()
 
     def _send_draw_slice(self) -> None:
-        """Send the next slice, and arm the timer that covers a lost report."""
-        while True:
-            self._cancel_timer("_draw_timer")
-            if not self._draw_slices:
-                return
-            runs = self._draw_slices.pop(0)
-            program = pack_program(runs, pack=self._draw_pack)
-            self.log(
-                f"draw_runs: {len(runs)} run(s), {len(program)} characters, "
-                f"{len(self._draw_slices)} slice(s) to go",
-                level="DEBUG",
-            )
-            if not self.esphome.publish(ESPAction.DRAW_RUNS, program):
-                self.log(
-                    "draw_runs: the panel did not take a slice; the rest is dropped",
-                    level="WARNING",
-                )
-                self._draw_slices.clear()
-                return
-            if not getattr(self.esphome, "simulated", False):
-                expected = len(runs) * RUN_MS_CEILING / 1000
-                self._draw_timer = self.app.run_in(
-                    self._draw_slice_timeout, expected + DRAW_SLICE_GRACE
-                )
-                return
-            # The simulator paints as it records, so there is no fence to wait
-            # for: send every remaining slice straight away.
+        """Send the next slice, and arm the timer that covers a lost report.
 
-    def _draw_slice_timeout(self, **_kwargs: Any) -> None:
-        """Send the next slice although the panel never reported the last one."""
-        self._draw_timer = None
+        Both transports answer a slice with a fence (``esphome.res_draw``): the
+        panel reports when its last run is on the wire, and the virtual firmware
+        does the same after the time the fills would take. There is no shortcut
+        for the simulator, or the preview would never see a busy display or a
+        refused slice - the two states the panel lives in.
+        """
+        self._cancel_timer("_draw_timer")
         if not self._draw_slices:
+            return
+        runs = self._draw_slices.pop(0)
+        program = pack_program(runs, pack=self._draw_pack)
+        self.log(
+            f"draw_runs: {len(runs)} run(s), {len(program)} characters, "
+            f"{len(self._draw_slices)} slice(s) to go",
+            level="DEBUG",
+        )
+        if not self.esphome.publish(ESPAction.DRAW_RUNS, program):
+            self.log(
+                "draw_runs: the panel did not take a slice; the rest is dropped",
+                level="WARNING",
+            )
+            self._fail_draw()
+            return
+        self._draw_in_flight = decode_program(program)
+        expected = len(runs) * RUN_MS_CEILING / 1000
+        self._draw_timer = self.app.run_in(self._draw_slice_timeout, expected + DRAW_SLICE_GRACE)
+
+    def _draw_slice_timeout(self, _kwargs: dict[str, Any] | None = None) -> None:
+        """Release a timed-out draw, or let a still image finish its other slices."""
+        self._draw_timer = None
+        if not self._draw_runs:
+            return
+        if self._draw_done is not None or not self._draw_slices:
+            # A camera's next delta needs a confirmed baseline, not a guessed one.
+            self.log("draw_runs: no report for a slice; the draw is dropped", level="WARNING")
+            self._fail_draw()
             return
         self.log(
             "draw_runs: no report for a slice within its drawing time; sending the next one",
@@ -414,7 +554,7 @@ class HAUIESPHomeController(HAUIBase):
         )
         self._send_draw_slice()
 
-    def on_draw_report(self, ok: bool) -> None:
+    def on_draw_report(self, ok: bool, *, runs: int | None = None) -> None:
         """esphome.res_draw - a slice is through: send the next one.
 
         Args:
@@ -423,8 +563,8 @@ class HAUIESPHomeController(HAUIBase):
                 acknowledgment or an overrun display drops them - so the whole
                 pass is re-sent once from its first run instead of leaving a
                 picture with gaps in it. Only a second failure drops the rest.
+            runs: How many runs the firmware sent, when the report provides it.
         """
-        self._cancel_timer("_draw_timer")
         if not self._draw_runs and not self._draw_slices:
             # A report from a pass that was cancelled (a page switch) or already
             # finished on its last slice: there is nothing to advance.
@@ -433,6 +573,10 @@ class HAUIESPHomeController(HAUIBase):
                 level="DEBUG",
             )
             return
+        if ok and runs is not None and runs != len(self._draw_in_flight):
+            self.log("draw_runs: report does not match the in-flight slice", level="WARNING")
+            return
+        self._cancel_timer("_draw_timer")
         last_slice = not self._draw_slices
         if not ok:
             if self._draw_runs and not self._draw_retried:
@@ -447,14 +591,13 @@ class HAUIESPHomeController(HAUIBase):
                 "draw_runs: the panel refused a slice again; the rest of the image is dropped",
                 level="WARNING",
             )
-            self._draw_slices.clear()
-            self._draw_runs = []
+            self._fail_draw()
             return
-        self._send_draw_slice()
+        self._confirm_draw_slice()
         if last_slice:
-            # The pass is through; forget it so a late report from an earlier
-            # draw cannot make it paint again.
-            self._draw_runs = []
+            self._finish_draw(True)
+        else:
+            self._send_draw_slice()
 
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.
@@ -503,26 +646,10 @@ def command_target(command: str) -> str:
     return command
 
 
-def _pass_rect(runs: list[str]) -> tuple[int, int, int, int] | None:
-    """The rectangle a draw pass covers: the bounding box of its ``fill`` runs.
-
-    A pass starts with the clear covering the whole requested rectangle, so the
-    box is that rectangle; a ``clear_image`` program is that one fill, and the
-    bounding box is still right for a legacy program that has no clear.
-    """
-    left = top = right = bottom = None
-    for command in runs:
-        rect = _fill_rect(command)
-        if rect is None:
-            continue
-        x, y, w, h = rect
-        left = x if left is None else min(left, x)
-        top = y if top is None else min(top, y)
-        right = x + w if right is None else max(right, x + w)
-        bottom = y + h if bottom is None else max(bottom, y + h)
-    if left is None or top is None or right is None or bottom is None:
-        return None
-    return left, top, right - left, bottom - top
+def _covers(outer: tuple[int, int, int, int], inner: tuple[int, int, int, int]) -> bool:
+    x, y, w, h = outer
+    left, top, width, height = inner
+    return x <= left and y <= top and left + width <= x + w and top + height <= y + h
 
 
 def _fill_rect(command: str) -> tuple[int, int, int, int] | None:

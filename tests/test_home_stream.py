@@ -163,7 +163,7 @@ class _Panel:
 
         return unsubscribe
 
-    def subscribe_preview_output(self, callback):
+    def subscribe_preview_output(self, callback, *, overlays_only=False):
         """Display output (an image program), which the cards' feed does not use."""
         self.output_subscribers.append(callback)
 

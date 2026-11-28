@@ -226,6 +226,7 @@ def test_unrelated_events_do_not_reset_the_clock():
 
 def test_page_event_cancels_pending_timeout():
     nav = _make_nav()
+    nav.page = FakePage(page_id=3, started=False)
     nav._page_timeout = "pending-handle"
     nav.process_event(HAUIEvent(ESPEvent.PAGE, "3"))
     assert "pending-handle" in nav.app.cancel_calls
@@ -245,8 +246,10 @@ def test_page_event_stale_echo_ignored():
     nav = _make_nav()
     nav.panel = DummyPanel("p1")
     nav.page = FakePage(page_id=3, started=False)
+    nav._page_timeout = "pending-handle"
     nav.process_event(HAUIEvent(ESPEvent.PAGE, "5"))  # mismatch
     assert nav.calls["display_panel"] == []
+    assert "pending-handle" not in nav.app.cancel_calls
 
 
 def test_page_event_no_display_when_already_started():
@@ -257,8 +260,9 @@ def test_page_event_no_display_when_already_started():
     assert nav.calls["display_panel"] == []
 
 
-def test_page_event_cancels_a_draw_in_flight():
-    """A page switch ends the image too, including one the display started."""
+@pytest.mark.parametrize(("started", "cancelled"), [(False, 1), (True, 0)])
+def test_page_acknowledgement_only_cancels_draws_during_a_page_load(started, cancelled):
+    """A delayed acknowledgement must not cut off the new page's drawing."""
 
     class _ESP:
         cancelled = 0
@@ -270,11 +274,11 @@ def test_page_event_cancels_a_draw_in_flight():
     esp = _ESP()
     nav.app.controller["esphome"] = esp
     nav.panel = DummyPanel("p1")
-    nav.page = FakePage(page_id=3, started=True)
+    nav.page = FakePage(page_id=3, started=started)
 
     nav.process_event(HAUIEvent(ESPEvent.PAGE, "3"))
 
-    assert esp.cancelled == 1
+    assert esp.cancelled == cancelled
 
 
 # --- level-triggered idle check --------------------------------------------

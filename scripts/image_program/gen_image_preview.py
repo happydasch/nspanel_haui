@@ -39,6 +39,7 @@ from custom_components.nspanel_haui.haui.utils.draw_wire import (  # noqa: E402
     program_slices,
 )
 from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E402
+    BACKDROP,
     MAX_RECOMMENDED_CELL_PX,
     MIN_RUN_BUDGET,
     RUN_BUDGET,
@@ -52,8 +53,9 @@ from custom_components.nspanel_haui.haui.utils.image_program import (  # noqa: E
     program_length,
 )
 
-# The panel's own background: the default theme's "background" (``mapping/color.py``).
-DEFAULT_BACKGROUND = 4226
+# The colour the rectangle is cleared to before the picture goes down - the same
+# black ``nspanel_haui.show_image`` draws on (``image_program.BACKDROP``).
+DEFAULT_BACKGROUND = BACKDROP
 DEFAULT_OUTPUT = ROOT / ".dev" / "image-preview.png"
 
 
@@ -122,7 +124,8 @@ def render_preview(
     Args:
         data: The encoded image.
         rect: Where the call would paint it.
-        background: The page background as RGB565.
+        background: The colour the rectangle is cleared to, as RGB565; the image is
+            composited onto it and cells matching it are skipped.
         budget: The service's ``quality`` option.
         progressive: Whether the call draws the coarse pass too.
         portrait: Draw on the portrait display.
@@ -220,7 +223,8 @@ def main(argv: list[str] | None = None) -> int:
         "--background",
         type=int,
         default=DEFAULT_BACKGROUND,
-        help=f"page background as RGB565 (default {DEFAULT_BACKGROUND})",
+        help="the colour the rectangle is cleared to, as RGB565 "
+        f"(default {DEFAULT_BACKGROUND}, black)",
     )
     parser.add_argument("--scale", type=int, default=2, help="zoom of the saved tiles (default 2)")
     parser.add_argument(

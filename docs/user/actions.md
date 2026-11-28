@@ -184,6 +184,10 @@ data:
 
 ### What the image looks like
 
+- **The rectangle is painted black first.** One instruction clears the whole area
+  before the picture goes down, so whatever was there — an older image, a widget,
+  a picture background — cannot show through; the picture is drawn on a black
+  card and its margins are black too.
 - **It is rebuilt from rectangles, not pixels.** The display link is fast enough
   for a few hundred rectangles, not for a photograph's pixels, so the image is
   drawn as blocks in the display's own 65 536 colours — gradients stay gradients.
@@ -205,8 +209,8 @@ data:
   own resolution, while the same budget over the whole page gives a coarse mosaic
   (that is what a panel with a picture background is for). If the image comes out
   blocky, Home Assistant logs a warning with the block size it reached.
-- **The image keeps its aspect ratio.** It is fitted into the rectangle and the
-  margins are filled with the page's background colour.
+- **The image keeps its aspect ratio.** It is fitted into the rectangle, and the
+  margins are the black of the cleared area.
 - **It disappears on the next page change** — opening a panel, going to the idle
   page, a notification, any re-render of that page. Call the action again if the
   image should stay.

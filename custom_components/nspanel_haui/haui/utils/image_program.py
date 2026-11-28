@@ -13,6 +13,10 @@ how close a large rectangle gets to it. Length is no longer a limit: the program
 is sent in slices (``draw_wire.DRAW_SLICE_CHARS``), so more runs cost seconds on
 the pacer and nothing else.
 
+Every pass starts by filling the whole rectangle with the backdrop colour, since
+a pass skips the cells that already show it: without that fill an older image or
+a widget underneath would show through the new picture.
+
 Pure and synchronous, no Home Assistant and no asyncio: the service calls it in
 the executor, the firmware streams what it returns.
 """
@@ -50,6 +54,10 @@ COLOUR_TOLERANCE: Final = 8
 MAX_RECOMMENDED_CELL_PX: Final = 12
 # The progressive pass: a coarse version in ~0.12 s, then the full program.
 PROGRESSIVE_RUNS: Final = 60
+# The colour an image is drawn on, as RGB565: the rectangle is painted black
+# before the runs go down, so an older image, a widget or a picture background
+# cannot show through the cells a pass skips.
+BACKDROP: Final = 0x0000
 
 # Display geometry of the two TFTs (``nextion/nspanel_haui*.HMI``).
 LANDSCAPE_SIZE: Final = (480, 320)
@@ -221,6 +229,17 @@ def _spans(
     return spans
 
 
+def backdrop_run(rect: Rect, colour: int) -> str:
+    """One ``fill`` covering the whole rectangle: what an image is drawn on.
+
+    A pass skips every cell that already matches its backdrop, so the rectangle
+    has to be painted before the runs go down: the area may hold an older image,
+    a widget the page drew, or a picture background, and a skipped cell does not
+    overwrite any of it. One flat fill is one run, about 2 ms.
+    """
+    return f"fill {rect.x},{rect.y},{rect.w},{rect.h},{colour}"
+
+
 def _program(spans: Iterable[_Span]) -> list[str]:
     """``fill`` instructions for the spans, top to bottom, left to right.
 
@@ -291,8 +310,10 @@ def image_plan(
     Args:
         data: The encoded image (any format Pillow decodes).
         rect: Where to paint, in display pixels.
-        background: The page's background as RGB565; used for the letterbox
-            margins and skipped when a cell already shows it.
+        background: The backdrop the rectangle is painted in first, as RGB565.
+            The image is composited onto it, and cells that already match it are
+            skipped - which is why the rectangle is filled with it before the
+            first run, instead of leaving whatever was on the page there.
         budget: Run budget; latency is ``budget * COMMAND_SPACING_MS``. The
             grid never gets finer than one pixel per cell, so at the top of the
             range a small rectangle is drawn at the display's own resolution.
@@ -303,9 +324,8 @@ def image_plan(
 
     Returns:
         The programs (``[full]``, or ``[coarse, full]`` with ``progressive``,
-        each a list of ``fill`` instructions, possibly empty when the image is
-        the background colour only) and the cell size of the full pass in display
-        pixels.
+        each a list of ``fill`` instructions starting with the backdrop) and the
+        cell size of the full pass in display pixels.
 
     Raises:
         ImageProgramError: When the image cannot be decoded, the rect has no
@@ -318,12 +338,14 @@ def image_plan(
     background_rgb = rgb565_to_rgb(background)
     canvas = _fit(_decode(data), rect, background_rgb)
     full, cell = _compile(canvas, rect, budget=budget, background=background_rgb)
-    if not progressive:
-        return [full], cell
-    coarse, _coarse_cell = _compile(
-        canvas, rect, budget=min(PROGRESSIVE_RUNS, budget), background=background_rgb
-    )
-    return [coarse, full], cell
+    if progressive:
+        coarse, _coarse_cell = _compile(
+            canvas, rect, budget=min(PROGRESSIVE_RUNS, budget), background=background_rgb
+        )
+        coarse.insert(0, backdrop_run(rect, background))
+        return [coarse, full], cell
+    full.insert(0, backdrop_run(rect, background))
+    return [full], cell
 
 
 def image_runs(

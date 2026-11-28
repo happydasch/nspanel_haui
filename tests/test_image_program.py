@@ -19,6 +19,8 @@ from custom_components.nspanel_haui.haui.utils.draw_wire import (
     program_slices,
 )
 from custom_components.nspanel_haui.haui.utils.image_program import (
+    BACKDROP,
+    backdrop_run,
     COLOUR_TOLERANCE,
     LANDSCAPE_SIZE,
     MAX_RECOMMENDED_CELL_PX,
@@ -89,6 +91,12 @@ def _row_baseline(data: bytes) -> int:
     return baseline
 
 
+def _content(program: list[str], rect: Rect, background: int = BLACK) -> list[str]:
+    """The runs that paint the picture, without the backdrop fill every pass opens with."""
+    assert program[0] == backdrop_run(rect, background), "a pass paints its rectangle first"
+    return program[1:]
+
+
 def test_a_flat_image_becomes_one_run_per_colour_block():
     """A 4x4 of four quadrants: the goldens the firmware and the panel must match."""
     image = Image.new("RGB", (4, 4))
@@ -100,7 +108,7 @@ def test_a_flat_image_becomes_one_run_per_colour_block():
 
     (program,) = image_runs(_png(image), Rect(0, 0, 4, 4), background=BLACK)
 
-    assert program == [
+    assert _content(program, Rect(0, 0, 4, 4)) == [
         f"fill 0,0,2,2,{RED}",
         f"fill 2,0,2,2,{GREEN}",
         f"fill 0,2,2,2,{BLUE}",
@@ -114,14 +122,28 @@ def test_the_letterbox_margins_cost_no_run():
 
     (program,) = image_runs(_png(image), Rect(0, 0, 4, 4), background=BLACK)
 
-    assert program == [f"fill 0,1,4,2,{RED}"]
+    assert _content(program, Rect(0, 0, 4, 4)) == [f"fill 0,1,4,2,{RED}"]
 
 
-def test_an_image_of_the_background_colour_emits_nothing():
-    """The page already shows that colour; painting it would be pure latency."""
+def test_an_image_of_the_backdrop_colour_is_the_backdrop_alone():
+    """Nothing to paint over it, but the rectangle itself still gets painted."""
     image = Image.new("RGB", (32, 32), (0, 0, 0))
 
-    assert image_runs(_png(image), Rect(0, 0, 32, 32), background=BLACK) == [[]]
+    assert image_runs(_png(image), Rect(0, 0, 32, 32), background=BLACK) == [
+        [backdrop_run(Rect(0, 0, 32, 32), BLACK)]
+    ]
+
+
+def test_a_pass_paints_its_whole_rectangle_before_the_image():
+    """A skipped cell keeps whatever was on the page, so the area is filled first."""
+    image = Image.new("RGB", (8, 4), (255, 0, 0))
+
+    (program,) = image_runs(_png(image), Rect(20, 30, 8, 4), background=WHITE)
+
+    assert program[0] == f"fill 20,30,8,4,{WHITE}"
+    assert program[1] == f"fill 20,30,8,4,{RED}"
+    # The service draws on black, in one run, before anything else.
+    assert backdrop_run(Rect(20, 30, 8, 4), BACKDROP) == "fill 20,30,8,4,0"
 
 
 @pytest.mark.parametrize(
@@ -167,7 +189,7 @@ def test_neighbouring_colours_within_the_tolerance_become_one_run():
 
     (program,) = image_runs(_png(image), Rect(0, 0, 8, 4), background=BLACK)
 
-    assert program == [f"fill 0,0,8,4,{rgb_to_rgb565((100, 100, 100))}"]
+    assert _content(program, Rect(0, 0, 8, 4)) == [f"fill 0,0,8,4,{rgb_to_rgb565((100, 100, 100))}"]
 
 
 def test_a_real_difference_is_kept_as_two_runs():
@@ -178,7 +200,7 @@ def test_a_real_difference_is_kept_as_two_runs():
 
     (program,) = image_runs(_png(image), Rect(0, 0, 8, 4), background=BLACK)
 
-    assert len(program) == 2
+    assert len(_content(program, Rect(0, 0, 8, 4))) == 2
 
 
 def test_the_progressive_pass_is_coarse_first_and_within_its_own_budget():
@@ -187,7 +209,10 @@ def test_the_progressive_pass_is_coarse_first_and_within_its_own_budget():
 
     assert 0 < len(coarse) <= PROGRESSIVE_RUNS
     assert len(full) > len(coarse)
-    # Both cover the same rectangle, so the full pass paints over the coarse one.
+    # The coarse pass clears the rectangle; the full pass paints over it, and
+    # must not clear again or the finished picture would blink out first.
+    assert coarse[0] == backdrop_run(Rect(0, 0, 200, 150), BLACK)
+    assert full[0] != backdrop_run(Rect(0, 0, 200, 150), BLACK)
     assert all(run.startswith("fill ") for run in [*coarse, *full])
 
 
@@ -219,7 +244,9 @@ def test_a_rect_off_the_display_raises():
 def test_a_one_pixel_image_is_one_run():
     image = Image.new("RGB", (1, 1), (255, 0, 0))
 
-    assert image_runs(_png(image), Rect(5, 5, 1, 1), background=BLACK) == [[f"fill 5,5,1,1,{RED}"]]
+    assert image_runs(_png(image), Rect(5, 5, 1, 1), background=BLACK) == [
+        [f"fill 5,5,1,1,{BLACK}", f"fill 5,5,1,1,{RED}"]
+    ]
 
 
 def test_noise_is_coarsened_instead_of_truncated():

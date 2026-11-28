@@ -63,8 +63,13 @@ def test_a_progressive_render_draws_the_coarse_pass_first(tmp_path):
     names = [name for name, _runs in passes]
     assert names == ["coarse", "full"]
     # The coarse pass is the cheaper program; the full one may not be smaller.
-    assert 0 < len(passes[0][1]) <= 60
-    assert len(passes[1][1]) >= len(passes[0][1])
+    coarse, full = passes[0][1], passes[1][1]
+    # Only the first pass clears the rectangle: clearing again would blank the
+    # coarse picture before the full one paints over it.
+    assert coarse[0] == f"fill 10,10,40,40,{DEFAULT_BACKGROUND}"
+    assert full[0] != coarse[0]
+    assert 0 < len(coarse) <= 60
+    assert len(full) + 1 >= len(coarse)
 
 
 def test_a_portrait_render_uses_the_portrait_display(tmp_path):

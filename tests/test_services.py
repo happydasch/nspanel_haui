@@ -1062,6 +1062,27 @@ async def test_show_image_surfaces_an_undecodable_image(
 
 
 @pytest.mark.asyncio
+async def test_show_image_paints_the_rectangle_black_before_the_image(
+    mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
+):
+    """The area is cleared first, so nothing that was on the page shows through.
+
+    A pass skips the cells that already match the colour it draws on, so without
+    this first fill an older image - or a widget the page put there - would stay
+    visible wherever the new picture has that colour.
+    """
+    from custom_components.nspanel_haui.services import _handle_show_image
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    await _handle_show_image(mock_hass, _image_call())
+
+    (runs,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    assert runs[0] == "fill 10,10,40,40,0", "a black rectangle over the whole area"
+
+
+@pytest.mark.asyncio
 async def test_show_image_draws_the_program_on_the_panel(
     mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
 ):
@@ -1094,13 +1115,16 @@ async def test_show_image_queues_the_coarse_pass_before_the_full_one(
 
     # One draw, the coarse runs first: a second call would restart the panel's
     # program and cut the coarse pass short instead of letting it finish.
-    from custom_components.nspanel_haui.haui.utils.image_program import Rect, image_plan
-    from custom_components.nspanel_haui.services import _page_background
+    from custom_components.nspanel_haui.haui.utils.image_program import (
+        BACKDROP,
+        Rect,
+        image_plan,
+    )
 
     (coarse, full), _cell = image_plan(
         _png_bytes(),
         Rect(10, 10, 40, 40),
-        background=_page_background(app),
+        background=BACKDROP,
         budget=300,
         progressive=True,
     )

@@ -19,12 +19,14 @@ from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .haui.mapping.const import DEFAULT_NOTIFICATION_SOUND, SOUND_NAMES
 from .haui.utils.image_program import (
+    BACKDROP,
     MAX_RECOMMENDED_CELL_PX,
     MAX_RUN_BUDGET,
     MIN_RUN_BUDGET,
     RUN_BUDGET,
     ImageProgramError,
     Rect,
+    backdrop_run,
     display_size,
     image_plan,
 )
@@ -573,8 +575,8 @@ def _image_rect(app: NSPanelHAUI, call: ServiceCall) -> Rect:
 def _page_background(app: NSPanelHAUI) -> int:
     """The RGB565 colour the panel's current page shows behind its widgets.
 
-    The rasteriser letterboxes onto it and skips cells that already match it, so
-    a logo costs nothing outside its own shape.
+    ``clear_image`` paints this back, so a cleared rectangle matches the page it
+    sits on rather than leaving a block of its own colour.
     """
     nav = app.controller.get("navigation")
     page = getattr(nav, "page", None) if nav is not None else None
@@ -727,8 +729,7 @@ def _clear_rect(app: NSPanelHAUI, dev_name: str, rect: Rect) -> None:
     if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
         _LOGGER.warning("%s: no ESPHome controller — the image was not cleared", dev_name)
         return
-    background = _page_background(app)
-    esp_ctrl.draw_runs([f"fill {rect.x},{rect.y},{rect.w},{rect.h},{background}"])
+    esp_ctrl.draw_runs([backdrop_run(rect, _page_background(app))])
 
 
 async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -757,14 +758,13 @@ async def _handle_show_image(hass: HomeAssistant, call: ServiceCall) -> None:
 
     for dev_name, app in targets:
         rect = rects[dev_name]
-        background = _page_background(app)
         try:
             programs, cell = await hass.async_add_executor_job(
                 partial(
                     image_plan,
                     data,
                     rect,
-                    background=background,
+                    background=BACKDROP,
                     budget=budget,
                     progressive=progressive,
                 )

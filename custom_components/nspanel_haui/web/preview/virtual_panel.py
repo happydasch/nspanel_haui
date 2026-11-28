@@ -47,6 +47,7 @@ from ...haui.mapping.descriptor import _
 from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
 from ...haui.page.camera import picture_rect, quality_profile
 from ...haui.utils.draw_wire import DRAW_FORMAT_PACKED, decode_program
+from ...haui.utils.image_stream import ImageStreamError
 from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
 from ...haui.utils.text import get_translation
 from ...haui.version import get_integration_version
@@ -62,7 +63,7 @@ from .button_entities import (
     buttons_message,
 )
 from .home_stream import HomeStream
-from .sample_data import PREVIEW_ENTITIES, sample_forecast, sample_snapshot
+from .sample_data import PREVIEW_ENTITIES, SAMPLE_CAMERAS, sample_forecast, sample_snapshot
 from .sandbox import Sandbox, SimState
 
 _LOGGER = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ HEARTBEAT_INTERVAL = 5
 # Seconds a card render waits for a camera snapshot. A render is interactive and a
 # card keeps the page's placeholder meanwhile, so it gives up sooner than a stream,
 # which has a panel to keep up to date and retries for as long as a page is shown.
-CARD_SNAPSHOT_TIMEOUT = 5.0
+CARD_SNAPSHOT_TIMEOUT = 5
 
 # Firmware actions forwarded to the browser as ``{"type": "action", ...}``.
 _FORWARDED_ACTIONS = frozenset(
@@ -628,6 +629,28 @@ def _sample_entity_ids(hass: Any, domains: tuple[str, ...], limit: int) -> list[
         entity_id for domain in domains for entity_id in hass.states.async_entity_ids(domain)
     }
     return sorted(entity_ids, key=lambda e: (_sample_rank(hass.states.get(e)), e))[:limit]
+
+
+def _real_camera(hass: Any) -> str:
+    """The instance's own camera, for a card whose panel names a sample one.
+
+    The sample world's cameras stand in for the camera a *new* panel will be
+    pointed at, and its picture is a drawing: an instance that has a camera of its
+    own shows that one instead, so the Add panel catalog previews the picture the
+    user will actually see. Ranked by availability and then by entity id, so a
+    camera that answers wins over a dead one and two renders show the same picture.
+    """
+    entity_ids = [
+        entity_id
+        for entity_id in hass.states.async_entity_ids("camera")
+        if entity_id not in SAMPLE_CAMERAS
+    ]
+    if not entity_ids:
+        return ""
+    return min(
+        entity_ids,
+        key=lambda entity_id: (_sample_rank(hass.states.get(entity_id)), entity_id),
+    )
 
 
 def _example_entity_ids(domains: tuple[str, ...], limit: int) -> list[str]:
@@ -1433,7 +1456,10 @@ class VirtualPanelHost:
         self, panel_config: dict[str, Any], entity_id: str
     ) -> list[str]:
         """The fills the followed device's camera page holds, when it is this one."""
-        source = self._panel_source
+        # Annotated Any so the closure below reads it as the app, not as None-able.
+        source: Any = self._panel_source
+        if source is None:
+            return []
 
         def current_frame() -> list[str]:
             page = source.controller["navigation"].page
@@ -1461,27 +1487,43 @@ class VirtualPanelHost:
     async def _async_snapshot_frame(
         self, entity_id: str, panel_config: dict[str, Any]
     ) -> list[str]:
-        """Plan one whole picture of ``entity_id`` for a card, off the event loop."""
+        """Plan one whole picture of a camera for a card, off the event loop.
+
+        The picture is the panel's own camera — except when the panel names one of
+        the sample world's cameras: those stand in for the camera a *new* panel will
+        be pointed at, so an instance that has a camera of its own previews that one
+        (`_real_camera`), and the drawn picture is only what remains when it has
+        none. A camera that does not answer is not replaced by the drawing either:
+        the page's placeholder is the honest answer, a picture of someone else's
+        front door is not.
+        """
         rect = picture_rect(self.app.device.is_portrait)
         quality = quality_profile(panel_config.get("quality"))
-        try:
-            frame = sample_snapshot(entity_id)
-            if frame is None:
+        picture = sample_snapshot(entity_id)
+        target = _real_camera(self.app.hass) if picture is not None else entity_id
+        if target:
+            try:
                 from homeassistant.components.camera import async_get_image
 
                 snapshot = await async_get_image(
                     self.app.hass,
-                    entity_id,
+                    target,
                     timeout=CARD_SNAPSHOT_TIMEOUT,
                     width=rect.w,
                     height=rect.h,
                 )
-                frame = snapshot.content
+                picture = snapshot.content
+            except Exception as exc:  # noqa: BLE001 - a card renders without the camera
+                _LOGGER.warning("Card preview camera snapshot failed for %s: %s", target, exc)
+                return []
+        if picture is None:
+            return []
+        try:
             return await self.app.hass.async_add_executor_job(
-                plan_still_frame, frame, rect, quality
+                plan_still_frame, picture, rect, quality
             )
-        except Exception as exc:  # noqa: BLE001 - a card renders without the camera
-            _LOGGER.warning("Card preview camera snapshot failed for %s: %s", entity_id, exc)
+        except ImageStreamError as exc:
+            _LOGGER.warning("Card preview picture of %s failed: %s", target or entity_id, exc)
             return []
 
     async def async_render(

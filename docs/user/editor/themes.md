@@ -45,7 +45,7 @@ Clock, ClockTwo and Weather have a **Background** picture. Each picture belongs 
 |------------|------|---------|
 | Dark Color | `dark` | Dark |
 | Light Color | `light` | Light |
-| Modern, Spring, Summer, Autumn, Winter | `modern`, `spring`, `summer`, `autumn`, `winter` | Dark |
+| Modern, Cool Glow, Warm Glow, Dusk, Spring, Summer, Autumn, Winter | `modern`, `cool_glow`, `warm_glow`, `dusk`, `spring`, `summer`, `autumn`, `winter` | Dark |
 | Dog 1, Dog 2, Cat | `dog_1`, `dog_2`, `cat` | Dark |
 
 **Dark Color** and **Light Color** are the display's plain fills: `#1b1b1b` and `#f5f5f0`.

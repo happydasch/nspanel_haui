@@ -3,8 +3,11 @@
 import json
 from pathlib import Path
 
+from custom_components.nspanel_haui.haui.page.grid import GridPage
 from custom_components.nspanel_haui.haui.page.grid import _NAME_BOXES as GRID_NAME_BOXES
+from custom_components.nspanel_haui.haui.page.media import MediaPage
 from custom_components.nspanel_haui.haui.page.media import _MEDIA_NAME_BOXES
+from custom_components.nspanel_haui.haui.page.row import RowPage
 from custom_components.nspanel_haui.haui.page.row import (
     _NAME_BOXES as ROW_NAME_BOXES,
 )
@@ -12,6 +15,7 @@ from custom_components.nspanel_haui.haui.page.row import (
     _SLIDER_TEXT_BOXES,
     _VALUE_BOXES,
 )
+from custom_components.nspanel_haui.haui.page.select import SelectPage
 from custom_components.nspanel_haui.haui.page.select import _SELECTION_BOXES
 
 _LAYOUTS = (
@@ -21,23 +25,27 @@ _LAYOUTS = (
 
 def test_text_fitting_boxes_match_the_hmi_layouts():
     boxes = {
-        "5": {
+        str(SelectPage.DESCRIPTOR.page_id): {
             "bSel1": lambda orientation: _SELECTION_BOXES[orientation]["regular"],
             "bSelFull1": lambda orientation: _SELECTION_BOXES[orientation]["full"],
         },
-        "9": {"g1Name": lambda orientation: GRID_NAME_BOXES[orientation]},
-        "10": {
+        str(GridPage.DESCRIPTOR.page_id): {
+            "g1Name": lambda orientation: GRID_NAME_BOXES[orientation]
+        },
+        str(RowPage.DESCRIPTOR.page_id): {
             "r1Name": lambda orientation: ROW_NAME_BOXES[orientation],
             "r1BtnText": lambda orientation: _VALUE_BOXES[orientation],
             "r1SliderTxt": lambda orientation: _SLIDER_TEXT_BOXES[orientation],
         },
-        "14": {"m1Name": lambda orientation: _MEDIA_NAME_BOXES[orientation]},
+        str(MediaPage.DESCRIPTOR.page_id): {
+            "m1Name": lambda orientation: _MEDIA_NAME_BOXES[orientation]
+        },
     }
     fonts = {
-        "5": {"bSel1": 1, "bSelFull1": 1},
-        "9": {"g1Name": 0},
-        "10": {"r1Name": 1, "r1BtnText": 1, "r1SliderTxt": 0},
-        "14": {"m1Name": 1},
+        str(SelectPage.DESCRIPTOR.page_id): {"bSel1": 1, "bSelFull1": 1},
+        str(GridPage.DESCRIPTOR.page_id): {"g1Name": 0},
+        str(RowPage.DESCRIPTOR.page_id): {"r1Name": 1, "r1BtnText": 1, "r1SliderTxt": 0},
+        str(MediaPage.DESCRIPTOR.page_id): {"m1Name": 1},
     }
     for orientation in ("landscape", "portrait"):
         layout = json.loads((_LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))

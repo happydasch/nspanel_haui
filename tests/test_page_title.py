@@ -6,12 +6,13 @@ from types import SimpleNamespace
 
 from custom_components.nspanel_haui.haui.abstract.component import Component
 from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
+from custom_components.nspanel_haui.haui.page.grid import GridPage
 from custom_components.nspanel_haui.haui.page.system import SystemPage
 from custom_components.nspanel_haui.haui.utils.text import TextBox, fits_line
 
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
-_STANDARD_PAGE = "9"
-_SYSTEM_PAGE = "0"
+_STANDARD_PAGE = str(GridPage.DESCRIPTOR.page_id)
+_SYSTEM_PAGE = str(SystemPage.DESCRIPTOR.page_id)
 
 
 class _Page(HAUIPage):

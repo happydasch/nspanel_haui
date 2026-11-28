@@ -7,12 +7,13 @@ after the page is up (``hub/camera_stream.py``). The page therefore owns the
 picture area it hands over, the title, the quality the picture is drawn at, and
 the placeholder that says the picture is not there yet.
 
-The area is the info page's big text widget, the way the media page's cover art
-goes where its icon widget is: the coordinates are the ones that widget was
-compiled at, so the picture lands in the page's text area and the header, the
-mode buttons and the page's own margins stay as they are. Frames are cropped to
-fill that area instead of letterboxed, because a camera's 16:9 image in a
-portrait panel's tall area would otherwise spend most of it on empty bands.
+The area is the display's own ``camera`` page: its big text widget, the way the
+media page's cover art goes where its icon widget is. The page is a solid page
+with one large body area between two columns of mode buttons in landscape and
+above the row of them in portrait, so the coordinates are the ones that widget
+was compiled at. Frames are cropped to fill that area instead of letterboxed,
+because a camera's 16:9 image in a portrait panel's tall area would otherwise
+spend most of it on empty bands.
 """
 
 from __future__ import annotations
@@ -24,15 +25,15 @@ from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..utils.image_program import Rect
 from ..utils.image_stream import DEFAULT_QUALITY, QUALITY, PictureQuality
 
-#: Where the picture goes: the info page's big text area (``tText``), in the
+#: Where the picture goes: the camera page's big text area (``tText``), in the
 #: display pixels of each HMI. The page hands this rectangle to the hub instead of
 #: asking the display for it - a Nextion reads back a widget's ``.txt`` and
 #: ``.val``, never its position or size - so the values are the ones its layout was
 #: compiled from, and ``tests/test_page_camera.py`` checks them against both
 #: generated layouts.
 PICTURE_RECT: dict[str, Rect] = {
-    "landscape": Rect(12, 65, 260, 240),
-    "portrait": Rect(12, 55, 296, 335),
+    "landscape": Rect(95, 65, 260, 240),
+    "portrait": Rect(12, 55, 290, 290),
 }
 
 #: What the panel editor offers, in the order it lists it. The values are the
@@ -64,7 +65,7 @@ def quality_profile(value: object) -> PictureQuality:
 class CameraPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="camera",
-        page_name="info",
+        page_name="camera",
         page_id=20,
         label=_("Camera"),
         description=_("One camera's live picture, refreshed several times a second."),
@@ -98,7 +99,7 @@ class CameraPage(HAUIPage):
         fnc_left_sec=Component(5, "bFncLSec"),
         fnc_right_pri=Component(6, "bFncRPri"),
         fnc_right_sec=Component(7, "bFncRSec"),
-        # the info page's text area, handed to the camera stream as its rectangle
+        # the camera page's text area, handed to the camera stream as its rectangle
         picture_area=Component(8, "tText"),
         mode_1=Component(9, "btMode1"),
         mode_2=Component(10, "btMode2"),

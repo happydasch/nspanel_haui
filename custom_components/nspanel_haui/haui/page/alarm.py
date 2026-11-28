@@ -22,7 +22,7 @@ class AlarmPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="alarm",
         page_name="alarm",
-        page_id=17,
+        page_id=18,
         label=_("Alarm"),
         description=_("Alarm control panel with numeric keypad."),
         category="tools",

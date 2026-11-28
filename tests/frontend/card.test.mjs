@@ -17,6 +17,7 @@ import {
 import '../../custom_components/nspanel_haui/frontend/card/card-editor.js';
 import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/virtual/assets.js';
 import { flush } from './support/render.mjs';
+import { pageId } from './support/fixtures.mjs';
 import { byClass, byRole, byText } from './support/queries.mjs';
 
 const asset = (name) => JSON.parse(readFileSync(
@@ -28,7 +29,7 @@ const asset = (name) => JSON.parse(readFileSync(
 loadLayout('landscape', () => asset('layout_landscape.json'));
 loadIconMap(() => asset('icon_map.json'));
 
-const GRID_PAGE_ID = 9;
+const GRID_PAGE_ID = pageId('grid');
 const KITCHEN = { entry_id: 'entry1', name: 'kitchen', device_id: 'ha-kitchen', enabled: true };
 const HALL = { entry_id: 'entry1', name: 'hall', device_id: 'ha-hall', enabled: true };
 const ATTIC = { entry_id: 'entry1', name: 'attic', device_id: 'ha-attic', enabled: false };

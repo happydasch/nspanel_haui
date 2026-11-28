@@ -23,9 +23,10 @@ from test_virtual_panel import env as _env_fixture  # noqa: F401
 
 import custom_components.nspanel_haui as nspanel_haui
 from custom_components.nspanel_haui.haui.controller.esphome import command_target
+from custom_components.nspanel_haui.haui.page.light import LightPage
 from custom_components.nspanel_haui.web.preview.virtual_panel import VirtualPanelHost
 
-LIGHT_PAGE_ID = 13
+LIGHT_PAGE_ID = LightPage.DESCRIPTOR.page_id
 GRID = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
 STARTED = {"type": "started", "portrait": False}
 

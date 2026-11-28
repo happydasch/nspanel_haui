@@ -6,11 +6,16 @@ import { readFileSync } from 'node:fs';
 
 import { LivePanelSession } from '../../custom_components/nspanel_haui/frontend/virtual/live-panel-session.js';
 import { VirtualPanelSession } from '../../custom_components/nspanel_haui/frontend/virtual/virtual-panel-session.js';
+import { pageId } from './support/fixtures.mjs';
 
 const load = o => JSON.parse(readFileSync(
   new URL(`../../custom_components/nspanel_haui/frontend/virtual/layout_${o}.json`, import.meta.url),
   'utf8',
 ));
+
+// The display's page ids follow the HMI's page order, so the fixtures read them.
+const GRID_PAGE_ID = pageId('grid');
+const LIGHT_PAGE_ID = pageId('light');
 
 function fakeHass() {
   const hass = {
@@ -134,7 +139,7 @@ test('reset sandbox clears simulated states through the hub session', async () =
 test('output that arrives before the layout is replayed in order', async () => {
   const { session, push, resolveLayout } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });
-  push({ type: 'page', page: 9 });
+  push({ type: 'page', page: GRID_PAGE_ID });
   push({ type: 'commands', commands: ['g1Name.txt="Lamp"'] });
   assert.equal(session.ready, false);
   resolveLayout();
@@ -187,7 +192,7 @@ test('a live reconnect drops old page state until the new attach redraws it', as
 test('a live page switch updates the rendered simulator page', async () => {
   const { push, resolveLayout, session } = await started({ Session: LivePanelSession });
   push({ type: 'started', session_id: 'live', portrait: false });
-  push({ type: 'page', page: 9 });
+  push({ type: 'page', page: GRID_PAGE_ID });
   push({ type: 'commands', commands: ['vis g1Overlay,1', 'g1Name.txt="Lamp"'] });
   resolveLayout();
   await flush();
@@ -195,7 +200,7 @@ test('a live page switch updates the rendered simulator page', async () => {
   assert.equal(session.display.component('g1Name').attrs.txt, 'Lamp');
 
   push({ type: 'physical', idle: false, display_state: 'on', connected: true });
-  push({ type: 'page', page: 13 });
+  push({ type: 'page', page: LIGHT_PAGE_ID });
   push({ type: 'commands', commands: ['vis hBrightness,1', 'hBrightness.val=57'] });
 
   assert.equal(session.physical.connected, true);
@@ -257,7 +262,7 @@ test('a live attach applies system.vBackground before the page load script', asy
 test('touches go to the hub as device events, in order', async () => {
   const { hass, session, push, resolveLayout } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });
-  push({ type: 'page', page: 9 });
+  push({ type: 'page', page: GRID_PAGE_ID });
   push({ type: 'commands', commands: ['vis g1Overlay,1'] });
   resolveLayout();
   await flush();
@@ -269,10 +274,10 @@ test('touches go to the hub as device events, in order', async () => {
   assert.deepEqual(
     hass.calls.map(c => [c.type, c.session_id, c.name, c.value]),
     [
-      ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.component', '9,11,1'],
+      ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.component', `${GRID_PAGE_ID},11,1`],
       ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.touch_start', '1'],
       ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.touch_start', ''],
-      ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.component', '9,11,0'],
+      ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.component', `${GRID_PAGE_ID},11,0`],
       ['nspanel_haui/virtual_panel/event', 'abc', 'esphome.touch_end', '40,70,40,70'],
     ],
   );
@@ -280,7 +285,7 @@ test('touches go to the hub as device events, in order', async () => {
 
 test('stopping a session ends an active touch without producing a swipe', async () => {
   const { hass, push, session } = await connectedLive();
-  push({ type: 'page', page: 9 });
+  push({ type: 'page', page: GRID_PAGE_ID });
   session.touch.press(10, 200);
   session.touch.move(300, 200);
 
@@ -295,7 +300,7 @@ test('stopping a session ends an active touch without producing a swipe', async 
 
 test('live slider drags send the selected value without simulating other display input', async () => {
   const { hass, push, session } = await connectedLive();
-  push({ type: 'page', page: 13 });
+  push({ type: 'page', page: LIGHT_PAGE_ID });
   push({ type: 'commands', commands: ['vis hBrightness,1', 'hBrightness.val=37'] });
 
   const component = session.display.component('hBrightness');
@@ -306,17 +311,20 @@ test('live slider drags send the selected value without simulating other display
 
   assert.equal(component.attrs.val, 98);
   assert.ok(hass.calls.some(call => call.type === 'nspanel_haui/live_panel/slider'
-    && call.page_id === 13 && call.component_id === component.id && call.value === 98));
+    && call.page_id === LIGHT_PAGE_ID && call.component_id === component.id
+    && call.value === 98));
   assert.ok(hass.calls.some(call => call.type === 'nspanel_haui/live_panel/event'
-    && call.name === 'esphome.component' && call.value === '13,13,1'));
+    && call.name === 'esphome.component'
+    && call.value === `${LIGHT_PAGE_ID},${component.id},1`));
   assert.equal(hass.calls.some(call => call.type === 'nspanel_haui/live_panel/event'
-    && call.name === 'esphome.component' && call.value === '13,13,0'), false);
+    && call.name === 'esphome.component'
+    && call.value === `${LIGHT_PAGE_ID},${component.id},0`), false);
 });
 
 test('a hub read request is answered with the widget value', async () => {
   const { hass, push, resolveLayout, session } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });
-  push({ type: 'page', page: 13 });
+  push({ type: 'page', page: LIGHT_PAGE_ID });
   push({ type: 'commands', commands: ['hBrightness.val=37'] });
   push({ type: 'request', kind: 'val', name: 'hBrightness' });
   resolveLayout();
@@ -440,7 +448,7 @@ test('stop unsubscribes and ignores later output', async () => {
   await flush();
   await session.stop();
   assert.equal(hass.unsubscribed, true);
-  push({ type: 'page', page: 9 });
+  push({ type: 'page', page: GRID_PAGE_ID });
   assert.notEqual(session.display.page?.name, 'grid');
   await session.sendEvent('esphome.touch_start', '');
   assert.deepEqual(hass.calls, []);

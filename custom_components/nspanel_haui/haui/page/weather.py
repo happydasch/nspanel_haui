@@ -33,7 +33,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="weather",
         page_name="weather",
-        page_id=6,
+        page_id=7,
         label=_("Weather"),
         description=_("Weather display with time, date and forecast."),
         category="backgrounds",

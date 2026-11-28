@@ -53,10 +53,9 @@ def test_system_panel_entries_expose_a_physical_page_including_popups():
 
 def test_popup_unlock_uses_the_alarm_physical_page():
     by_key = {e["key"]: e for e in get_system_panel_entries()}
-    assert by_key["popup_unlock"]["page_id"] == 17  # alarm page (17)
-    # The alarm panel itself is a user type on the same physical page.
+    # The alarm panel is a user type on the page the popup lives on.
     user = {d["type_key"]: d for d in get_user_panel_type_descriptors()}
-    assert user["alarm"]["page_id"] == 17
+    assert by_key["popup_unlock"]["page_id"] == user["alarm"]["page_id"]
 
 
 def test_page_id_matches_the_hub_page_mapping():

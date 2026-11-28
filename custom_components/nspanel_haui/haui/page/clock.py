@@ -28,7 +28,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="clock",
         page_name="clock",
-        page_id=7,
+        page_id=8,
         label=_("Clock"),
         description=_("Digital clock with date and notification indicator."),
         category="backgrounds",

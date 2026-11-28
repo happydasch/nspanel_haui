@@ -8,7 +8,7 @@ from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from custom_components.nspanel_haui.haui.mapping.icons import ICO_NAV_NEXT, ICO_ZOOM
 from custom_components.nspanel_haui.haui.page.qr import QRPage
 
-_PAGE_ID = 11
+_PAGE_ID = QRPage.DESCRIPTOR.page_id
 
 
 class _SingleNavConfig:

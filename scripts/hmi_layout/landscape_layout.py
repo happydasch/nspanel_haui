@@ -11,7 +11,7 @@ Rules:
 - 12 px side margins; the EU bezel hides x >= 450, so content ends at x 438.
 - 8 px gutters between controls, 50 px header.
 - Grid tiles and sliders keep their compact design, which reads better on the
-  device: 140 px tiles with 4 px gaps, slim 30 px tracks with a small 25 px knob,
+  device: 140 px tiles with 4 px gaps, slim 30 px tracks with a small 10 px knob,
   and flat fill bars without a knob on the light, cover and row pages
   (``ATTRS`` sets the cursor size; the hub colours the knob at render time).
 """
@@ -33,7 +33,7 @@ PARTIAL = True
 
 # Slider cursor attributes: ``pco`` is the compiled fallback knob colour, which the
 # hub overrides at render time; a 0 x 0 cursor draws no knob (a plain fill bar).
-_H_SLIDER = {"wid": 25, "hig": 30, "pco": 15416}
+_H_SLIDER = {"wid": 10, "hig": 30, "pco": 15416}
 _V_SLIDER = {"wid": 0, "hig": 0, "pco": 12678}
 _ROW_SLIDER = {"wid": 0, "hig": 0, "pco": 19773}
 
@@ -62,12 +62,20 @@ def _grid() -> dict[str, Rect]:
 
 
 def _info() -> dict[str, Rect]:
-    # The camera page paints the info page's text area as its picture (``PICTURE_RECT``
-    # in ``haui/page/camera.py``: the ``tText`` widget's own rectangle), with the six
-    # mode buttons in two columns beside it.
     layout: dict[str, Rect] = {"tText": (MARGIN, 65, 260, 240)}
     for n in range(6):
         layout[f"btMode{n + 1}"] = (299 + 76 * (n // 3), 69 + 92 * (n % 3), 50, 50)
+    return layout
+
+
+def _camera() -> dict[str, Rect]:
+    # The dedicated camera page: one large picture area between two columns of
+    # mode buttons. ``CameraPage`` paints ``tText`` as its picture
+    # (``PICTURE_RECT`` in ``haui/page/camera.py``: the widget's own rectangle),
+    # so the columns stay clear of it.
+    layout: dict[str, Rect] = {"tText": (95, 65, 260, 240)}
+    for n in range(6):
+        layout[f"btMode{n + 1}"] = (12 if n < 3 else 388, 69 + 92 * (n % 3), 50, 50)
     return layout
 
 
@@ -140,6 +148,7 @@ def _six_buttons(prefix: str, y: int) -> dict[str, Rect]:
 
 LAYOUT: dict[str, dict[str, Rect]] = {
     "info": _info(),
+    "camera": _camera(),
     "settings": {
         "tBrghtTitle": (MARGIN, 71, CONTENT_W, 32),
         "tBrghtIco": (22, 120, 32, 40),
@@ -163,13 +172,34 @@ LAYOUT: dict[str, dict[str, Rect]] = {
         "tInfo": (280, 150, RIGHT - 280, 32),
     },
     "media": {
-        "tMTitle": (70, 62, RIGHT - 70, 32),
-        "tMInterpret": (70, 96, RIGHT - 70, 24),
+        # Cover art is the page's picture area now: a 120 px square the hub draws
+        # into (``ICON_RECT`` in ``haui/page/media.py``), with the titles and the
+        # transport row stacked beside it.
+        "tIcon": (18, 56, 120, 120),
+        "tMTitle": (148, 62, RIGHT - 148, 32),
+        "tMInterpret": (148, 96, RIGHT - 148, 24),
+        "bShuffle": (149, 122, 50, 50),
+        "bPrev": (209, 122, 50, 50),
+        "bPlay": (269, 122, 50, 50),
+        "bNext": (329, 122, 50, 50),
+        "bRepeat": (389, 122, 50, 50),
+        "bPower": (175, 120, 105, 95),
+        "bVolDown": (MARGIN, 187, 50, 50),
+        "bVolUp": (388, 187, 50, 50),
         "hVolume": (78, 198, 295, 30),
+        "jProgress": (0, HEIGHT - 6, VISIBLE_W, 6),
+        "m1Btn": (MARGIN, 258, 140, 50),
+        "m1Icon": (MARGIN, 258, 50, 50),
+        "m1Name": (62, 258, 90, 50),
+        "m1Overlay": (MARGIN, 258, 140, 50),
         "m2Btn": (155, 258, 140, 50),
         "m2Icon": (155, 258, 50, 50),
         "m2Name": (205, 258, 90, 50),
         "m2Overlay": (155, 258, 140, 50),
+        "m3Btn": (298, 258, 140, 50),
+        "m3Icon": (298, 258, 50, 50),
+        "m3Name": (348, 258, 90, 50),
+        "m3Overlay": (298, 258, 140, 50),
     },
     "row": _row(),
     "grid": _grid(),

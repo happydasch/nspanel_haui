@@ -54,7 +54,7 @@ def test_portrait_panel_paints_the_portrait_picture_area():
 
     assert app.camera_streams[0]["rect"] == PICTURE_RECT["portrait"]
     assert page.picture_rect == PICTURE_RECT["portrait"]
-    # the picture is the info page's text area, inside the display
+    # the picture is the camera page's text area, inside the display
     rect = app.camera_streams[0]["rect"]
     assert rect.x + rect.w <= 320
     assert rect.y + rect.h <= 480
@@ -234,21 +234,21 @@ def test_leaving_the_page_stops_the_stream():
     assert app.camera_stream_stops == 1
 
 
-def test_page_descriptor_claims_the_info_page():
-    assert CameraPage.DESCRIPTOR.page_name == "info"
+def test_page_descriptor_claims_the_camera_page():
+    assert CameraPage.DESCRIPTOR.page_name == "camera"
     assert CameraPage.DESCRIPTOR.page_id == 20
     assert CameraPage.DESCRIPTOR.type_key == "camera"
 
 
 def test_the_picture_rectangle_is_the_text_area_both_hmis_compile():
-    """The picture goes where the info page's big text area is, per display model."""
+    """The picture goes where the camera page's big text area is, per display model."""
     app, page = _show()
 
     for orientation in ("landscape", "portrait"):
         app.device.is_portrait = orientation == "portrait"
         layout = json.loads((LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))
-        info = next(p for p in layout["pages"].values() if p["name"] == "info")
-        text = next(c["attrs"] for c in info["components"] if c["name"] == "tText")
+        camera = next(p for p in layout["pages"].values() if p["name"] == "camera")
+        text = next(c["attrs"] for c in camera["components"] if c["name"] == "tText")
 
         assert page.picture_rect == Rect(text["x"], text["y"], text["w"], text["h"]), orientation
         assert PICTURE_RECT[orientation] == page.picture_rect

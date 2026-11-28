@@ -25,6 +25,11 @@ from custom_components.nspanel_haui.haui.mapping.icons import ICO_PASSWORD
 from custom_components.nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
 from custom_components.nspanel_haui.haui.page.camera import CameraPage, picture_rect
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.page.grid import GridPage
+from custom_components.nspanel_haui.haui.page.light import LightPage
+from custom_components.nspanel_haui.haui.page.unlock import UnlockPage
+from custom_components.nspanel_haui.haui.page.weather import WeatherPage
 from custom_components.nspanel_haui.haui.utils.image_stream import DEFAULT_QUALITY, QUALITY
 from custom_components.nspanel_haui.hub import camera_stream
 from custom_components.nspanel_haui.web.preview.sample_data import sample_snapshot
@@ -33,8 +38,11 @@ from custom_components.nspanel_haui.web.preview.virtual_panel import (
     VirtualPanelHost,
 )
 
-GRID_PAGE_ID = 9
-UNLOCK_PAGE_ID = 17
+GRID_PAGE_ID = GridPage.DESCRIPTOR.page_id
+CLOCK_PAGE_ID = ClockPage.DESCRIPTOR.page_id
+LIGHT_PAGE_ID = LightPage.DESCRIPTOR.page_id
+UNLOCK_PAGE_ID = UnlockPage.DESCRIPTOR.page_id
+WEATHER_PAGE_ID = WeatherPage.DESCRIPTOR.page_id
 G1_POWER = 12
 
 
@@ -607,13 +615,13 @@ def test_a_slider_release_reads_the_value_from_the_browser_and_applies_it(env):
     )
     messages: list[dict] = []
     sess = _open(env, cfg, messages.append)
-    _wait(lambda: {"type": "page", "page": 13} in messages)
+    _wait(lambda: {"type": "page", "page": LIGHT_PAGE_ID} in messages)
     _wait(lambda: any(c.startswith("hBrightness.val=") for c in _commands(messages)))
     slider = sess.app.controller["navigation"].page.COMPONENTS.h_brightness
 
     # What the browser sends for a press-drag-release on the slider ...
-    sess.send_event(ESPEvent.COMPONENT, f"13,{slider.id},1")
-    sess.send_event(ESPEvent.COMPONENT, f"13,{slider.id},0")
+    sess.send_event(ESPEvent.COMPONENT, f"{LIGHT_PAGE_ID},{slider.id},1")
+    sess.send_event(ESPEvent.COMPONENT, f"{LIGHT_PAGE_ID},{slider.id},0")
     request = {"type": "request", "kind": "val", "name": slider.name}
     _wait(lambda: request in messages)
     # ... and its answer to the hub's read request.
@@ -640,7 +648,7 @@ def test_a_long_press_on_a_clock_goes_back_home(env):
     _wait(lambda: sess.app.controller["navigation"].page.started)
 
     sess.send_event(ESPEvent.GESTURE, "swipe_left")
-    _wait(lambda: {"type": "page", "page": 7} in messages)
+    _wait(lambda: {"type": "page", "page": CLOCK_PAGE_ID} in messages)
     _wait(lambda: sess.app.controller["navigation"].page.started)
     messages.clear()
 
@@ -676,7 +684,7 @@ def test_the_unlock_popup_takes_the_code_and_opens_the_locked_panel(env):
         _wait(lambda entered=entered: entered in _commands(messages))
     tap(keys.b1_fnc)
 
-    _wait(lambda: {"type": "page", "page": 7} in messages)
+    _wait(lambda: {"type": "page", "page": CLOCK_PAGE_ID} in messages)
     _run(env, sess.async_stop())
 
 
@@ -703,7 +711,7 @@ def test_the_browser_is_told_when_the_idle_page_starts_and_ends(env):
 
     sess.show_idle()
     _wait(lambda: {"type": "idle", "active": True} in messages)
-    _wait(lambda: {"type": "page", "page": 7} in messages)
+    _wait(lambda: {"type": "page", "page": CLOCK_PAGE_ID} in messages)
     _wait(lambda: sess.app.controller["navigation"].page.started)
 
     # Past the idle-touch grace window: a touch leaves the idle page.
@@ -1096,7 +1104,7 @@ def test_a_card_render_never_moves_the_live_display(session, env):
 
     result = _run(env, session.async_render(card))
 
-    assert result["page"] == 13
+    assert result["page"] == LIGHT_PAGE_ID
     # The light page titles itself with the entity's name, as on the panel.
     assert 'tTitle.txt="Lamp"' in result["commands"]
     assert navigation.panel is live_panel
@@ -1135,7 +1143,7 @@ def test_a_card_render_interrupted_by_the_apps_stop_ends_with_what_was_drawn(
     _run(env, session.app.async_run_on_worker(session.app.stop))
     result = render.result(timeout=5)
 
-    assert result["page"] == 13
+    assert result["page"] == LIGHT_PAGE_ID
     assert 'tTitle.txt="Lamp"' in result["commands"]
 
 
@@ -1179,14 +1187,14 @@ def test_a_slow_weather_forecast_does_not_block_the_virtual_app_worker(session, 
         env.loop.call_soon_threadsafe(release.set)
 
     result = render.result(timeout=5)
-    assert result["page"] == 6
+    assert result["page"] == WEATHER_PAGE_ID
     assert 'f1Val.txt="22°C"' in result["commands"]
 
 
 def test_an_entity_popup_card_opens_for_an_entity_of_its_domain(session, env):
     result = _run(env, session.async_render({"type": "popup_light", "key": "popup_light"}))
 
-    assert result["page"] == 13
+    assert result["page"] == LIGHT_PAGE_ID
     assert 'tTitle.txt="Lamp"' in result["commands"]
 
 
@@ -1194,7 +1202,7 @@ def test_an_edited_entity_popup_card_still_opens_for_an_entity_of_its_domain(ses
     # The editor saves an edited entity popup with the user type (popup_light → light).
     result = _run(env, session.async_render({"type": "light", "key": "popup_light"}))
 
-    assert result["page"] == 13
+    assert result["page"] == LIGHT_PAGE_ID
     assert 'tTitle.txt="Lamp"' in result["commands"]
 
 
@@ -1396,6 +1404,11 @@ def _stub_camera(monkeypatch, *, content: bytes = b"", error: Exception | None =
     return calls
 
 
+def _instance_camera(env, entity_id: str = "camera.driveway", state: str = "idle") -> None:
+    """Give the instance a camera of its own, as a real Home Assistant would have."""
+    env._states[entity_id] = _State(state, {"friendly_name": "Driveway"})
+
+
 def test_a_card_of_a_camera_no_device_shows_paints_a_planned_picture(env):
     """A card has no display stream behind it, so the hub plans the picture itself.
 
@@ -1455,9 +1468,7 @@ def test_a_portrait_device_plans_the_picture_in_its_own_area(env, monkeypatch):
 
     _run(
         env,
-        host._async_camera_frame(
-            {"type": "camera", "item": {"item": "camera.driveway"}}
-        ),
+        host._async_camera_frame({"type": "camera", "item": {"item": "camera.driveway"}}),
     )
 
     assert calls == [("camera.driveway", picture_rect(True).w, picture_rect(True).h)]
@@ -1476,6 +1487,77 @@ def test_a_card_keeps_the_placeholder_when_the_camera_gives_nothing(env, monkeyp
     assert runs == []
 
 
+def test_a_sample_camera_previews_the_instance_s_own_camera(env, monkeypatch):
+    """The Add panel catalog previews the user's own picture, not a drawing.
+
+    A new camera panel's preview names one of the sample world's cameras, because
+    that is what the panel will be pointed at: on an instance that has a camera,
+    that camera holds the picture the user is about to see on their wall.
+    """
+    picture = BytesIO()
+    Image.new("RGB", (64, 48), (30, 90, 200)).save(picture, format="PNG")
+    calls = _stub_camera(monkeypatch, content=picture.getvalue())
+    _instance_camera(env)
+    host = _card_host(env)
+    item = "camera.haui_preview_front_door"
+
+    runs = _run(env, host._async_camera_frame({"type": "camera", "item": {"item": item}}))
+
+    rect = picture_rect(False)
+    assert calls == [("camera.driveway", rect.w, rect.h)]
+    assert runs == camera_stream.plan_still_frame(
+        picture.getvalue(), rect, QUALITY[DEFAULT_QUALITY]
+    )
+
+
+def test_the_sample_world_s_cameras_are_not_the_instance_s(env):
+    """A preview-only entity is not a camera anyone can fetch, so nothing is asked."""
+    _instance_camera(env, "camera.haui_preview_front_door")
+    host = _card_host(env)
+    item = "camera.haui_preview_front_door"
+
+    runs = _run(env, host._async_camera_frame({"type": "camera", "item": {"item": item}}))
+
+    assert runs == camera_stream.plan_still_frame(
+        sample_snapshot(item), picture_rect(False), QUALITY[DEFAULT_QUALITY]
+    )
+
+
+def test_a_card_previews_the_camera_that_answers_over_a_dead_one(env, monkeypatch):
+    """Two cameras of its own, one unavailable: the card takes the one that can show."""
+    picture = BytesIO()
+    Image.new("RGB", (64, 48), (200, 120, 40)).save(picture, format="PNG")
+    calls = _stub_camera(monkeypatch, content=picture.getvalue())
+    _instance_camera(env, "camera.alley", state="unavailable")
+    _instance_camera(env)
+    host = _card_host(env)
+
+    _run(
+        env,
+        host._async_camera_frame(
+            {"type": "camera", "item": {"item": "camera.haui_preview_front_door"}}
+        ),
+    )
+
+    assert [call[0] for call in calls] == ["camera.driveway"]
+
+
+def test_a_sample_camera_whose_real_camera_fails_keeps_the_placeholder(env, monkeypatch):
+    """The drawing is for an instance without a camera, not for one that will not answer."""
+    _stub_camera(monkeypatch, error=TimeoutError("no answer"))
+    _instance_camera(env)
+    host = _card_host(env)
+
+    runs = _run(
+        env,
+        host._async_camera_frame(
+            {"type": "camera", "item": {"item": "camera.haui_preview_front_door"}}
+        ),
+    )
+
+    assert runs == []
+
+
 def test_a_card_of_another_camera_does_not_take_the_device_s_picture(env):
     """The device's fills are this panel's only while both name the same camera.
 
@@ -1488,9 +1570,7 @@ def test_a_card_of_another_camera_does_not_take_the_device_s_picture(env):
 
     runs = _run(
         env,
-        host._async_camera_frame(
-            {"type": "camera", "key": "front", "item": {"item": item}}
-        ),
+        host._async_camera_frame({"type": "camera", "key": "front", "item": {"item": item}}),
     )
 
     assert runs == camera_stream.plan_still_frame(

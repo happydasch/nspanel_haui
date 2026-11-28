@@ -20,6 +20,7 @@ import pytest
 from test_virtual_panel import (
     G1_POWER,
     GRID_PAGE_ID,
+    LIGHT_PAGE_ID,
     _button,
     _commands,
     _config,
@@ -35,8 +36,11 @@ from test_websocket_api import _run as _run_ws
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.controller import esphome as esphome_controller
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, PopupPanelKey
+from custom_components.nspanel_haui.haui.page.qr import QRPage
 from custom_components.nspanel_haui.hub import camera_stream
 from custom_components.nspanel_haui.web.preview.live_panel import LivePanel
+
+QR_PAGE_ID = QRPage.DESCRIPTOR.page_id
 
 _ROOT = Path(__file__).resolve().parent.parent
 _REPLAY = _ROOT / "tests" / "frontend" / "replay-renders.mjs"
@@ -122,7 +126,7 @@ def test_a_live_viewer_replays_the_apps_commands_and_routes_input(env):
         _run(env, viewer.async_event(ESPEvent.COMPONENT, f"{GRID_PAGE_ID},11,0"))
         navigation = source.app.controller["navigation"]
         _wait(lambda: navigation.panel.get("key") == "popup_light")
-        _wait(lambda: {"type": "page", "page": 13} in messages[marker:])
+        _wait(lambda: {"type": "page", "page": LIGHT_PAGE_ID} in messages[marker:])
         _wait(
             lambda: any('tTitle.txt="Lamp"' in command for command in _commands(messages[marker:]))
         )
@@ -529,7 +533,7 @@ def test_attaching_a_live_viewer_keeps_the_qr_zoom(env):
     config["device"]["home_panel"] = "qr_0"
     source = _open(env, config, lambda _message: None)
     navigation = source.app.controller["navigation"]
-    _wait(lambda: navigation.page is not None and navigation.page.page_id == 11)
+    _wait(lambda: navigation.page is not None and navigation.page.page_id == QR_PAGE_ID)
     page = navigation.page
     _run(env, source.app.async_run_on_worker(page._set_big, True))
 

@@ -36,7 +36,7 @@ The players offered for grouping are the ones the player itself reports, plus th
 
 ## How it behaves
 
-- **Cover art:** while the player publishes a picture of what is playing - its `entity_picture`, an album cover or a radio station's logo - the panel draws it in place of the music icon, and replaces it when the track, station or source changes. At icon size the picture is a coarse mosaic of the display's own colours rather than artwork, and it arrives a moment after the title. A player that publishes none, a picture that cannot be loaded and a panel whose firmware predates drawing images all keep the icon.
+- **Cover art:** while the player publishes a picture of what is playing - its `entity_picture`, an album cover or a radio station's logo - the panel draws it in place of the music icon, and replaces it when the track, station or source changes. A landscape panel gives it a 120 px square, so artwork reads as artwork; the portrait page keeps it at icon size beside the titles, where the picture is a coarse mosaic of the display's own colours rather than artwork. It arrives a moment after the title. A player that publishes none, a picture that cannot be loaded and a panel whose firmware predates drawing images all keep the icon.
 - **Nothing playing:** title and artist are empty. The header shows the channel name if the player reports one, otherwise the player's name.
 - **Player unavailable:** the panel shows **Unavailable** and hides the controls.
 - Names that are too long for a button or a list row are cut and end in `..`.

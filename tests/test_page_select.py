@@ -2,7 +2,7 @@
 
 from custom_components.nspanel_haui.haui.page.select import SelectPage
 
-_PAGE_ID = 5
+_PAGE_ID = SelectPage.DESCRIPTOR.page_id
 
 
 class _Device:

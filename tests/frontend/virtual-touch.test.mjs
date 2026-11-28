@@ -38,10 +38,10 @@ test('a tap on a grid tile reports the overlay hotspot and highlights the tile',
   assert.equal(display.component('g1Name').attrs.bco, btn.bco);
 
   assert.deepEqual(sent, [
-    ['esphome.component', '9,11,1'],
+    ['esphome.component', `${display.page.id},11,1`],
     ['esphome.touch_start', '1'],
     ['esphome.touch_start', ''],
-    ['esphome.component', '9,11,0'],
+    ['esphome.component', `${display.page.id},11,0`],
     ['esphome.touch_end', '40,70,40,70'],
   ]);
 });
@@ -51,7 +51,7 @@ test('the topmost widget wins: the power button over the tile overlay', () => {
   display.exec(['vis g1Overlay,1', 'vis g1Power,1']);
   touch.press(120, 70);
   touch.release(120, 70);
-  assert.deepEqual(sent[0], ['esphome.component', '9,12,1']);
+  assert.deepEqual(sent[0], ['esphome.component', `${display.page.id},12,1`]);
 });
 
 test('hidden and touch-disabled widgets are skipped', () => {
@@ -59,7 +59,7 @@ test('hidden and touch-disabled widgets are skipped', () => {
   display.exec(['vis g1Overlay,1', 'vis g1Power,0']);
   touch.press(120, 70);
   touch.release(120, 70);
-  assert.deepEqual(sent[0], ['esphome.component', '9,11,1']);
+  assert.deepEqual(sent[0], ['esphome.component', `${display.page.id},11,1`]);
 
   sent.length = 0;
   display.exec('tsw g1Overlay,0');
@@ -90,8 +90,8 @@ test('a vertical slider follows the finger and its value is readable', () => {
   assert.equal(s.val, s.maxval);
   touch.release(s.x + 10, s.y - 50);
   assert.deepEqual(sent.filter(([n]) => n === 'esphome.component'), [
-    ['esphome.component', `13,${display.component('hBrightness').id},1`],
-    ['esphome.component', `13,${display.component('hBrightness').id},0`],
+    ['esphome.component', `${display.page.id},${display.component('hBrightness').id},1`],
+    ['esphome.component', `${display.page.id},${display.component('hBrightness').id},0`],
   ]);
   assert.equal(JSON.parse(display.readResponse('val', 'hBrightness')).value, 100);
 });
@@ -117,8 +117,8 @@ test('live touch reports physical button input without simulating local display 
 
   assert.equal(component.attrs.val, before);
   assert.deepEqual(sent.filter(([name]) => name === 'esphome.component'), [
-    ['esphome.component', `9,${component.id},1`],
-    ['esphome.component', `9,${component.id},0`],
+    ['esphome.component', `${display.page.id},${component.id},1`],
+    ['esphome.component', `${display.page.id},${component.id},0`],
   ]);
 });
 
@@ -144,10 +144,10 @@ test('live slider drags send the selected value without simulating the display',
 
   assert.equal(component.attrs.val, 98);
   assert.deepEqual(sent.filter(([name]) => name === 'slider'), [
-    ['slider', 13, component.id, 98],
+    ['slider', display.page.id, component.id, 98],
   ]);
   assert.deepEqual(sent.filter(([name]) => name === 'esphome.component'), [
-    ['esphome.component', `13,${component.id},1`],
+    ['esphome.component', `${display.page.id},${component.id},1`],
   ]);
 });
 

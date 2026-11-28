@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from support.page_app import PageApp
 
 from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS
 from custom_components.nspanel_haui.haui.mapping.color import Theme
 from custom_components.nspanel_haui.haui.page.clocktwo import ClockTwoPage
 from custom_components.nspanel_haui.haui.utils.color import contrast_ratio
@@ -96,13 +97,13 @@ def test_options_saved_for_the_shown_panel_apply_without_a_page_load():
 
 def test_the_page_load_leaves_no_dot_on_the_compiled_picture() -> None:
     """The HMI's own loop skips the top-left dot; the hub sends its crop itself."""
-    for background, picture_id in (("dark", 1), ("light", 2), ("cat", 10)):
+    for background in ("dark", "light", "cat"):
         app = PageApp({})
         page = _page(app)
 
         page.start_panel(_panel(app, {"background": background}))
 
-        assert f"s1.picc={picture_id}" in app.cmds
+        assert f"s1.picc={BACKGROUNDS[background]}" in app.cmds
 
 
 def test_a_light_page_keeps_the_unlit_letters_visible_but_quiet() -> None:

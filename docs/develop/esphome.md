@@ -236,8 +236,8 @@ cannot make usable.
 
 ### The camera page is one of the stream's callers
 
-`haui/page/camera.py` does not draw anything itself: it owns the display's info page
-(page id 20) and hands that page's big text area (`tText`) to the stream as its
+`haui/page/camera.py` does not draw anything itself: it owns the display's camera page
+(page id 21) and hands that page's big text area (`tText`) to the stream as its
 rectangle (`PICTURE_RECT`, per orientation, cropped to fill) - the widget's own
 compiled coordinates, the way the media page's cover art goes where its icon widget
 is - and stays out of the way. Four things follow from a stream being started by a

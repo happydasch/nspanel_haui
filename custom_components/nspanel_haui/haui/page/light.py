@@ -18,7 +18,7 @@ class LightPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="light",
         page_name="light",
-        page_id=13,
+        page_id=14,
         label=_("Light"),
         description=_("Single light with brightness, color temperature and effects."),
         category="entities",

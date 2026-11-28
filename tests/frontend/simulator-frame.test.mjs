@@ -11,6 +11,7 @@ import {
 } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/virtual/assets.js';
+import { pageId } from './support/fixtures.mjs';
 
 const asset = (name) => JSON.parse(readFileSync(
   new URL(`../../custom_components/nspanel_haui/frontend/virtual/${name}`, import.meta.url),
@@ -20,6 +21,8 @@ const asset = (name) => JSON.parse(readFileSync(
 // The assets are memoised: load them once from the files, as fetch would.
 loadLayout('landscape', () => asset('layout_landscape.json'));
 loadIconMap(() => asset('icon_map.json'));
+
+const WEATHER_PAGE_ID = pageId('weather');
 
 test('simulator frame recalculates scale when its container width changes', () => {
   let width = 450;
@@ -111,7 +114,7 @@ function frameWith(render) {
 
 test('simulator frame shows the hub render its loader returned', async () => {
   const frame = frameWith(() => ({
-    page: 6, before: [], commands: ['f1Name.txt="Tue"', 'vis f1Name,1'],
+    page: WEATHER_PAGE_ID, before: [], commands: ['f1Name.txt="Tue"', 'vis f1Name,1'],
   }));
   try {
     await frame._start();
@@ -148,13 +151,13 @@ test('a slower older render never replaces a newer one', async () => {
   let resolveOld;
   const renders = [
     new Promise((resolve) => { resolveOld = resolve; }),
-    { page: 6, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] },
+    { page: WEATHER_PAGE_ID, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] },
   ];
   const frame = frameWith(() => renders.shift());
   try {
     const first = frame._start();
     await frame._start(true);
-    resolveOld({ page: 6, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] });
+    resolveOld({ page: WEATHER_PAGE_ID, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] });
     await first;
     assert.equal(frame._display.component('f1Name').attrs.txt, 'New');
   } finally {
@@ -164,7 +167,7 @@ test('a slower older render never replaces a newer one', async () => {
 
 test('a new frame shows the card\'s last render until the hub answers', async () => {
   const replies = [
-    { page: 6, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] },
+    { page: WEATHER_PAGE_ID, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] },
   ];
   let answer;
   replies.push(new Promise((resolve) => { answer = resolve; }));
@@ -200,7 +203,7 @@ test('a new frame shows the card\'s last render until the hub answers', async ()
   const started = frame('10.0.0.2', shown)._start();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(shown, ['Old']);
-  answer({ page: 6, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] });
+  answer({ page: WEATHER_PAGE_ID, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] });
   await started;
   assert.deepEqual(shown, ['Old', 'New']);
 });

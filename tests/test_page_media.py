@@ -24,7 +24,7 @@ from custom_components.nspanel_haui.haui.utils.image_program import Rect
 from custom_components.nspanel_haui.haui.version import DRAW_RUNS_FIRMWARE_VERSION
 
 _COLORS = {"component_active": 1, "text_disabled": 2}
-_PAGE_ID = 14
+_PAGE_ID = MediaPage.DESCRIPTOR.page_id
 _ENTITY_ID = "media_player.kitchen"
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 #: The device info a panel reports once it is connected; a firmware without the

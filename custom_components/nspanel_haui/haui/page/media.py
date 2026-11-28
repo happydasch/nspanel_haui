@@ -46,9 +46,10 @@ _MEDIA_NAME_BOXES = {
 #: asking the display for it - a Nextion reads back a widget's ``.txt`` and
 #: ``.val``, never its position or size - so the values are the ones its layout
 #: was compiled from, and ``tests/test_page_media.py`` checks them against both
-#: generated layouts.
+#: generated layouts. Landscape gives the picture a 120 px square above the
+#: transport row; the portrait page keeps its 50 px icon beside the titles.
 ICON_RECT: dict[str, Rect] = {
-    "landscape": Rect(12, 68, 50, 50),
+    "landscape": Rect(18, 56, 120, 120),
     "portrait": Rect(12, 58, 50, 50),
 }
 
@@ -57,7 +58,7 @@ class MediaPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="media",
         page_name="media",
-        page_id=14,
+        page_id=15,
         label=_("Media"),
         description=_("Media player controls with track info and volume."),
         category="entities",

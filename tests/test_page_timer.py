@@ -4,7 +4,7 @@ import pytest
 
 from custom_components.nspanel_haui.haui.page.timer import TimerPage
 
-_PAGE_ID = 12
+_PAGE_ID = TimerPage.DESCRIPTOR.page_id
 
 
 class _Device:

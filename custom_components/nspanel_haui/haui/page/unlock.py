@@ -13,7 +13,7 @@ class UnlockPage(AlarmPage):
     DESCRIPTOR = PageDescriptor(
         type_key="popup_unlock",
         page_name="unlock",
-        page_id=17,
+        page_id=18,
         label=_("Unlock"),
         description=_("PIN unlock overlay for locked panels."),
         is_system=True,

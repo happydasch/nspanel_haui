@@ -5,7 +5,7 @@ The system page shows a Material indeterminate circular progress indicator
 every frame is drawn onto the crop of the system background tile at the spinner's
 position: (155, 80) in landscape and (90, 160) in portrait.
 
-The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 11 and 12 in the
+The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 14 and 15 in the
 HMI), written to ``nextion/images/spinner_<orientation>_1.png`` and ``_2.png``. Re-run
 after changing the ``system`` tile or the spinner position. Based on the Material
 Components progress indicator.

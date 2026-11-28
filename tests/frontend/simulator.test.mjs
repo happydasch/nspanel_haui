@@ -11,7 +11,13 @@ import {
 } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
 import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
-import { layout } from './support/fixtures.mjs';
+import { layout, pageId } from './support/fixtures.mjs';
+
+const CLOCK_PAGE_ID = pageId('clock');
+const GRID_PAGE_ID = pageId('grid');
+const LIGHT_PAGE_ID = pageId('light');
+const COVER_PAGE_ID = pageId('cover');
+const CAMERA_PAGE_ID = pageId('camera');
 
 test('every physical page id maps to a preview model in both orientations', () => {
   for (const orientation of ['landscape', 'portrait']) {
@@ -35,11 +41,11 @@ test('loadLayout and loadIconMap use an injected loader', () => {
 
 test('a hub render is replayed in the device order: before, page switch, page', () => {
   const render = {
-    page: 7,
+    page: CLOCK_PAGE_ID,
     before: ['system.vBackground.val=4'],
     commands: ['tTime.txt="12:34"', 'vis tTime,1'],
   };
-  const d = buildPreviewDisplay(layout('landscape'), 7, { render });
+  const d = buildPreviewDisplay(layout('landscape'), CLOCK_PAGE_ID, { render });
   assert.equal(d.page.name, 'clock');
   // The page's Preinitialize code read the background before the page loaded.
   assert.equal(d.component('tTime').attrs.picc, 4);
@@ -47,17 +53,17 @@ test('a hub render is replayed in the device order: before, page switch, page', 
 });
 
 test('a hub render picks its own page', () => {
-  const render = { page: 13, before: [], commands: ['tTitle.txt="Desk lamp"'] };
-  const d = buildPreviewDisplay(layout('landscape'), 9, { render });
+  const render = { page: LIGHT_PAGE_ID, before: [], commands: ['tTitle.txt="Desk lamp"'] };
+  const d = buildPreviewDisplay(layout('landscape'), LIGHT_PAGE_ID, { render });
   assert.equal(d.page.name, 'light');
   assert.equal(d.component('tTitle').attrs.txt, 'Desk lamp');
 });
 
 test('the hub reveals the controls the bare HMI page hides', () => {
   // Pages hide their controls in their Preinitialize code; the hub shows them.
-  const blank = buildPreviewDisplay(layout('landscape'), 18);
-  const render = { page: 18, before: [], commands: ['vis bUp,1', 'vis hVertPos,1'] };
-  const rendered = buildPreviewDisplay(layout('landscape'), 18, { render });
+  const blank = buildPreviewDisplay(layout('landscape'), COVER_PAGE_ID);
+  const render = { page: COVER_PAGE_ID, before: [], commands: ['vis bUp,1', 'vis hVertPos,1'] };
+  const rendered = buildPreviewDisplay(layout('landscape'), COVER_PAGE_ID, { render });
   for (const name of ['bUp', 'hVertPos']) {
     assert.equal(blank.component(name).hidden, true, `${name} starts hidden`);
     assert.equal(rendered.component(name).hidden, false, `${name} is revealed`);
@@ -88,7 +94,7 @@ function editorHost(reply) {
 }
 
 test('a user card asks the hub to render its config, a system card its key', async () => {
-  const host = editorHost(() => ({ page: 9, before: [], commands: [] }));
+  const host = editorHost(() => ({ page: GRID_PAGE_ID, before: [], commands: [] }));
   const panel = { key: 'rooms', type: 'grid', title: 'Unsaved title' };
 
   await loadPanelRender(host, panel, false);
@@ -105,7 +111,7 @@ test('a user card asks the hub to render its config, a system card its key', asy
 });
 
 test('a preview with sample context sends it along and renders apart from the card', async () => {
-  const host = editorHost(() => ({ page: 13, before: [], commands: [] }));
+  const host = editorHost(() => ({ page: LIGHT_PAGE_ID, before: [], commands: [] }));
   const popup = { key: 'popup_light', type: 'light' };
   const kwargs = { item: 'light.desk', item_id: 'light.desk' };
 
@@ -121,7 +127,7 @@ test('a preview with sample context sends it along and renders apart from the ca
 });
 
 test('a re-mounted card reuses its render until the device settings change', async () => {
-  const host = editorHost(() => ({ page: 9, before: [], commands: [] }));
+  const host = editorHost(() => ({ page: GRID_PAGE_ID, before: [], commands: [] }));
   const panel = { key: 'rooms', type: 'grid' };
 
   await loadPanelRender(host, { ...panel, title: 'Memo' }, false);
@@ -137,7 +143,7 @@ test('a re-mounted card reuses its render until the device settings change', asy
 
 test('an expired render is dropped and asked for again', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
-  const host = editorHost(() => ({ page: 9, before: [], commands: [] }));
+  const host = editorHost(() => ({ page: GRID_PAGE_ID, before: [], commands: [] }));
   const panel = { key: 'rooms', type: 'grid', title: 'Expiry' };
 
   await loadPanelRender(host, panel, false);
@@ -157,13 +163,13 @@ test('a failed render rejects with the hub error and is not kept', async () => {
   let fail = true;
   const host = editorHost(() => {
     if (fail) throw { code: 'invalid_panel', message: "Unknown panel type: 'bogus'" };
-    return { page: 9, before: [], commands: [] };
+    return { page: GRID_PAGE_ID, before: [], commands: [] };
   });
   const panel = { key: 'x', type: 'bogus' };
 
   await assert.rejects(loadPanelRender(host, panel, false), /Unknown panel type/);
   fail = false;
-  assert.equal((await loadPanelRender(host, panel, false)).page, 9);
+  assert.equal((await loadPanelRender(host, panel, false)).page, GRID_PAGE_ID);
 });
 
 test('a late response cannot replace a newer remembered thumbnail', async () => {
@@ -172,8 +178,8 @@ test('a late response cannot replace a newer remembered thumbnail', async () => 
   const panel = { key: 'buffered', type: 'grid' };
   const older = loadPanelRender(host, { ...panel, title: 'Old' }, false);
   const newer = loadPanelRender(host, { ...panel, title: 'New' }, false);
-  const oldRender = { page: 9, before: [], commands: ['tTitle.txt="Old"'] };
-  const newRender = { page: 9, before: [], commands: ['tTitle.txt="New"'] };
+  const oldRender = { page: GRID_PAGE_ID, before: [], commands: ['tTitle.txt="Old"'] };
+  const newRender = { page: GRID_PAGE_ID, before: [], commands: ['tTitle.txt="New"'] };
 
   pending[1](newRender);
   await newer;
@@ -193,7 +199,7 @@ test('a card keeps its last render across reloads until the frontend changes', a
     },
   });
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const render = { page: 9, before: [], commands: ['tTitle.txt="Kept"'] };
+  const render = { page: GRID_PAGE_ID, before: [], commands: ['tTitle.txt="Kept"'] };
   const host = editorHost(() => render);
   const panel = { key: 'kept', type: 'grid' };
 
@@ -216,7 +222,7 @@ test('a card keeps its last render across reloads until the frontend changes', a
 
 test('a camera card shows the picture it is given and keeps none', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const render = { page: 20, before: [], commands: ['fill 0,0,10,10,1024'] };
+  const render = { page: CAMERA_PAGE_ID, before: [], commands: ['fill 0,0,10,10,1024'] };
   const host = editorHost(() => render);
   const panel = { key: 'front', type: 'camera' };
 

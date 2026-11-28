@@ -267,7 +267,7 @@ class ClockTwoPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="clocktwo",
         page_name="clocktwo",
-        page_id=8,
+        page_id=9,
         label=_("Clock Two"),
         description=_("Word-clock display in multiple languages."),
         category="backgrounds",

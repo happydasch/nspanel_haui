@@ -24,7 +24,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="grid",
         page_name="grid",
-        page_id=9,
+        page_id=10,
         label=_("Grid"),
         description=_("Grid of up to 6 item tiles with pagination."),
         category="grouping",

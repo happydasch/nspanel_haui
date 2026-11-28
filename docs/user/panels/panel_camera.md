@@ -13,7 +13,7 @@ The camera panel shows one camera's picture and keeps it current: the hub fetche
 
 It is a picture, not a video. The display has no image buffer and no video path, so the panel can afford a couple of snapshots a second on a camera that is mostly still. A camera that pans or a scene that moves everywhere will look like a slow slideshow — for those, a page background picture or [`nspanel_haui.show_image`](../actions.md#images-on-the-panel) is the better fit.
 
-The panel uses the display's **info page** and paints its big text area: the picture goes exactly where that page's text widget sits (12 px in from the left, below the header, above the row of mode buttons), cropped to fill it. A camera's 16:9 frame is zoomed to the centre rather than shown with bands above and below, so the area the panel reserves for text all goes to the picture.
+The panel uses the display's own **camera page** and paints its big text area, cropped to fill it: landscape keeps the picture between two columns of mode buttons, portrait above a row of them. A camera's 16:9 frame is zoomed to the centre rather than shown with bands above and below, so the whole reserved area goes to the picture.
 
 ## How to configure
 
@@ -62,6 +62,7 @@ Whatever you pick, an update only ever pays for the cells that actually changed.
   display no longer has.
 - **A card or thumbnail of this page shows the picture.** It replays the fills the panel received; once the stream has run long enough for its oldest fills to be dropped, it asks the stream for a fresh whole picture, so the card catches up within a render or two instead of sitting on *Waiting for the camera*. A card of a camera panel that no device is showing — the panel list, the panel editor, the catalog — is the same picture drawn from the camera's own snapshot, at the quality the panel is set to: the hub plans one whole frame for it, so the card looks like the panel and not like a screenshot of a different screen. A camera that does not answer leaves the card on *Waiting for the camera*.
 - **Card previews of a camera are not remembered.** A picture is out of date by the next visit, so the thumbnail asks the hub for a fresh one instead of showing the last one it saw.
+- **Adding the panel previews a camera you have.** The Add panel catalog's camera card shows a snapshot of one of your own cameras, at the quality the new panel will use, so the preview is the picture you are about to put on the wall. Only an instance without any camera falls back to a drawn picture.
 - **A Live preview follows the picture.** Live mirrors the panel's own display
   output, so a camera page keeps moving there too: a viewer that attaches while the
   stream runs is given the picture the panel is holding and then every change. After

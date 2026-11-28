@@ -144,7 +144,7 @@ def test_climate_render(name, state, features):
     entity = _climate(state, features)
     app, page = _show(
         ClimatePage,
-        16,
+        ClimatePage.DESCRIPTOR.page_id,
         {"type": "climate", "item": {"item": "climate.c"}},
         {"climate.c": entity},
     )
@@ -158,7 +158,7 @@ def test_climate_callbacks(fnc, empty):
     entity = _climate("heat", _CLIMATE_ALL, **attrs)
     app, page = _show(
         ClimatePage,
-        16,
+        ClimatePage.DESCRIPTOR.page_id,
         {"type": "climate", "item": {"item": "climate.c"}},
         {"climate.c": entity},
     )
@@ -196,7 +196,10 @@ def test_cover_render(name, state, features, position):
         attrs["current_position"] = position
     entity = Entity(state, attrs)
     app, page = _show(
-        CoverPage, 18, {"type": "cover", "item": {"item": "cover.d"}}, {"cover.d": entity}
+        CoverPage,
+        CoverPage.DESCRIPTOR.page_id,
+        {"type": "cover", "item": {"item": "cover.d"}},
+        {"cover.d": entity},
     )
     _check(name, _out(app, page, entity))
 
@@ -239,7 +242,7 @@ def test_vacuum_render(name, state, features):
     mop = Entity("off", {"friendly_name": "Mop"})
     app, page = _show(
         VacuumPage,
-        15,
+        VacuumPage.DESCRIPTOR.page_id,
         {"type": "vacuum", "item": {"item": "vacuum.r"}, "items": [{"item": "switch.mop"}]},
         {"vacuum.r": entity, "switch.mop": mop},
     )
@@ -294,7 +297,7 @@ def test_media_render(name, state, features):
     entity = _media(state, features, media_title="Song", media_artist="Band")
     app, page = _show(
         MediaPage,
-        14,
+        MediaPage.DESCRIPTOR.page_id,
         {
             "type": "media",
             "item": {"item": "media_player.k"},
@@ -437,7 +440,7 @@ class _TimerPanel:
 
 def test_timer_buttons():
     app = _App({})
-    page = TimerPage(app, {"page_id": 12})
+    page = TimerPage(app, {"page_id": TimerPage.DESCRIPTOR.page_id})
     page.cmds = []
     page.send_cmd = page.cmds.append
     page.get_color = lambda key: sum(map(ord, key))
@@ -477,7 +480,7 @@ def test_alarm_render(name, state, features):
     entity = Entity(state, {"friendly_name": "Home", "supported_features": features})
     app, page = _show(
         AlarmPage,
-        17,
+        AlarmPage.DESCRIPTOR.page_id,
         {"type": "alarm", "item": {"item": "alarm_control_panel.h"}},
         {"alarm_control_panel.h": entity},
     )
@@ -524,7 +527,7 @@ def test_unlock_popup_copies_the_guarded_panel_header(in_nav, left, right):
         app, {"type": "popup_unlock", "key": "popup_unlock", "show_in_navigation": False}
     )
     popup.apply_kwargs({"unlock_panel": locked})
-    page = UnlockPage(app, {"page_id": 17})
+    page = UnlockPage(app, {"page_id": UnlockPage.DESCRIPTOR.page_id})
     page.set_panel(popup)
 
     assert page._fnc_items[page.FNC_BTN_L_PRI]["fnc_name"] == left

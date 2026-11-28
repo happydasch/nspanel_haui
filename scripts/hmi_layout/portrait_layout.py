@@ -210,11 +210,20 @@ def _grid() -> dict[str, Rect]:
 
 def _info() -> dict[str, Rect]:
     # The info page carries the largest text area of any page above a row of six
-    # mode buttons. The camera page paints that text area as its picture
-    # (``PICTURE_RECT`` in ``haui/page/camera.py``: the ``tText`` widget's own
-    # rectangle), so the header, the margins and the mode buttons stay as they are.
+    # mode buttons.
     layout = _header()
     layout["tText"] = (12, 55, 296, 335)
+    for i in range(6):
+        layout[f"btMode{i + 1}"] = (10 + 50 * i, 417, 50, 50)
+    return layout
+
+
+def _camera() -> dict[str, Rect]:
+    # The dedicated camera page lays its picture area out the same way the info page
+    # does, a little shorter so the area stays square-ish: ``CameraPage`` paints
+    # ``tText`` as its picture (``PICTURE_RECT`` in ``haui/page/camera.py``).
+    layout = _header()
+    layout["tText"] = (12, 55, 290, 290)
     for i in range(6):
         layout[f"btMode{i + 1}"] = (10 + 50 * i, 417, 50, 50)
     return layout
@@ -415,6 +424,7 @@ PORTRAIT_LAYOUT: dict[str, dict[str, Rect]] = {
     "about": _about(),
     "alarm": _alarm(),
     "blank": _blank(),
+    "camera": _camera(),
     "climate": _climate(),
     "clock": _clock(),
     "clocktwo": _clocktwo(),
@@ -439,7 +449,7 @@ PORTRAIT_LAYOUT: dict[str, dict[str, Rect]] = {
 # Attribute overrides: ``isbr`` enables word wrap and ``font`` picks a smaller embedded
 # font where the narrower widget would clip; the slider entries give every slider the
 # landscape layout's cursor (see landscape_layout.py).
-_H_SLIDER = {"wid": 25, "hig": 30, "pco": 15416}
+_H_SLIDER = {"wid": 10, "hig": 30, "pco": 15416}
 _V_SLIDER = {"wid": 0, "hig": 0, "pco": 12678}
 _ROW_SLIDER = {"wid": 0, "hig": 0, "pco": 19773}
 

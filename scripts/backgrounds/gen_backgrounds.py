@@ -36,8 +36,12 @@ DIM_ALPHA = 0.8
 OVERRIDES: dict[str, dict] = {
     # A plain off-white tile; preserve its contrast instead of dimming it.
     "light": {"dim": 0.0},
-    # already a dark picture, keep more of it
-    "system": {"dim": 0.55},
+    # already dark and tuned for white text, keep it as drawn
+    "system": {"dim": 0.0},
+    # These dark gradients already have the contrast for white text.
+    "cool_glow": {"dim": 0.0},
+    "warm_glow": {"dim": 0.0},
+    "dusk": {"dim": 0.0},
     # more mountain, less empty sky
     "winter": {"focus": (0.5, 0.56)},
 }

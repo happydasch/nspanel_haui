@@ -16,3 +16,17 @@ export function layout(orientation = 'landscape') {
   const path = `../../../custom_components/nspanel_haui/frontend/virtual/layout_${orientation}.json`;
   return JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 }
+
+/**
+ * The page id a layout gives a page name.
+ *
+ * The display's page ids follow the HMI's page order, so a fixture that needs
+ * one reads it from the layout instead of pinning a number an HMI change would
+ * silently break.
+ */
+export function pageId(name, orientation = 'landscape') {
+  const { pages } = layout(orientation);
+  const id = Object.keys(pages).find((key) => pages[key].name === name);
+  if (id === undefined) throw new Error(`No page named ${name} in the ${orientation} layout`);
+  return Number(id);
+}

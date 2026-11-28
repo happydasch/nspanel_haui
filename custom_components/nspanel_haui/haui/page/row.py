@@ -43,7 +43,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="row",
         page_name="row",
-        page_id=10,
+        page_id=11,
         label=_("Row"),
         description=_("Row of entities with cover/action controls."),
         category="grouping",

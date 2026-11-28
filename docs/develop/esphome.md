@@ -146,6 +146,49 @@ A playing tune is stopped before a TFT upload, an OTA firmware update or a reboo
 
 An action that hands one of its variables to a script must write `!lambda 'return x;'`: ESPHome compiles any other value as a *literal*, so `program: program` sent the device the seven characters `program` — one bogus display command, reported as a drawn image. `tests/test_esphome_yaml.py` fails on a bare variable name.
 
+### A camera stream needs no firmware of its own
+
+`nspanel_haui.start_camera_stream` sends an ordinary draw program per frame, so the
+firmware's `draw_runs` action, its slicing and its pacing are all it needs: there is
+no stream action, and adding one is a decline until a measurement asks for it
+(`nextion.md#a-delta-pass-is-what-would-make-a-stream-possible`).
+
+What the hub does per frame, and why:
+
+- `haui/utils/image_stream.py` plans it off the worker: the frame is decoded and
+  fitted exactly as `show_image` fits it (`image_program.fit_image`), reduced to a
+  cell grid, and compared against **the grid the panel is showing** - not against
+  the previous frame. A cell is repainted only when it has moved further than the
+  dead band (24 per channel by default), which is what makes camera noise and a
+  flickering light cost nothing. Frame-to-frame diffing was measured at 293 runs
+  per frame on the same sequence where the painted model needs 12.
+- `hub/camera_stream.py` owns the loop: one `asyncio` task per panel that fetches
+  the snapshot (`camera.async_get_image`, scaled by the camera when it can),
+  plans in the executor, and sends on the app's worker. Every decision about
+  whether a frame may be sent is made on the worker, where the page and the
+  display state are owned, so the loop never reads worker state from the loop.
+- **A frame is dropped, never queued,** while `HAUIESPHomeController.drawing` is
+  true: the firmware restarts its program on a new call, so a frame sent mid-draw
+  would cut the previous one short. The planner's painted grid only advances for
+  frames that were actually sent, which keeps the model honest across a skip.
+- A stream frame goes through `draw_stream_frame`, which skips the page replay and
+  the Live preview: both are for a picture that stays, and a stream would rewrite
+  them several times a second. `record_stream_frame` records the **last** frame
+  once, when the stream ends, so a viewer that attaches later still sees what the
+  panel shows.
+- The stream ends on a page change, a sleeping display, a TFT install, an app that
+  stopped, a camera that missed `MAX_CAMERA_FAILURES` snapshots in a row, or
+  `stop_camera_stream`. All of those paths converge on the same teardown, which is
+  also where the last frame is recorded; `async_unload_entry` stops every stream
+  so none outlives the entry.
+
+The frame budget is what the picture trades against: a frame over `max_runs` is
+planned again at a coarser cell (never truncated), and the cell stays coarser while
+the scene is busy. Measured per frame on a textured 480x320 picture with a walking
+subject: ~24 runs at cell 8, ~10 at cell 12, 0 when nothing moves - and 786-1998
+runs for a camera that pans, which is why a moving camera is the one case this
+cannot make usable.
+
 ## Page
 
 - `page` (0–255): the page id the display shows; its `on_value` publishes `esphome.page`.

@@ -240,6 +240,116 @@ data:
 - **It is not drawn during a display update.** While a TFT install is running the
   action is refused; the panel is rebooting its display anyway.
 
+
+## A camera on the panel
+
+A camera can keep its picture on the panel: `nspanel_haui.start_camera_stream`
+takes a snapshot a few times a second, works out which parts of the picture
+changed, and draws only those. It is a **slow, soft picture**, not video — the
+display has no framebuffer and no refresh control, so every frame is rectangles
+painted straight onto the page (see the developer guide). What it is good at is
+the two things a wall panel actually needs: a still scene costs *nothing* (no
+rectangles are sent at all), and one person walking across a room costs a handful
+of rectangles per frame.
+
+| Action | What it does |
+|--------|--------------|
+| `nspanel_haui.start_camera_stream` | Draws a camera into a rectangle, and keeps it current |
+| `nspanel_haui.stop_camera_stream` | Stops it; the last frame stays on the screen |
+
+### `nspanel_haui.start_camera_stream`
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `device` | no | all devices | The panel to draw on |
+| `camera` | yes | — | The camera entity to draw |
+| `x`, `y` | no | `0` | Top-left corner of the rectangle, in display pixels |
+| `w`, `h` | yes | — | Size of the rectangle, in display pixels |
+| `fps` | no | `2` | How often to try for a new frame, 0.1–10 |
+| `cell` | no | `8` | Size of one rectangle in pixels, 2–24 (smaller is sharper, slower) |
+| `band` | no | `24` | How far a colour must move before it is repainted, per channel |
+| `max_runs` | no | `400` | The most rectangles one frame may cost, 40–2400 |
+
+```yaml
+action: nspanel_haui.start_camera_stream
+data:
+  device: "abc123..."
+  camera: camera.front_door
+  x: 0
+  y: 40
+  w: 240
+  h: 160
+  fps: 2
+```
+
+```yaml
+action: nspanel_haui.stop_camera_stream
+data:
+  device: "abc123..."
+```
+
+### What to expect
+
+- **A frame the panel is still drawing is skipped, never queued.** Ask for more
+  frames per second than the panel can paint and it simply skips more; it never
+  falls behind. `stop_camera_stream` ends the stream, and so does the panel on its
+  own: a page change, the display going to sleep, a TFT install, or a camera that
+  stops answering (five failures in a row).
+- **Only what changed is painted.** The hub keeps a model of what the panel is
+  showing and repaints a rectangle only when the picture has really moved away
+  from it — by more than `band` per colour channel. That threshold is what makes a
+  camera usable at all: without it, sensor noise and a flickering lamp would
+  repaint the whole picture every frame. Raise `band` on a noisy camera that
+  repaints too much; lower it if a slow gradient looks patchy.
+- **A still scene is free.** With nothing moving, no rectangles are sent — the
+  panel and the camera keep running for nothing. A full repaint comes round every
+  60 frames anyway, so a slow drift (a wall darkening through the evening) cannot
+  stay wrong.
+- **A camera that moves is expensive.** Pan, tilt or zoom moves every part of the
+  picture, so a full-page rectangle at `cell: 8` costs about two thousand
+  rectangles a frame — near a second per frame. Fit a fixed camera; if the picture
+  must move, coarsen `cell` and lower `fps` until the log is quiet.
+- **It is soft.** The picture is a grid of `cell`-pixel rectangles, so it looks
+  like a mosaic of the size you pick. A 240x160 rectangle at `cell: 8` is 30x20
+  blocks — recognisable people and shapes, not a photograph.
+- **The stream coarsens itself.** A frame that would cost more than `max_runs` is
+  drawn with bigger rectangles instead of taking longer, and the cell size stays
+  there while the scene stays busy, so `cell` is a starting point.
+- **It draws over the page you are on, and stops when you leave.** The rectangle
+  covers whatever the page had there; the widgets of other panels are untouched.
+  Surviving a page change would mean repainting a page the stream was never meant
+  for, so it stops — start it again from the new page, or from an automation
+  triggered by `nspanel_haui.page_changed`.
+- **It needs firmware 0.5.9 or later,** the same `draw_runs` action `show_image`
+  uses.
+- **One stream per panel.** Starting a second stream on the same panel replaces the
+  first.
+
+Example: draw the doorbell while the doorbell rings, and stop it a minute later.
+
+```yaml
+automation:
+  - alias: Show the doorbell on the panel
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.doorbell
+        to: "on"
+    actions:
+      - action: nspanel_haui.start_camera_stream
+        data:
+          device: "abc123..."
+          camera: camera.front_door
+          x: 0
+          y: 40
+          w: 240
+          h: 160
+          fps: 2
+      - delay: "00:01:00"
+      - action: nspanel_haui.stop_camera_stream
+        data:
+          device: "abc123..."
+```
+
 ## Notifications
 
 | Way | Options |

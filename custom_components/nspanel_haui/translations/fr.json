@@ -280,6 +280,62 @@
           "description": "Hauteur du rectangle, en pixels de l'écran."
         }
       }
+    },
+    "start_camera_stream": {
+      "name": "Start camera stream",
+      "description": "Keep a camera's picture on the panel: a snapshot is drawn into a rectangle and refreshed a few times a second, and only the part that changed is sent. Expect a soft, slow picture rather than video. The stream stops on a page change, when the display sleeps, when the panel installs a TFT, when the camera stops answering, and with Stop camera stream.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "The camera entity to draw."
+        },
+        "x": {
+          "name": "X",
+          "description": "Left edge of the rectangle, in display pixels."
+        },
+        "y": {
+          "name": "Y",
+          "description": "Top edge of the rectangle, in display pixels."
+        },
+        "w": {
+          "name": "Width",
+          "description": "Width of the rectangle, in display pixels."
+        },
+        "h": {
+          "name": "Height",
+          "description": "Height of the rectangle, in display pixels."
+        },
+        "fps": {
+          "name": "Frames per second",
+          "description": "How often to try for a new frame. A frame the panel is still drawing is skipped, never queued, so a value higher than the panel can draw simply skips more."
+        },
+        "cell": {
+          "name": "Detail",
+          "description": "Size of one rectangle, in display pixels: smaller is sharper and slower. The stream coarsens it on its own when a frame would exceed the rectangle limit, so this is the starting point."
+        },
+        "band": {
+          "name": "Change threshold",
+          "description": "How far a colour has to move before its rectangle is repainted, per channel. The default hides a camera's sensor noise and a flickering light; lower it for a fine gradient, raise it on a noisy camera that repaints too much."
+        },
+        "max_runs": {
+          "name": "Rectangles per frame",
+          "description": "The most rectangles one frame may cost. A frame over it is drawn coarser instead of taking longer."
+        }
+      }
+    },
+    "stop_camera_stream": {
+      "name": "Stop camera stream",
+      "description": "Stop the camera stream on a panel. The last frame stays on the screen until something else paints over it or the page changes.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        }
+      }
     }
   }
 }

@@ -72,7 +72,14 @@ from custom_components.nspanel_haui.services import (  # noqa: E402
 def mock_hass():
     """Create a mock HomeAssistant with the HAUI apps dict."""
     hass = MagicMock(
-        spec_set=["data", "services", "async_create_task", "async_add_executor_job", "config"]
+        spec_set=[
+            "data",
+            "services",
+            "states",
+            "async_create_task",
+            "async_add_executor_job",
+            "config",
+        ]
     )
     hass.data = {}
     hass.services = MagicMock()
@@ -81,6 +88,9 @@ def mock_hass():
     hass.async_create_task = MagicMock(side_effect=lambda coro_or_future: MagicMock())
     hass.async_add_executor_job = AsyncMock(side_effect=lambda fn, *a, **kw: fn(*a, **kw))
     hass.config = MagicMock()
+    # ``start_camera_stream`` checks that the camera exists before it streams it.
+    hass.states = MagicMock()
+    hass.states.get = MagicMock(return_value=MagicMock())
     return hass
 
 
@@ -270,7 +280,7 @@ class TestRegisterServices:
     def test_registers_all_services(self, mock_hass):
         """All services are registered."""
         async_register_services(mock_hass)
-        assert mock_hass.services.async_register.call_count == 10
+        assert mock_hass.services.async_register.call_count == 12
 
     def test_idempotent(self, mock_hass):
         """Second call skips registration (has_service returns True)."""
@@ -1349,3 +1359,74 @@ async def test_clear_image_paints_the_page_background(mock_hass, mock_nav, mock_
     await _handle_clear_image(mock_hass, call)
 
     mock_esphome_ctrl.draw_runs.assert_called_once_with(["fill 10,20,30,40,4660"])
+
+
+def test_both_camera_stream_services_are_registered(mock_hass):
+    async_register_services(mock_hass)
+
+    names = {call.args[1] for call in mock_hass.services.async_register.call_args_list}
+    assert {"start_camera_stream", "stop_camera_stream"} <= names
+
+
+def test_the_stream_schema_takes_its_documented_defaults():
+    from custom_components.nspanel_haui.services import SERVICE_START_CAMERA_STREAM_SCHEMA
+
+    result = SERVICE_START_CAMERA_STREAM_SCHEMA({"camera": "camera.door", "w": 100, "h": 80})
+
+    assert result["fps"] == 2.0
+    assert result["cell"] == 8
+    assert result["band"] == 24
+    assert result["max_runs"] == 400
+    assert result["x"] == 0 and result["y"] == 0
+
+
+def test_the_stream_schema_refuses_a_rate_the_panel_cannot_draw():
+    from custom_components.nspanel_haui.services import SERVICE_START_CAMERA_STREAM_SCHEMA
+
+    with pytest.raises(vol.Invalid):
+        SERVICE_START_CAMERA_STREAM_SCHEMA({"camera": "camera.door", "w": 10, "h": 10, "fps": 60})
+
+
+@pytest.mark.asyncio
+async def test_start_camera_stream_refuses_a_rectangle_off_the_display(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    from custom_components.nspanel_haui import services
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"test_device": app}}
+    call = MagicMock()
+    call.service = "start_camera_stream"
+    call.data = {"device": None, "camera": "camera.door", "x": 470, "y": 0, "w": 40, "h": 40}
+
+    with pytest.raises(Exception, match="does not fit"):
+        await services._handle_start_camera_stream(mock_hass, call)
+
+
+@pytest.mark.asyncio
+async def test_start_camera_stream_refuses_a_camera_that_does_not_exist(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    from custom_components.nspanel_haui import services
+
+    app = _make_drawable_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"test_device": app}}
+    mock_hass.states = MagicMock()
+    mock_hass.states.get = MagicMock(return_value=None)
+    call = MagicMock()
+    call.service = "start_camera_stream"
+    call.data = {
+        "device": None,
+        "camera": "camera.missing",
+        "x": 0,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "fps": 2.0,
+        "cell": 8,
+        "band": 24,
+        "max_runs": 400,
+    }
+
+    with pytest.raises(Exception, match="does not exist"):
+        await services._handle_start_camera_stream(mock_hass, call)

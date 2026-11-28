@@ -29,12 +29,30 @@ from .haui.utils.image_program import (
     display_size,
     image_plan,
 )
+from .haui.utils.image_stream import (
+    DEAD_BAND,
+    DEFAULT_CELL_PX,
+    DEFAULT_FRAME_RUNS,
+    MAX_CELL_PX,
+    MAX_FPS,
+    MAX_FRAME_RUNS,
+    MIN_CELL_PX,
+    MIN_FPS,
+    MIN_FRAME_RUNS,
+    ImageStreamError,
+)
 from .haui.version import DRAW_RUNS_FIRMWARE_VERSION, firmware_supports_draw_runs
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
 
     from .hub.app import NSPanelHAUI
+
+#: Frames per second a camera stream asks for unless the caller picks one. Two is
+#: what a full-page rectangle on this display sustains while a subject moves; a
+#: smaller rectangle or a stiller scene does better, and the stream drops frames
+#: rather than queueing them, so a higher value is safe to try.
+DEFAULT_STREAM_FPS = 2.0
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +83,8 @@ SERVICE_UPDATE_TFT = "update_tft"
 SERVICE_UPDATE_FIRMWARE = "update_firmware"
 SERVICE_SHOW_IMAGE = "show_image"
 SERVICE_CLEAR_IMAGE = "clear_image"
+SERVICE_START_CAMERA_STREAM = "start_camera_stream"
+SERVICE_STOP_CAMERA_STREAM = "stop_camera_stream"
 
 # ── Service schemas ─────────────────────────────────────────
 SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
@@ -186,6 +206,31 @@ SERVICE_CLEAR_IMAGE_SCHEMA = vol.Schema(
         vol.Required("w"): vol.All(vol.Coerce(int), vol.Range(min=1)),
         vol.Required("h"): vol.All(vol.Coerce(int), vol.Range(min=1)),
     }
+)
+SERVICE_START_CAMERA_STREAM_SCHEMA = vol.Schema(
+    {
+        vol.Optional("device", default=None): vol.Any(str, None),
+        vol.Required("camera"): cv.entity_id,
+        vol.Optional("x", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("y", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Required("w"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Required("h"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional("fps", default=DEFAULT_STREAM_FPS): vol.All(
+            vol.Coerce(float), vol.Range(min=MIN_FPS, max=MAX_FPS)
+        ),
+        vol.Optional("cell", default=DEFAULT_CELL_PX): vol.All(
+            vol.Coerce(int), vol.Range(min=MIN_CELL_PX, max=MAX_CELL_PX)
+        ),
+        vol.Optional("band", default=DEAD_BAND): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=255)
+        ),
+        vol.Optional("max_runs", default=DEFAULT_FRAME_RUNS): vol.All(
+            vol.Coerce(int), vol.Range(min=MIN_FRAME_RUNS, max=MAX_FRAME_RUNS)
+        ),
+    }
+)
+SERVICE_STOP_CAMERA_STREAM_SCHEMA = vol.Schema(
+    {vol.Optional("device", default=None): vol.Any(str, None)}
 )
 
 
@@ -808,6 +853,69 @@ async def _handle_clear_image(hass: HomeAssistant, call: ServiceCall) -> None:
         app.dispatch(partial(_clear_rect, app, dev_name, rect))
 
 
+async def _handle_start_camera_stream(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Draw a camera's snapshots continuously into a rectangle of a panel.
+
+    The rectangle is checked before anything else, so a call that cannot fit the
+    display fails without touching a camera - the same order ``show_image`` uses.
+    The stream itself owns the frames from then on: it stops on a page change, a
+    sleeping display, a panel installing a TFT, a camera that stops answering, or
+    ``stop_camera_stream``.
+
+    Raises:
+        ServiceValidationError: When the rectangle is off the display, the panel
+            cannot draw yet, or an argument is outside its range.
+    """
+    from homeassistant.exceptions import ServiceValidationError
+
+    from .hub.camera_stream import CameraStream, stop_stream
+
+    targets = _resolve_required_targets(hass, call)
+    rects = {dev_name: _image_rect(app, call) for dev_name, app in targets}
+    camera = str(call.data["camera"])
+    if hass.states.get(camera) is None:
+        raise ServiceValidationError(
+            f"{call.service}: camera '{camera}' does not exist; pick a camera entity"
+        )
+    try:
+        for dev_name, app in targets:
+            await stop_stream(app)
+            stream = CameraStream(
+                hass,
+                app,
+                entity_id=camera,
+                rect=rects[dev_name],
+                fps=float(call.data["fps"]),
+                cell=int(call.data["cell"]),
+                band=int(call.data["band"]),
+                max_runs=int(call.data["max_runs"]),
+            )
+            await stream.async_start()
+            _LOGGER.info(
+                "%s: camera stream from %s into %sx%s at (%s, %s), %.1f fps",
+                dev_name,
+                camera,
+                rects[dev_name].w,
+                rects[dev_name].h,
+                rects[dev_name].x,
+                rects[dev_name].y,
+                stream.fps,
+            )
+    except ImageStreamError as exc:
+        raise ServiceValidationError(f"{call.service}: {exc}") from exc
+
+
+async def _handle_stop_camera_stream(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Stop the camera stream on one panel, leaving its last frame on the screen."""
+    from .hub.camera_stream import stop_stream
+
+    for dev_name, app in _resolve_required_targets(hass, call):
+        if await stop_stream(app):
+            _LOGGER.info("%s: camera stream stopped by service", dev_name)
+        else:
+            _LOGGER.debug("%s: stop_camera_stream with no stream running", dev_name)
+
+
 # ── Registration ─────────────────────────────────────────────
 
 
@@ -837,6 +945,16 @@ def async_register_services(hass: HomeAssistant) -> None:
         (SERVICE_UPDATE_FIRMWARE, SERVICE_UPDATE_FIRMWARE_SCHEMA, _handle_update_firmware),
         (SERVICE_SHOW_IMAGE, SERVICE_SHOW_IMAGE_SCHEMA, _handle_show_image),
         (SERVICE_CLEAR_IMAGE, SERVICE_CLEAR_IMAGE_SCHEMA, _handle_clear_image),
+        (
+            SERVICE_START_CAMERA_STREAM,
+            SERVICE_START_CAMERA_STREAM_SCHEMA,
+            _handle_start_camera_stream,
+        ),
+        (
+            SERVICE_STOP_CAMERA_STREAM,
+            SERVICE_STOP_CAMERA_STREAM_SCHEMA,
+            _handle_stop_camera_stream,
+        ),
     ):
         hass.services.async_register(
             DOMAIN,

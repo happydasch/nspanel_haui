@@ -534,11 +534,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
+    from .hub.camera_stream import stop_all_streams
     from .hub.rollout import async_stop_rollout
     from .web.card import async_end_live_viewers
     from .web.preview.live_panel import async_stop_viewers
     from .web.websocket import async_stop_hosts
 
+    await stop_all_streams()
     await async_stop_viewers(hass, entry.entry_id)
     await async_end_live_viewers(hass, entry.entry_id)
     await async_stop_hosts(hass, entry.entry_id)

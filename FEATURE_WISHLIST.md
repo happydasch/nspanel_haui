@@ -9,10 +9,12 @@ picture like this:
   and declined — plus the open scope decisions.
 - [`CHANGELOG.md`](CHANGELOG.md) — What has shipped.
 
-Sections follow the roadmap's horizons. v0.6 is in development now, focused on
-new panels, a bigger background set and the options that make them feel
-finished. Everything else stays in the open pool until it is selected. A
-candidate is promoted by moving it into a version section with a
+Sections follow the roadmap's horizons. v0.6 is in development now: pictures on
+the panel (image drawing, live media cover, a camera page that keeps its snapshot
+current), the panel work — new pages, extended pages, and the idle and
+disconnected-page behaviour — a bigger background set, and the options that make
+them feel finished. Everything else stays in the open pool until it is selected.
+A candidate is promoted by moving it into a version section with a
 done-means sentence; when it ships it is recorded in `CHANGELOG.md` and the
 entry is deleted, so nothing here describes something that already works.
 
@@ -28,10 +30,13 @@ discussion it came from when there is one.
 
 ## v0.6 — In development now
 
-Content and everyday use: new panel types people keep asking for but do not have
-(a fan, a graph, free text), a refreshed and larger background set, plus options
-that make panels feel finished. Other candidates remain in the open pool until
-selected for this cycle.
+Content and everyday use: pictures on the panel first — an image the panel draws
+by itself, a media panel that shows its cover and a camera page that keeps its
+snapshot current — then the pages themselves: a fan, an info page, a graph, free
+text, cover tilt, water heater and humidifier, an energy view, the spare climate
+slots, and the idle and disconnected-page behaviour. A refreshed and larger
+background set, plus the options that make a panel feel finished, close the
+cycle. Other candidates remain in the open pool until selected for it.
 
 ### Panels
 
@@ -49,9 +54,32 @@ experiences.
   fewer, a percentage slider when it supports `set_percentage`, and a preset-mode
   picker otherwise; show the active preset and an oscillation toggle when
   supported. A `fan` entity is only a tile today; light, climate, cover, media
-  and vacuum all have a detail popup. A cheaper first step: render a `fan` item
-  as a speed slider in the row panel when the entity supports `set_speed`, which
-  the row already does for `number` / `input_number`.
+  and vacuum all have a detail popup. Done: a `fan` item opens a detail page that
+  switches the fan and sets its speed, percentage or preset on both display
+  models, the active state is visible without opening the picker, and an entity
+  that supports none of the three controls still offers on/off and its current
+  state. A cheaper first step: render a `fan` item as a speed slider in the row
+  panel when the entity supports `set_speed`, which the row already does for
+  `number` / `input_number`.
+- **Camera / doorbell page** — A page for one camera entity that keeps its
+  picture on the display: the entity's latest snapshot drawn into the page,
+  refreshed on a configured interval while the page is shown, with its state and
+  a manual refresh beside it. Not video — a snapshot is one draw of a few
+  thousand `fill` rectangles, and a frame rate is not what the serial link can
+  carry, so the interval and a reduced size are the tuning (`show_image` already
+  streams a draw at the display's own acknowledgement rate). Done: a camera page
+  paints its snapshot on both display models after the page loads and after the
+  display wakes, refreshes no faster than the configured interval, stops while
+  its page is not shown, and shows an unavailable frame instead of the last one
+  when a snapshot fails.
+- **Info page** — A read-only page of panel facts for someone standing at the
+  wall: uptime, Wi-Fi signal, free heap, connection state and the last command
+  error, with the versions the About panel already carries. The editor's
+  diagnostics card covers this on screen today (see *Already possible*); the gap
+  is the on-device view, reached from the settings panel, and the firmware
+  already publishes every reading. Done: the page shows those readings, they
+  follow changes while it is open, and a reading the firmware does not report
+  reads unknown instead of zero.
 - **Cover tilt and battery** — A second slider beside position so position *and*
   tilt are visible and settable at once, plus a battery level when the cover or
   a configured sensor reports one. `cover.py` handles `current_position` only —
@@ -65,15 +93,71 @@ experiences.
   and export, home consumption and up to six configurable groups, each showing
   two values and a direction indicator. A compact alternative to a grid of power
   sensors.
-- **Status panel on the display** — The editor's diagnostics card already covers
-  this (see *Already possible*); the gap is the on-device view for someone
-  standing at the panel: uptime, Wi-Fi RSSI, free heap, connection state and
-  the last command error, reached from the settings panel. The firmware
-  publishes the readings; decide first whether the space is better spent on
-  something the panel can act on.
 - **Calendar / agenda** — Upcoming calendar events with a lead time before each
   starts, as a list or as a compact block the clock panel can show. Overlaps the
   text panel; decide whether it is one feature or two.
+- **Presets in spare mode slots** — When a climate entity has fewer HVAC modes
+  than the six mode buttons, fill the remaining slots with up to five presets and
+  highlight the active one; keep the preset picker when there are more. The
+  active preset stays visible without opening the list.
+- **Climate context values and actions** — Show what the unit is doing —
+  `heating`, `idle (cool)` — and up to four extra values such as humidity, valve
+  position and outdoor temperature, plus two configurable action buttons for the
+  controls used most. The page already reloads the underlying attributes; the
+  extra slots need HMI space.
+
+### Images
+
+The drawing path itself landed with this cycle: `nspanel_haui.show_image`
+rebuilds a picture from a few thousand `fill` rectangles and streams it to
+whatever page the panel is showing, `clear_image` takes it away again, and the
+editor preview and the card render replay it
+([Images on the panel](docs/user/actions.md#images-on-the-panel)). What is left
+is to let the panel own a picture instead of an automation pushing one.
+
+- **Image item on a page** — Configure an image in the editor the way every other
+  item is configured: a URL or a file in the `www` folder, and the rectangle it
+  occupies on the page, drawn when that page loads and after the display wakes,
+  refreshed on an interval, and cleared when the item is hidden or its page is
+  left. Today the caller does all of that — an automation has to fire
+  `show_image` after every page change, and the rectangle is a raw
+  `x, y, w, h`. Done: a saved page draws its image on both display models
+  without an automation, a page shown again after sleep is complete, the card
+  render and both previews replay the picture, and a picture that cannot be
+  loaded leaves the page readable instead of half-painted.
+- **Custom full-color icons for GRID panels** — Let a grid item use a PNG icon
+  (ideally with transparency) instead of the built-in MDI font glyph, chosen in
+  the editor and kept across firmware updates, with an on/off pair where the
+  entity has two states. Needs picture assets in both HMIs and TFTs, an editor
+  image library or upload path, and a per-item mapping; the display's memory and
+  picture capacity decide how large a library is practical, so a small curated
+  set may be the first step. Done: a grid item shows a custom image on both
+  display models, survives an update, and falls back to its MDI icon when the
+  image is missing. *Area: Icons.*
+  ([#105](https://github.com/happydasch/nspanel_haui/issues/105)) — the live
+  path for an arbitrary image is separate and shipped (
+  [Images on the panel](docs/user/actions.md#images-on-the-panel)): it draws
+  over the page instead of replacing an item's icon, and stays a mosaic at
+  icon size, so crisp per-item assets are still wanted.
+- **Live media cover** — The media panel draws the player's cover art — its
+  `entity_picture` — in place of the music icon, replaced when the track, station
+  or source changes and hidden when the player publishes none. Today the panel
+  shows the MDI icon with title and interpretation only. A drawn cover is a
+  mosaic of `fill` rectangles, so it is a small square at a modest run count
+  rather than artwork: decide the size, where it sits on both display models, and
+  whether an uploaded per-item picture may replace the fetched one. Done: a
+  player that publishes cover art shows it in the media panel on both display
+  models, a track change replaces it, a player without one keeps the icon, and
+  the panel's buttons stay responsive while a cover draws.
+- **A picture in a notification** — Let `send_notification` and the notify
+  entities carry an image — a URL, a file in the `www` folder or a camera entity
+  — drawn in the popup beside the message instead of its icon, with the text
+  fitted around it. The queue is the hard part: the picture has to be drawn again
+  when a queued notification's turn comes and cleared when it is dismissed, and
+  it may never delay the message itself, which the notification contract does not
+  allow. Done: a notification with an image shows it on both display models, a
+  queued one draws its picture when it is shown, dismissing clears it, and an
+  image that cannot be loaded shows the notification without one.
 
 ### Backgrounds
 
@@ -181,27 +265,17 @@ a change to them is HMI and TFT work; the docs show the result
   What is missing is the user side: labels and an action per button (fire an
   event or call an action), so the panel can answer a question instead of only
   acknowledging it.
+- **Page-wide disconnected state** — Per-entity staleness exists
+  (`stale_data_seconds`); what is missing is a device-wide "the hub is not
+  answering" treatment that dims all values together and marks the buttons that
+  would do nothing.
+- **Navigable idle-page items** — Let an item on the idle page carry a navigation
+  target, so a status icon opens its detail page instead of only leaving the idle
+  page.
 
 ## After that — Open pool
 
 Unscheduled candidates remain here until they are selected for a release.
-
-### Icons and images
-
-- **Custom full-color icons for GRID panels** — Let a grid item use a PNG icon
-  (ideally with transparency) instead of the built-in MDI font glyph, chosen in
-  the editor and kept across firmware updates, with an on/off pair where the
-  entity has two states. Needs picture assets in both HMIs and TFTs, an editor
-  image library or upload path, and a per-item mapping; the display's memory and
-  picture capacity decide how large a library is practical, so a small curated
-  set may be the first step. Done: a grid item shows a custom image on both
-  display models, survives an update, and falls back to its MDI icon when the
-  image is missing. *Area: Icons.*
-  ([#105](https://github.com/happydasch/nspanel_haui/issues/105)) — the live
-  path for an arbitrary image is separate and shipped (
-  [Images on the panel](docs/user/actions.md#images-on-the-panel)): it draws
-  over the page instead of replacing an item's icon, and stays a mosaic at
-  icon size, so crisp per-item assets are still wanted.
 
 ### Display and idle behaviour
 
@@ -212,10 +286,6 @@ Unscheduled candidates remain here until they are selected for a release.
   `wakeup_entities` device setting checked in the existing 1 s navigation tick,
   beside `AUTO_PAGE_HOLD`. Today it takes an automation polling
   `reset_last_interaction`.
-- **Page-wide disconnected state** — Per-entity staleness exists
-  (`stale_data_seconds`); what is missing is a device-wide "the hub is not
-  answering" treatment that dims all values together and marks the buttons that
-  would do nothing.
 - **Boot straight to the idle page** — Skip the flash of the home panel on boot
   and land on the configured idle panel (or the home panel, per setting), at dim
   brightness until the user touches it.
@@ -229,9 +299,6 @@ Unscheduled candidates remain here until they are selected for a release.
   before the display slept or the hub reconnected because the page is never
   cleared (`cls`). Confirm on hardware how often it actually matters, then
   decide whether the hub should refresh the page on wake.
-- **Navigable idle-page items** — Let an item on the idle page carry a navigation
-  target, so a status icon opens its detail page instead of only leaving the idle
-  page.
 
 ### Hardware and sensors
 
@@ -265,15 +332,6 @@ Unscheduled candidates remain here until they are selected for a release.
   instead of two panels the user switches by hand.
 - **Dew-point / humidity guard** — Warn when cooling would condense; a
   display-only hint is cheap, an interlock is not.
-- **Presets in spare mode slots** — When a climate entity has fewer HVAC modes
-  than the six mode buttons, fill the remaining slots with up to five presets and
-  highlight the active one; keep the preset picker when there are more. The
-  active preset stays visible without opening the list.
-- **Climate context values and actions** — Show what the unit is doing —
-  `heating`, `idle (cool)` — and up to four extra values such as humidity, valve
-  position and outdoor temperature, plus two configurable action buttons for the
-  controls used most. The page already reloads the underlying attributes; the
-  extra slots need HMI space.
 - **Per-entity temperature offset** — A correction applied when a climate sensor
   reads consistently high or low.
 
@@ -398,6 +456,10 @@ These are covered today; the linked docs show how.
   per-panel theme sets the contrast (the theme library's light and dark
   palettes), and `persistent: true` keeps a message on screen until it is
   dismissed — [Notifications](docs/user/actions.md).
+- **Images on a page** — `nspanel_haui.show_image` draws a picture from a URL or
+  from a file in the `www` folder into a rectangle on whatever page the panel is
+  showing, `clear_image` removes it, and the editor preview and the card render
+  replay the draw — [Images on the panel](docs/user/actions.md#images-on-the-panel).
 - **Themes** with light/dark icon palettes, a shared library and per-panel themes.
 - **Schedules**, **gestures**, the **idle page** with carousel, **snapshot
   restore** and **auto-navigate home** — [Device settings](docs/user/editor/device.md).
@@ -428,53 +490,6 @@ These are covered today; the linked docs show how.
   `clear-night`) rather than a daytime default.
 - The **editor**: live preview, hub-rendered panel cards, REST API, per-device
   YAML export, backups.
-
-## Considered and declined
-
-Kept for the record, so the same idea is not re-evaluated every few months.
-
-- **Panels owning their own thermostat / PID climate add-ons** — The hub runs
-  inside Home Assistant. Climate logic belongs to a climate integration;
-  duplicating it on the panel forks the source of truth.
-- **ESPectre CSI motion detection, BLE tracker, Bluetooth proxy** — Firmware-only
-  features with no hub-side surface; better served by a dedicated ESPHome
-  component.
-- **Chips or a global status-icon bar as a general concept** — Panels are
-  configured per entity and per item; a chip abstraction would be a second way to
-  say the same thing, and a global bar would take header space from per-panel
-  actions.
-- **A Blueprint / automation-driven renderer** — The hub renders from Home
-  Assistant state directly; the template layer in between was the alternative
-  architecture and was dropped for exactly this reason.
-- **Raw canvas / arbitrary Nextion commands** — A blank page driven by Home
-  Assistant automations with raw drawing commands would bypass the page API, the
-  command replay contract and validation. The text/notes panel covers the
-  legitimate use case.
-- **Custom PCB to replace the Nextion** — Out of scope for this repository,
-  though it is the ceiling behind most display limitations.
-- **Automatic dithering / fake transparency** — An HMI technique worth
-  remembering if translucent tiles are ever wanted; not worth it on its own.
-- **Separate high-speed and normal-speed TFTs** — Shipping a 921600 bps build
-  next to a 115200 one, as the v0.5 plan once considered. Dropped: the rate is
-  set inside the TFT, so one file per display model serves both, the firmware
-  starts its UART at 921600 and scans down only for an older or stock TFT, and a
-  display that cannot hold a transfer gets the same install once more at
-  115200 bps. A second artifact would double every display build and every
-  install for a link the single file already sets, and leave a panel on the
-  "slow" one with nothing it can do about it.
-- **Camera or doorbell video on the panel** — The Nextion draws static pictures
-  only; there is no video path, and refreshing frames over the serial link would
-  be unusable.
-- **Emoji and full CJK font coverage** — The charset is curated on purpose —
-  Latin, Greek, Cyrillic, Hebrew, Arabic, Thai and a hand-picked Chinese set — and
-  compiled into every TFT; full ideograph coverage or emoji would mean
-  regenerating the fonts for little gain.
-- **Configuration values that follow the clock or another entity** — One setting
-  whose value depends on the hour, the day or a sensor, such as a brightness by
-  time of day. Schedules, automations and template sensors already express this in
-  Home Assistant, and a second condition language on the panel would only be a
-  worse copy of them. Closed as won't-fix in issue
-  [#8](https://github.com/happydasch/nspanel_haui/issues/8).
 
 ---
 

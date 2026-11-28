@@ -83,7 +83,82 @@ So `draw_runs` switches the pacer off for the duration of a program (`draw_spaci
 - With the pacer off, one phase transmits everything queued up to `max_commands_per_loop` (12, matching the window), so no phase can dump more than ~300 bytes at the display.
 - A display that stops acknowledging is caught by the draw itself: after `draw_stall_polls` passes with neither a freed place nor a queued run it fails the program and reports — the queue's own 8 s `max_queue_age` would be a long time to leave the pacer off.
 
-The hub plans its run budget at the pacer's pace anyway (`draw_wire.COMMAND_SPACING_MS`), because that is a number it can trust, and `res_draw`'s `elapsed_ms` reports what the panel really took — the hub logs it as `runs/s`. The fence timeout uses `draw_wire.RUN_MS_CEILING` (8 ms per run) instead: a slow panel legitimately takes longer than the planned pace, and a slice cut short is not harmless, because the next one restarts the firmware's program (`mode: restart`).
+The hub plans its run budget at the pacer's pace anyway (`draw_wire.COMMAND_SPACING_MS`), because that is a number it can trust, and `res_draw`'s `elapsed_ms` reports what the panel really took for one **slice** — the hub logs it as `runs/s` ([how to read those lines](#measuring-a-panels-real-draw-rate)). The fence timeout uses `draw_wire.RUN_MS_CEILING` (8 ms per run) instead: a slow panel legitimately takes longer than the planned pace, and a slice cut short is not harmless, because the next one restarts the firmware's program (`mode: restart`).
+
+### Measuring a panel's real draw rate
+
+The pace a draw reaches is the panel's own — the hub paces nothing while one streams — so the only honest figure for a frame budget is one measured on the panel that will draw the frames. `res_draw` reports **per slice**, not per pass: a slice ends with a fence that can only answer after that slice's last run was sent, and only then does the hub send the next one. A full-page `quality: 12000` pass is about 18 slices of ~570 runs and ~7.8 KB (`draw_wire.DRAW_SLICE_CHARS`), so one action call prints about 18 lines:
+
+```
+Draw program finished: 567 runs, ok=True, 862 ms, 657 runs/s
+```
+
+Both figures matter and they answer different questions:
+
+| Figure | Where it comes from | What it is |
+|--------|---------------------|------------|
+| per-slice `runs/s` | a line's own value | the display's rate while it is being fed — the ceiling a stream plans against |
+| pass-level rate | all `runs` added up ÷ the wall time between the first and last line | what the current design delivers, with 18 publishes and 18 fence round trips included |
+
+The difference between them is the hub's own cost per slice: publishing ~7.8 KB over the ESPHome API, the panel staging and decoding it, and the fence read trip. That is the number that decides whether a frame may fence at all, because a stream that fences every frame pays it every frame — at 5 fps it would be most of the budget, on top of the fills.
+
+Recipe:
+
+1. Leave the panel's `log_level` at INFO (the default); the line is INFO, and a higher threshold drops it.
+2. Call the action on the page the panel is showing, with `progressive: false` so the pass is one queue instead of a coarse pass in front of it:
+
+   ```yaml
+   action: nspanel_haui.show_image
+   data:
+     device: "abc123..."
+     url: "https://example.com/frame.png"
+     x: 0
+     y: 0
+     w: 480
+     h: 320
+     quality: 12000
+     progressive: false
+   ```
+
+3. Read the whole block of `Draw program finished` lines from `home-assistant.log`: its timestamps carry milliseconds, while the editor's diagnostics card keeps the same lines at second resolution (`HAAdapter.log`).
+4. Use the numbers, not the arithmetic in these pages: `fps = the best per-slice runs/s ÷ the runs one frame needs`, and a frame's run count follows the area that changed — `image_program` has no delta pass yet, so a program always costs the whole rectangle it paints.
+
+The expected slice shape is predictable without a panel (`program_slices` over `image_plan`): a full-page photo is 564 runs in 1 slice at `quality: 600`, 2 754 in 5 at `3000`, and 10 213 in 18 at `12000`. A 200x200 logo reaches one rectangle per display pixel at 121 runs in a single slice whatever the budget, because detail cannot go below one pixel.
+
+### Nothing on the display side switches a refresh off
+
+The pause a caller wants for a frame — stop painting, send everything, show it — does not exist on this display, and the instructions that read like it do not do that:
+
+- `ref_stop`/`ref_star` stop a **waveform** component from repainting per data point (instruction set 3.4/3.5). No drawing instruction is affected.
+- `com_stop`/`com_star` stop *executing* serial instructions while the display keeps receiving them, and `com_star` then executes the backlog — but the backlog is the panel's **1 024-byte instruction buffer** (NX4832F035 datasheet), about 35 `fill`s, and the docs warn the pair overflows it. The draw's `draw_window` already keeps a dozen fills in the display's buffer without risking that overflow, and it waits for an acknowledgement instead of trusting a 1 KB buffer, so `com_stop` buys no rate and loses the flow control.
+- `code_c` discards queued commands rather than holding them.
+- `doevents` goes the other way: it *forces* a refresh. Deferral exists only inside Nextion-side code blocks (a `while`/`for` block refreshes when it finishes), and blocks cannot be sent over serial (general rule 16), so no program can be handed to the panel for it to paint by itself.
+
+There is also nothing to defer. The drawing set is `cls`, `pic`, `picq`, `xpic`, `xstr`, `fill`, `line`, `draw`, `cir` and `cirs` (section 4), each writing straight to the display, and the panel offers no surface to draw into: 3 584 bytes of variable RAM, 16 MB of flash for the compiled HMI. A draw's cost is therefore its run count — one fill takes the display about 1–3 ms whatever its area ([above](#a-panel-that-drops-runs)) — and the fills *are* the picture. The bands a large draw shows are runs arriving, not a refresh being late.
+
+Two consequences worth knowing before reaching for a frame rate:
+
+- The only way to hide those bands is to blank the backlight for the frame (`dim=0`, then back), which trades them for a black flash; the panel has no double buffer to paint into instead.
+- A frame that repaints its whole rectangle costs a whole image, i.e. seconds. A stream has to send only what changed, in runs proportional to the changed area; `image_plan` always returns a whole-rectangle program, so a delta pass would be new code rather than a setting.
+
+### A delta pass is what would make a stream possible
+
+Two ways to compute "what changed" were measured against camera-like frames (a textured scene, a walking person, sensor noise σ 6, 2 % lighting flicker, 480x320, grid cell 8 px, `rgb565_to_rgb` dead bands):
+
+| Model | runs/frame | note |
+|-------|-----------|------|
+| previous **frame** vs this one, tolerance 8 | 293 | noise and flicker repaint the picture: unusable |
+| **what the panel shows** vs this one, dead band 8 | 294 | same, the dead band is too small for camera noise |
+| what the panel shows, dead band 16 | 12 | noise and flicker disappear |
+| what the panel shows, dead band 24 | 9 | what a stream should use |
+
+The second model is the one that works, and it needs the hub to keep the grid it last **painted**, not the grid of the previous frame: a cell whose real colour has not moved beyond the dead band costs nothing however much the sensor jitters inside it. On the same sequence a walking subject is 10–41 runs/frame at cell 6–12 (0.9–1.4 % of the cells), and an idle camera is **0 runs and no program at all**.
+
+The bad case is a camera that pans or zooms: 12 px per frame moves every pixel, so 786 runs at cell 12 and 1 998 at cell 8 (73–83 % of the cells) — about a second per frame. A stream therefore needs a per-frame run cap, and its fps is scene-dependent, not a constant.
+
+What is *not* the limit: the hub. A delta frame costs 0.9–3 ms at cell 8–12 on the host (`_cells` + span merge, frame already decoded), so the cost per frame is the publish and the fence round trip, not the arithmetic. It leaks the other way too — keep frames out of the preview and page-replay paths, or a stream rewrites `_page_commands` on every frame.
+
+
 
 ### What a draw program is
 

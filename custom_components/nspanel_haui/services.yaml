@@ -476,3 +476,145 @@ clear_image:
           unit_of_measurement: "px"
           mode: box
 
+
+# ── nspanel_haui.start_camera_stream ─────────────────────────
+start_camera_stream:
+  name: Start camera stream
+  description: >-
+    Keep a camera's picture on the panel: a snapshot is drawn into a rectangle
+    and refreshed a few times a second, and only the part that changed is sent,
+    so a still scene costs almost nothing and one person walking costs a handful
+    of rectangles per frame. Expect a soft, slow picture rather than video - a
+    full-page frame at 2 fps is about a second of drawing per quarter second, and
+    a camera that pans repaints far more than one that does not. The stream stops
+    on a page change, when the display sleeps, when the panel installs a TFT,
+    when the camera stops answering, and with Stop camera stream.
+  fields:
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
+      selector:
+        device:
+          integration: nspanel_haui
+    camera:
+      name: "Camera"
+      description: "The camera entity to draw."
+      required: true
+      example: "camera.front_door"
+      selector:
+        entity:
+          domain: camera
+    x:
+      name: "X"
+      description: "Left edge of the rectangle, in display pixels."
+      required: false
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 479
+          unit_of_measurement: "px"
+          mode: box
+    y:
+      name: "Y"
+      description: "Top edge of the rectangle, in display pixels."
+      required: false
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 319
+          unit_of_measurement: "px"
+          mode: box
+    w:
+      name: "Width"
+      description: "Width of the rectangle, in display pixels."
+      required: true
+      example: 240
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: "px"
+          mode: box
+    h:
+      name: "Height"
+      description: "Height of the rectangle, in display pixels."
+      required: true
+      example: 160
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: "px"
+          mode: box
+    fps:
+      name: "Frames per second"
+      description: >-
+        How often to try for a new frame. A frame the panel is still drawing is
+        skipped, never queued, so a value higher than the panel can draw simply
+        skips more.
+      required: false
+      example: 2
+      selector:
+        number:
+          min: 0.1
+          max: 10
+          step: 0.1
+          mode: box
+    cell:
+      name: "Detail"
+      description: >-
+        Size of one rectangle, in display pixels: smaller is sharper and slower.
+        The stream coarsens it on its own when a frame would exceed the run
+        limit, so this is the starting point.
+      required: false
+      example: 8
+      selector:
+        number:
+          min: 2
+          max: 24
+          unit_of_measurement: "px"
+          mode: box
+    band:
+      name: "Change threshold"
+      description: >-
+        How far a colour has to move before its rectangle is repainted, per
+        channel (0-255). The default hides a camera's sensor noise and a
+        flickering light; lower it for a fine gradient, raise it on a noisy
+        camera that repaints too much.
+      required: false
+      example: 24
+      selector:
+        number:
+          min: 0
+          max: 255
+          mode: box
+    max_runs:
+      name: "Rectangles per frame"
+      description: >-
+        The most rectangles one frame may cost. A frame over it is drawn coarser
+        instead of taking longer.
+      required: false
+      example: 400
+      selector:
+        number:
+          min: 40
+          max: 2400
+          mode: box
+
+# ── nspanel_haui.stop_camera_stream ──────────────────────────
+stop_camera_stream:
+  name: Stop camera stream
+  description: >-
+    Stop the camera stream on a panel. The last frame stays on the screen until
+    something else paints over it or the page changes.
+  fields:
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
+      selector:
+        device:
+          integration: nspanel_haui

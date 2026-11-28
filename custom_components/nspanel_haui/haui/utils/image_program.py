@@ -231,6 +231,34 @@ def _fit(image: Image.Image, rect: Rect) -> tuple[Image.Image, int]:
     return canvas, colour
 
 
+def fit_image(image: Image.Image, rect: Rect) -> tuple[Image.Image, int]:
+    """Composite a decoded image into ``rect``, letterboxed, on its own canvas colour.
+
+    The public face of ``_fit`` for callers that already hold a decoded picture -
+    a camera stream decodes one frame per tick and must not re-encode it just to
+    go through the bytes path. It is what makes a stream frame look exactly like
+    the same picture drawn by ``show_image``.
+
+    Args:
+        image: The decoded picture, any mode Pillow can convert to RGB.
+        rect: Where to paint, in display pixels.
+
+    Returns:
+        The fitted canvas (``rect.w`` x ``rect.h``) and the RGB565 colour its
+        margins and largest flat area take.
+    """
+    return _fit(image.convert("RGB"), rect)
+
+
+def dominant_colour(image: Image.Image) -> int:
+    """The picture's most common colour as RGB565; ``_dominant_colour``, public.
+
+    A stream uses it for the clearing fill of a full repaint, so the colour that
+    covers the most area costs one run instead of thousands of blocks.
+    """
+    return _dominant_colour(image.convert("RGB"))
+
+
 def _cells(canvas: Image.Image, cols: int, rows: int) -> list[list[tuple[int, int, int]]]:
     """Average the canvas down to one colour per grid cell.
 

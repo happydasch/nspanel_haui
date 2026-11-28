@@ -261,7 +261,7 @@ class HAUIESPHomeController(HAUIBase):
         info = self.app.device.device_info or {}
         return draw_format(info.get("draw_format"))
 
-    def _start_draw(self, value: str | dict | list) -> None:
+    def _start_draw(self, value: str | dict | list, *, record: bool = True) -> None:
         """Paint a pass of ``fill`` instructions, one slice at a time.
 
         A pass is far longer than one API message and far bigger than the
@@ -273,18 +273,60 @@ class HAUIESPHomeController(HAUIBase):
 
         The whole pass - not the slice - is what the page replay keeps, so a
         viewer that attaches late still sees the finished image, and it is also
-        what a failed pass is retried from (``on_draw_report``).
+        what a failed pass is retried from (``on_draw_report``). A stream frame
+        passes ``record=False``: a camera at a few frames a second would rewrite
+        the replay and the preview on every frame for a picture that is replaced
+        before anyone sees it, so a stream records its last frame instead
+        (``record_stream_frame``).
         """
         runs = [str(run) for run in (value if isinstance(value, list) else [value])]
         if not runs:
             return
         self._draw_runs = runs
         self._draw_retried = False
-        self._record_draw_program(runs)
-        self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
+        if record:
+            self._record_draw_program(runs)
+            self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
         if self._draw_format() < DRAW_FORMAT_PACKED:
             self._warn_about_an_old_firmware()
         self._plan_draw_slices()
+
+    @property
+    def drawing(self) -> bool:
+        """Whether a program is still on its way to the display.
+
+        True from the first slice to the report that ends the last one, which is
+        what a stream checks before sending a frame: the firmware restarts its
+        own program on a new call, so a frame sent into a busy draw would cut the
+        previous one short instead of following it.
+        """
+        return bool(self._draw_slices or self._draw_runs)
+
+    def draw_stream_frame(self, runs: list[str]) -> None:
+        """Paint one frame of a camera stream, without touching the page replay.
+
+        The frame is an ordinary draw program (``image_stream.DeltaPlanner``), so
+        it goes through the same slicing, packing and pacing as an image from
+        ``show_image``. What is skipped is the bookkeeping that only makes sense
+        for a picture that stays: the page replay and the Live preview, both of
+        which a stream updates once, when it stops (``record_stream_frame``).
+
+        Args:
+            runs: The frame's ``fill`` instructions; empty frames are never sent.
+        """
+        self._start_draw(runs, record=False)
+
+    def record_stream_frame(self, runs: list[str]) -> None:
+        """Record a stream's final frame for the page replay and the preview.
+
+        The panel keeps the last picture after the stream ends, so a viewer that
+        attaches later - and the editor's preview - must be able to replay it.
+        Recording every frame instead would rewrite the replay on every tick for
+        a picture nobody sees.
+        """
+        if runs:
+            self._record_draw_program(runs)
+            self.app.publish_preview_output(ESPAction.DRAW_RUNS, runs)
 
     def _warn_about_an_old_firmware(self) -> None:
         """Say once why a detailed image may lose runs on this panel.

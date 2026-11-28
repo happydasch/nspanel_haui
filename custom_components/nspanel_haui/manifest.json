@@ -2,6 +2,7 @@
   "domain": "nspanel_haui",
   "name": "NSPanel HAUI",
   "after_dependencies": ["zeroconf", "dhcp", "http", "esphome"],
+  "categories": ["diy_makers.boards_hardware"],
   "codeowners": ["@happydasch"],
   "config_flow": true,
   "dhcp": [{"registered_devices": true}],

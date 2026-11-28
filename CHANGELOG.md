@@ -27,6 +27,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Editor: badges, count bubbles, the repeat count and the item type chip take their own type step one below the caption — `--haui-text-badge` at 11px — so a pill sits inside the row's text instead of competing with the meta line beside it ([Visual foundations](docs/develop/frontend-visuals.md#text-sizes)).
 - Editor: the inventory footer's update and integration-version figures line up at the card's end, the way the events footer's actions close the card beside it
 - Editor: **Live** ends by itself the moment the editor moves away from the preview it belongs to — switching device, opening the **Panels** view or Fleet, or any sidebar such as **Edit panel** — so an edit never runs against the panel on screen, and returning to the preview shows Simulated again instead of resuming a live session behind a sidebar ([The Live Preview](docs/user/editor/README.md#the-live-preview)).
+- Display: both release TFTs report **1.1.2** — the landscape info page gives the camera a tall text area beside the six mode buttons in two columns, the grid tiles sit 4 px lower, and every solid page carries its generated theme code in `Preinitialize` — so a panel installs the display file once through the ordinary update ([Editing the HMI](docs/develop/nextion-editor.md)).
+- Repo: the integration manifest names its Home Assistant category — *DIY & makers → Boards & hardware interfaces*, the one the ESPHome integration sits in — so the integration is filed where its firmware lives instead of under no category at all, and the HACS validation no longer warns about it.
 
 ### Fixed
 

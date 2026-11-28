@@ -401,14 +401,15 @@ show_image:
       description: >-
         How many rectangles the image may use.  More is sharper and slower: the
         panel paints about 500 of them a second, so 60 runs take about 0.12 s,
-        300 about 0.6 s, and the top of the range about 8 s - one rectangle per
-        display pixel, the finest an image can be.
+        300 about 0.6 s, and the top of the range about 24 s.  The grid never
+        gets finer than one rectangle per display pixel, so a small rectangle
+        reaches the display's own resolution before the top.
       required: false
       default: 300
       selector:
         number:
           min: 60
-          max: 4000
+          max: 12000
           unit_of_measurement: "runs"
           mode: slider
 

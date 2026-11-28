@@ -1271,6 +1271,9 @@ def test_show_image_service_metadata_and_schema_agree():
     metadata = yaml.safe_load(services.read_text())["show_image"]
     schema = SERVICE_SHOW_IMAGE_SCHEMA.validators[0]
     assert set(metadata["fields"]) == {marker.schema for marker in schema.schema}
+    # The range the form offers is the range the schema enforces.
+    selector = metadata["fields"]["quality"]["selector"]["number"]
+    assert (selector["min"], selector["max"]) == (MIN_RUN_BUDGET, MAX_RUN_BUDGET)
 
 
 @pytest.mark.asyncio

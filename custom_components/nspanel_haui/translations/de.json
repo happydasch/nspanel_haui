@@ -251,7 +251,7 @@
         },
         "quality": {
           "name": "Qualität",
-          "description": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis etwa 8 s), in einem kleinen Rechteck bis zu einem Rechteck pro Display-Pixel."
+          "description": "Anzahl der Rechtecke, die das Bild nutzen darf; mehr bedeutet schärfer und langsamer (0,12 s bis etwa 24 s), in einem kleinen Rechteck bis zu einem Rechteck pro Display-Pixel."
         }
       }
     },

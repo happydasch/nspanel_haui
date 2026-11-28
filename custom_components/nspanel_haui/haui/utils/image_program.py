@@ -39,13 +39,15 @@ from .draw_wire import COMMAND_SPACING_MS, pack_program
 TARGET_DRAW_MS: Final = 600
 RUN_BUDGET: Final = TARGET_DRAW_MS // COMMAND_SPACING_MS
 # The ``quality`` service option's range: a coarser image in 0.12 s, or as fine
-# as an image can be in about 8 s. That top is the display's own resolution, not
-# a format or memory limit - the program is sliced (``draw_wire``) - and above
-# it the grid cannot get finer, so it is where the range ends. A full 480x320
-# page at one rectangle per pixel takes 3635 runs; anything less is a coarser
-# grid, anything more spends time for nothing.
+# as a caller is willing to wait. The top is a time budget, not a format or
+# memory limit - the program is sliced (``draw_wire``) - because the display
+# paints about one rectangle every 2 ms (``COMMAND_SPACING_MS``): 12 000 runs is
+# 24 s, and the grid still cannot get finer than one rectangle per display pixel
+# (a full 480x320 page at that detail is 153 600 pixels, so its cell size is
+# always what the budget allows). Raise it only together with the service range
+# in ``services.yaml``, ``strings.json`` and the translations.
 MIN_RUN_BUDGET: Final = 60
-MAX_RUN_BUDGET: Final = 4000
+MAX_RUN_BUDGET: Final = 12000
 # Per-channel delta that still merges into one run. Flat art, gradients and
 # anti-aliased edges are where the runs are, and this is cheap detail to lose.
 COLOUR_TOLERANCE: Final = 8

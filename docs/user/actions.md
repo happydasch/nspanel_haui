@@ -132,7 +132,7 @@ Two actions do this:
 | `w` | yes | — | Width of the rectangle, in display pixels |
 | `h` | yes | — | Height of the rectangle, in display pixels |
 | `progressive` | no | `true` | Draw a coarse version first, so the image appears at once and then sharpens |
-| `quality` | no | `300` | How many rectangles the image may use, 60–4000. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
+| `quality` | no | `300` | How many rectangles the image may use, 60–12000. More is sharper and slower; a small rectangle reaches one rectangle per display pixel. |
 
 ```yaml
 action: nspanel_haui.show_image
@@ -194,12 +194,14 @@ data:
   A logo, an icon, a QR code or a chart comes out crisp; a photo comes out as a
   coarse mosaic.
 - **It takes about half a second.** Every rectangle is one instruction the panel
-  draws in turn, at about 500 a second. `quality` trades that time for detail:
-  `60` is about 0.12 s, `300` about 0.6 s, and the top of its range about 8 s —
-  one rectangle per display pixel, the finest the panel can show. A whole 480x320
-  page at that detail is 3635 rectangles, about 7 s; a photograph has no flat
-  areas to merge, so the same budget buys it a coarser grid at any setting, which
-  is what a page background picture is for.
+  draws in turn, at about 500 a second, so the count is also the time.
+  `quality` trades that time for detail: `60` is about 0.12 s, `300` about 0.6 s,
+  and the top of its range, `12000`, about 24 s. The grid never gets finer than
+  one display pixel. A page with large flat areas merges down to a few thousand
+  rectangles and is drawn at that resolution even at `4000`, while a photograph
+  needs one rectangle per pixel — 153 600 for a whole 480x320 page — so the cell
+  size is whatever the budget allows, which is what a page background picture is
+  for.
 - **A long image arrives in bands.** The hub sends the rectangles in slices the
   panel can hold in memory and sends the next one as each finishes, so a big,
   detailed image starts drawing at once and fills in rather than waiting. A page

@@ -20,7 +20,6 @@ from custom_components.nspanel_haui.haui.utils.draw_wire import (
 )
 from custom_components.nspanel_haui.haui.utils.image_program import (
     BACKDROP,
-    backdrop_run,
     COLOUR_TOLERANCE,
     LANDSCAPE_SIZE,
     MAX_RECOMMENDED_CELL_PX,
@@ -31,6 +30,7 @@ from custom_components.nspanel_haui.haui.utils.image_program import (
     RUN_BUDGET,
     ImageProgramError,
     Rect,
+    backdrop_run,
     display_size,
     image_plan,
     image_runs,

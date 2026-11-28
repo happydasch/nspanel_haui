@@ -702,7 +702,12 @@ async def _read_image(hass: HomeAssistant, call: ServiceCall) -> bytes:
 
 
 def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]]) -> None:
-    """Send each draw program to the panel, coarse pass first.
+    """Send an image to the panel as one queue of runs, coarse pass first.
+
+    The passes are flattened rather than sent one after the other: the panel
+    restarts its draw on every call, so a second call would cut the coarse pass
+    short instead of letting it finish, and the full pass already paints over it.
+    The hub slices the queue itself (``draw_wire.program_slices``).
 
     Runs on the app's worker: the display path records the program for the page
     replay, which is worker-owned state.
@@ -711,9 +716,9 @@ def _draw_programs(app: NSPanelHAUI, dev_name: str, programs: list[list[str]]) -
     if esp_ctrl is None or not hasattr(esp_ctrl, "draw_runs"):
         _LOGGER.warning("%s: no ESPHome controller — the image was not drawn", dev_name)
         return
-    for runs in programs:
-        if runs:
-            esp_ctrl.draw_runs(runs)
+    runs = [run for program in programs for run in program]
+    if runs:
+        esp_ctrl.draw_runs(runs)
 
 
 def _clear_rect(app: NSPanelHAUI, dev_name: str, rect: Rect) -> None:

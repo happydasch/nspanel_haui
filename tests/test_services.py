@@ -1080,10 +1080,10 @@ async def test_show_image_draws_the_program_on_the_panel(
 
 
 @pytest.mark.asyncio
-async def test_show_image_sends_the_coarse_pass_then_the_full_one(
+async def test_show_image_queues_the_coarse_pass_before_the_full_one(
     mock_hass, mock_nav, mock_esphome_ctrl, png_fetch
 ):
-    """Progressive painting: two programs, the coarse one capped at 60 runs."""
+    """Progressive painting in one queue, so the coarse pass is not cut short."""
     from custom_components.nspanel_haui.haui.utils.image_program import PROGRESSIVE_RUNS
     from custom_components.nspanel_haui.services import _handle_show_image
 
@@ -1092,9 +1092,21 @@ async def test_show_image_sends_the_coarse_pass_then_the_full_one(
 
     await _handle_show_image(mock_hass, _image_call(progressive=True))
 
-    sent = [call.args[0] for call in mock_esphome_ctrl.draw_runs.call_args_list]
-    assert len(sent) == 2
-    assert 0 < len(sent[0]) <= PROGRESSIVE_RUNS
+    # One draw, the coarse runs first: a second call would restart the panel's
+    # program and cut the coarse pass short instead of letting it finish.
+    from custom_components.nspanel_haui.haui.utils.image_program import Rect, image_plan
+    from custom_components.nspanel_haui.services import _page_background
+
+    (coarse, full), _cell = image_plan(
+        _png_bytes(),
+        Rect(10, 10, 40, 40),
+        background=_page_background(app),
+        budget=300,
+        progressive=True,
+    )
+    (sent,), _kwargs = mock_esphome_ctrl.draw_runs.call_args
+    assert 0 < len(coarse) <= PROGRESSIVE_RUNS
+    assert sent == [*coarse, *full]
 
 
 # A file from ``<config>/www`` instead of a URL (the ``path`` field).

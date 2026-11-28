@@ -167,6 +167,74 @@ PREVIEW_ENTITIES = {
     for domain, object_id in (entity_id.split(".", 1),)
 }
 
+#: The sample world's cameras: only these get ``sample_snapshot``'s picture, so a
+#: real camera whose snapshot fails keeps the page's placeholder instead of a
+#: picture it never took.
+SAMPLE_CAMERAS = frozenset(
+    entity_id
+    for entity_id in (*SAMPLE_ENTITIES, *PREVIEW_ENTITIES)
+    if entity_id.startswith("camera.")
+)
+
+_SAMPLE_PICTURE: bytes | None = None
+
+
+def sample_snapshot(entity_id: str) -> bytes | None:
+    """A representative snapshot for a sample camera, or None for a real entity.
+
+    A camera page is a picture, so its card has nothing to draw without a frame:
+    the editor's previews and the card gallery render the panel like any other
+    card and would otherwise show *Waiting for the camera* for ever. This is that
+    frame - generated once, the same on every machine, so the committed
+    screenshots do not change between runs.
+
+    Args:
+        entity_id: The camera the panel names.
+
+    Returns:
+        PNG bytes for one of the sample world's cameras, else ``None``.
+    """
+    global _SAMPLE_PICTURE
+    if entity_id not in SAMPLE_CAMERAS:
+        return None
+    if _SAMPLE_PICTURE is None:
+        _SAMPLE_PICTURE = _build_sample_picture()
+    return _SAMPLE_PICTURE
+
+
+def _build_sample_picture() -> bytes:
+    """Draw the sample camera's view of a front door: sky, hedge, wall, door.
+
+    Plain shapes and flat colours on purpose: the panel draws a picture as a few
+    thousand ``fill`` rectangles, and a scene with recognisable edges is what shows
+    a reader of the docs what that looks like at each quality.
+    """
+    import io
+
+    from PIL import Image, ImageDraw
+
+    width, height = 480, 270
+    image = Image.new("RGB", (width, height), (120, 150, 190))
+    draw = ImageDraw.Draw(image)
+    horizon = 176
+    for row in range(horizon):
+        shade = row / horizon
+        draw.line(
+            [(0, row), (width, row)],
+            fill=(int(88 + 54 * shade), int(126 + 44 * shade), int(196 - 26 * shade)),
+        )
+    draw.rectangle([0, horizon, width, height], fill=(54, 92, 62))  # hedge
+    draw.ellipse([356, 22, 424, 90], fill=(255, 238, 194))  # sun
+    draw.polygon([(70, 104), (198, 40), (326, 104)], fill=(92, 66, 58))  # roof
+    draw.rectangle([96, 104, 300, horizon + 8], fill=(186, 176, 164))  # wall
+    draw.rectangle([150, 120, 244, horizon + 8], fill=(58, 44, 40))  # door
+    draw.ellipse([228, 172, 238, 182], fill=(232, 190, 96))  # handle
+    draw.rectangle([262, 122, 292, 158], fill=(214, 224, 236))  # window
+    draw.rectangle([0, horizon + 8, width, horizon + 14], fill=(74, 118, 78))  # path
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
 
 def sample_forecast() -> list[dict[str, Any]]:
     """A representative five-day forecast beginning tomorrow."""

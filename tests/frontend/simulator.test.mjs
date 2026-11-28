@@ -213,3 +213,17 @@ test('a card keeps its last render across reloads until the frontend changes', a
   const updated = await import(`${previewer}?update`);
   assert.equal(updated.lastPanelRender(host, panel, false), null);
 });
+
+test('a camera card shows the picture it is given and keeps none', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const render = { page: 20, before: [], commands: ['fill 0,0,10,10,1024'] };
+  const host = editorHost(() => render);
+  const panel = { key: 'front', type: 'camera' };
+
+  assert.deepEqual(await loadPanelRender(host, panel, false), render);
+  t.mock.timers.tick(500);
+
+  // A picture is out of date by the next mount, and far too big to hold with the
+  // other kept renders: the card waits for the hub's own instead of reusing one.
+  assert.equal(lastPanelRender(host, panel, false), null);
+});

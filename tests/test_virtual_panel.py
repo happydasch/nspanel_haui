@@ -24,8 +24,10 @@ from custom_components.nspanel_haui.haui.mapping.const import ESPEvent
 from custom_components.nspanel_haui.haui.mapping.icons import ICO_PASSWORD
 from custom_components.nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
 from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
-from custom_components.nspanel_haui.haui.page.camera import CameraPage
+from custom_components.nspanel_haui.haui.page.camera import CameraPage, picture_rect
+from custom_components.nspanel_haui.haui.utils.image_stream import DEFAULT_QUALITY, QUALITY
 from custom_components.nspanel_haui.hub import camera_stream
+from custom_components.nspanel_haui.web.preview.sample_data import sample_snapshot
 from custom_components.nspanel_haui.web.preview.virtual_panel import (
     InertUpdateController,
     VirtualPanelHost,
@@ -1340,6 +1342,180 @@ def test_a_card_render_asks_for_the_picture_it_has_none_of(env):
 
     assert _run(env, host._async_camera_frame(panel)) == ["fill 12,70,426,170,1024"]
     assert asked == ["asked"], "and a render that has one asks for nothing"
+
+
+def _card_host(env, source=None, *, portrait: bool = False):
+    """The host as its camera prefetch reads it: one app, maybe a followed device."""
+    host = object.__new__(VirtualPanelHost)
+    host._panel_source = source
+    host.app = types.SimpleNamespace(
+        device=types.SimpleNamespace(is_portrait=portrait),
+        hass=env,
+    )
+    return host
+
+
+class _CameraSource:
+    """The followed device showing a camera page, as the host reads it."""
+
+    def __init__(self, frame: list[str], *, key: str = "front", entity: str = "") -> None:
+        self.frames = frame
+        self.controller = {
+            "navigation": types.SimpleNamespace(
+                page=types.SimpleNamespace(panel={"key": key}, entity_id=entity)
+            )
+        }
+        self.asked = 0
+
+    async def async_run_on_worker(self, fn, *args):
+        return fn(*args)
+
+    def camera_page_frame(self) -> list[str]:
+        return self.frames
+
+    def request_camera_page_picture(self) -> None:
+        self.asked += 1
+
+
+def _stub_camera(monkeypatch, *, content: bytes = b"", error: Exception | None = None):
+    """Stand in for Home Assistant's camera component and record what it was asked."""
+    calls: list[tuple[str, int | None, int | None]] = []
+    components = types.ModuleType("homeassistant.components")
+    components.__path__ = []
+    module = types.ModuleType("homeassistant.components.camera")
+
+    async def async_get_image(hass, entity_id, *, timeout=None, width=None, height=None):
+        calls.append((entity_id, width, height))
+        if error is not None:
+            raise error
+        return types.SimpleNamespace(content=content)
+
+    module.async_get_image = async_get_image
+    monkeypatch.setitem(sys.modules, "homeassistant.components", components)
+    monkeypatch.setitem(sys.modules, "homeassistant.components.camera", module)
+    return calls
+
+
+def test_a_card_of_a_camera_no_device_shows_paints_a_planned_picture(env):
+    """A card has no display stream behind it, so the hub plans the picture itself.
+
+    The panel list, the panel editor and the catalog render a camera panel like
+    any other card - there is no device on that page and often no device at all -
+    so a card that asked only for the device's fills showed *Waiting for the
+    camera* for ever.
+    """
+    item = "camera.haui_preview_front_door"
+    host = _card_host(env)
+
+    runs = _run(env, host._async_camera_frame({"type": "camera", "item": {"item": item}}))
+
+    rect = picture_rect(False)
+    assert runs == camera_stream.plan_still_frame(
+        sample_snapshot(item), rect, QUALITY[DEFAULT_QUALITY]
+    ), "the card shows the panel's own picture, planned at the panel's quality"
+    assert runs[0].startswith(f"fill {rect.x},{rect.y},{rect.w},{rect.h},")
+
+
+def test_a_card_picture_follows_the_panel_s_quality(env):
+    """The density of a card's picture is the setting the panel draws with."""
+    item = "camera.haui_preview_front_door"
+    host = _card_host(env)
+    panel = {"type": "camera", "item": {"item": item}}
+
+    fine = _run(env, host._async_camera_frame({**panel, "quality": "high"}))
+    coarse = _run(env, host._async_camera_frame({**panel, "quality": "low"}))
+
+    assert coarse != fine
+    assert len(coarse) < len(fine), "low is the coarser picture"
+
+
+def test_a_card_fetches_the_snapshot_of_a_camera_no_device_shows(env, monkeypatch):
+    """A real camera's picture comes from Home Assistant, sized for the panel."""
+    picture = BytesIO()
+    Image.new("RGB", (64, 48), (200, 40, 40)).save(picture, format="PNG")
+    calls = _stub_camera(monkeypatch, content=picture.getvalue())
+    host = _card_host(env)
+    panel = {"type": "camera", "key": "front", "item": {"item": "camera.driveway"}}
+
+    runs = _run(env, host._async_camera_frame(panel))
+
+    rect = picture_rect(False)
+    assert calls == [("camera.driveway", rect.w, rect.h)], "one snapshot, at the picture area"
+    assert runs == camera_stream.plan_still_frame(
+        picture.getvalue(), rect, QUALITY[DEFAULT_QUALITY]
+    )
+
+
+def test_a_portrait_device_plans_the_picture_in_its_own_area(env, monkeypatch):
+    """A card draws into the picture area of the display it will be shown on."""
+    picture = BytesIO()
+    Image.new("RGB", (64, 48), (40, 120, 200)).save(picture, format="PNG")
+    calls = _stub_camera(monkeypatch, content=picture.getvalue())
+    host = _card_host(env, portrait=True)
+
+    _run(
+        env,
+        host._async_camera_frame(
+            {"type": "camera", "item": {"item": "camera.driveway"}}
+        ),
+    )
+
+    assert calls == [("camera.driveway", picture_rect(True).w, picture_rect(True).h)]
+
+
+def test_a_card_keeps_the_placeholder_when_the_camera_gives_nothing(env, monkeypatch):
+    """A camera that does not answer is a card with no picture, not a stale one."""
+    _stub_camera(monkeypatch, error=TimeoutError("no answer"))
+    host = _card_host(env)
+
+    runs = _run(
+        env,
+        host._async_camera_frame({"type": "camera", "item": {"item": "camera.driveway"}}),
+    )
+
+    assert runs == []
+
+
+def test_a_card_of_another_camera_does_not_take_the_device_s_picture(env):
+    """The device's fills are this panel's only while both name the same camera.
+
+    A card is rendered from the editor's config, unsaved edits included, so its
+    camera may be another one than the device is showing.
+    """
+    source = _CameraSource(["fill 0,0,480,268,1024"], key="front", entity="camera.driveway")
+    host = _card_host(env, source)
+    item = "camera.haui_preview_front_door"
+
+    runs = _run(
+        env,
+        host._async_camera_frame(
+            {"type": "camera", "key": "front", "item": {"item": item}}
+        ),
+    )
+
+    assert runs == camera_stream.plan_still_frame(
+        sample_snapshot(item), picture_rect(False), QUALITY[DEFAULT_QUALITY]
+    )
+
+
+def test_a_card_render_of_a_camera_page_carries_the_planned_picture(env):
+    """The whole way round: what the editor's simulator replays is that picture."""
+    item = "camera.haui_preview_front_door"
+    host = _open(env, _config(), lambda _message: None)
+    try:
+        render = _run(env, host.async_render({"type": "camera", "item": {"item": item}}))
+
+        expected = camera_stream.plan_still_frame(
+            sample_snapshot(item), picture_rect(False), QUALITY[DEFAULT_QUALITY]
+        )
+        commands = render["commands"]
+        start = next(i for i, command in enumerate(commands) if command == expected[0])
+        assert commands[start : start + len(expected)] == expected, (
+            "the whole picture reaches the card, in the order it paints"
+        )
+        assert "vis tText,0" in commands, "the placeholder is gone from under it"
+    finally:
+        _run(env, host.async_stop())
 
 
 def test_an_image_the_panel_draws_shows_in_the_simulated_preview(session, env):

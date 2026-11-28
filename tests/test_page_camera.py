@@ -16,6 +16,8 @@ from custom_components.nspanel_haui.haui.page.camera import (
     PICTURE_RECT,
     QUALITY_CHOICES,
     CameraPage,
+    picture_rect,
+    quality_profile,
 )
 from custom_components.nspanel_haui.haui.utils.image_program import Rect
 from custom_components.nspanel_haui.haui.utils.image_stream import DEFAULT_QUALITY, QUALITY
@@ -190,6 +192,26 @@ def test_page_without_a_camera_says_so_and_streams_nothing():
 
     assert app.camera_streams == []
     assert 'tText.txt="No camera selected"' in app.cmds
+
+
+def test_the_page_names_the_camera_a_card_reads():
+    """A card tells whose picture the device holds by the camera the page started for."""
+    _app, page = _show()
+
+    assert page.entity_id == CAMERA
+
+    _app, page = _show(item={})
+
+    assert page.entity_id == "", "a panel with no camera holds nobody's picture"
+
+
+def test_the_picture_area_and_quality_have_one_definition():
+    """The page and a card render plan the same area at the same quality."""
+    assert picture_rect(False) == PICTURE_RECT["landscape"]
+    assert picture_rect(True) == PICTURE_RECT["portrait"]
+    assert quality_profile("low") is QUALITY["low"]
+    assert quality_profile(None) is QUALITY[DEFAULT_QUALITY], "nothing stored is the default"
+    assert quality_profile("ultra") is QUALITY[DEFAULT_QUALITY], "and so is a value nobody offers"
 
 
 def test_first_frame_takes_the_placeholder_away():

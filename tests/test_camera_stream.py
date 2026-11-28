@@ -31,6 +31,7 @@ from custom_components.nspanel_haui.haui.utils.image_stream import (  # noqa: E4
     DEFAULT_QUALITY,
     FIRST_FRAME_RUNS,
     QUALITY,
+    ImageStreamError,
     PictureQuality,
 )
 from custom_components.nspanel_haui.hub import camera_stream  # noqa: E402
@@ -865,3 +866,57 @@ async def test_an_unexpected_error_ends_the_stream_and_says_so():
     error = [call for call in app.log.call_args_list if call.kwargs.get("level") == "ERROR"]
     assert error, "the reason reaches the log"
     assert "boom" in error[0].args[0]
+
+
+# a card's picture: one whole paint, planned for the panel
+
+
+def _detailed_frame() -> bytes:
+    """A snapshot with detail in it: a flat picture cannot show a quality setting."""
+    image = Image.new("RGB", (240, 135))
+    pixels = image.load()
+    for y in range(image.height):
+        for x in range(image.width):
+            pixels[x, y] = ((x * 7 + y * 3) % 256, (x * 2) % 256, (y * 5) % 256)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _inside(rect: Rect, run: str) -> bool:
+    """Whether a ``fill`` instruction stays inside ``rect``."""
+    x, y, w, h = (int(value) for value in run[len("fill ") :].split(",")[:4])
+    return rect.x <= x and rect.y <= y and x + w <= rect.right and y + h <= rect.bottom
+
+
+def test_a_card_picture_is_the_whole_rectangle_in_one_paint():
+    """A card replays one page once, so its picture is a first paint, not a delta."""
+    rect = Rect(12, 65, 260, 240)
+
+    runs = camera_stream.plan_still_frame(_detailed_frame(), rect, QUALITY["mid"])
+
+    assert runs, "the card has a picture to draw"
+    assert runs[0].startswith(f"fill {rect.x},{rect.y},{rect.w},{rect.h},"), (
+        "the first run covers the area, so nothing of what was there shows through"
+    )
+    assert all(_inside(rect, run) for run in runs), "and nothing is painted outside it"
+    assert len(runs) <= QUALITY["mid"].first_runs
+
+
+def test_a_card_picture_follows_the_quality_the_panel_is_set_to():
+    """The card shows what the panel would draw: a finer setting is a denser picture."""
+    rect = Rect(12, 65, 260, 240)
+    frame = _detailed_frame()
+
+    counts = {
+        name: len(camera_stream.plan_still_frame(frame, rect, QUALITY[name]))
+        for name in ("high", "mid", "low")
+    }
+
+    assert counts["low"] < counts["mid"] < counts["high"], counts
+
+
+def test_a_card_picture_that_is_not_an_image_is_refused():
+    """A camera that answers with something undecodable is a card with no picture."""
+    with pytest.raises(ImageStreamError):
+        camera_stream.plan_still_frame(b"not a picture", RECT, QUALITY[DEFAULT_QUALITY])

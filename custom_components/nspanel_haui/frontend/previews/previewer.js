@@ -76,10 +76,14 @@ export function loadPanelRender(context, panel, byKey) {
   if (cached) return cached.promise;
   // A render with the editor's sample is not the card's: the list keeps showing its own.
   const card = context.kwargs ? null : cardId(context, panel, byKey);
+  // A camera card carries the picture the hub planned for it, and a picture is out
+  // of date by the next mount: it is shown when it arrives, never kept for a later
+  // one - and it is far too big to hold in localStorage beside the other renders.
+  const keep = panel.type !== 'camera';
   const promise = api.preview.render(context.entryId, device, target).then((render) => {
     // The mounted frame has its own guard; a late response must not replace
     // the thumbnail the next mount will read from the shared cache.
-    if (card && latestCardRequest.get(card) === promise) keepRender(card, render);
+    if (card && keep && latestCardRequest.get(card) === promise) keepRender(card, render);
     return render;
   }, (err) => {
     if (RENDERS.get(key)?.promise === promise) RENDERS.delete(key);

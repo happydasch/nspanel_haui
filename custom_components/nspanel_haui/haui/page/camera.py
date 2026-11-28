@@ -46,6 +46,21 @@ QUALITY_CHOICES: list[tuple[str, str]] = [
 ]
 
 
+def picture_rect(portrait: bool) -> Rect:
+    """The picture area of a display of this orientation (``PICTURE_RECT``)."""
+    return PICTURE_RECT["portrait" if portrait else "landscape"]
+
+
+def quality_profile(value: object) -> PictureQuality:
+    """The profile a stored ``quality`` value names, the default when it names none.
+
+    A card render plans its picture before the page runs, so it needs the panel's
+    quality without the page's own warning about a value the editor does not offer:
+    the page it is about to render logs that warning itself.
+    """
+    return QUALITY.get(str(value), QUALITY[DEFAULT_QUALITY])
+
+
 class CameraPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="camera",
@@ -187,7 +202,16 @@ class CameraPage(HAUIPage):
     @property
     def picture_rect(self) -> Rect:
         """The rectangle of the picture area on this device's display."""
-        return PICTURE_RECT["portrait" if self.app.device.is_portrait else "landscape"]
+        return picture_rect(self.app.device.is_portrait)
+
+    @property
+    def entity_id(self) -> str:
+        """The camera this page was started for; empty when the panel names none.
+
+        A card render reads it to tell whose picture the device is holding: the
+        device's frame is only this panel's while both name the same camera.
+        """
+        return self._entity_id
 
     def hide_placeholder(self) -> None:
         """Take the placeholder away: the picture is on the display now."""

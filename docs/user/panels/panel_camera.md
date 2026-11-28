@@ -60,11 +60,8 @@ Whatever you pick, an update only ever pays for the cells that actually changed.
   frame the panel did not take whole or a `show_image` over the picture area. Only
   what changed is painted between two of those, never on top of a picture the
   display no longer has.
-- **A preview and a card show the picture.** The frame is part of the page's own
-  commands for the render that finds no picture on the display, so the editor's
-  preview, a panel card and the docs screenshots replay it instead of an empty area.
-  A panel card reads the picture from the device it follows, so it shows one only
-  while that device has this camera panel on its screen.
+- **A card or thumbnail of this page shows the picture.** It replays the fills the panel received; once the stream has run long enough for its oldest fills to be dropped, it asks the stream for a fresh whole picture, so the card catches up within a render or two instead of sitting on *Waiting for the camera*. A card of a camera panel that no device is showing — the panel list, the panel editor, the catalog — is the same picture drawn from the camera's own snapshot, at the quality the panel is set to: the hub plans one whole frame for it, so the card looks like the panel and not like a screenshot of a different screen. A camera that does not answer leaves the card on *Waiting for the camera*.
+- **Card previews of a camera are not remembered.** A picture is out of date by the next visit, so the thumbnail asks the hub for a fresh one instead of showing the last one it saw.
 - **A Live preview follows the picture.** Live mirrors the panel's own display
   output, so a camera page keeps moving there too: a viewer that attaches while the
   stream runs is given the picture the panel is holding and then every change. After

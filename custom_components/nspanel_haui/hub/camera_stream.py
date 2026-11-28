@@ -741,6 +741,47 @@ def stream_for(app: NSPanelHAUI) -> CameraStream | None:
     return _STREAMS.get(app.name)
 
 
+def plan_still_frame(frame: bytes, rect: Rect, quality: PictureQuality) -> list[str]:
+    """Plan one whole picture of a camera, at a panel's own quality (off the loop).
+
+    A card render has no display to bring up to date: it replays one page once, so
+    the picture it carries is the whole rectangle rather than a delta. Planning it
+    on an empty planner makes it exactly that - a first paint, at the cell size and
+    run budget of the quality a panel on that page would be started with - so the
+    card, the preview and the docs screenshots show the picture the panel itself
+    would draw.
+
+    Pure and synchronous (decoding and planning are CPU), so a caller hands it to
+    an executor instead of running it on the event loop.
+
+    Args:
+        frame: The camera's snapshot, in its own encoding (JPEG or PNG).
+        rect: The page's picture area, in display pixels.
+        quality: The panel's picture quality (``image_stream.QUALITY``).
+
+    Returns:
+        The ``fill`` instructions that paint the rectangle whole.
+
+    Raises:
+        ImageStreamError: When the bytes are not a decodable image, or the picture
+            has no pixels. To a caller that means the same thing: this card has no
+            picture and keeps the page's placeholder.
+    """
+    planner = DeltaPlanner(
+        rect,
+        cell=quality.cell,
+        min_cell=quality.cell,
+        max_runs=quality.max_runs,
+        first_runs=quality.first_runs,
+        refresh_every=0,
+        cover=True,
+    )
+    try:
+        return planner.plan(decode_image(frame))
+    except ImageProgramError as exc:
+        raise ImageStreamError(f"the frame could not be decoded: {exc}") from exc
+
+
 async def stop_all_streams() -> None:
     """Stop every stream, for an integration unload."""
     for stream in list(_STREAMS.values()):

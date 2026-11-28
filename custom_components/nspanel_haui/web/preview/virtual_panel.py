@@ -45,12 +45,14 @@ from ...haui.mapping.const import (
 )
 from ...haui.mapping.descriptor import _
 from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
+from ...haui.page.camera import picture_rect, quality_profile
 from ...haui.utils.draw_wire import DRAW_FORMAT_PACKED, decode_program
 from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
 from ...haui.utils.text import get_translation
 from ...haui.version import get_integration_version
 from ...hub.adapter import ItemProxy
 from ...hub.app import NSPanelHAUI
+from ...hub.camera_stream import plan_still_frame
 from .button_entities import (
     RELAY_ENTITY_NAMES,
     ButtonEntities,
@@ -60,7 +62,7 @@ from .button_entities import (
     buttons_message,
 )
 from .home_stream import HomeStream
-from .sample_data import PREVIEW_ENTITIES, sample_forecast
+from .sample_data import PREVIEW_ENTITIES, sample_forecast, sample_snapshot
 from .sandbox import Sandbox, SimState
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,6 +86,11 @@ BROWSER_EVENTS: frozenset[str] = frozenset(
 
 # Same value as the firmware's ``$heartbeat_interval`` substitution.
 HEARTBEAT_INTERVAL = 5
+
+# Seconds a card render waits for a camera snapshot. A render is interactive and a
+# card keeps the page's placeholder meanwhile, so it gives up sooner than a stream,
+# which has a panel to keep up to date and retries for as long as a page is shown.
+CARD_SNAPSHOT_TIMEOUT = 5.0
 
 # Firmware actions forwarded to the browser as ``{"type": "action", ...}``.
 _FORWARDED_ACTIONS = frozenset(
@@ -595,14 +602,17 @@ def _translated(value: Any, locale: str) -> Any:
     return value
 
 
-def _has_item(panel_config: dict[str, Any]) -> bool:
-    """Whether a panel names its entity; the editor saves an empty one as ``{"item": None}``."""
-    if panel_config.get("item_id"):
-        return True
-    item = panel_config.get("item")
+def _panel_entity(panel_config: dict[str, Any]) -> str:
+    """The entity a panel config names; the editor saves an empty one as ``{"item": None}``."""
+    item = panel_config.get("item") or panel_config.get("item_id")
     if isinstance(item, dict):
         item = item.get("item")
-    return bool(item)
+    return str(item or "")
+
+
+def _has_item(panel_config: dict[str, Any]) -> bool:
+    """Whether a panel names its entity."""
+    return bool(_panel_entity(panel_config))
 
 
 def _sample_rank(state: Any) -> int:
@@ -1390,23 +1400,40 @@ class VirtualPanelHost:
         return {"weather/get_forecasts": {"result": {"response": response}}}
 
     async def _async_camera_frame(self, panel_config: dict[str, Any]) -> list[str]:
-        """The frame the device's camera page last put on its display.
+        """The picture a card of a camera page draws, planned by the hub.
 
         A camera page paints its picture instead of describing it in widget
-        commands, so a render of that page has nothing to draw without the frame the
-        panel received. Read it only while the followed device shows that panel.
-        The card fetches no snapshot of its own; without one it keeps the page’s
-        placeholder.
+        commands, so a render of that page has nothing to draw without a frame.
+        There are two sources, in this order:
 
-        A replay that can no longer describe the area whole - the stream's oldest
-        fills were trimmed, which a running stream reaches in under a minute - asks
-        the stream for a whole paint, so the *next* render carries the picture
-        instead of the placeholder for ever. This render still shows the
-        placeholder, which is honest: it has no picture.
+        * The followed device, while it shows this very panel for this very
+          camera: those are the fills the panel received, so the card shows what
+          is on the wall. A replay that can no longer describe the area whole -
+          the stream's oldest fills were trimmed, which a running stream reaches
+          in under a minute - asks the stream for a whole paint, so the *next*
+          render carries the picture.
+        * Otherwise a snapshot of the camera itself, planned the way the panel
+          plans its first frame (``plan_still_frame``): a card of a camera no
+          device is showing still previews the picture, at the quality the panel
+          is set to. A camera that does not answer keeps the page's placeholder.
         """
-        source = self._panel_source
-        if source is None or panel_config.get("type") != "camera":
+        if panel_config.get("type") != "camera":
             return []
+        entity_id = _panel_entity(panel_config)
+        if self._panel_source is not None:
+            frame = await self._async_device_camera_frame(panel_config, entity_id)
+            if frame:
+                return frame
+        if not entity_id:
+            # Nothing configured: the page says so itself and fetches nothing.
+            return []
+        return await self._async_snapshot_frame(entity_id, panel_config)
+
+    async def _async_device_camera_frame(
+        self, panel_config: dict[str, Any], entity_id: str
+    ) -> list[str]:
+        """The fills the followed device's camera page holds, when it is this one."""
+        source = self._panel_source
 
         def current_frame() -> list[str]:
             page = source.controller["navigation"].page
@@ -1415,6 +1442,9 @@ class VirtualPanelHost:
                 or page.panel is None
                 or page.panel.get("key") != panel_config.get("key")
             ):
+                return []
+            if entity_id and getattr(page, "entity_id", "") != entity_id:
+                # The device is showing another camera than this card's panel.
                 return []
             frame = source.camera_page_frame()
             if not frame:
@@ -1427,6 +1457,32 @@ class VirtualPanelHost:
             _LOGGER.debug("Card render: the device gave no camera frame: %s", exc)
             return []
         return list(frame or [])
+
+    async def _async_snapshot_frame(
+        self, entity_id: str, panel_config: dict[str, Any]
+    ) -> list[str]:
+        """Plan one whole picture of ``entity_id`` for a card, off the event loop."""
+        rect = picture_rect(self.app.device.is_portrait)
+        quality = quality_profile(panel_config.get("quality"))
+        try:
+            frame = sample_snapshot(entity_id)
+            if frame is None:
+                from homeassistant.components.camera import async_get_image
+
+                snapshot = await async_get_image(
+                    self.app.hass,
+                    entity_id,
+                    timeout=CARD_SNAPSHOT_TIMEOUT,
+                    width=rect.w,
+                    height=rect.h,
+                )
+                frame = snapshot.content
+            return await self.app.hass.async_add_executor_job(
+                plan_still_frame, frame, rect, quality
+            )
+        except Exception as exc:  # noqa: BLE001 - a card renders without the camera
+            _LOGGER.warning("Card preview camera snapshot failed for %s: %s", entity_id, exc)
+            return []
 
     async def async_render(
         self,
@@ -1453,7 +1509,7 @@ class VirtualPanelHost:
         kwargs = {**preview_kwargs(self.app.hass, panel_config), **(kwargs or {})}
         render_config = {**panel_config, **kwargs}
         service_responses = await self._async_render_service_responses(render_config)
-        camera_frame = await self._async_camera_frame(panel_config)
+        camera_frame = await self._async_camera_frame(render_config)
         render = await self.app.async_run_on_worker(
             lambda: _PanelRender(
                 self.app, panel_config, kwargs, service_responses, camera_frame=camera_frame
